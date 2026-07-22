@@ -12,6 +12,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const setAudio = useStore(s => s.setAudio);
   
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isExportHovered, setIsExportHovered] = useState(false);
 
   const ratios: { id: AspectRatio; icon: string; label: string }[] = [
     { id: '16:9', icon: '▭', label: '16:9' },
@@ -34,19 +35,26 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
   return (
-    <div className="h-16 bg-[#070707]/90 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-6 z-30 relative shadow-lg">
+    <div className="h-16 bg-black/40 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6 z-30 relative shadow-xl">
+      <div className="absolute top-0 inset-x-0 h-[1px] bg-white/10 pointer-events-none" />
       <div className="flex items-center gap-6">
         {/* Branding with gradient and soft glow */}
-        <div className="flex items-center gap-3 group cursor-pointer">
-          <div className="relative w-9 h-9 rounded bg-gradient-to-br from-[#00e676] to-[#00b4d8] flex items-center justify-center shadow-[0_0_15px_rgba(0,230,118,0.3)] group-hover:shadow-[0_0_25px_rgba(0,230,118,0.5)] transition-all duration-300">
+        <div className="flex items-center gap-3 group cursor-pointer transition-glass">
+          <div 
+            className="relative w-9 h-9 rounded flex items-center justify-center transition-all duration-300"
+            style={{
+              background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
+              boxShadow: `0 0 15px ${activeColor}40`
+            }}
+          >
             {/* Shimmer overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] rounded" />
-            <span className="text-black font-black italic text-base select-none">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] rounded" />
+            <span className="text-black font-black italic text-base select-none z-10">
               V
             </span>
           </div>
           <div className="flex flex-col">
-            <span className="text-white font-black tracking-[1.5px] uppercase text-xs">
+            <span className="text-white font-black tracking-[1.5px] uppercase text-xs font-display">
               Visualizer
             </span>
           </div>
@@ -56,13 +64,13 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         
         {/* Project Name Input */}
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline text-[9px] uppercase tracking-widest text-slate-400 font-black">PROJECT:</span>
+          <span className="hidden sm:inline text-[9px] uppercase tracking-widest text-slate-300 font-bold">PROJECT:</span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="NAME YOUR PROJECT..."
-            className="bg-white/5 border border-white/5 hover:border-white/10 focus:border-[#00e676]/30 px-2.5 py-1 rounded text-white text-xs w-32 sm:w-44 font-bold uppercase tracking-wider outline-none transition-all focus:ring-0 placeholder-white/20"
+            className="bg-white/[0.02] border border-transparent hover:border-white/10 hover:bg-white/[0.04] px-2.5 py-1.5 rounded text-white text-xs w-32 sm:w-44 font-bold uppercase tracking-wider outline-none transition-glass focus:border-white/20 focus:bg-white/[0.05] placeholder-white/30"
           />
         </div>
       </div>
@@ -71,36 +79,37 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         {/* Templates Button */}
         <button 
           onClick={() => setIsTemplatesOpen(true)}
-          className="bg-white/[0.04] border border-white/10 hover:border-white/20 hover:bg-white/[0.08] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded transition-all duration-200 flex items-center gap-1.5 shadow-sm active:scale-95"
+          className="group bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded transition-glass flex items-center gap-1.5 shadow-sm active:scale-95"
         >
-          <Sparkles size={11} className="text-[#00e676] animate-pulse" />
+          <Sparkles size={12} style={{ color: activeColor }} className="opacity-80 group-hover:opacity-100 group-hover:animate-pulse transition-opacity" />
           <span>Templates</span>
         </button>
 
         {/* Aspect Ratio Selector */}
-        <div className="hidden md:flex bg-white/[0.03] border border-white/10 rounded-md p-0.5 gap-0.5">
+        <div className="hidden md:flex bg-white/[0.02] border border-white/5 rounded-md p-0.5 gap-0.5">
           {ratios.map(ratio => (
             <button
               key={ratio.id}
               onClick={() => setAspectRatio(ratio.id)}
               title={`Switch aspect ratio to ${ratio.label}`}
               className={cn(
-                "px-2.5 py-1 rounded text-[9px] font-bold uppercase transition-all duration-200",
+                "px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-glass",
                 aspectRatio === ratio.id 
-                  ? "bg-[#00e676]/10 text-[#00e676] border border-[#00e676]/20 font-black" 
-                  : "border border-transparent text-slate-400 hover:text-white"
+                  ? "bg-white/[0.08] text-white font-black" 
+                  : "border border-transparent text-slate-400 hover:text-white hover:bg-white/[0.04]"
               )}
+              style={aspectRatio === ratio.id ? { color: activeColor, textShadow: `0 0 10px ${activeColor}40` } : {}}
             >
               {ratio.label}
             </button>
           ))}
         </div>
 
-        <div className="h-4 w-px bg-white/10 hidden sm:block" />
+        <div className="h-4 w-px bg-white/10 hidden sm:block mx-1" />
 
         {/* Audio Upload */}
-        <label className="cursor-pointer px-3.5 py-1.5 bg-white/[0.04] border border-white/10 hover:border-white/20 hover:bg-white/[0.08] text-white rounded text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1.5 shadow-sm">
-          <Music size={11} className="text-slate-400" />
+        <label className="cursor-pointer px-3 py-1.5 bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white rounded text-[10px] font-bold uppercase tracking-widest transition-glass active:scale-95 flex items-center gap-1.5 shadow-sm">
+          <Music size={12} className="text-slate-400 group-hover:text-white transition-colors" />
           <span>Load Audio</span>
           <input type="file" accept="audio/*" className="hidden" onChange={handleAudioUpload} />
         </label>
@@ -108,10 +117,20 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         {/* Export Button with dynamic gradient and soft glow */}
         <button 
           onClick={onExport}
-          className="bg-gradient-to-r from-[#00e676] to-[#00b4d8] text-black text-[10px] font-black px-4 py-1.5 rounded uppercase tracking-widest transition-all duration-200 flex items-center gap-1.5 shadow-[0_0_20px_rgba(0,230,118,0.25)] hover:shadow-[0_0_30px_rgba(0,230,118,0.45)] hover:brightness-110 active:scale-95"
+          onMouseEnter={() => setIsExportHovered(true)}
+          onMouseLeave={() => setIsExportHovered(false)}
+          className="text-black text-[10px] font-black px-4 py-1.5 rounded uppercase tracking-widest transition-glass flex items-center gap-1.5 active:scale-95 relative overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
+            boxShadow: isExportHovered ? `0 0 25px ${activeColor}80` : `0 0 15px ${activeColor}40`,
+            filter: isExportHovered ? 'brightness(1.1)' : 'brightness(1)'
+          }}
         >
-          <Download size={12} strokeWidth={3} />
-          <span>Export</span>
+          {isExportHovered && (
+             <div className="absolute inset-0 bg-white/20 animate-[shimmer_1s_infinite] -translate-x-full" />
+          )}
+          <Download size={13} strokeWidth={3} className="relative z-10" />
+          <span className="relative z-10">Export</span>
         </button>
       </div>
 

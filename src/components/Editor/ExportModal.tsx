@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Download } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { audioManager } from '../../lib/audio';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const [isExporting, setIsExporting] = useState(false);
@@ -13,16 +14,16 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const projectName = useStore(s => s.name);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setCurrentTime = useStore(s => s.setCurrentTime);
+  const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
   const getMimeTypeForFormat = (format: 'webm' | 'mp4') => {
     if (format === 'mp4') {
       const mp4Types = [
+        'video/mp4;codecs="avc1.42E01E, mp4a.40.2"',
         'video/mp4;codecs=h264,aac',
         'video/mp4;codecs=h264,mp3',
         'video/mp4;codecs=h264',
-        'video/mp4',
-        'video/webm;codecs=h264,opus',
-        'video/webm;codecs=h264'
+        'video/mp4'
       ];
       for (const type of mp4Types) {
         if (MediaRecorder.isTypeSupported(type)) {
@@ -58,23 +59,27 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // 2. Setup audio context for recording
-    const audioCtx = new window.AudioContext();
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    
-    const captureSource = audioCtx.createBufferSource();
-    captureSource.buffer = audioBuffer;
-    const captureDest = audioCtx.createMediaStreamDestination();
-    captureSource.connect(captureDest);
+    // 2. Get audio stream from audioManager
+    const audioStream = audioManager.getMediaStream();
+    if (!audioStream) {
+      console.warn("No audio stream available from AudioContextManager.");
+      // Fallback or handle failure if needed
+    }
     
     // 3. Setup MediaRecorder with chosen container format
     const canvasStream = canvas.captureStream(30); // 30 FPS
-    const finalTracks = [...canvasStream.getVideoTracks(), ...captureDest.stream.getAudioTracks()];
+    const finalTracks = [...canvasStream.getVideoTracks()];
+    if (audioStream) {
+      finalTracks.push(...audioStream.getAudioTracks());
+    }
+    
     const finalStream = new MediaStream(finalTracks);
     
     const mimeType = getMimeTypeForFormat(exportFormat);
-    const options = mimeType ? { mimeType } : undefined;
+    const options: MediaRecorderOptions = { videoBitsPerSecond: 8000000 };
+    if (mimeType) {
+      options.mimeType = mimeType;
+    }
     const finalRecorder = new MediaRecorder(finalStream, options);
     const finalChunks: Blob[] = [];
     
@@ -102,7 +107,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setIsPlaying(true);
     
     finalRecorder.start(100);
-    captureSource.start(0);
     
     const pStartTime = performance.now();
     
@@ -114,7 +118,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       if (elapsed >= audioDuration) {
         finalRecorder.stop();
         setIsPlaying(false);
-        audioCtx.close();
       } else {
         requestAnimationFrame(monitorProgress);
       }
@@ -124,77 +127,115 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center backdrop-blur-sm">
-      <div className="bg-[#0d0d0d] border border-white/10 rounded p-6 w-96 shadow-2xl">
-        <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
-          <h2 className="text-sm font-bold text-white uppercase tracking-[2px]">Export Video</h2>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-200">
+      <div className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        
+        {/* Dynamic glow accent */}
+        <div 
+          className="absolute -top-24 -right-24 w-48 h-48 rounded-full blur-[60px] opacity-20 pointer-events-none"
+          style={{ background: activeColor }}
+        />
+
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center border border-white/10"
+              style={{ backgroundColor: `${activeColor}15` }}
+            >
+              <Download size={14} style={{ color: activeColor }} />
+            </div>
+            <h2 className="text-sm font-bold text-white uppercase tracking-[2px] font-display">Export Video</h2>
+          </div>
           {!isExporting && (
-            <button onClick={onClose} className="text-slate-500 hover:text-white">
-              <X size={20} />
+            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5">
+              <X size={18} />
             </button>
           )}
         </div>
 
         {!audioFile ? (
-          <div className="text-center text-slate-500 text-[10px] uppercase font-bold tracking-widest py-4">
+          <div className="text-center text-slate-500 text-[10px] uppercase font-bold tracking-widest py-8 bg-white/[0.02] rounded-lg border border-white/5">
             NO AUDIO LOADED
           </div>
         ) : isExporting ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-center gap-3 text-[#00e676] mb-2">
-              <Loader2 className="animate-spin" size={16} />
-              <span className="font-bold text-xs uppercase tracking-wider">Rendering Video...</span>
+          <div className="space-y-6">
+            <div className="flex flex-col items-center justify-center gap-4 mb-2">
+              <Loader2 className="animate-spin" size={24} style={{ color: activeColor }} />
+              <span className="font-bold text-xs uppercase tracking-wider text-white">Rendering Video...</span>
             </div>
-            <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 relative">
               <div 
-                className="h-full bg-[#00e676] transition-all duration-300 ease-linear shadow-[0_0_8px_#00e676]"
-                style={{ width: `${progress}%` }}
+                className="absolute top-0 bottom-0 left-0 transition-all duration-300 ease-linear rounded-full"
+                style={{ 
+                  width: `${progress}%`,
+                  backgroundColor: activeColor,
+                  boxShadow: `0 0 10px ${activeColor}80` 
+                }}
               />
             </div>
-            <div className="text-center text-[10px] font-mono text-slate-500">
+            <div className="text-center text-[10px] font-mono text-slate-400 tabular-nums font-bold tracking-widest">
               {Math.round(progress)}% COMPLETE - DO NOT CLOSE TAB
             </div>
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider block">Format</label>
-              <div className="flex gap-2">
+          <div className="space-y-8 relative z-10">
+            <div className="space-y-3">
+              <label className="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Container Format</label>
+              <div className="flex gap-3">
                 <button 
                   onClick={() => setExportFormat('webm')}
                   className={cn(
-                    "flex-1 py-2 rounded text-[10px] font-bold uppercase tracking-widest border transition-all",
+                    "flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-glass",
                     exportFormat === 'webm'
-                      ? "bg-[#00e676]/10 border-[#00e676] text-white"
-                      : "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.08]"
+                      ? "text-white shadow-lg"
+                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.05]"
                   )}
+                  style={exportFormat === 'webm' ? {
+                    backgroundColor: `${activeColor}15`,
+                    borderColor: `${activeColor}50`,
+                    boxShadow: `0 0 15px ${activeColor}20`
+                  } : {}}
                 >
                   WebM (Fast)
                 </button>
                 <button 
                   onClick={() => setExportFormat('mp4')}
                   className={cn(
-                    "flex-1 py-2 rounded text-[10px] font-bold uppercase tracking-widest border transition-all",
+                    "flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-glass",
                     exportFormat === 'mp4'
-                      ? "bg-[#00e676]/10 border-[#00e676] text-white"
-                      : "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.08]"
+                      ? "text-white shadow-lg"
+                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.05]"
                   )}
+                  style={exportFormat === 'mp4' ? {
+                    backgroundColor: `${activeColor}15`,
+                    borderColor: `${activeColor}50`,
+                    boxShadow: `0 0 15px ${activeColor}20`
+                  } : {}}
                 >
                   MP4
                 </button>
               </div>
             </div>
             
-            <p className="text-[10px] text-slate-400 leading-relaxed font-mono">
-              [SYSTEM] Export happens in real-time via canvas capture. 
-              ESTIMATED TIME: {Math.round(audioDuration)}s.
-            </p>
+            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-lg">
+              <p className="text-[10px] text-slate-400 leading-relaxed font-mono uppercase tracking-widest">
+                <span className="text-white font-bold">[SYSTEM]</span> Export happens in real-time via canvas capture. 
+                <br/><br/>
+                ESTIMATED TIME: <span className="text-white font-bold tabular-nums">{Math.round(audioDuration)}s</span>
+              </p>
+            </div>
 
             <button
               onClick={handleExport}
-              className="w-full py-3 bg-[#00e676] hover:bg-[#00c867] text-black font-black uppercase tracking-widest text-xs rounded transition-colors"
+              className="w-full py-4 text-black font-black uppercase tracking-widest text-xs rounded-lg transition-all hover:scale-[1.02] active:scale-95 shadow-xl relative overflow-hidden group"
+              style={{
+                background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
+                boxShadow: `0 0 25px ${activeColor}40`
+              }}
             >
-              Start Export
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+              <span className="relative z-10">Start Export</span>
             </button>
           </div>
         )}

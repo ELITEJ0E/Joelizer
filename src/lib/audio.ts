@@ -3,6 +3,7 @@ export class AudioContextManager {
   private analyser: AnalyserNode | null = null;
   private source: MediaElementAudioSourceNode | null = null;
   private audioEl: HTMLAudioElement | null = null;
+  private dest: MediaStreamAudioDestinationNode | null = null;
   
   init(audioEl: HTMLAudioElement) {
     if (!this.ctx) {
@@ -49,6 +50,15 @@ export class AudioContextManager {
     const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     this.analyser.getByteTimeDomainData(dataArray);
     return dataArray;
+  }
+
+  getMediaStream(): MediaStream | null {
+    if (!this.ctx || !this.analyser) return null;
+    if (!this.dest) {
+      this.dest = this.ctx.createMediaStreamDestination();
+      this.analyser.connect(this.dest);
+    }
+    return this.dest.stream;
   }
 }
 

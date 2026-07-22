@@ -225,6 +225,31 @@ export function Preview() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
+    // Create offscreen canvas for visualizer motion trails
+    const visCanvas = document.createElement('canvas');
+    const visCtx = visCanvas.getContext('2d');
+    
+    // Pre-generate grain pattern for performance
+    const grainCanvas = document.createElement('canvas');
+    grainCanvas.width = 128;
+    grainCanvas.height = 128;
+    const gCtx = grainCanvas.getContext('2d');
+    if (gCtx) {
+      const imgData = gCtx.createImageData(128, 128);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        const v = Math.random() * 255;
+        imgData.data[i] = v;
+        imgData.data[i+1] = v;
+        imgData.data[i+2] = v;
+        imgData.data[i+3] = 15;
+      }
+      gCtx.putImageData(imgData, 0, 0);
+    }
+    
+    // State for phonk effects
+    let hitEnvelope = 0;
+    let glitchFrames = 0;
+    
     // Update smoothing whenever settings change
     audioManager.setSmoothing(visualizerSettings.smoothing);
 
@@ -234,8 +259,39 @@ export function Preview() {
       const w = canvas.width;
       const h = canvas.height;
       
-      // Clear
+      if (visCanvas.width !== w || visCanvas.height !== h) {
+        visCanvas.width = w;
+        visCanvas.height = h;
+      }
+      
+      const freqData = audioManager.getFrequencyData();
+      const timeData = audioManager.getTimeDomainData();
+      
+      // Calculate hit envelope from bass frequencies
+      let bass = 0;
+      if (freqData.length > 0) {
+        const bassEnd = Math.floor(freqData.length * 0.05); // ~250Hz
+        for (let i = 0; i < bassEnd; i++) bass += freqData[i] || 0;
+        bass = (bass / Math.max(1, bassEnd)) / 255.0; // 0 to 1
+      }
+      
+      // Fast attack, exponential decay for hitEnvelope
+      if (bass > hitEnvelope) {
+        hitEnvelope = bass;
+      } else {
+        hitEnvelope = hitEnvelope * 0.85; 
+      }
+      
+      // Transient spike detection for glitch
+      if (bass > hitEnvelope + 0.15 && (visualizerSettings.glitchIntensity || 0) > 0) {
+        glitchFrames = 3;
+      }
+      if (glitchFrames > 0) glitchFrames--;
+      
+      // Clear main canvas
       ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, w, h);
       
       // 1. Draw Background
       const bgLayer = layers.find(l => l.id === 'bg');
@@ -257,19 +313,13 @@ export function Preview() {
           const x = (w / 2) - (videoW / 2) * scale;
           const y = (h / 2) - (videoH / 2) * scale;
           
-          // Clear with black for contain empty margins
-          ctx.fillStyle = '#000000';
-          ctx.fillRect(0, 0, w, h);
-
           if (backgroundSettings.blurAlbumArt) {
             ctx.filter = 'blur(20px) brightness(0.5)';
           }
           
-          // Render current video frame
           try {
             ctx.drawImage(video, x, y, videoW * scale, videoH * scale);
           } catch (e) {
-            // Draw fallback dark state if frame not ready
             ctx.fillStyle = '#111111';
             ctx.fillRect(0, 0, w, h);
           }
@@ -296,18 +346,63 @@ export function Preview() {
           ctx.fillStyle = backgroundSettings.value || '#111111';
           ctx.fillRect(0, 0, w, h);
         }
-      } else {
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, w, h);
       }
       
-      // 2. Draw Visualizer
+      // Prepare camera shake and punch scale
+      ctx.save();
+      const punchScale = 1 + (hitEnvelope * (visualizerSettings.hitResponse || 0) * 0.4);
+      
+      let shakeX = 0;
+      let shakeY = 0;
+      let shakeRot = 0;
+      if (visualizerSettings.shakeIntensity && hitEnvelope > 0.2 && timeData.length > 100) {
+        const intensity = hitEnvelope * visualizerSettings.shakeIntensity * 20;
+        // Deterministic pseudo-randomness from time domain audio data
+        shakeX = ((timeData[0] || 128) / 128.0 - 1.0) * intensity;
+        shakeY = ((timeData[50] || 128) / 128.0 - 1.0) * intensity;
+        shakeRot = ((timeData[100] || 128) / 128.0 - 1.0) * (intensity * 0.002);
+      }
+      
+      ctx.translate(w/2 + shakeX, h/2 + shakeY);
+      ctx.scale(punchScale, punchScale);
+      ctx.rotate(shakeRot);
+      ctx.translate(-w/2, -h/2);
+      
+      // 2. Draw Visualizer with Motion Trails
       const visLayer = layers.find(l => l.id === 'vis');
-      if (visLayer?.visible && audioUrl) {
-        const freqData = audioManager.getFrequencyData();
-        const timeData = audioManager.getTimeDomainData();
+      if (visLayer?.visible && audioUrl && visCtx) {
         if (freqData.length > 0) {
-          renderVisualizer(ctx, freqData, timeData, visualizerSettings, w, h);
+          // Fade previous frame for motion trails
+          visCtx.fillStyle = 'rgba(0, 0, 0, 0.25)'; // trail length
+          visCtx.globalCompositeOperation = 'destination-out';
+          visCtx.fillRect(0, 0, w, h);
+          visCtx.globalCompositeOperation = 'source-over';
+          
+          renderVisualizer(visCtx, freqData, timeData, visualizerSettings, w, h);
+          
+          // Draw visualizer to main canvas
+          if (glitchFrames > 0 && visualizerSettings.glitchIntensity) {
+            // Chromatic aberration / glitch
+            const offset = visualizerSettings.glitchIntensity * w * 0.02 * glitchFrames;
+            ctx.globalCompositeOperation = 'screen';
+            
+            ctx.save();
+            ctx.translate(-offset, 0);
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(visCanvas, 0, 0);
+            ctx.restore();
+            
+            ctx.save();
+            ctx.translate(offset, 0);
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(visCanvas, 0, 0);
+            ctx.restore();
+            
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
+          } else {
+            ctx.drawImage(visCanvas, 0, 0);
+          }
         }
       }
       
@@ -383,6 +478,30 @@ export function Preview() {
         ctx.drawImage(logoImage, lx, ly, lw, lh);
         ctx.restore();
       }
+      
+      ctx.restore(); // Restore from camera shake and scale
+      
+      // 5. Draw Overlays (Grain, Scanlines)
+      if (visualizerSettings.showScanlines) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        for (let i = 0; i < h; i += 4) {
+          ctx.fillRect(0, i, w, 2);
+        }
+      }
+      
+      if (visualizerSettings.showGrain && gCtx) {
+        const ptrn = ctx.createPattern(grainCanvas, 'repeat');
+        if (ptrn) {
+          ctx.fillStyle = ptrn;
+          // Deterministic offset from audio time domain data
+          const offsetX = timeData.length > 20 ? (timeData[20] || 0) : 0;
+          const offsetY = timeData.length > 40 ? (timeData[40] || 0) : 0;
+          ctx.save();
+          ctx.translate(offsetX, offsetY);
+          ctx.fillRect(-128, -128, w+256, h+256);
+          ctx.restore();
+        }
+      }
     };
     
     reqRef.current = requestAnimationFrame(draw);
@@ -408,16 +527,24 @@ export function Preview() {
   return (
     <div 
       ref={containerRef} 
-      className="flex-1 w-full h-full flex items-center justify-center p-8 bg-[#030303] overflow-hidden relative select-none"
+      className="flex-1 w-full h-full flex items-center justify-center p-8 bg-[#020202] overflow-hidden relative select-none"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Background ambient mesh */}
+      {/* Background ambient mesh and grid */}
       <div 
-        className="absolute w-[500px] h-[500px] rounded-full blur-[140px] opacity-[0.03] pointer-events-none" 
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(${activeColor} 1px, transparent 1px), linear-gradient(90deg, ${activeColor} 1px, transparent 1px)`,
+          backgroundSize: '40px 40px'
+        }}
+      />
+      <div 
+        className="absolute w-[800px] h-[800px] rounded-full blur-[150px] pointer-events-none transition-opacity duration-1000" 
         style={{
           background: `radial-gradient(circle, ${activeColor} 0%, transparent 70%)`,
+          opacity: isPlaying ? 0.08 : 0.03,
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
@@ -425,11 +552,12 @@ export function Preview() {
       />
 
       <div 
-        className="relative bg-[#000000] rounded-lg overflow-hidden border"
+        className="relative bg-black rounded-lg overflow-hidden border transition-all duration-700 ease-out"
         style={{ 
           width: dimensions.width, 
           height: dimensions.height,
-          ...shadowStyle
+          boxShadow: isPlaying ? `0 0 100px ${activeColor}25, 0 0 20px ${activeColor}10` : `0 0 40px rgba(0,0,0,0.8)`,
+          borderColor: isPlaying ? `${activeColor}40` : 'rgba(255,255,255,0.1)'
         }}
       >
         <canvas 
@@ -447,39 +575,42 @@ export function Preview() {
 
       {isDragging && (
         <div 
-          className="absolute inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-8 border-2 border-dashed transition-all duration-300"
+          className="absolute inset-0 bg-black/80 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-8 border-2 border-dashed transition-all duration-300"
           style={{ borderColor: activeColor }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
           <div 
-            className="w-16 h-16 rounded-full flex items-center justify-center bg-white/[0.03] border border-white/10 mb-5 animate-bounce"
-            style={{ color: activeColor }}
+            className="w-16 h-16 rounded-full flex items-center justify-center bg-white/[0.03] border border-white/10 mb-5 animate-bounce shadow-xl"
+            style={{ 
+              color: activeColor,
+              boxShadow: `0 0 30px ${activeColor}40` 
+            }}
           >
             <Upload size={24} />
           </div>
           
-          <h3 className="text-sm font-black uppercase tracking-[2px] text-white mb-1.5">Drop Media to Load</h3>
-          <p className="text-slate-400 text-[10px] tracking-wider mb-6 uppercase text-center max-w-xs leading-relaxed">
+          <h3 className="text-sm font-black uppercase tracking-[2px] text-white mb-1.5 font-display">Drop Media to Load</h3>
+          <p className="text-slate-400 text-[10px] tracking-wider mb-6 uppercase text-center max-w-xs leading-relaxed font-bold">
             Quickly load audio, video assets, lyrics, or watermarks
           </p>
           
           <div className="grid grid-cols-2 gap-3 max-w-sm w-full">
-            <div className="bg-white/[0.02] border border-white/5 p-3 rounded-lg flex flex-col items-center text-center">
-              <span className="text-[9px] font-mono tracking-widest uppercase mb-0.5" style={{ color: activeColor }}>🎵 Audio</span>
+            <div className="bg-white/[0.02] border border-white/5 p-3 rounded-lg flex flex-col items-center text-center transition-glass">
+              <span className="text-[9px] font-mono tracking-widest font-bold uppercase mb-0.5" style={{ color: activeColor }}>🎵 Audio</span>
               <span className="text-[8px] text-slate-500 font-bold uppercase">MP3, WAV, M4A, FLAC</span>
             </div>
-            <div className="bg-white/[0.02] border border-white/5 p-3 rounded-lg flex flex-col items-center text-center">
-              <span className="text-[9px] font-mono tracking-widest uppercase mb-0.5" style={{ color: activeColor }}>🎥 Video</span>
+            <div className="bg-white/[0.02] border border-white/5 p-3 rounded-lg flex flex-col items-center text-center transition-glass">
+              <span className="text-[9px] font-mono tracking-widest font-bold uppercase mb-0.5" style={{ color: activeColor }}>🎥 Video</span>
               <span className="text-[8px] text-slate-500 font-bold uppercase">MP4, WEBM (BG)</span>
             </div>
-            <div className="bg-white/[0.02] border border-white/5 p-3 rounded-lg flex flex-col items-center text-center">
-              <span className="text-[9px] font-mono tracking-widest uppercase mb-0.5" style={{ color: activeColor }}>🖼️ Image</span>
+            <div className="bg-white/[0.02] border border-white/5 p-3 rounded-lg flex flex-col items-center text-center transition-glass">
+              <span className="text-[9px] font-mono tracking-widest font-bold uppercase mb-0.5" style={{ color: activeColor }}>🖼️ Image</span>
               <span className="text-[8px] text-slate-500 font-bold uppercase">PNG, JPG (BG/LOGO)</span>
             </div>
-            <div className="bg-white/[0.02] border border-white/5 p-3 rounded-lg flex flex-col items-center text-center">
-              <span className="text-[9px] font-mono tracking-widest uppercase mb-0.5" style={{ color: activeColor }}>📝 Lyrics</span>
+            <div className="bg-white/[0.02] border border-white/5 p-3 rounded-lg flex flex-col items-center text-center transition-glass">
+              <span className="text-[9px] font-mono tracking-widest font-bold uppercase mb-0.5" style={{ color: activeColor }}>📝 Lyrics</span>
               <span className="text-[8px] text-slate-500 font-bold uppercase">LRC FILE, TXT SCRIPT</span>
             </div>
           </div>

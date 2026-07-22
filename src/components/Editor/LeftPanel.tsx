@@ -32,17 +32,16 @@ export function LeftPanel() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
   return (
-    <div className="w-full h-full bg-[#070707] border-r border-white/10 flex flex-col relative overflow-hidden">
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+    <div className="w-full h-full bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col relative overflow-hidden">
       
       <div className="h-16 px-5 border-b border-white/10 flex items-center justify-between">
-        <span className="text-xs uppercase tracking-[2px] font-black text-white">Project Layers</span>
+        <span className="text-xs uppercase tracking-[2px] font-bold text-white font-display">Project Layers</span>
         <div className="w-6 h-6 rounded bg-white/[0.03] border border-white/10 flex items-center justify-center text-slate-400">
           <LayersIcon size={12} />
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-2">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {layers.map((layer, index) => {
           const isSelected = selectedLayerId === layer.id;
           return (
@@ -55,17 +54,20 @@ export function LeftPanel() {
               onDragOver={(e) => e.preventDefault()}
               onClick={() => setSelectedLayerId(layer.id)}
               className={cn(
-                "flex items-center gap-3 p-3.5 rounded-lg cursor-pointer transition-all duration-200 group border relative overflow-hidden",
+                "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-glass group border relative overflow-hidden",
                 isSelected 
-                  ? "bg-white/[0.04] border-white/15 text-white shadow-md shadow-black/20" 
-                  : "border-transparent text-slate-400 hover:bg-white/[0.02] hover:text-white",
-                !layer.visible && "opacity-35"
+                  ? "bg-white/[0.06] border-white/10 text-white shadow-lg" 
+                  : "bg-white/[0.01] border-transparent text-slate-400 hover:bg-white/[0.03] hover:text-white",
+                !layer.visible && "opacity-40"
               )}
             >
               {isSelected && (
                 <div 
-                  className="absolute left-0 top-0 bottom-0 w-[3px]"
-                  style={{ backgroundColor: activeColor }}
+                  className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg transition-all duration-300"
+                  style={{ 
+                    backgroundColor: activeColor,
+                    boxShadow: `0 0 10px ${activeColor}80` 
+                  }}
                 />
               )}
               
@@ -75,16 +77,19 @@ export function LeftPanel() {
               
               <div 
                 className={cn("w-1.5 h-1.5 rounded-full transition-all duration-300")} 
-                style={{ backgroundColor: isSelected ? activeColor : 'rgba(255,255,255,0.2)' }}
+                style={{ 
+                  backgroundColor: isSelected ? activeColor : 'rgba(255,255,255,0.2)',
+                  boxShadow: isSelected ? `0 0 8px ${activeColor}` : 'none'
+                }}
               />
               
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-black uppercase tracking-wider truncate">{layer.name}</p>
+                <p className="text-xs font-bold uppercase tracking-wider truncate">{layer.name}</p>
                 <p 
-                  className="text-[8px] font-mono uppercase tracking-widest mt-0.5 truncate font-bold"
-                  style={{ color: isSelected ? activeColor : 'rgba(255,255,255,0.3)' }}
+                  className="text-[9px] font-mono uppercase tracking-widest mt-0.5 truncate font-semibold"
+                  style={{ color: isSelected ? activeColor : 'rgba(255,255,255,0.4)' }}
                 >
-                  TYPE: {layer.type}
+                  {layer.type}
                 </p>
               </div>
               
@@ -93,7 +98,7 @@ export function LeftPanel() {
                   e.stopPropagation();
                   updateLayerVisibility(layer.id, !layer.visible);
                 }}
-                className="text-slate-500 hover:text-white transition-colors p-1 rounded-md hover:bg-white/5"
+                className="text-slate-500 hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10"
               >
                 {layer.visible ? <Eye size={13} /> : <EyeOff size={13} />}
               </button>

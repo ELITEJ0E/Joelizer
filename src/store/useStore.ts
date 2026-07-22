@@ -8,6 +8,11 @@ export interface VisualizerSettings {
   sensitivity: number;
   smoothing: number;
   segments?: number; // for kaleidoscope, e.g. 6 to 12
+  hitResponse: number; // intensity of bass-driven pulse
+  glitchIntensity: number; // intensity of chromatic aberration/glitch
+  shakeIntensity: number; // intensity of beat-synced shake
+  showGrain: boolean; // toggle grain overlay
+  showScanlines: boolean; // toggle scanlines overlay
 }
 
 export interface BackgroundSettings {
@@ -62,6 +67,7 @@ interface ProjectState {
   selectedLayerId: string | null;
   currentTime: number;
   isPlaying: boolean;
+  isLooping: boolean;
   
   // Actions
   setName: (name: string) => void;
@@ -75,9 +81,11 @@ interface ProjectState {
   updateLogoSettings: (settings: Partial<LogoSettings>) => void;
   updateLayerVisibility: (id: string, visible: boolean) => void;
   reorderLayers: (startIndex: number, endIndex: number) => void;
+  resetVisualizerSettings: () => void;
   
   setCurrentTime: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
+  setIsLooping: (looping: boolean) => void;
 }
 
 const defaultLayers: Layer[] = [
@@ -87,19 +95,26 @@ const defaultLayers: Layer[] = [
   { id: 'logo', type: 'logo', name: 'Logo', visible: true },
 ];
 
+const defaultVisualizerSettings: VisualizerSettings = {
+  style: 'bars',
+  color: '#00e676',
+  sensitivity: 0.8,
+  smoothing: 0.8,
+  segments: 8,
+  hitResponse: 0.5,
+  glitchIntensity: 0,
+  shakeIntensity: 0,
+  showGrain: false,
+  showScanlines: false,
+};
+
 export const useStore = create<ProjectState>((set) => ({
   name: '',
   aspectRatio: '16:9',
   layers: defaultLayers,
   selectedLayerId: 'vis',
   
-  visualizerSettings: {
-    style: 'bars',
-    color: '#00e676',
-    sensitivity: 0.8,
-    smoothing: 0.8,
-    segments: 8,
-  },
+  visualizerSettings: defaultVisualizerSettings,
   
   backgroundSettings: {
     type: 'color',
@@ -129,6 +144,7 @@ export const useStore = create<ProjectState>((set) => ({
   
   currentTime: 0,
   isPlaying: false,
+  isLooping: false,
   
   setName: (name) => set({ name }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
@@ -149,7 +165,9 @@ export const useStore = create<ProjectState>((set) => ({
     newLayers.splice(endIndex, 0, removed);
     return { layers: newLayers };
   }),
+  resetVisualizerSettings: () => set({ visualizerSettings: defaultVisualizerSettings }),
   
   setCurrentTime: (currentTime) => set({ currentTime }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
+  setIsLooping: (isLooping) => set({ isLooping }),
 }));
