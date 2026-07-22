@@ -3,16 +3,18 @@ import { create } from 'zustand';
 export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5';
 
 export interface VisualizerSettings {
-  style: 'bars' | 'waveform' | 'radial' | 'particles';
+  style: 'bars' | 'waveform' | 'radial' | 'particles' | 'kaleidoscope' | 'orb';
   color: string;
   sensitivity: number;
   smoothing: number;
+  segments?: number; // for kaleidoscope, e.g. 6 to 12
 }
 
 export interface BackgroundSettings {
-  type: 'color' | 'gradient' | 'image';
+  type: 'color' | 'gradient' | 'image' | 'video';
   value: string;
   blurAlbumArt: boolean;
+  fit?: 'cover' | 'contain';
 }
 
 export interface LyricLine {
@@ -86,7 +88,7 @@ const defaultLayers: Layer[] = [
 ];
 
 export const useStore = create<ProjectState>((set) => ({
-  name: 'Untitled Project',
+  name: '',
   aspectRatio: '16:9',
   layers: defaultLayers,
   selectedLayerId: 'vis',
@@ -96,12 +98,14 @@ export const useStore = create<ProjectState>((set) => ({
     color: '#00e676',
     sensitivity: 0.8,
     smoothing: 0.8,
+    segments: 8,
   },
   
   backgroundSettings: {
     type: 'color',
     value: '#111111',
     blurAlbumArt: false,
+    fit: 'cover',
   },
   
   lyricsSettings: {

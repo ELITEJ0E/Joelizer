@@ -12,3 +12,23 @@ body {
   color: #cbd5e1;
 }
 
+/* Elegant minimalist scrollbar custom rules */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 230, 118, 0.35); /* Glow highlight with active color */
+}
+

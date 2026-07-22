@@ -29,56 +29,77 @@ export function LeftPanel() {
     dragOverItem.current = null;
   };
 
+  const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+
   return (
-    <div className="w-full h-full bg-[#0d0d0d] border-r border-white/5 flex flex-col">
-      <div className="p-4 border-b border-white/5 flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-[2px] font-bold text-slate-500">Layers</span>
-        <button className="text-[#00e676] hover:text-white">
-          <LayersIcon size={14} />
-        </button>
+    <div className="w-full h-full bg-[#070707] border-r border-white/10 flex flex-col relative overflow-hidden">
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+      
+      <div className="h-16 px-5 border-b border-white/10 flex items-center justify-between">
+        <span className="text-xs uppercase tracking-[2px] font-black text-white">Project Layers</span>
+        <div className="w-6 h-6 rounded bg-white/[0.03] border border-white/10 flex items-center justify-center text-slate-400">
+          <LayersIcon size={12} />
+        </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {layers.map((layer, index) => (
-          <div
-            key={layer.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragEnter={(e) => handleDragEnter(e, index)}
-            onDragEnd={handleDrop}
-            onDragOver={(e) => e.preventDefault()}
-            onClick={() => setSelectedLayerId(layer.id)}
-            className={cn(
-              "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors group border",
-              selectedLayerId === layer.id 
-                ? "bg-[#00e676]/10 border-[#00e676]/20 text-white" 
-                : "border-transparent text-slate-400 hover:bg-white/5 hover:text-white",
-              !layer.visible && "opacity-40"
-            )}
-          >
-            <div className="cursor-grab opacity-50 group-hover:opacity-100 hidden sm:block">
-              <GripVertical size={14} />
-            </div>
-            <div className={cn("w-2 h-2 rounded-full", selectedLayerId === layer.id ? "bg-[#00e676]" : "bg-white/20")} />
-            
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold truncate">{layer.name}</p>
-              <p className={cn("text-[10px] font-mono uppercase truncate", selectedLayerId === layer.id ? "text-[#00e676]" : "opacity-50")}>
-                TYPE: {layer.type}
-              </p>
-            </div>
-            
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                updateLayerVisibility(layer.id, !layer.visible);
-              }}
-              className="text-slate-500 hover:text-white"
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-2">
+        {layers.map((layer, index) => {
+          const isSelected = selectedLayerId === layer.id;
+          return (
+            <div
+              key={layer.id}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragEnter={(e) => handleDragEnter(e, index)}
+              onDragEnd={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => setSelectedLayerId(layer.id)}
+              className={cn(
+                "flex items-center gap-3 p-3.5 rounded-lg cursor-pointer transition-all duration-200 group border relative overflow-hidden",
+                isSelected 
+                  ? "bg-white/[0.04] border-white/15 text-white shadow-md shadow-black/20" 
+                  : "border-transparent text-slate-400 hover:bg-white/[0.02] hover:text-white",
+                !layer.visible && "opacity-35"
+              )}
             >
-              {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-            </button>
-          </div>
-        ))}
+              {isSelected && (
+                <div 
+                  className="absolute left-0 top-0 bottom-0 w-[3px]"
+                  style={{ backgroundColor: activeColor }}
+                />
+              )}
+              
+              <div className="cursor-grab opacity-30 group-hover:opacity-100 transition-opacity hidden sm:block">
+                <GripVertical size={13} />
+              </div>
+              
+              <div 
+                className={cn("w-1.5 h-1.5 rounded-full transition-all duration-300")} 
+                style={{ backgroundColor: isSelected ? activeColor : 'rgba(255,255,255,0.2)' }}
+              />
+              
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black uppercase tracking-wider truncate">{layer.name}</p>
+                <p 
+                  className="text-[8px] font-mono uppercase tracking-widest mt-0.5 truncate font-bold"
+                  style={{ color: isSelected ? activeColor : 'rgba(255,255,255,0.3)' }}
+                >
+                  TYPE: {layer.type}
+                </p>
+              </div>
+              
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updateLayerVisibility(layer.id, !layer.visible);
+                }}
+                className="text-slate-500 hover:text-white transition-colors p-1 rounded-md hover:bg-white/5"
+              >
+                {layer.visible ? <Eye size={13} /> : <EyeOff size={13} />}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

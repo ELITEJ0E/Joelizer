@@ -1,18 +1,51 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { X, Loader2 } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [exportFormat, setExportFormat] = useState<'webm' | 'mp4'>('mp4');
+
   const audioFile = useStore(s => s.audioFile);
   const audioDuration = useStore(s => s.audioDuration);
+  const projectName = useStore(s => s.name);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setCurrentTime = useStore(s => s.setCurrentTime);
 
-  // Note: True deterministic offline rendering using OfflineAudioContext + WebCodecs
-  // is quite complex. For this pass, we are using the reliable MediaRecorder + captureStream
-  // approach that records the canvas in real-time as the audio plays.
+  const getMimeTypeForFormat = (format: 'webm' | 'mp4') => {
+    if (format === 'mp4') {
+      const mp4Types = [
+        'video/mp4;codecs=h264,aac',
+        'video/mp4;codecs=h264,mp3',
+        'video/mp4;codecs=h264',
+        'video/mp4',
+        'video/webm;codecs=h264,opus',
+        'video/webm;codecs=h264'
+      ];
+      for (const type of mp4Types) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          return type;
+        }
+      }
+    }
+    
+    const webmTypes = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=h264,opus',
+      'video/webm',
+      'video/ogg'
+    ];
+    for (const type of webmTypes) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return '';
+  };
+
   const handleExport = async () => {
     if (!audioFile) return;
     setIsExporting(true);
@@ -30,99 +63,19 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     const arrayBuffer = await audioFile.arrayBuffer();
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
     
-    const source = audioCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    
-    const dest = audioCtx.createMediaStreamDestination();
-    source.connect(dest);
-    // Optionally connect to destination to hear it during export
-    source.connect(audioCtx.destination);
-
-    // 3. Setup MediaRecorder
-    const canvasStream = canvas.captureStream(30); // 30 FPS
-    
-    // Combine video and audio tracks
-    const tracks = [...canvasStream.getVideoTracks(), ...dest.stream.getAudioTracks()];
-    const stream = new MediaStream(tracks);
-    
-    const recorder = new MediaRecorder(stream, { 
-      mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') 
-        ? 'video/webm;codecs=vp9,opus' 
-        : 'video/webm' 
-    });
-    
-    const chunks: Blob[] = [];
-    recorder.ondataavailable = e => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-    
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'joelizer-export.webm';
-      a.click();
-      
-      URL.revokeObjectURL(url);
-      setIsExporting(false);
-      onClose();
-    };
-
-    // 4. Start recording and audio
-    recorder.start(100); // collect data every 100ms
-    source.start(0);
-    
-    // 5. Update progress (since this is real-time capture)
-    const startTime = audioCtx.currentTime;
-    
-    const updateProgress = () => {
-      if (recorder.state === 'inactive') return;
-      
-      const elapsed = audioCtx.currentTime - startTime;
-      const pct = Math.min((elapsed / audioDuration) * 100, 100);
-      setProgress(pct);
-      
-      // Update store so visualizer draws (it reads from audioManager which uses an <audio> tag)
-      // Actually, our preview uses an <audio> tag. The source we just created is independent.
-      // For a true real-time capture of our preview, we just need to play the main audio tag
-      // and capture the canvas.
-      
-      if (elapsed < audioDuration) {
-        requestAnimationFrame(updateProgress);
-      }
-    };
-    
-    // Wait, the preview draws based on `audioManager` which listens to the main `<audio>` element.
-    // If we play `source` via `AudioContext`, `audioManager` won't "see" it.
-    // To make it see it, we need to actually just play the store's audio and capture the stream!
-    
-    // Let's cancel the offline source approach and just drive the existing player
-    source.disconnect();
-    audioCtx.close();
-    
-    // ---- REALTIME PREVIEW CAPTURE ----
-    const mainStream = new MediaStream(canvas.captureStream(30).getVideoTracks());
-    
-    // We need to capture the audio from the <audio> element.
-    // However, Web Audio API doesn't easily let us capture a MediaElementAudioSourceNode 
-    // without reconnecting it to a MediaStreamDestination. 
-    // So let's just do a WebM without audio for this simple MVP, or we can use the source buffer.
-    
-    // Let's do the proper way: we will use the audio buffer we decoded to provide the audio track
-    // while we play the main store audio to drive the visualizer.
-    
-    const captureAudioCtx = new window.AudioContext();
-    const captureSource = captureAudioCtx.createBufferSource();
+    const captureSource = audioCtx.createBufferSource();
     captureSource.buffer = audioBuffer;
-    const captureDest = captureAudioCtx.createMediaStreamDestination();
+    const captureDest = audioCtx.createMediaStreamDestination();
     captureSource.connect(captureDest);
     
-    const finalTracks = [...canvas.captureStream(30).getVideoTracks(), ...captureDest.stream.getAudioTracks()];
+    // 3. Setup MediaRecorder with chosen container format
+    const canvasStream = canvas.captureStream(30); // 30 FPS
+    const finalTracks = [...canvasStream.getVideoTracks(), ...captureDest.stream.getAudioTracks()];
     const finalStream = new MediaStream(finalTracks);
     
-    const finalRecorder = new MediaRecorder(finalStream, { mimeType: 'video/webm' });
+    const mimeType = getMimeTypeForFormat(exportFormat);
+    const options = mimeType ? { mimeType } : undefined;
+    const finalRecorder = new MediaRecorder(finalStream, options);
     const finalChunks: Blob[] = [];
     
     finalRecorder.ondataavailable = e => {
@@ -130,11 +83,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
     
     finalRecorder.onstop = () => {
-      const blob = new Blob(finalChunks, { type: 'video/webm' });
+      const blob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'joelizer-export.webm';
+      
+      const safeProjectName = projectName ? projectName.trim() : '';
+      const baseName = safeProjectName ? safeProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'visualizer';
+      a.download = `${baseName}.${exportFormat}`;
       a.click();
       URL.revokeObjectURL(url);
       setIsExporting(false);
@@ -158,6 +114,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       if (elapsed >= audioDuration) {
         finalRecorder.stop();
         setIsPlaying(false);
+        audioCtx.close();
       } else {
         requestAnimationFrame(monitorProgress);
       }
@@ -203,10 +160,26 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             <div className="space-y-2">
               <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider block">Format</label>
               <div className="flex gap-2">
-                <button className="flex-1 py-2 rounded bg-[#00e676]/10 border border-[#00e676] text-white text-[10px] font-bold uppercase tracking-widest">
+                <button 
+                  onClick={() => setExportFormat('webm')}
+                  className={cn(
+                    "flex-1 py-2 rounded text-[10px] font-bold uppercase tracking-widest border transition-all",
+                    exportFormat === 'webm'
+                      ? "bg-[#00e676]/10 border-[#00e676] text-white"
+                      : "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.08]"
+                  )}
+                >
                   WebM (Fast)
                 </button>
-                <button disabled className="flex-1 py-2 rounded bg-white/5 border border-white/10 text-slate-500 text-[10px] font-bold uppercase tracking-widest opacity-50 cursor-not-allowed">
+                <button 
+                  onClick={() => setExportFormat('mp4')}
+                  className={cn(
+                    "flex-1 py-2 rounded text-[10px] font-bold uppercase tracking-widest border transition-all",
+                    exportFormat === 'mp4'
+                      ? "bg-[#00e676]/10 border-[#00e676] text-white"
+                      : "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.08]"
+                  )}
+                >
                   MP4
                 </button>
               </div>

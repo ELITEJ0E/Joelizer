@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
-import { Settings, Download } from 'lucide-react';
+import { Download, Sparkles, Music } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { TemplatesModal } from './TemplatesModal';
 
 export function TopBar({ onExport }: { onExport: () => void }) {
   const name = useStore(s => s.name);
@@ -10,6 +11,8 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const setAspectRatio = useStore(s => s.setAspectRatio);
   const setAudio = useStore(s => s.setAudio);
   
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+
   const ratios: { id: AspectRatio; icon: string; label: string }[] = [
     { id: '16:9', icon: '▭', label: '16:9' },
     { id: '9:16', icon: '▯', label: '9:16' },
@@ -28,43 +31,64 @@ export function TopBar({ onExport }: { onExport: () => void }) {
     }
   };
 
+  const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+
   return (
-    <div className="h-14 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-4 z-10">
+    <div className="h-16 bg-[#070707]/90 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-6 z-30 relative shadow-lg">
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#00e676] rounded flex items-center justify-center text-black font-black italic">
-            J
+        {/* Branding with gradient and soft glow */}
+        <div className="flex items-center gap-3 group cursor-pointer">
+          <div className="relative w-9 h-9 rounded bg-gradient-to-br from-[#00e676] to-[#00b4d8] flex items-center justify-center shadow-[0_0_15px_rgba(0,230,118,0.3)] group-hover:shadow-[0_0_25px_rgba(0,230,118,0.5)] transition-all duration-300">
+            {/* Shimmer overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] rounded" />
+            <span className="text-black font-black italic text-base select-none">
+              V
+            </span>
           </div>
-          <span className="text-white font-bold tracking-tight uppercase text-sm hidden sm:inline">
-            Joelizer <span className="text-xs font-mono font-normal opacity-40 ml-1">v0.8</span>
-          </span>
+          <div className="flex flex-col">
+            <span className="text-white font-black tracking-[1.5px] uppercase text-xs">
+              Visualizer
+            </span>
+          </div>
         </div>
         
-        <div className="hidden sm:block h-4 w-px bg-white/10" />
+        <div className="hidden sm:block h-6 w-px bg-white/10" />
         
+        {/* Project Name Input */}
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline text-xs uppercase tracking-widest text-slate-500 font-semibold">Project /</span>
+          <span className="hidden sm:inline text-[9px] uppercase tracking-widest text-slate-400 font-black">PROJECT:</span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="bg-transparent border-none outline-none text-white text-sm w-32 sm:w-48 font-medium focus:ring-0"
+            placeholder="NAME YOUR PROJECT..."
+            className="bg-white/5 border border-white/5 hover:border-white/10 focus:border-[#00e676]/30 px-2.5 py-1 rounded text-white text-xs w-32 sm:w-44 font-bold uppercase tracking-wider outline-none transition-all focus:ring-0 placeholder-white/20"
           />
         </div>
       </div>
       
-      <div className="flex items-center gap-4">
-        <div className="hidden sm:flex bg-white/5 rounded-md p-1 gap-1">
+      <div className="flex items-center gap-3">
+        {/* Templates Button */}
+        <button 
+          onClick={() => setIsTemplatesOpen(true)}
+          className="bg-white/[0.04] border border-white/10 hover:border-white/20 hover:bg-white/[0.08] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded transition-all duration-200 flex items-center gap-1.5 shadow-sm active:scale-95"
+        >
+          <Sparkles size={11} className="text-[#00e676] animate-pulse" />
+          <span>Templates</span>
+        </button>
+
+        {/* Aspect Ratio Selector */}
+        <div className="hidden md:flex bg-white/[0.03] border border-white/10 rounded-md p-0.5 gap-0.5">
           {ratios.map(ratio => (
             <button
               key={ratio.id}
               onClick={() => setAspectRatio(ratio.id)}
-              title={ratio.label}
+              title={`Switch aspect ratio to ${ratio.label}`}
               className={cn(
-                "px-2 py-1 rounded text-[10px] font-bold uppercase transition-colors flex items-center justify-center",
+                "px-2.5 py-1 rounded text-[9px] font-bold uppercase transition-all duration-200",
                 aspectRatio === ratio.id 
-                  ? "bg-white/10 text-white" 
-                  : "opacity-40 text-white hover:opacity-100"
+                  ? "bg-[#00e676]/10 text-[#00e676] border border-[#00e676]/20 font-black" 
+                  : "border border-transparent text-slate-400 hover:text-white"
               )}
             >
               {ratio.label}
@@ -72,19 +96,26 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           ))}
         </div>
 
-        <label className="cursor-pointer px-4 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded text-[10px] font-bold uppercase tracking-wider transition-colors">
-          Audio
+        <div className="h-4 w-px bg-white/10 hidden sm:block" />
+
+        {/* Audio Upload */}
+        <label className="cursor-pointer px-3.5 py-1.5 bg-white/[0.04] border border-white/10 hover:border-white/20 hover:bg-white/[0.08] text-white rounded text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1.5 shadow-sm">
+          <Music size={11} className="text-slate-400" />
+          <span>Load Audio</span>
           <input type="file" accept="audio/*" className="hidden" onChange={handleAudioUpload} />
         </label>
         
+        {/* Export Button with dynamic gradient and soft glow */}
         <button 
           onClick={onExport}
-          className="bg-[#00e676] hover:bg-[#00c867] text-black text-xs font-bold px-4 py-1.5 rounded uppercase tracking-wider transition-colors flex items-center gap-2"
+          className="bg-gradient-to-r from-[#00e676] to-[#00b4d8] text-black text-[10px] font-black px-4 py-1.5 rounded uppercase tracking-widest transition-all duration-200 flex items-center gap-1.5 shadow-[0_0_20px_rgba(0,230,118,0.25)] hover:shadow-[0_0_30px_rgba(0,230,118,0.45)] hover:brightness-110 active:scale-95"
         >
-          <Download size={14} strokeWidth={3} />
-          <span className="hidden sm:inline">Export</span>
+          <Download size={12} strokeWidth={3} />
+          <span>Export</span>
         </button>
       </div>
+
+      <TemplatesModal isOpen={isTemplatesOpen} onClose={() => setIsTemplatesOpen(false)} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore';
 import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
+import { Scrubber } from '../ui/scrubber';
 
 export function BottomBar() {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -126,28 +127,21 @@ export function BottomBar() {
           
           <div className="flex items-center gap-4">
             <span className="text-[10px] font-mono w-10 text-right text-slate-400">{formatTime(currentTime)}</span>
-            <div className="flex-1 h-6 relative flex items-center group">
-              <input 
-                type="range" 
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                min={0}
-                max={audioDuration || 100}
-                step={0.01}
-                value={currentTime}
-                onChange={handleSeek}
-                disabled={!audioUrl}
-              />
-              <div className="w-full h-1 bg-white/10 rounded-full relative overflow-hidden">
-                <div 
-                  className="absolute top-0 left-0 h-full bg-[#00e676] shadow-[0_0_8px_#00e676]" 
-                  style={{ width: `${audioDuration ? (currentTime / audioDuration) * 100 : 0}%` }}
-                />
-              </div>
-              <div 
-                className="absolute w-3 h-3 bg-white rounded-full shadow-lg -ml-1.5 pointer-events-none group-hover:scale-125 transition-transform"
-                style={{ left: `${audioDuration ? (currentTime / audioDuration) * 100 : 0}%` }}
-              />
-            </div>
+            <Scrubber 
+              value={currentTime}
+              min={0}
+              max={audioDuration || 100}
+              step={0.01}
+              onChange={(time) => {
+                if (audioRef.current) {
+                  audioRef.current.currentTime = time;
+                  setCurrentTime(time);
+                }
+              }}
+              disabled={!audioUrl}
+              formatTooltip={formatTime}
+              className="flex-1"
+            />
             <span className="text-[10px] font-mono w-10 text-slate-400">{formatTime(audioDuration)}</span>
           </div>
         </div>
@@ -156,14 +150,20 @@ export function BottomBar() {
         <div className="w-[120px] sm:w-[240px] flex justify-end items-center gap-4">
           <div className="flex items-center gap-2">
             <Volume2 size={14} className="text-slate-500" />
-            <input 
-              type="range" 
-              className="w-16 sm:w-20 accent-[#00e676] h-1 bg-white/10 rounded-full appearance-none cursor-pointer outline-none"
+            <Scrubber 
+              value={volume}
               min={0}
               max={1}
               step={0.01}
-              value={volume}
-              onChange={handleVolume}
+              onChange={(v) => {
+                setVolume(v);
+                if (audioRef.current) {
+                  audioRef.current.volume = v;
+                }
+              }}
+              disabled={!audioUrl}
+              formatTooltip={(v) => `${(v * 100).toFixed(0)}%`}
+              className="w-16 sm:w-20"
             />
           </div>
         </div>
