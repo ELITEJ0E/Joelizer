@@ -86,7 +86,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           <span className="hidden sm:inline">Templates</span>
         </button>
 
-        {/* Aspect Ratio Selector */}
+        {/* Aspect Ratio Selector (Desktop) */}
         <div className="hidden md:flex bg-white/[0.02] border border-white/5 rounded-md p-0.5 gap-0.5">
           {ratios.map(ratio => (
             <button
@@ -104,6 +104,22 @@ export function TopBar({ onExport }: { onExport: () => void }) {
               {ratio.label}
             </button>
           ))}
+        </div>
+
+        {/* Aspect Ratio Selector (Mobile) */}
+        <div className="flex md:hidden bg-white/[0.02] border border-white/5 rounded px-2 py-1 items-center">
+          <select
+            value={aspectRatio}
+            onChange={(e) => setAspectRatio(e.target.value as any)}
+            className="bg-transparent text-white text-[10px] font-bold uppercase outline-none cursor-pointer"
+            title="Aspect Ratio"
+          >
+            {ratios.map(ratio => (
+              <option key={ratio.id} value={ratio.id} className="bg-[#0a0a0a] text-white py-1">
+                {ratio.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="h-4 w-px bg-white/10 hidden sm:block mx-1" />
