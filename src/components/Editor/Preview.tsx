@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
-import { Upload } from 'lucide-react';
-import { parseLRC } from '../../lib/utils';
+import { Upload, Maximize, Minimize } from 'lucide-react';
+import { parseLRC, cn } from '../../lib/utils';
 
 const ASPECT_RATIOS = {
   '16:9': 16 / 9,
@@ -52,6 +52,7 @@ export function Preview() {
   const isPlaying = useStore(s => s.isPlaying);
   const projectName = useStore(s => s.name);
   
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
@@ -602,11 +603,35 @@ export function Preview() {
   return (
     <div 
       ref={containerRef} 
-      className="flex-1 w-full h-full flex items-center justify-center p-4 sm:p-8 bg-[#020202] overflow-hidden relative select-none"
+      className={cn(
+        "flex-1 w-full h-full flex items-center justify-center bg-[#020202] overflow-hidden select-none transition-all duration-300 relative",
+        isFullscreen ? "fixed inset-0 z-[100] p-4 sm:p-12 bg-black/95 backdrop-blur-md" : "p-4 sm:p-8"
+      )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Fullscreen Controls */}
+      {isFullscreen ? (
+        <button
+          onClick={() => setIsFullscreen(false)}
+          className="absolute top-4 right-4 z-[110] bg-black/80 hover:bg-black border border-white/20 hover:border-white/40 text-white rounded-lg px-4 py-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-glass shadow-2xl active:scale-95"
+          title="Exit Fullscreen"
+        >
+          <Minimize size={14} style={{ color: activeColor }} />
+          <span>Close Preview</span>
+        </button>
+      ) : (
+        <button
+          onClick={() => setIsFullscreen(true)}
+          className="absolute top-4 right-4 z-40 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 text-white rounded px-2.5 py-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-glass shadow active:scale-95"
+          title="Immersive Preview"
+        >
+          <Maximize size={12} style={{ color: activeColor }} />
+          <span>Full Screen</span>
+        </button>
+      )}
+
       {/* Background ambient mesh and grid */}
       <div 
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -627,11 +652,14 @@ export function Preview() {
       />
 
       <div 
-        className="relative bg-black rounded-lg overflow-hidden border transition-all duration-700 ease-out flex items-center justify-center"
+        className={cn(
+          "relative bg-black rounded-lg overflow-hidden border transition-all duration-700 ease-out flex items-center justify-center",
+          isFullscreen ? "w-full h-full max-w-full max-h-full" : ""
+        )}
         style={{ 
           aspectRatio: ASPECT_RATIOS[aspectRatio],
-          maxWidth: '100%',
-          maxHeight: '100%',
+          maxWidth: isFullscreen ? '100%' : '100%',
+          maxHeight: isFullscreen ? '100%' : '100%',
           width: ASPECT_RATIOS[aspectRatio] > 1 ? '100%' : 'auto',
           height: ASPECT_RATIOS[aspectRatio] <= 1 ? '100%' : 'auto',
           boxShadow: isPlaying ? `0 0 100px ${activeColor}25, 0 0 20px ${activeColor}10` : `0 0 40px rgba(0,0,0,0.8)`,

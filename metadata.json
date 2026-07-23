@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Joelizer Music Visualizer",
+  "description": "An immersive cinematic audio and lyrics visualizer with custom renderers, particle simulations, and real-time motion trails.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

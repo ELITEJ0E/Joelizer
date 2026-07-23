@@ -12,6 +12,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const audioFile = useStore(s => s.audioFile);
   const audioDuration = useStore(s => s.audioDuration);
   const projectName = useStore(s => s.name);
+  const setName = useStore(s => s.setName);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -186,6 +187,17 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <div className="space-y-8 relative z-10">
+            <div className="space-y-3">
+              <label className="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Project Name</label>
+              <input 
+                type="text"
+                value={projectName}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="NAME YOUR PROJECT (OPTIONAL)..."
+                className="w-full bg-white/[0.02] border border-white/10 hover:border-white/20 focus:border-white/30 hover:bg-white/[0.04] px-3.5 py-2.5 rounded-lg text-white text-xs font-bold uppercase tracking-wider outline-none transition-glass placeholder-white/20 focus:bg-white/[0.05]"
+              />
+            </div>
+
             <div className="space-y-3">
               <label className="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Container Format</label>
               <div className="flex gap-3">
