@@ -12,6 +12,28 @@ const ASPECT_RATIOS = {
   '4:5': 4 / 5,
 };
 
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const testLine = currentLine ? currentLine + ' ' + word : word;
+    const testWidth = ctx.measureText(testLine).width;
+    if (testWidth > maxWidth && i > 0) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+
 export function Preview() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -195,27 +217,17 @@ export function Preview() {
     }
   }, [currentTime, isPlaying]);
 
-  // Calculate canvas size based on container and aspect ratio
+  // Calculate canvas size based on aspect ratio (Fixed resolution for consistent export quality)
   useEffect(() => {
-    const updateSize = () => {
-      if (!containerRef.current) return;
-      const { clientWidth, clientHeight } = containerRef.current;
-      const ratio = ASPECT_RATIOS[aspectRatio];
-      
-      let w = clientWidth - 64; // generous padding
-      let h = w / ratio;
-      
-      if (h > clientHeight - 64) {
-        h = clientHeight - 64;
-        w = h * ratio;
-      }
-      
-      setDimensions({ width: w, height: h });
-    };
+    const ratio = ASPECT_RATIOS[aspectRatio];
     
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+    // Base resolution 1920 for 16:9, equivalent for others
+    // For 9:16 it will be 1080x1920
+    const isPortrait = ratio < 1;
+    let w = isPortrait ? 1080 : 1920;
+    let h = w / ratio;
+    
+    setDimensions({ width: w, height: h });
   }, [aspectRatio]);
 
   // Main draw loop
@@ -415,30 +427,88 @@ export function Preview() {
         
         if (currentLine) {
           ctx.save();
-          ctx.font = `bold ${Math.min(w, h) * 0.08}px ${lyricsSettings.font}`;
+          
+          let fontSize = Math.min(w, h) * 0.08;
+          ctx.font = `bold ${fontSize}px ${lyricsSettings.font}`;
+          
+          // Downscale font size slightly on portrait views
+          const ratio = w / h;
+          if (ratio < 1) {
+            fontSize = w * 0.07;
+            ctx.font = `bold ${fontSize}px ${lyricsSettings.font}`;
+          }
+          
+          const maxWidth = w * 0.85;
+          let lines = wrapText(ctx, currentLine.text, maxWidth);
+          
+          // If we still exceed maximum width, scale font size down
+          if (lines.length === 1) {
+            let textWidth = ctx.measureText(lines[0]).width;
+            if (textWidth > maxWidth) {
+              fontSize = fontSize * (maxWidth / textWidth);
+              ctx.font = `bold ${fontSize}px ${lyricsSettings.font}`;
+              lines = [currentLine.text];
+            }
+          } else if (lines.length > 2) {
+            // Scale down font size a bit to fit more lines vertically
+            fontSize = fontSize * 0.85;
+            ctx.font = `bold ${fontSize}px ${lyricsSettings.font}`;
+          }
+          
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
+          
+          const lineHeight = fontSize * 1.35;
+          const totalHeight = (lines.length - 1) * lineHeight;
+          const startY = (h / 2) - (totalHeight / 2);
           
           if (lyricsSettings.animationStyle === 'karaoke') {
             const progress = (currentTime - currentLine.startTime) / (currentLine.endTime - currentLine.startTime);
             
-            // Draw unhighlighted text (semi-transparent)
-            ctx.fillStyle = `${lyricsSettings.color}80`; 
-            ctx.fillText(currentLine.text, w / 2, h / 2);
+            const fullText = currentLine.text;
+            const totalChars = fullText.length;
+            const targetCharIdx = totalChars * progress;
             
-            // Draw highlighted text clipped
-            ctx.save();
-            const textWidth = ctx.measureText(currentLine.text).width;
-            const startX = (w / 2) - (textWidth / 2);
-            ctx.beginPath();
-            ctx.rect(startX, 0, textWidth * progress, h);
-            ctx.clip();
-            ctx.fillStyle = lyricsSettings.color;
-            ctx.fillText(currentLine.text, w / 2, h / 2);
-            ctx.restore();
+            let charAccumulator = 0;
+            
+            lines.forEach((line, index) => {
+              const lineY = startY + (index * lineHeight);
+              const lineTextWidth = ctx.measureText(line).width;
+              
+              // Draw unhighlighted line (semi-transparent)
+              ctx.fillStyle = `${lyricsSettings.color}80`; 
+              ctx.fillText(line, w / 2, lineY);
+              
+              // Calculate highlighting progress for this line
+              const lineLength = line.length;
+              const lineStartIdx = charAccumulator;
+              const lineEndIdx = lineStartIdx + lineLength;
+              
+              let lineProgress = 0;
+              if (targetCharIdx >= lineEndIdx) {
+                lineProgress = 1;
+              } else if (targetCharIdx <= lineStartIdx) {
+                lineProgress = 0;
+              } else {
+                lineProgress = (targetCharIdx - lineStartIdx) / lineLength;
+              }
+              
+              if (lineProgress > 0) {
+                ctx.save();
+                const startX = (w / 2) - (lineTextWidth / 2);
+                ctx.beginPath();
+                ctx.rect(startX, lineY - lineHeight / 2, lineTextWidth * lineProgress, lineHeight);
+                ctx.clip();
+                ctx.fillStyle = lyricsSettings.color;
+                ctx.fillText(line, w / 2, lineY);
+                ctx.restore();
+              }
+              
+              charAccumulator += lineLength + 1; // plus space
+            });
             
           } else {
-            // Fade
+            // Fade Style
             let alpha = 1;
             const fadeTime = 0.3;
             if (currentTime - currentLine.startTime < fadeTime) {
@@ -449,7 +519,12 @@ export function Preview() {
             
             ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
             ctx.fillStyle = lyricsSettings.color;
-            ctx.fillText(currentLine.text, w / 2, h / 2);
+            
+            lines.forEach((line, index) => {
+              const lineY = startY + (index * lineHeight);
+              ctx.fillText(line, w / 2, lineY);
+            });
+            
             ctx.globalAlpha = 1;
           }
           
@@ -527,7 +602,7 @@ export function Preview() {
   return (
     <div 
       ref={containerRef} 
-      className="flex-1 w-full h-full flex items-center justify-center p-8 bg-[#020202] overflow-hidden relative select-none"
+      className="flex-1 w-full h-full flex items-center justify-center p-4 sm:p-8 bg-[#020202] overflow-hidden relative select-none"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -552,19 +627,22 @@ export function Preview() {
       />
 
       <div 
-        className="relative bg-black rounded-lg overflow-hidden border transition-all duration-700 ease-out"
+        className="relative bg-black rounded-lg overflow-hidden border transition-all duration-700 ease-out flex items-center justify-center"
         style={{ 
-          width: dimensions.width, 
-          height: dimensions.height,
+          aspectRatio: ASPECT_RATIOS[aspectRatio],
+          maxWidth: '100%',
+          maxHeight: '100%',
+          width: ASPECT_RATIOS[aspectRatio] > 1 ? '100%' : 'auto',
+          height: ASPECT_RATIOS[aspectRatio] <= 1 ? '100%' : 'auto',
           boxShadow: isPlaying ? `0 0 100px ${activeColor}25, 0 0 20px ${activeColor}10` : `0 0 40px rgba(0,0,0,0.8)`,
           borderColor: isPlaying ? `${activeColor}40` : 'rgba(255,255,255,0.1)'
         }}
       >
         <canvas 
           ref={canvasRef}
-          width={dimensions.width * 2} // Retina scaling
-          height={dimensions.height * 2}
-          style={{ width: '100%', height: '100%' }}
+          width={dimensions.width}
+          height={dimensions.height}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
         <div className="absolute bottom-8 left-8 text-white font-black italic tracking-tighter pointer-events-none select-none">
           {projectName && (

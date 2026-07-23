@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore';
 import { Layers as LayersIcon, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-export function LeftPanel() {
+export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
   const layers = useStore(s => s.layers);
   const selectedLayerId = useStore(s => s.selectedLayerId);
   const setSelectedLayerId = useStore(s => s.setSelectedLayerId);
@@ -52,7 +52,10 @@ export function LeftPanel() {
               onDragEnter={(e) => handleDragEnter(e, index)}
               onDragEnd={handleDrop}
               onDragOver={(e) => e.preventDefault()}
-              onClick={() => setSelectedLayerId(layer.id)}
+              onClick={() => {
+                setSelectedLayerId(layer.id);
+                onLayerSelect?.();
+              }}
               className={cn(
                 "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-glass group border relative overflow-hidden",
                 isSelected 

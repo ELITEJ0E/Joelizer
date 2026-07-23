@@ -103,6 +103,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
     
     // Start playback and recording
+    const audioEl = document.querySelector('audio');
+    if (audioEl) {
+      audioEl.currentTime = 0;
+    }
     setCurrentTime(0);
     setIsPlaying(true);
     
@@ -112,11 +116,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     
     const monitorProgress = () => {
       if (finalRecorder.state === 'inactive') return;
-      const elapsed = (performance.now() - pStartTime) / 1000;
+      const elapsed = audioEl ? audioEl.currentTime : (performance.now() - pStartTime) / 1000;
       setProgress(Math.min((elapsed / audioDuration) * 100, 100));
       
-      if (elapsed >= audioDuration) {
-        finalRecorder.stop();
+      if (elapsed >= audioDuration || (audioEl && audioEl.ended)) {
+        if ((finalRecorder.state as string) !== 'inactive') {
+          finalRecorder.stop();
+        }
         setIsPlaying(false);
       } else {
         requestAnimationFrame(monitorProgress);
@@ -128,7 +134,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-5 sm:p-8 w-full max-w-md shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         
         {/* Dynamic glow accent */}

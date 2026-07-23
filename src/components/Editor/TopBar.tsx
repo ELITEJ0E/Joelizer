@@ -35,13 +35,13 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
   return (
-    <div className="h-16 bg-black/40 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6 z-30 relative shadow-xl">
+    <div className="h-16 bg-black/40 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-3 sm:px-6 z-30 relative shadow-xl">
       <div className="absolute top-0 inset-x-0 h-[1px] bg-white/10 pointer-events-none" />
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-2 sm:gap-6">
         {/* Branding with gradient and soft glow */}
-        <div className="flex items-center gap-3 group cursor-pointer transition-glass">
+        <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer transition-glass">
           <div 
-            className="relative w-9 h-9 rounded flex items-center justify-center transition-all duration-300"
+            className="relative w-8 h-8 sm:w-9 sm:h-9 rounded flex items-center justify-center transition-all duration-300"
             style={{
               background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
               boxShadow: `0 0 15px ${activeColor}40`
@@ -49,13 +49,13 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           >
             {/* Shimmer overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] rounded" />
-            <span className="text-black font-black italic text-base select-none z-10">
-              V
+            <span className="text-black font-black italic text-sm sm:text-base select-none z-10">
+              J
             </span>
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col hidden sm:block">
             <span className="text-white font-black tracking-[1.5px] uppercase text-xs font-display">
-              Visualizer
+              Joelizer
             </span>
           </div>
         </div>
@@ -63,26 +63,27 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         <div className="hidden sm:block h-6 w-px bg-white/10" />
         
         {/* Project Name Input */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="hidden sm:inline text-[9px] uppercase tracking-widest text-slate-300 font-bold">PROJECT:</span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="NAME YOUR PROJECT..."
-            className="bg-white/[0.02] border border-transparent hover:border-white/10 hover:bg-white/[0.04] px-2.5 py-1.5 rounded text-white text-xs w-32 sm:w-44 font-bold uppercase tracking-wider outline-none transition-glass focus:border-white/20 focus:bg-white/[0.05] placeholder-white/30"
+            className="bg-white/[0.02] border border-transparent hover:border-white/10 hover:bg-white/[0.04] px-2 py-1 sm:px-2.5 sm:py-1.5 rounded text-white text-[10px] sm:text-xs w-20 min-w-[80px] sm:w-44 font-bold uppercase tracking-wider outline-none transition-glass focus:border-white/20 focus:bg-white/[0.05] placeholder-white/30"
           />
         </div>
       </div>
       
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         {/* Templates Button */}
         <button 
           onClick={() => setIsTemplatesOpen(true)}
-          className="group bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded transition-glass flex items-center gap-1.5 shadow-sm active:scale-95"
+          title="Templates"
+          className="group bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white text-[10px] font-bold uppercase tracking-widest px-2 sm:px-3 py-1.5 rounded transition-glass flex items-center gap-1 sm:gap-1.5 shadow-sm active:scale-95"
         >
           <Sparkles size={12} style={{ color: activeColor }} className="opacity-80 group-hover:opacity-100 group-hover:animate-pulse transition-opacity" />
-          <span>Templates</span>
+          <span className="hidden sm:inline">Templates</span>
         </button>
 
         {/* Aspect Ratio Selector */}
@@ -108,9 +109,10 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         <div className="h-4 w-px bg-white/10 hidden sm:block mx-1" />
 
         {/* Audio Upload */}
-        <label className="cursor-pointer px-3 py-1.5 bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white rounded text-[10px] font-bold uppercase tracking-widest transition-glass active:scale-95 flex items-center gap-1.5 shadow-sm">
-          <Music size={12} className="text-slate-400 group-hover:text-white transition-colors" />
-          <span>Load Audio</span>
+        <label className="cursor-pointer px-2 sm:px-3 py-1.5 bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white rounded text-[10px] font-bold uppercase tracking-widest transition-glass active:scale-95 flex items-center gap-1.5 shadow-sm" title="Load Audio">
+          <Music size={12} style={{ color: activeColor }} className="opacity-80 group-hover:opacity-100 transition-opacity" />
+          <span className="hidden sm:inline">Load Audio</span>
+          <span className="inline sm:hidden">Audio</span>
           <input type="file" accept="audio/*" className="hidden" onChange={handleAudioUpload} />
         </label>
         
@@ -119,7 +121,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           onClick={onExport}
           onMouseEnter={() => setIsExportHovered(true)}
           onMouseLeave={() => setIsExportHovered(false)}
-          className="text-black text-[10px] font-black px-4 py-1.5 rounded uppercase tracking-widest transition-glass flex items-center gap-1.5 active:scale-95 relative overflow-hidden"
+          className="text-black text-[10px] font-black px-2.5 sm:px-4 py-1.5 rounded uppercase tracking-widest transition-glass flex items-center gap-1 sm:gap-1.5 active:scale-95 relative overflow-hidden"
           style={{
             background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
             boxShadow: isExportHovered ? `0 0 25px ${activeColor}80` : `0 0 15px ${activeColor}40`,
