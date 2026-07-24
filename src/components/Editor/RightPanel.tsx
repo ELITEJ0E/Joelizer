@@ -4,6 +4,7 @@ import { Play, Upload, Clock, Plus, Minus, Trash2, Eye, EyeOff, Film, AlignLeft 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { parseLRC } from '../../lib/utils';
 import { Scrubber } from '../ui/scrubber';
+import { animate, stagger } from 'animejs';
 
 function VisualizerSettingsPanel() {
   const settings = useStore(s => s.visualizerSettings);
@@ -616,6 +617,16 @@ export function RightPanel() {
     );
   }
 
+  useEffect(() => {
+    animate('.right-panel-item-anim > *', {
+      opacity: [0, 1],
+      translateY: [12, 0],
+      delay: stagger(50, { start: 50 }),
+      duration: 500,
+      easing: 'easeOutQuart'
+    });
+  }, [selectedLayerId]);
+
   return (
     <div className="w-full h-full bg-black/40 backdrop-blur-xl border-l border-white/10 flex flex-col relative overflow-hidden">
       
@@ -665,11 +676,13 @@ export function RightPanel() {
         </div>
       )}
       
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 relative z-10">
-        {layer.type === 'visualizer' && <VisualizerSettingsPanel />}
-        {layer.type === 'background' && <BackgroundSettingsPanel />}
-        {layer.type === 'lyrics' && <LyricsSettingsPanel />}
-        {layer.type === 'logo' && <LogoSettingsPanel />}
+      <div className="flex-1 overflow-y-auto p-5 relative z-10">
+        <div className="right-panel-item-anim space-y-6">
+          {layer.type === 'visualizer' && <VisualizerSettingsPanel />}
+          {layer.type === 'background' && <BackgroundSettingsPanel />}
+          {layer.type === 'lyrics' && <LyricsSettingsPanel />}
+          {layer.type === 'logo' && <LogoSettingsPanel />}
+        </div>
       </div>
     </div>
   );

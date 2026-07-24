@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore';
 import { X, Loader2, Download } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
+import { animate, stagger } from 'animejs';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const [isExporting, setIsExporting] = useState(false);
@@ -16,6 +17,25 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+
+  useEffect(() => {
+    // Scale and fade in the export modal card
+    animate('.export-modal-card', {
+      scale: [0.93, 1],
+      opacity: [0, 1],
+      duration: 450,
+      easing: 'easeOutBack'
+    });
+    
+    // Stagger slide-up the options inside the export card
+    animate('.export-modal-item-anim', {
+      opacity: [0, 1],
+      translateY: [15, 0],
+      delay: stagger(60, { start: 150 }),
+      duration: 500,
+      easing: 'easeOutQuart'
+    });
+  }, []);
 
   const getMimeTypeForFormat = (format: 'webm' | 'mp4') => {
     if (format === 'mp4') {
@@ -135,7 +155,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-5 sm:p-8 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div className="export-modal-card bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-5 sm:p-8 w-full max-w-md shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         
         {/* Dynamic glow accent */}
@@ -187,7 +207,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <div className="space-y-8 relative z-10">
-            <div className="space-y-3">
+            <div className="export-modal-item-anim space-y-3">
               <label className="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Project Name</label>
               <input 
                 type="text"
@@ -198,7 +218,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="export-modal-item-anim space-y-3">
               <label className="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Container Format</label>
               <div className="flex gap-3">
                 <button 
@@ -236,7 +256,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
             
-            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-lg">
+            <div className="export-modal-item-anim bg-white/[0.02] border border-white/5 p-4 rounded-lg">
               <p className="text-[10px] text-slate-400 leading-relaxed font-mono uppercase tracking-widest">
                 <span className="text-white font-bold">[SYSTEM]</span> Export happens in real-time via canvas capture. 
                 <br/><br/>
@@ -246,7 +266,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
             <button
               onClick={handleExport}
-              className="w-full py-4 text-black font-black uppercase tracking-widest text-xs rounded-lg transition-all hover:scale-[1.02] active:scale-95 shadow-xl relative overflow-hidden group"
+              className="export-modal-item-anim w-full py-4 text-black font-black uppercase tracking-widest text-xs rounded-lg transition-all hover:scale-[1.02] active:scale-95 shadow-xl relative overflow-hidden group"
               style={{
                 background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
                 boxShadow: `0 0 25px ${activeColor}40`

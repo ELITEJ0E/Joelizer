@@ -4,6 +4,7 @@ import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
 import { Upload, Maximize, Minimize } from 'lucide-react';
 import { parseLRC, cn } from '../../lib/utils';
+import { animate } from 'animejs';
 
 const ASPECT_RATIOS = {
   '16:9': 16 / 9,
@@ -53,6 +54,51 @@ export function Preview() {
   const projectName = useStore(s => s.name);
   
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync with native fullscreen events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Soft kinetic scale animation when playing/pausing
+  useEffect(() => {
+    if (canvasRef.current) {
+      if (isPlaying) {
+        animate(canvasRef.current, {
+          scale: [0.98, 1],
+          duration: 650,
+          easing: 'easeOutElastic(1, .75)'
+        });
+      } else {
+        animate(canvasRef.current, {
+          scale: [1, 0.99],
+          duration: 400,
+          easing: 'easeOutCubic'
+        });
+      }
+    }
+  }, [isPlaying]);
+
+  const handleToggleFullscreen = async () => {
+    if (!containerRef.current) return;
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Failed to toggle fullscreen natively:', err);
+      // Fallback to local CSS state if browser denies permissions
+      setIsFullscreen(!isFullscreen);
+    }
+  };
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
@@ -614,7 +660,7 @@ export function Preview() {
       {/* Fullscreen Controls */}
       {isFullscreen ? (
         <button
-          onClick={() => setIsFullscreen(false)}
+          onClick={handleToggleFullscreen}
           className="absolute top-4 right-4 z-[110] bg-black/80 hover:bg-black border border-white/20 hover:border-white/40 text-white rounded-lg px-4 py-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-glass shadow-2xl active:scale-95"
           title="Exit Fullscreen"
         >
@@ -623,7 +669,7 @@ export function Preview() {
         </button>
       ) : (
         <button
-          onClick={() => setIsFullscreen(true)}
+          onClick={handleToggleFullscreen}
           className="absolute top-4 right-4 z-40 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 text-white rounded px-2.5 py-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-glass shadow active:scale-95"
           title="Immersive Preview"
         >

@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { Layers as LayersIcon, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { animate, stagger } from 'animejs';
 
 export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
   const layers = useStore(s => s.layers);
@@ -31,6 +32,16 @@ export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
 
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
+  useEffect(() => {
+    animate('.layer-item-anim', {
+      opacity: [0, 1],
+      translateX: [-15, 0],
+      delay: stagger(60, { start: 50 }),
+      duration: 600,
+      easing: 'easeOutQuart'
+    });
+  }, [layers.length]);
+
   return (
     <div className="w-full h-full bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col relative overflow-hidden">
       
@@ -57,7 +68,7 @@ export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
                 onLayerSelect?.();
               }}
               className={cn(
-                "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-glass group border relative overflow-hidden",
+                "layer-item-anim flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-glass group border relative overflow-hidden",
                 isSelected 
                   ? "bg-white/[0.06] border-white/10 text-white shadow-lg" 
                   : "bg-white/[0.01] border-transparent text-slate-400 hover:bg-white/[0.03] hover:text-white",
