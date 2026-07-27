@@ -46,8 +46,8 @@ export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
     <div className="w-full h-full bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col relative overflow-hidden">
       
       <div className="h-16 px-5 border-b border-white/10 flex items-center justify-between">
-        <span className="text-xs uppercase tracking-[2px] font-bold text-white font-display">Project Layers</span>
-        <div className="w-6 h-6 rounded bg-white/[0.03] border border-white/10 flex items-center justify-center text-slate-400">
+        <span className="text-[10px] font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor, textShadow: `0 0 10px ${activeColor}40` }}>[ LAYERS ]</span>
+        <div className="w-6 h-6 rounded bg-black/40 border flex items-center justify-center" style={{ borderColor: `${activeColor}20`, color: activeColor }}>
           <LayersIcon size={12} />
         </div>
       </div>

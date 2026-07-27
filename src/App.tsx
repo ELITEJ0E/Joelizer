@@ -18,7 +18,7 @@ export default function App() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#030303] text-slate-300 font-sans overflow-hidden select-none">
+    <div className="flex flex-col h-screen w-screen bg-[#030304] spotify-grid text-slate-300 font-sans overflow-hidden select-none">
       <TopBar onExport={() => setShowExportModal(true)} />
       
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden relative">

@@ -610,9 +610,10 @@ export function RightPanel() {
 
   if (!layer) {
     return (
-      <div className="w-full h-full bg-black/40 backdrop-blur-xl border-l border-white/10 p-6 flex flex-col items-center justify-center text-slate-500 text-[10px] font-bold uppercase tracking-[2px] text-center leading-relaxed">
-        <Film size={24} className="text-slate-600 mb-4 opacity-50" />
-        <span>Select an Editor Layer<br />To Configure Settings</span>
+      <div className="w-full h-full bg-black/40 backdrop-blur-xl border-l border-white/10 p-6 flex flex-col items-center justify-center text-center leading-relaxed">
+        <Film size={24} style={{ color: activeColor }} className="mb-4 opacity-50 animate-pulse" />
+        <span className="text-[10px] font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor }}>[ SELECT LAYER ]</span>
+        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">To configure active settings</span>
       </div>
     );
   }
@@ -645,7 +646,7 @@ export function RightPanel() {
               boxShadow: `0 0 12px ${activeColor}60`
             }}
           />
-          <span className="text-xs uppercase tracking-[2px] font-bold text-white font-display">{layer.name} Settings</span>
+          <span className="text-[10px] font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor, textShadow: `0 0 10px ${activeColor}40` }}>[ {layer.name.toUpperCase()} ]</span>
         </div>
 
         {/* Toggle layer visibility directly */}

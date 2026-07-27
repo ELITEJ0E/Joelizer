@@ -39,12 +39,12 @@ export function TopBar({ onExport }: { onExport: () => void }) {
       <div className="absolute top-0 inset-x-0 h-[1px] bg-white/10 pointer-events-none" />
       <div className="flex items-center gap-2 sm:gap-6">
         {/* Branding with gradient and soft glow */}
-        <div className="flex items-center gap-2 sm:gap-3 group cursor-pointer transition-glass">
+        <div className="flex items-center gap-3 group cursor-pointer transition-glass">
           <div 
             className="relative w-8 h-8 sm:w-9 sm:h-9 rounded flex items-center justify-center transition-all duration-300"
             style={{
               background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
-              boxShadow: `0 0 15px ${activeColor}40`
+              boxShadow: `0 0 15px ${activeColor}50`
             }}
           >
             {/* Shimmer overlay */}
@@ -53,10 +53,26 @@ export function TopBar({ onExport }: { onExport: () => void }) {
               J
             </span>
           </div>
-          <div className="flex flex-col hidden sm:block">
-            <span className="text-white font-black tracking-[1.5px] uppercase text-xs font-display">
-              Joelizer
-            </span>
+          <div className="flex items-center gap-2.5">
+            <div className="flex flex-col hidden min-[400px]:block">
+              <span className="font-black tracking-[2px] uppercase text-sm font-display select-none">
+                <span className="text-white text-base">JOEL</span>
+                <span className="text-base" style={{ color: activeColor, textShadow: `0 0 12px ${activeColor}80` }}>IZER</span>
+              </span>
+            </div>
+            
+            {/* ♫ BETA V1.3 Capsule Badge */}
+            <div 
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-mono font-bold uppercase tracking-widest bg-black/40 shadow-sm transition-all"
+              style={{
+                borderColor: `${activeColor}40`,
+                color: activeColor,
+                boxShadow: `0 0 10px ${activeColor}15`
+              }}
+            >
+              <span className="animate-pulse">♫</span>
+              <span>BETA V1.3</span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,57 +1,84 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
   font-family: var(--font-sans);
-  background: #050505;
-  color: #cbd5e1;
-  /* Ensure proper contrast */
+  background: #040405;
+  color: #e2e8f0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Dark high-tech Spotify Grid Background */
+.spotify-grid {
+  background-color: #030304;
+  background-image: 
+    linear-gradient(rgba(29, 185, 84, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(29, 185, 84, 0.015) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: center center;
+  position: relative;
+}
+
+.spotify-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 20%, rgba(29, 185, 84, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+
 /* Elegant minimalist scrollbar custom rules */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(29, 185, 84, 0.25);
   border-radius: 9999px;
   transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(29, 185, 84, 0.5);
 }
 
 /* Utilities for glassmorphism panels */
 .glass-panel {
-  background: rgba(10, 10, 10, 0.6);
+  background: rgba(5, 5, 6, 0.75);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
 }
 
 /* Micro-interaction transitions */
 .transition-glass {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Spotify Pulsing Green Glow */
+.spotify-glow {
+  box-shadow: 0 0 20px rgba(29, 185, 84, 0.35);
+}
+
+.spotify-text-glow {
+  text-shadow: 0 0 12px rgba(29, 185, 84, 0.6);
 }
 
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
+
 
