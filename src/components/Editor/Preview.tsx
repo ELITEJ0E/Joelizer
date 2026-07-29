@@ -52,6 +52,7 @@ export function Preview() {
   const currentTime = useStore(s => s.currentTime);
   const isPlaying = useStore(s => s.isPlaying);
   const projectName = useStore(s => s.name);
+  const exportResolutionOverride = useStore(s => s.exportResolutionOverride);
   
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -271,11 +272,21 @@ export function Preview() {
     // Base resolution 1920 for 16:9, equivalent for others
     // For 9:16 it will be 1080x1920
     const isPortrait = ratio < 1;
-    let w = isPortrait ? 1080 : 1920;
+    let baseWidth = isPortrait ? 1080 : 1920;
+    
+    if (exportResolutionOverride === '720p') {
+      baseWidth = isPortrait ? 720 : 1280;
+    } else if (exportResolutionOverride === '360p') {
+      baseWidth = isPortrait ? 360 : 640;
+    } else if (exportResolutionOverride === '1080p') {
+      baseWidth = isPortrait ? 1080 : 1920;
+    }
+    
+    let w = baseWidth;
     let h = w / ratio;
     
     setDimensions({ width: w, height: h });
-  }, [aspectRatio]);
+  }, [aspectRatio, exportResolutionOverride]);
 
   // Main draw loop
   useEffect(() => {

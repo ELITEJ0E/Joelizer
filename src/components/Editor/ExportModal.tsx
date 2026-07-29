@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { X, Loader2, Download } from 'lucide-react';
+import { X, Loader2, Download, Zap, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 import { animate, stagger } from 'animejs';
@@ -8,7 +8,12 @@ import { animate, stagger } from 'animejs';
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [exportFormat, setExportFormat] = useState<'webm' | 'mp4'>('mp4');
+  const [exportFormat, setExportFormat] = useState<'webm' | 'mp4'>('webm');
+  
+  // Custom performance optimization settings
+  const [resolution, setResolution] = useState<'360p' | '720p' | '1080p'>('720p');
+  const [fps, setFps] = useState<15 | 30 | 60>(30);
+  const [bitrate, setBitrate] = useState<1500000 | 4000000 | 8000000>(4000000);
 
   const audioFile = useStore(s => s.audioFile);
   const audioDuration = useStore(s => s.audioDuration);
@@ -16,6 +21,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const setName = useStore(s => s.setName);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setCurrentTime = useStore(s => s.setCurrentTime);
+  const setExportResolutionOverride = useStore(s => s.setExportResolutionOverride);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
   useEffect(() => {
@@ -31,10 +37,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     animate('.export-modal-item-anim', {
       opacity: [0, 1],
       translateY: [15, 0],
-      delay: stagger(60, { start: 150 }),
+      delay: stagger(50, { start: 100 }),
       duration: 500,
       easing: 'easeOutQuart'
     });
+
+    return () => {
+      // Ensure override is cleared when modal unmounts
+      useStore.getState().setExportResolutionOverride(null);
+    };
   }, []);
 
   const getMimeTypeForFormat = (format: 'webm' | 'mp4') => {
@@ -73,9 +84,16 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setIsExporting(true);
     setProgress(0);
 
+    // Apply the active canvas resolution override (resizes canvas for faster frame processing)
+    setExportResolutionOverride(resolution);
+    
+    // Let layout flush so the canvas dimension state can update
+    await new Promise(resolve => setTimeout(resolve, 150));
+
     // 1. Get the actual preview canvas from the DOM
     const canvas = document.querySelector('canvas');
     if (!canvas) {
+      setExportResolutionOverride(null);
       setIsExporting(false);
       return;
     }
@@ -84,11 +102,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     const audioStream = audioManager.getMediaStream();
     if (!audioStream) {
       console.warn("No audio stream available from AudioContextManager.");
-      // Fallback or handle failure if needed
     }
     
-    // 3. Setup MediaRecorder with chosen container format
-    const canvasStream = canvas.captureStream(30); // 30 FPS
+    // 3. Setup MediaRecorder with chosen container format, optimized FPS and bitrate
+    const canvasStream = canvas.captureStream(fps);
     const finalTracks = [...canvasStream.getVideoTracks()];
     if (audioStream) {
       finalTracks.push(...audioStream.getAudioTracks());
@@ -97,10 +114,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     const finalStream = new MediaStream(finalTracks);
     
     const mimeType = getMimeTypeForFormat(exportFormat);
-    const options: MediaRecorderOptions = { videoBitsPerSecond: 8000000 };
+    const options: MediaRecorderOptions = { videoBitsPerSecond: bitrate };
     if (mimeType) {
       options.mimeType = mimeType;
     }
+    
     const finalRecorder = new MediaRecorder(finalStream, options);
     const finalChunks: Blob[] = [];
     
@@ -109,6 +127,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
     
     finalRecorder.onstop = () => {
+      setExportResolutionOverride(null);
       const blob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -121,6 +140,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       URL.revokeObjectURL(url);
       setIsExporting(false);
       onClose();
+    };
+
+    finalRecorder.onerror = () => {
+      setExportResolutionOverride(null);
+      setIsExporting(false);
     };
     
     // Start playback and recording
@@ -145,6 +169,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           finalRecorder.stop();
         }
         setIsPlaying(false);
+        setExportResolutionOverride(null);
       } else {
         requestAnimationFrame(monitorProgress);
       }
@@ -153,9 +178,53 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     monitorProgress();
   };
 
+  // Performance/Overhead calculations
+  const getPerformanceFeedback = () => {
+    if (resolution === '360p' && fps === 15) {
+      return {
+        tag: 'ULTRA EFFICIENCY',
+        desc: 'Up to 10x faster rendering & compilation. Ideal for quick drafts and low-spec machines.',
+        color: '#00e676',
+        percent: '-92% CPU load'
+      };
+    }
+    if (resolution === '360p' || (resolution === '720p' && fps === 15)) {
+      return {
+        tag: 'HIGHLY EFFICIENT',
+        desc: '4x to 6x faster processing. Smooth encoding with extremely small output sizes.',
+        color: '#00e676',
+        percent: '-75% CPU load'
+      };
+    }
+    if (resolution === '720p' && fps === 30) {
+      return {
+        tag: 'BALANCED (RECOMMENDED)',
+        desc: 'Standard HD recording. Perfectly optimized quality/speed trade-off for sharing.',
+        color: activeColor,
+        percent: '-40% CPU load'
+      };
+    }
+    if (resolution === '1080p' && fps === 60) {
+      return {
+        tag: 'MAXIMUM QUALITY',
+        desc: 'Uncompressed Full HD 60 FPS. Demands heavy graphic processing and encoding power.',
+        color: '#ff1744',
+        percent: '+180% CPU load'
+      };
+    }
+    return {
+      tag: 'CUSTOM PRESET',
+      desc: 'Optimized manual settings. Hardware acceleration is recommended.',
+      color: activeColor,
+      percent: 'Optimized rendering'
+    };
+  };
+
+  const perfInfo = getPerformanceFeedback();
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="export-modal-card bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-5 sm:p-8 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div className="export-modal-card bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-5 sm:p-7 w-full max-w-lg shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         
         {/* Dynamic glow accent */}
@@ -164,7 +233,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           style={{ background: activeColor }}
         />
 
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div 
               className="w-8 h-8 rounded-full flex items-center justify-center border border-white/10"
@@ -172,10 +241,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             >
               <Download size={14} style={{ color: activeColor }} />
             </div>
-            <h2 className="text-sm font-bold text-white uppercase tracking-[2px] font-display">Export Video</h2>
+            <h2 className="text-xs font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor }}>[ EXPORT VISUALIZER ]</h2>
           </div>
           {!isExporting && (
-            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5">
+            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer">
               <X size={18} />
             </button>
           )}
@@ -186,10 +255,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             NO AUDIO LOADED
           </div>
         ) : isExporting ? (
-          <div className="space-y-6">
+          <div className="space-y-6 py-6">
             <div className="flex flex-col items-center justify-center gap-4 mb-2">
-              <Loader2 className="animate-spin" size={24} style={{ color: activeColor }} />
-              <span className="font-bold text-xs uppercase tracking-wider text-white">Rendering Video...</span>
+              <Loader2 className="animate-spin" size={28} style={{ color: activeColor }} />
+              <div className="text-center">
+                <span className="font-mono text-[10px] uppercase tracking-[3px] font-black block" style={{ color: activeColor }}>[ ENCODING FRAMES ]</span>
+                <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase mt-1 block">Rendering at {resolution} @ {fps}fps</span>
+              </div>
             </div>
             <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 relative">
               <div 
@@ -202,78 +274,159 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               />
             </div>
             <div className="text-center text-[10px] font-mono text-slate-400 tabular-nums font-bold tracking-widest">
-              {Math.round(progress)}% COMPLETE - DO NOT CLOSE TAB
+              {Math.round(progress)}% COMPLETE - DO NOT CLOSE OR MINIMIZE TAB
             </div>
           </div>
         ) : (
-          <div className="space-y-8 relative z-10">
-            <div className="export-modal-item-anim space-y-3">
-              <label className="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Project Name</label>
+          <div className="space-y-6 relative z-10">
+            {/* Project Name Input */}
+            <div className="export-modal-item-anim space-y-2">
+              <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Project Filename</label>
               <input 
                 type="text"
                 value={projectName}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="NAME YOUR PROJECT (OPTIONAL)..."
+                placeholder="NAME YOUR FILE..."
                 className="w-full bg-white/[0.02] border border-white/10 hover:border-white/20 focus:border-white/30 hover:bg-white/[0.04] px-3.5 py-2.5 rounded-lg text-white text-xs font-bold uppercase tracking-wider outline-none transition-glass placeholder-white/20 focus:bg-white/[0.05]"
               />
             </div>
 
-            <div className="export-modal-item-anim space-y-3">
-              <label className="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Container Format</label>
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setExportFormat('webm')}
-                  className={cn(
-                    "flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-glass",
-                    exportFormat === 'webm'
-                      ? "text-white shadow-lg"
-                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.05]"
-                  )}
-                  style={exportFormat === 'webm' ? {
-                    backgroundColor: `${activeColor}15`,
-                    borderColor: `${activeColor}50`,
-                    boxShadow: `0 0 15px ${activeColor}20`
-                  } : {}}
-                >
-                  WebM (Fast)
-                </button>
-                <button 
-                  onClick={() => setExportFormat('mp4')}
-                  className={cn(
-                    "flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-glass",
-                    exportFormat === 'mp4'
-                      ? "text-white shadow-lg"
-                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.05]"
-                  )}
-                  style={exportFormat === 'mp4' ? {
-                    backgroundColor: `${activeColor}15`,
-                    borderColor: `${activeColor}50`,
-                    boxShadow: `0 0 15px ${activeColor}20`
-                  } : {}}
-                >
-                  MP4
-                </button>
+            {/* Container Format & Resolution Side-by-Side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="export-modal-item-anim space-y-2">
+                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Container Format</label>
+                <div className="flex gap-2">
+                  {(['webm', 'mp4'] as const).map((fmt) => (
+                    <button 
+                      key={fmt}
+                      onClick={() => setExportFormat(fmt)}
+                      className={cn(
+                        "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer",
+                        exportFormat === fmt
+                          ? "text-white shadow-md border-white/20"
+                          : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
+                      )}
+                      style={exportFormat === fmt ? {
+                        backgroundColor: `${activeColor}15`,
+                        borderColor: `${activeColor}50`,
+                      } : {}}
+                    >
+                      {fmt === 'webm' ? 'WebM (Fast)' : 'MP4 (Standard)'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="export-modal-item-anim space-y-2">
+                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Quality / Resolution</label>
+                <div className="flex gap-2">
+                  {(['360p', '720p', '1080p'] as const).map((res) => (
+                    <button 
+                      key={res}
+                      onClick={() => setResolution(res)}
+                      className={cn(
+                        "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer",
+                        resolution === res
+                          ? "text-white shadow-md border-white/20"
+                          : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
+                      )}
+                      style={resolution === res ? {
+                        backgroundColor: `${activeColor}15`,
+                        borderColor: `${activeColor}50`,
+                      } : {}}
+                    >
+                      {res === '360p' ? '360p' : res === '720p' ? '720p' : '1080p'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            
-            <div className="export-modal-item-anim bg-white/[0.02] border border-white/5 p-4 rounded-lg">
-              <p className="text-[10px] text-slate-400 leading-relaxed font-mono uppercase tracking-widest">
-                <span className="text-white font-bold">[SYSTEM]</span> Export happens in real-time via canvas capture. 
-                <br/><br/>
-                ESTIMATED TIME: <span className="text-white font-bold tabular-nums">{Math.round(audioDuration)}s</span>
-              </p>
+
+            {/* FPS and Bitrate Side-by-Side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="export-modal-item-anim space-y-2">
+                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Frame Rate (FPS)</label>
+                <div className="flex gap-2">
+                  {([15, 30, 60] as const).map((fpsVal) => (
+                    <button 
+                      key={fpsVal}
+                      onClick={() => setFps(fpsVal)}
+                      className={cn(
+                        "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer",
+                        fps === fpsVal
+                          ? "text-white shadow-md border-white/20"
+                          : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
+                      )}
+                      style={fps === fpsVal ? {
+                        backgroundColor: `${activeColor}15`,
+                        borderColor: `${activeColor}50`,
+                      } : {}}
+                    >
+                      {fpsVal} FPS
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="export-modal-item-anim space-y-2">
+                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Target Bitrate</label>
+                <div className="flex gap-2">
+                  {([1500000, 4000000, 8000000] as const).map((bitrateVal) => (
+                    <button 
+                      key={bitrateVal}
+                      onClick={() => setBitrate(bitrateVal)}
+                      className={cn(
+                        "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer",
+                        bitrate === bitrateVal
+                          ? "text-white shadow-md border-white/20"
+                          : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
+                      )}
+                      style={bitrate === bitrateVal ? {
+                        backgroundColor: `${activeColor}15`,
+                        borderColor: `${activeColor}50`,
+                      } : {}}
+                    >
+                      {bitrateVal === 1500000 ? '1.5M' : bitrateVal === 4000000 ? '4.0M' : '8.0M'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Advisor */}
+            <div className="export-modal-item-anim bg-white/[0.01] border border-white/5 p-4 rounded-lg flex gap-3.5 items-start">
+              <div className="p-1 rounded bg-white/5 flex-shrink-0 mt-0.5">
+                <Zap size={14} style={{ color: perfInfo.color }} />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono uppercase font-black" style={{ color: perfInfo.color }}>
+                    {perfInfo.tag}
+                  </span>
+                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 font-mono text-slate-400 font-bold">
+                    {perfInfo.percent}
+                  </span>
+                </div>
+                <p className="text-[9.5px] text-slate-400 leading-relaxed font-medium uppercase tracking-wider">
+                  {perfInfo.desc} 
+                  <br/>
+                  <span className="text-slate-500 font-mono mt-1 block">EST. ELAPSED TIME FOR ENCODING: {Math.round(audioDuration)}s</span>
+                </p>
+              </div>
             </div>
 
             <button
               onClick={handleExport}
-              className="export-modal-item-anim w-full py-4 text-black font-black uppercase tracking-widest text-xs rounded-lg transition-all hover:scale-[1.02] active:scale-95 shadow-xl relative overflow-hidden group"
+              className="export-modal-item-anim w-full py-3.5 text-black font-black uppercase tracking-widest text-[10px] rounded-lg transition-all hover:scale-[1.01] active:scale-95 shadow-xl relative overflow-hidden group cursor-pointer"
               style={{
                 background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
                 boxShadow: `0 0 25px ${activeColor}40`
               }}
             >
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-              <span className="relative z-10">Start Export</span>
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <Download size={14} /> Start Optimized Export
+              </span>
             </button>
           </div>
         )}

@@ -50,6 +50,16 @@ export interface Layer {
   visible: boolean;
 }
 
+export interface Track {
+  id: string;
+  name: string;
+  artist: string;
+  url: string;
+  duration: number; // in seconds
+  albumArt?: string;
+  isUserUploaded?: boolean;
+}
+
 interface ProjectState {
   name: string;
   aspectRatio: AspectRatio;
@@ -59,6 +69,8 @@ interface ProjectState {
   lyricsSettings: LyricsSettings;
   logoSettings: LogoSettings;
   
+  tracks: Track[];
+  currentTrackIndex: number;
   audioFile: File | null;
   audioDuration: number;
   audioUrl: string | null;
@@ -69,9 +81,12 @@ interface ProjectState {
   isPlaying: boolean;
   isLooping: boolean;
   
+  exportResolutionOverride: '1080p' | '720p' | '360p' | null;
+  
   // Actions
   setName: (name: string) => void;
   setAspectRatio: (ratio: AspectRatio) => void;
+  setExportResolutionOverride: (override: '1080p' | '720p' | '360p' | null) => void;
   setAudio: (file: File, url: string, duration: number, albumArt: string | null) => void;
   setSelectedLayerId: (id: string | null) => void;
   
@@ -86,6 +101,10 @@ interface ProjectState {
   setCurrentTime: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setIsLooping: (looping: boolean) => void;
+  
+  nextTrack: () => void;
+  previousTrack: () => void;
+  selectTrack: (index: number) => void;
 }
 
 const defaultLayers: Layer[] = [
@@ -107,6 +126,41 @@ const defaultVisualizerSettings: VisualizerSettings = {
   showGrain: false,
   showScanlines: false,
 };
+
+const defaultTracks: Track[] = [
+  {
+    id: 'track-1',
+    name: 'Retro Wave Horizon',
+    artist: 'SoundHelix',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    duration: 372,
+    albumArt: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop'
+  },
+  {
+    id: 'track-2',
+    name: 'Cybernetic Pulse',
+    artist: 'SoundHelix',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    duration: 425,
+    albumArt: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=200&auto=format&fit=crop'
+  },
+  {
+    id: 'track-3',
+    name: 'Ambient Nebulae',
+    artist: 'SoundHelix',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    duration: 302,
+    albumArt: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=200&auto=format&fit=crop'
+  },
+  {
+    id: 'track-4',
+    name: 'Midnight Overdrive',
+    artist: 'SoundHelix',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+    duration: 502,
+    albumArt: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=200&auto=format&fit=crop'
+  }
+];
 
 export const useStore = create<ProjectState>((set) => ({
   name: '',
@@ -137,18 +191,47 @@ export const useStore = create<ProjectState>((set) => ({
     size: 0.15,
   },
   
+  tracks: defaultTracks,
+  currentTrackIndex: 0,
   audioFile: null,
-  audioDuration: 0,
-  audioUrl: null,
-  albumArt: null,
+  audioDuration: defaultTracks[0].duration,
+  audioUrl: defaultTracks[0].url,
+  albumArt: defaultTracks[0].albumArt || null,
   
   currentTime: 0,
   isPlaying: false,
   isLooping: false,
+  exportResolutionOverride: null,
   
   setName: (name) => set({ name }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
-  setAudio: (file, url, duration, albumArt) => set({ audioFile: file, audioUrl: url, audioDuration: duration, albumArt }),
+  setExportResolutionOverride: (exportResolutionOverride) => set({ exportResolutionOverride }),
+  setAudio: (file, url, duration, albumArt) => set((state) => {
+    // When a custom audio file is uploaded, add it as a new track to the playlist or make it active
+    const newTrack: Track = {
+      id: `uploaded-${Date.now()}`,
+      name: file.name.replace(/\.[^/.]+$/, ""), // remove extension
+      artist: 'Uploaded File',
+      url: url,
+      duration: duration,
+      albumArt: albumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop',
+      isUserUploaded: true
+    };
+    
+    const updatedTracks = [...state.tracks, newTrack];
+    const newIndex = updatedTracks.length - 1;
+    
+    return {
+      tracks: updatedTracks,
+      currentTrackIndex: newIndex,
+      audioFile: file,
+      audioUrl: url,
+      audioDuration: duration,
+      albumArt: newTrack.albumArt || null,
+      currentTime: 0,
+      isPlaying: true // play immediately
+    };
+  }),
   setSelectedLayerId: (selectedLayerId) => set({ selectedLayerId }),
   
   updateVisualizerSettings: (updates) => set((state) => ({ visualizerSettings: { ...state.visualizerSettings, ...updates } })),
@@ -170,4 +253,46 @@ export const useStore = create<ProjectState>((set) => ({
   setCurrentTime: (currentTime) => set({ currentTime }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setIsLooping: (isLooping) => set({ isLooping }),
+  
+  nextTrack: () => set((state) => {
+    const nextIndex = (state.currentTrackIndex + 1) % state.tracks.length;
+    const nextTrack = state.tracks[nextIndex];
+    return {
+      currentTrackIndex: nextIndex,
+      audioUrl: nextTrack.url,
+      audioDuration: nextTrack.duration,
+      albumArt: nextTrack.albumArt || null,
+      currentTime: 0,
+      isPlaying: true, // Auto-play next track
+      audioFile: nextTrack.isUserUploaded ? state.audioFile : null
+    };
+  }),
+  
+  previousTrack: () => set((state) => {
+    const prevIndex = state.currentTrackIndex === 0 ? state.tracks.length - 1 : state.currentTrackIndex - 1;
+    const prevTrack = state.tracks[prevIndex];
+    return {
+      currentTrackIndex: prevIndex,
+      audioUrl: prevTrack.url,
+      audioDuration: prevTrack.duration,
+      albumArt: prevTrack.albumArt || null,
+      currentTime: 0,
+      isPlaying: true, // Auto-play previous track
+      audioFile: prevTrack.isUserUploaded ? state.audioFile : null
+    };
+  }),
+  
+  selectTrack: (index) => set((state) => {
+    if (index < 0 || index >= state.tracks.length) return {};
+    const track = state.tracks[index];
+    return {
+      currentTrackIndex: index,
+      audioUrl: track.url,
+      audioDuration: track.duration,
+      albumArt: track.albumArt || null,
+      currentTime: 0,
+      isPlaying: true,
+      audioFile: track.isUserUploaded ? state.audioFile : null
+    };
+  }),
 }));
