@@ -82,10 +82,12 @@ interface ProjectState {
   isLooping: boolean;
   
   exportResolutionOverride: '1080p' | '720p' | '360p' | null;
+  activeTab: 'lyrics' | 'studio' | 'themes' | 'settings';
   
   // Actions
   setName: (name: string) => void;
   setAspectRatio: (ratio: AspectRatio) => void;
+  setActiveTab: (tab: 'lyrics' | 'studio' | 'themes' | 'settings') => void;
   setExportResolutionOverride: (override: '1080p' | '720p' | '360p' | null) => void;
   setAudio: (file: File, url: string, duration: number, albumArt: string | null) => void;
   setSelectedLayerId: (id: string | null) => void;
@@ -202,9 +204,11 @@ export const useStore = create<ProjectState>((set) => ({
   isPlaying: false,
   isLooping: false,
   exportResolutionOverride: null,
+  activeTab: 'lyrics',
   
   setName: (name) => set({ name }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
+  setActiveTab: (activeTab) => set({ activeTab }),
   setExportResolutionOverride: (exportResolutionOverride) => set({ exportResolutionOverride }),
   setAudio: (file, url, duration, albumArt) => set((state) => {
     // When a custom audio file is uploaded, add it as a new track to the playlist or make it active

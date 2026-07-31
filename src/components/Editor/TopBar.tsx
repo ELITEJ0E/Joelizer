@@ -10,6 +10,8 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const aspectRatio = useStore(s => s.aspectRatio);
   const setAspectRatio = useStore(s => s.setAspectRatio);
   const setAudio = useStore(s => s.setAudio);
+  const activeTab = useStore(s => s.activeTab);
+  const setActiveTab = useStore(s => s.setActiveTab);
   
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isExportHovered, setIsExportHovered] = useState(false);
@@ -39,7 +41,10 @@ export function TopBar({ onExport }: { onExport: () => void }) {
       <div className="absolute top-0 inset-x-0 h-[1px] bg-white/10 pointer-events-none" />
       <div className="flex items-center gap-2 sm:gap-6">
         {/* Branding with gradient and soft glow */}
-        <div className="flex items-center gap-3 group cursor-pointer transition-glass">
+        <div 
+          onClick={() => setActiveTab('lyrics')}
+          className="flex items-center gap-3 group cursor-pointer transition-glass"
+        >
           <div 
             className="relative w-8 h-8 sm:w-9 sm:h-9 rounded flex items-center justify-center transition-all duration-300"
             style={{
@@ -63,7 +68,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             
             {/* ♫ BETA V1.3 Capsule Badge */}
             <div 
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-mono font-bold uppercase tracking-widest bg-black/40 shadow-sm transition-all"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-mono font-bold uppercase tracking-widest bg-black/40 shadow-sm transition-all hidden lg:flex"
               style={{
                 borderColor: `${activeColor}40`,
                 color: activeColor,
@@ -75,6 +80,69 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             </div>
           </div>
         </div>
+
+        {/* Top Navigation Links */}
+        <nav className="flex items-center bg-white/[0.03] border border-white/10 rounded-lg p-1 gap-1 ml-2">
+          <button
+            onClick={() => setActiveTab('lyrics')}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
+              activeTab === 'lyrics' 
+                ? "bg-white/15 text-white shadow-sm font-black" 
+                : "text-slate-400 hover:text-white hover:bg-white/5"
+            )}
+            style={activeTab === 'lyrics' ? { color: activeColor } : {}}
+          >
+            Lyrics
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('studio')}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
+              activeTab === 'studio' 
+                ? "bg-white/15 text-white shadow-md" 
+                : "text-slate-300 hover:text-white hover:bg-white/5"
+            )}
+            style={activeTab === 'studio' ? { 
+              color: activeColor,
+              backgroundColor: `${activeColor}20`,
+              borderColor: `${activeColor}50` 
+            } : {}}
+          >
+            <span>Studio</span>
+            <span className="text-yellow-400 text-xs animate-bounce">⭐</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('themes');
+              setIsTemplatesOpen(true);
+            }}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all hidden md:flex items-center gap-1 cursor-pointer",
+              activeTab === 'themes' 
+                ? "bg-white/15 text-white shadow-sm font-black" 
+                : "text-slate-400 hover:text-white hover:bg-white/5"
+            )}
+            style={activeTab === 'themes' ? { color: activeColor } : {}}
+          >
+            Themes
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all hidden lg:flex items-center gap-1 cursor-pointer",
+              activeTab === 'settings' 
+                ? "bg-white/15 text-white shadow-sm font-black" 
+                : "text-slate-400 hover:text-white hover:bg-white/5"
+            )}
+            style={activeTab === 'settings' ? { color: activeColor } : {}}
+          >
+            Settings
+          </button>
+        </nav>
       </div>
       
       <div className="flex items-center gap-1.5 sm:gap-3">
