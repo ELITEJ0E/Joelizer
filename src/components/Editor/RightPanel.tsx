@@ -2,9 +2,61 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStore, LyricLine } from '../../store/useStore';
 import { Play, Upload, Clock, Plus, Minus, Trash2, Eye, EyeOff, Film, AlignLeft } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { parseLRC } from '../../lib/utils';
+import { parseLRC, cn } from '../../lib/utils';
 import { Scrubber } from '../ui/scrubber';
 import { animate, stagger } from 'animejs';
+
+function DeferredColorInput({
+  value,
+  onChange,
+  className,
+  boxShadow,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  className?: string;
+  boxShadow?: string;
+}) {
+  const [localColor, setLocalColor] = useState(value);
+
+  useEffect(() => {
+    setLocalColor(value);
+  }, [value]);
+
+  const handleCommit = (newVal: string) => {
+    if (newVal && newVal !== value) {
+      onChange(newVal);
+    }
+  };
+
+  return (
+    <div className={cn("flex gap-2", className)}>
+      <div 
+        className="relative w-9 h-9 rounded overflow-hidden border border-white/15 flex-shrink-0 cursor-pointer shadow-sm hover:border-white/30 transition-glass"
+        style={{ backgroundColor: localColor, boxShadow: boxShadow || `0 0 15px ${localColor}30` }}
+      >
+        <input 
+          type="color" 
+          value={localColor}
+          onInput={(e) => setLocalColor((e.target as HTMLInputElement).value)}
+          onChange={(e) => handleCommit(e.target.value)}
+          onBlur={(e) => handleCommit(e.target.value)}
+          className="absolute -inset-1 w-[150%] h-[150%] cursor-pointer p-0 border-0 bg-transparent opacity-0"
+        />
+      </div>
+      <input 
+        type="text"
+        value={localColor}
+        onChange={(e) => setLocalColor(e.target.value)}
+        onBlur={(e) => handleCommit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleCommit(localColor);
+        }}
+        className="flex-1 bg-white/[0.02] border border-white/10 text-white rounded px-3 text-xs font-mono tabular-nums outline-none focus:border-white/20 transition-glass uppercase tracking-wider font-bold"
+      />
+    </div>
+  );
+}
 
 function VisualizerSettingsPanel() {
   const settings = useStore(s => s.visualizerSettings);
@@ -65,23 +117,12 @@ function VisualizerSettingsPanel() {
 
       <div>
         <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Neon Accent Color</label>
-        <div className="flex gap-2 mb-3">
-          <div className="relative w-9 h-9 rounded overflow-hidden border border-white/15 flex-shrink-0 cursor-pointer shadow-sm hover:border-white/30 transition-glass"
-               style={{ boxShadow: `0 0 15px ${activeColor}30` }}>
-            <input 
-              type="color" 
-              value={settings.color}
-              onChange={e => updateSettings({ color: e.target.value })}
-              className="absolute -inset-1 w-[150%] h-[150%] cursor-pointer p-0 border-0 bg-transparent"
-            />
-          </div>
-          <input 
-            type="text"
-            value={settings.color}
-            onChange={e => updateSettings({ color: e.target.value })}
-            className="flex-1 bg-white/[0.02] border border-white/10 text-white rounded px-3 text-xs font-mono tabular-nums outline-none focus:border-white/20 transition-glass uppercase tracking-wider font-bold"
-          />
-        </div>
+        <DeferredColorInput 
+          value={settings.color}
+          onChange={val => updateSettings({ color: val })}
+          className="mb-3"
+          boxShadow={`0 0 15px ${activeColor}30`}
+        />
         <div className="grid grid-cols-6 gap-2">
           {COLOR_THEMES.map(theme => (
             <button
@@ -223,22 +264,10 @@ function BackgroundSettingsPanel() {
       {settings.type === 'color' && (
         <div>
           <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Hex Code</label>
-          <div className="flex gap-2">
-            <div className="relative w-9 h-9 rounded overflow-hidden border border-white/15 flex-shrink-0 cursor-pointer shadow-sm">
-              <input 
-                type="color" 
-                value={settings.value}
-                onChange={e => updateSettings({ value: e.target.value })}
-                className="absolute -inset-1 w-[150%] h-[150%] cursor-pointer p-0 border-0 bg-transparent"
-              />
-            </div>
-            <input 
-              type="text" 
-              value={settings.value}
-              onChange={e => updateSettings({ value: e.target.value })}
-              className="flex-1 bg-white/[0.02] border border-white/10 text-white rounded px-3 text-xs font-mono tabular-nums outline-none focus:border-white/20 transition-glass uppercase tracking-wider font-bold"
-            />
-          </div>
+          <DeferredColorInput 
+            value={settings.value}
+            onChange={val => updateSettings({ value: val })}
+          />
         </div>
       )}
       
@@ -246,53 +275,23 @@ function BackgroundSettingsPanel() {
         <div className="space-y-4">
           <div>
             <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Color 1</label>
-            <div className="flex gap-2">
-              <div className="relative w-9 h-9 rounded overflow-hidden border border-white/15 flex-shrink-0 cursor-pointer shadow-sm">
-                <input 
-                  type="color" 
-                  value={settings.value.split(',')[0]?.trim() || '#0c0c14'}
-                  onChange={e => {
-                    const c2 = settings.value.split(',')[1]?.trim() || '#030308';
-                    updateSettings({ value: `${e.target.value}, ${c2}` })
-                  }}
-                  className="absolute -inset-1 w-[150%] h-[150%] cursor-pointer p-0 border-0 bg-transparent"
-                />
-              </div>
-              <input 
-                type="text" 
-                value={settings.value.split(',')[0]?.trim() || '#0c0c14'}
-                onChange={e => {
-                    const c2 = settings.value.split(',')[1]?.trim() || '#030308';
-                    updateSettings({ value: `${e.target.value}, ${c2}` })
-                }}
-                className="flex-1 bg-white/[0.02] border border-white/10 text-white rounded px-3 text-xs font-mono tabular-nums outline-none focus:border-white/20 transition-glass uppercase tracking-wider font-bold"
-              />
-            </div>
+            <DeferredColorInput 
+              value={settings.value.split(',')[0]?.trim() || '#0c0c14'}
+              onChange={val => {
+                const c2 = settings.value.split(',')[1]?.trim() || '#030308';
+                updateSettings({ value: `${val}, ${c2}` });
+              }}
+            />
           </div>
           <div>
             <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Color 2</label>
-            <div className="flex gap-2">
-              <div className="relative w-9 h-9 rounded overflow-hidden border border-white/15 flex-shrink-0 cursor-pointer shadow-sm">
-                <input 
-                  type="color" 
-                  value={settings.value.split(',')[1]?.trim() || '#030308'}
-                  onChange={e => {
-                    const c1 = settings.value.split(',')[0]?.trim() || '#0c0c14';
-                    updateSettings({ value: `${c1}, ${e.target.value}` })
-                  }}
-                  className="absolute -inset-1 w-[150%] h-[150%] cursor-pointer p-0 border-0 bg-transparent"
-                />
-              </div>
-              <input 
-                type="text" 
-                value={settings.value.split(',')[1]?.trim() || '#030308'}
-                onChange={e => {
-                    const c1 = settings.value.split(',')[0]?.trim() || '#0c0c14';
-                    updateSettings({ value: `${c1}, ${e.target.value}` })
-                }}
-                className="flex-1 bg-white/[0.02] border border-white/10 text-white rounded px-3 text-xs font-mono tabular-nums outline-none focus:border-white/20 transition-glass uppercase tracking-wider font-bold"
-              />
-            </div>
+            <DeferredColorInput 
+              value={settings.value.split(',')[1]?.trim() || '#030308'}
+              onChange={val => {
+                const c1 = settings.value.split(',')[0]?.trim() || '#0c0c14';
+                updateSettings({ value: `${c1}, ${val}` });
+              }}
+            />
           </div>
         </div>
       )}
@@ -435,23 +434,11 @@ function LyricsSettingsPanel() {
           
           <div>
             <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Text Accent Color</label>
-            <div className="flex gap-2">
-              <div className="relative w-9 h-9 rounded overflow-hidden border border-white/15 flex-shrink-0 cursor-pointer shadow-sm hover:border-white/30 transition-glass"
-                   style={{ boxShadow: `0 0 15px ${settings.color}30` }}>
-                <input 
-                  type="color" 
-                  value={settings.color}
-                  onChange={e => updateSettings({ color: e.target.value })}
-                  className="absolute -inset-1 w-[150%] h-[150%] cursor-pointer p-0 border-0 bg-transparent"
-                />
-              </div>
-              <input 
-                type="text"
-                value={settings.color}
-                onChange={e => updateSettings({ color: e.target.value })}
-                className="flex-1 bg-white/[0.02] border border-white/10 text-white rounded px-3 text-xs font-mono tabular-nums outline-none focus:border-white/20 transition-glass uppercase tracking-wider font-bold"
-              />
-            </div>
+            <DeferredColorInput 
+              value={settings.color}
+              onChange={val => updateSettings({ color: val })}
+              boxShadow={`0 0 15px ${settings.color}30`}
+            />
           </div>
 
           {/* Sync timeline list */}

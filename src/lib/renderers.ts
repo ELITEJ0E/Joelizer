@@ -62,7 +62,7 @@ export function renderVisualizer(
   height: number
 ) {
   const { style, color, sensitivity, segments = 8 } = settings;
-  const scaledSensitivity = sensitivity * 1.8; // Increased for more punch
+  const scaledSensitivity = sensitivity * 1.35; // Smooth balanced scaling for pop songs
 
   ctx.save();
   ctx.lineJoin = 'round';
@@ -83,8 +83,8 @@ export function renderVisualizer(
       const percent = Math.min(value / 255, 1);
       
       const heightMultiplier = isVertical ? 0.65 : 0.48;
-      // Exponential scaling for punchier bass hits
-      const punchyPercent = Math.pow(percent, 1.2); 
+      // Smooth linear-exponential scaling for pop vocals & music
+      const punchyPercent = Math.pow(percent, 1.05); 
       const barHeight = height * heightMultiplier * punchyPercent;
       
       const x = padding + i * (barWidth + spacing);

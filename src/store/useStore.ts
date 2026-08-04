@@ -128,10 +128,10 @@ const defaultLayers: Layer[] = [
 const defaultVisualizerSettings: VisualizerSettings = {
   style: 'bars',
   color: '#00e676',
-  sensitivity: 0.8,
-  smoothing: 0.8,
+  sensitivity: 0.95,
+  smoothing: 0.65,
   segments: 8,
-  hitResponse: 0.5,
+  hitResponse: 0.15,
   glitchIntensity: 0,
   shakeIntensity: 0,
   showGrain: false,

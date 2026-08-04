@@ -4,6 +4,7 @@ import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
 import { Upload, Maximize, Minimize } from 'lucide-react';
 import { parseLRC, cn } from '../../lib/utils';
+import { getActiveLyricLine } from '../../lib/transcriptionProvider';
 import { animate } from 'animejs';
 
 const ASPECT_RATIOS = {
@@ -497,9 +498,7 @@ export function Preview() {
       // 3. Draw Lyrics
       const lyrLayer = layers.find(l => l.id === 'lyr');
       if (lyrLayer?.visible && lyricsSettings.lines.length > 0) {
-        const currentLine = lyricsSettings.lines.find(
-          l => currentTime >= l.startTime && currentTime <= l.endTime
-        );
+        const currentLine = getActiveLyricLine(lyricsSettings.lines, currentTime);
         
         if (currentLine) {
           ctx.save();
@@ -728,24 +727,26 @@ export function Preview() {
 
       {/* Player Frame with exact fitting aspect ratio */}
       {(() => {
-        const targetRatio = ASPECT_RATIOS[aspectRatio];
-        const availWidth = Math.max(1, containerSize.width - (isFullscreen ? 32 : 32));
-        const availHeight = Math.max(1, containerSize.height - (isFullscreen ? 32 : 32));
-        const containerRatio = availWidth / availHeight;
-        const isWidthConstrained = containerRatio <= targetRatio;
+        const targetRatio = ASPECT_RATIOS[aspectRatio] || (16 / 9);
+        const padding = isFullscreen ? 32 : 32;
+        const availWidth = Math.max(100, (containerSize.width || 800) - padding);
+        const availHeight = Math.max(100, (containerSize.height || 450) - padding);
+
+        let frameWidth = availWidth;
+        let frameHeight = availWidth / targetRatio;
+
+        if (frameHeight > availHeight) {
+          frameHeight = availHeight;
+          frameWidth = availHeight * targetRatio;
+        }
 
         return (
           <div 
-            className={cn(
-              "relative bg-black rounded-lg overflow-hidden border transition-all duration-500 ease-out flex items-center justify-center shrink-0 shadow-2xl",
-              isFullscreen ? "max-w-full max-h-full" : ""
-            )}
+            className="relative bg-black rounded-lg overflow-hidden border transition-all duration-300 ease-out flex items-center justify-center shrink-0 shadow-2xl"
             style={{ 
+              width: `${Math.round(frameWidth)}px`,
+              height: `${Math.round(frameHeight)}px`,
               aspectRatio: targetRatio,
-              maxWidth: '100%',
-              maxHeight: '100%',
-              width: isWidthConstrained ? '100%' : 'auto',
-              height: isWidthConstrained ? 'auto' : '100%',
               boxShadow: isPlaying ? `0 0 100px ${activeColor}25, 0 0 20px ${activeColor}10` : `0 0 40px rgba(0,0,0,0.8)`,
               borderColor: isPlaying ? `${activeColor}40` : 'rgba(255,255,255,0.1)'
             }}

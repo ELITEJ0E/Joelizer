@@ -1,5 +1,36 @@
 import { LyricLineWithWords, TranscriptionProvider, TranscriptionResult, TranscriptionOptions, AlignmentOptions } from '../types/studio';
 
+// Get current active lyric line given currentTime
+export function getActiveLyricLine<T extends { startTime: number; endTime?: number; text: string; id?: string }>(
+  lines: T[],
+  currentTime: number
+): T | null {
+  if (!lines || lines.length === 0) return null;
+
+  // Find all lines that have started on or before currentTime
+  const started = lines.filter(l => l.startTime <= currentTime);
+  if (started.length === 0) return null;
+
+  // Pick the line with the maximum startTime (most recent line that started)
+  let candidate = started[0];
+  for (let i = 1; i < started.length; i++) {
+    if (started[i].startTime > candidate.startTime) {
+      candidate = started[i];
+    }
+  }
+
+  // Check if currentTime is within candidate's active window
+  const end = (candidate.endTime !== undefined && candidate.endTime > candidate.startTime)
+    ? candidate.endTime
+    : candidate.startTime + 3.5;
+
+  if (currentTime <= end) {
+    return candidate;
+  }
+
+  return null;
+}
+
 // Helper to convert File to Base64 String
 export async function fileToBase64(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {

@@ -3,12 +3,13 @@ import { useStore, LyricLine } from '../../store/useStore';
 import { 
   Upload, Music, FileText, Play, Pause, RotateCcw, Download, Sparkles, 
   Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight,
-  Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, ArrowUpRight, ListMusic, XCircle
+  Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, ArrowUpRight, ListMusic, XCircle,
+  Copy, Check, Package, X, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 import { analyzeAudioBuffer, drawStudioWaveform, WaveformData, calculateBpmFromBeats } from '../../lib/audioAnalysis';
-import { GeminiServerProvider, parseUploadedLyricFile, parseLRCContent } from '../../lib/transcriptionProvider';
+import { GeminiServerProvider, parseUploadedLyricFile, parseLRCContent, getActiveLyricLine } from '../../lib/transcriptionProvider';
 import { LyricLineWithWords, ProcessingProgress, ExportFormat, SongAnalysis } from '../../types/studio';
 import { generateLRC, generateEnhancedLRC, generateSRT, generateASS, generateJSON, generateTXT, generateZIP, downloadFile, formatLRCStamp } from '../../lib/lyricExporters';
 
@@ -66,6 +67,23 @@ export function StudioLayout() {
   const [progress, setProgress] = useState<ProcessingProgress | null>(null);
   const [activeExportFormat, setActiveExportFormat] = useState<ExportFormat | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [copiedLRC, setCopiedLRC] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const handleCopyLRC = () => {
+    const lrcContent = generateLRC(lines, projectName || 'joelizer-lyrics');
+    navigator.clipboard.writeText(lrcContent);
+    setCopiedLRC(true);
+    setTimeout(() => setCopiedLRC(false), 2000);
+  };
+
+  const handleClearAllLines = () => {
+    if (lines.length === 0) return;
+    if (window.confirm("Are you sure you want to clear all synchronized lyric lines?")) {
+      updateLinesWithHistory([]);
+      setSelectedLineId(null);
+    }
+  };
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -231,15 +249,14 @@ export function StudioLayout() {
       } else if (e.key === '[') {
         e.preventDefault();
         if (selectedLineId) {
-          handleLineTimeChange(selectedLineId, currentTime);
+          handleMarkStart(selectedLineId, currentTime);
         } else if (lines.length > 0) {
-          handleLineTimeChange(lines[0].id, currentTime);
+          handleMarkStart(lines[0].id, currentTime);
         }
       } else if (e.key === ']') {
         e.preventDefault();
         if (selectedLineId) {
-          const updated = lines.map(l => l.id === selectedLineId ? { ...l, endTime: Math.max(l.startTime + 0.5, currentTime) } : l);
-          updateLinesWithHistory(updated);
+          handleMarkEnd(selectedLineId, currentTime);
         }
       } else if (e.code === 'ArrowUp') {
         e.preventDefault();
@@ -297,6 +314,11 @@ export function StudioLayout() {
       audio.onloadedmetadata = () => {
         setAudio(file, url, audio.duration, null);
       };
+      // Clear transcriptions and synchronized lines for the new song
+      updateLinesWithHistory([]);
+      setSelectedLineId(null);
+      setRawUploadedLyrics('');
+      setUploadedLyricsFileName(null);
     }
   };
 
@@ -356,7 +378,7 @@ export function StudioLayout() {
           updateLinesWithHistory(result.lines);
         }
       } else {
-        setProgress({ stage: 'transcribing', message: 'Transcribing singing & speech timestamps with Gemini 2.5...', percentage: 65 });
+        setProgress({ stage: 'transcribing', message: 'Joelizing...', percentage: 65 });
         const result = await provider.transcribe(audioFile, { signal: controller.signal });
         
         if (controller.signal.aborted) return;
@@ -419,9 +441,70 @@ export function StudioLayout() {
     updateLinesWithHistory(updated);
   };
 
-  const handleLineTimeChange = (id: string, newTimeSec: number) => {
-    const updated = lines.map(l => l.id === id ? { ...l, startTime: Math.max(0, newTimeSec) } : l);
+  const handleMarkStart = (id: string, newTimeSec: number) => {
+    const targetIdx = lines.findIndex(l => l.id === id);
+    if (targetIdx === -1) return;
+
+    const newStart = Math.max(0, newTimeSec);
+
+    const updated = lines.map((l, idx) => {
+      if (idx === targetIdx) {
+        const oldDur = (l.endTime && l.endTime > l.startTime) ? (l.endTime - l.startTime) : 3.5;
+        const newEnd = Math.max(newStart + 0.3, newStart + oldDur);
+        
+        let newWords = l.words;
+        if (l.words && l.words.length > 0) {
+          const delta = newStart - l.startTime;
+          newWords = l.words.map(w => ({
+            ...w,
+            start: Math.max(0, w.start + delta),
+            end: Math.max(0, w.end + delta)
+          }));
+        }
+
+        return {
+          ...l,
+          startTime: newStart,
+          endTime: newEnd,
+          words: newWords
+        };
+      } else if (idx === targetIdx - 1) {
+        // Cap preceding line's end time if it overlaps past the new start time
+        if (l.endTime > newStart) {
+          return {
+            ...l,
+            endTime: newStart
+          };
+        }
+      }
+      return l;
+    });
+
+    setSelectedLineId(id);
     updateLinesWithHistory(updated);
+  };
+
+  const handleMarkEnd = (id: string, newTimeSec: number) => {
+    const targetIdx = lines.findIndex(l => l.id === id);
+    if (targetIdx === -1) return;
+
+    const updated = lines.map((l, idx) => {
+      if (idx === targetIdx) {
+        const newEnd = Math.max(l.startTime + 0.2, newTimeSec);
+        return {
+          ...l,
+          endTime: newEnd
+        };
+      }
+      return l;
+    });
+
+    setSelectedLineId(id);
+    updateLinesWithHistory(updated);
+  };
+
+  const handleLineTimeChange = (id: string, newTimeSec: number) => {
+    handleMarkStart(id, newTimeSec);
   };
 
   const handleAddLine = (afterIndex: number) => {
@@ -568,60 +651,15 @@ export function StudioLayout() {
 
           <div className="h-4 w-px bg-white/10 mx-1" />
 
-          {/* Export Quick Buttons */}
-          <div className="relative">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="px-3 py-1.5 text-black font-black text-[10px] uppercase rounded flex items-center gap-1 transition-all cursor-pointer shadow-lg active:scale-95"
-              style={{ backgroundColor: activeColor }}
-            >
-              <Download size={12} />
-              <span>Export Pack</span>
-            </button>
-            
-            {showExportMenu && (
-              <div className="absolute right-0 top-full mt-2 bg-[#09090d] border border-white/10 rounded-lg shadow-2xl p-2 min-w-[160px] z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
-                <button
-                  onClick={() => { handleExportFormat('zip'); setShowExportMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-white hover:bg-white/10 rounded transition-colors flex items-center gap-2"
-                  style={{ color: activeColor }}
-                >
-                  <Download size={12} /> Full ZIP Pack
-                </button>
-                <div className="h-px w-full bg-white/10 my-1" />
-                <button
-                  onClick={() => { handleExportFormat('lrc'); setShowExportMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
-                >
-                  LRC File
-                </button>
-                <button
-                  onClick={() => { handleExportFormat('enhanced-lrc'); setShowExportMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
-                >
-                  Enhanced Karaoke LRC
-                </button>
-                <button
-                  onClick={() => { handleExportFormat('srt'); setShowExportMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
-                >
-                  SRT File
-                </button>
-                <button
-                  onClick={() => { handleExportFormat('ass'); setShowExportMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
-                >
-                  ASS Subtitles
-                </button>
-                <button
-                  onClick={() => { handleExportFormat('json'); setShowExportMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
-                >
-                  JSON Metadata
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Export Quick Button */}
+          <button
+            onClick={() => setShowExportMenu(true)}
+            className="px-3 py-1.5 text-black font-black text-[10px] uppercase rounded flex items-center gap-1.5 transition-all cursor-pointer shadow-lg active:scale-95"
+            style={{ backgroundColor: activeColor }}
+          >
+            <Download size={12} />
+            <span>Export Pack</span>
+          </button>
 
           <button
             onClick={() => {
@@ -639,9 +677,24 @@ export function StudioLayout() {
       {/* THREE-PANEL STUDIO WORKFLOW */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* LEFT PANEL: AUDIO & LYRIC UPLOADS & METADATA */}
-        <div className="w-full md:w-80 bg-black/40 border-r border-white/10 flex flex-col p-4 gap-4 overflow-y-auto shrink-0">
-          
-          {/* 1. Upload Audio Section */}
+        {isSidebarOpen ? (
+          <div className="w-full md:w-80 bg-black/40 border-r border-white/10 flex flex-col p-4 gap-4 overflow-y-auto shrink-0 transition-all duration-300">
+            {/* Header inside left panel */}
+            <div className="flex items-center justify-between pb-1 border-b border-white/10">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <Sliders size={14} style={{ color: activeColor }} />
+                <span>Audio & Source</span>
+              </span>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors cursor-pointer"
+                title="Collapse Sidebar"
+              >
+                <PanelLeftClose size={15} />
+              </button>
+            </div>
+            
+            {/* 1. Upload Audio Section */}
           <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-black uppercase text-slate-400 tracking-wider">1. Audio Source</span>
@@ -733,6 +786,18 @@ export function StudioLayout() {
             </div>
           </div>
         </div>
+        ) : (
+          <div className="bg-black/80 border-r border-white/10 flex flex-col items-center py-4 px-2 shrink-0 transition-all duration-300">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl text-slate-300 hover:text-white transition-all cursor-pointer shadow-xl flex flex-col items-center gap-1.5 group"
+              title="Expand Audio & Source Sidebar"
+            >
+              <PanelLeftOpen size={18} style={{ color: activeColor }} />
+              <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-slate-400 group-hover:text-white [writing-mode:vertical-lr] rotate-180 py-2">Source</span>
+            </button>
+          </div>
+        )}
 
         {/* CENTER PANEL: WAVEFORM & TIMELINE PREVIEW & CONTROLS */}
         <div className="flex-1 flex flex-col bg-[#050508] border-r border-white/10 overflow-hidden relative">
@@ -834,7 +899,7 @@ export function StudioLayout() {
             {/* Current Active Lyric Display */}
             <div className="absolute bottom-6 inset-x-8 text-center bg-black/80 backdrop-blur-md border border-white/15 py-3 px-6 rounded-xl shadow-2xl">
               {(() => {
-                const currentLine = lines.find(l => currentTime >= l.startTime && currentTime <= l.endTime);
+                const currentLine = getActiveLyricLine(lines, currentTime);
                 return currentLine ? (
                   <span className="text-sm sm:text-base font-bold text-white tracking-wide" style={{ textShadow: `0 0 10px ${activeColor}80` }}>
                     {currentLine.text}
@@ -915,8 +980,20 @@ export function StudioLayout() {
               Synchronized Lines ({lines.length})
             </span>
 
-            {/* History & Global Offset */}
+            {/* History, Clear All & Global Offset */}
             <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleClearAllLines}
+                disabled={lines.length === 0}
+                className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-30 rounded text-[9px] font-mono font-bold text-rose-300 hover:text-rose-200 cursor-pointer flex items-center gap-1 transition-all"
+                title="Clear all synchronized lines"
+              >
+                <Trash2 size={11} />
+                <span>Clear</span>
+              </button>
+
+              <div className="h-4 w-px bg-white/10 mx-0.5" />
+
               <button 
                 onClick={undo} 
                 disabled={historyIndex <= 0} 
@@ -975,9 +1052,10 @@ export function StudioLayout() {
                 No lyric lines generated yet. <br />
                 Click <span className="text-emerald-400 font-bold">Generate Transcript</span> above!
               </div>
-            ) : (
-              lines.map((line, idx) => {
-                const isActive = currentTime >= line.startTime && currentTime <= line.endTime;
+            ) : (() => {
+              const activeLine = getActiveLyricLine(lines, currentTime);
+              return lines.map((line, idx) => {
+                const isActive = activeLine?.id === line.id;
                 const isSelected = selectedLineId === line.id;
                 return (
                   <div
@@ -1028,7 +1106,7 @@ export function StudioLayout() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleLineTimeChange(line.id, currentTime);
+                            handleMarkStart(line.id, currentTime);
                           }}
                           className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 border border-white/15 rounded text-[9px] font-mono font-bold text-emerald-300 hover:text-white cursor-pointer transition-all active:scale-95"
                           title="Set start time to current playhead position (Shortcut: '[')"
@@ -1039,8 +1117,7 @@ export function StudioLayout() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const updated = lines.map(l => l.id === line.id ? { ...l, endTime: Math.max(l.startTime + 0.5, currentTime) } : l);
-                            updateLinesWithHistory(updated);
+                            handleMarkEnd(line.id, currentTime);
                           }}
                           className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 border border-white/15 rounded text-[9px] font-mono font-bold text-cyan-300 hover:text-white cursor-pointer transition-all active:scale-95"
                           title="Set end time to current playhead position (Shortcut: ']')"
@@ -1126,8 +1203,8 @@ export function StudioLayout() {
                     />
                   </div>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
         </div>
       </div>
@@ -1185,6 +1262,147 @@ export function StudioLayout() {
                 <span>Cancel Generation</span>
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* EXPORT PACK MODAL DIALOG */}
+      {showExportMenu && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#09090d] border border-white/10 rounded-2xl p-6 w-full max-w-xl shadow-2xl relative overflow-hidden space-y-5">
+            {/* Ambient Background Accent */}
+            <div 
+              className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[90px] pointer-events-none opacity-20"
+              style={{ background: activeColor }}
+            />
+
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2.5">
+                <Package size={20} style={{ color: activeColor }} />
+                <div>
+                  <h2 className="text-sm font-black uppercase tracking-wider text-white">EXPORT LYRICS & SYNC PACK</h2>
+                  <p className="text-[10px] text-slate-400 font-mono">Copy synced LRC, download individual formats, or grab full pack</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExportMenu(false)}
+                className="p-1.5 text-slate-400 hover:text-white transition-colors rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* LRC Copy & Preview Section */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">LRC Content Preview</span>
+                <button
+                  onClick={handleCopyLRC}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/15 rounded text-[10px] font-bold uppercase tracking-wider text-white flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                >
+                  {copiedLRC ? (
+                    <>
+                      <Check size={12} className="text-emerald-400" />
+                      <span className="text-emerald-400">Copied to Clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} style={{ color: activeColor }} />
+                      <span>Copy LRC Lyrics</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <textarea
+                readOnly
+                value={generateLRC(lines, projectName || 'joelizer-lyrics')}
+                className="w-full h-32 bg-black/60 border border-white/10 rounded-lg p-3 text-[10px] font-mono text-emerald-400/90 outline-none resize-none leading-relaxed select-all"
+              />
+            </div>
+
+            {/* Primary Action: Download All as ZIP Pack */}
+            <button
+              onClick={() => { handleExportFormat('zip'); setShowExportMenu(false); }}
+              className="w-full py-3.5 text-black font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2.5 shadow-xl transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
+              style={{ backgroundColor: activeColor, boxShadow: `0 0 30px ${activeColor}40` }}
+            >
+              <Package size={16} />
+              <span>Download All as ZIP Pack (.zip)</span>
+            </button>
+
+            {/* Individual Export Formats */}
+            <div className="space-y-2 pt-2 border-t border-white/10">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block">Download Individual Format</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button
+                  onClick={() => { handleExportFormat('lrc'); setShowExportMenu(false); }}
+                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
+                >
+                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-emerald-400 flex items-center justify-between">
+                    <span>LRC File</span>
+                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">Standard timed lyrics</div>
+                </button>
+
+                <button
+                  onClick={() => { handleExportFormat('enhanced-lrc'); setShowExportMenu(false); }}
+                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
+                >
+                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-cyan-400 flex items-center justify-between">
+                    <span>Enhanced LRC</span>
+                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">Word karaoke timestamps</div>
+                </button>
+
+                <button
+                  onClick={() => { handleExportFormat('srt'); setShowExportMenu(false); }}
+                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
+                >
+                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-amber-400 flex items-center justify-between">
+                    <span>SRT Subtitles</span>
+                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">Video subtitle format</div>
+                </button>
+
+                <button
+                  onClick={() => { handleExportFormat('ass'); setShowExportMenu(false); }}
+                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
+                >
+                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-purple-400 flex items-center justify-between">
+                    <span>ASS Subtitles</span>
+                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">Styled karaoke subtitles</div>
+                </button>
+
+                <button
+                  onClick={() => { handleExportFormat('txt'); setShowExportMenu(false); }}
+                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
+                >
+                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-slate-200 flex items-center justify-between">
+                    <span>TXT Lyrics</span>
+                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">Plain text transcript</div>
+                </button>
+
+                <button
+                  onClick={() => { handleExportFormat('json'); setShowExportMenu(false); }}
+                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
+                >
+                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-rose-400 flex items-center justify-between">
+                    <span>JSON Data</span>
+                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">Full structured object</div>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
