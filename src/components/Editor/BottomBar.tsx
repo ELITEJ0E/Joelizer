@@ -6,7 +6,6 @@ import { audioManager } from '../../lib/audio';
 import { Scrubber } from '../ui/scrubber';
 
 export function BottomBar() {
-  const audioRef = useRef<HTMLAudioElement>(null);
   const audioUrl = useStore(s => s.audioUrl);
   const audioFile = useStore(s => s.audioFile);
   const currentTime = useStore(s => s.currentTime);
@@ -29,37 +28,6 @@ export function BottomBar() {
   const [volume, setVolume] = useState(1);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const playlistRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (audioRef.current && audioUrl) {
-      audioManager.init(audioRef.current);
-    }
-  }, [audioUrl]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch(e => {
-          console.error('Auto-play prevented', e);
-          setIsPlaying(false);
-        });
-      } else {
-        audioRef.current.pause();
-      }
-    }
-  }, [isPlaying, audioUrl]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.loop = isLooping;
-    }
-  }, [isLooping]);
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
 
   // Close playlist when clicking outside
   useEffect(() => {
@@ -85,24 +53,6 @@ export function BottomBar() {
       />
       
       <div className="flex-1 flex items-center justify-between px-4 sm:px-6 gap-4">
-        {audioUrl && (
-          <audio 
-            ref={audioRef} 
-            src={audioUrl} 
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={() => {
-              if (isLooping) {
-                if (audioRef.current) {
-                  audioRef.current.currentTime = 0;
-                  audioRef.current.play().catch(console.error);
-                }
-              } else {
-                nextTrack();
-              }
-            }}
-            crossOrigin="anonymous"
-          />
-        )}
         
         {/* Left Side: Audio Meta */}
         <div className="flex items-center gap-3 w-1/4 min-w-[150px] sm:min-w-[200px]">
@@ -204,10 +154,8 @@ export function BottomBar() {
               max={audioDuration || 100}
               step={0.01}
               onChange={(time) => {
-                if (audioRef.current) {
-                  audioRef.current.currentTime = time;
-                  setCurrentTime(time);
-                }
+                audioManager.seek(time);
+                setCurrentTime(time);
               }}
               disabled={!audioUrl}
               formatTooltip={formatTime}
@@ -301,9 +249,7 @@ export function BottomBar() {
               step={0.01}
               onChange={(v) => {
                 setVolume(v);
-                if (audioRef.current) {
-                  audioRef.current.volume = v;
-                }
+                audioManager.setVolume(v);
               }}
               disabled={!audioUrl}
               formatTooltip={(v) => `${(v * 100).toFixed(0)}%`}

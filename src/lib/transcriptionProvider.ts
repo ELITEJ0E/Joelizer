@@ -19,31 +19,48 @@ export async function fileToBase64(file: File | Blob): Promise<string> {
 export function parseLRCContent(lrcText: string): LyricLineWithWords[] {
   const lines = lrcText.split(/\r?\n/);
   const result: LyricLineWithWords[] = [];
-  const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+  const timeRegex = /\[(\d{1,2}):(\d{2})[.:](\d{2,3})\]/g;
 
   lines.forEach((line, idx) => {
-    const match = line.match(timeRegex);
-    if (match) {
-      const minutes = parseInt(match[1], 10);
-      const seconds = parseInt(match[2], 10);
-      const fraction = parseInt(match[3], 10);
-      const startTime = minutes * 60 + seconds + (match[3].length === 2 ? fraction / 100 : fraction / 1000);
-      const text = line.replace(timeRegex, '').trim();
+    const raw = line.trim();
+    if (!raw) return;
 
-      if (text) {
-        result.push({
-          id: `lrc-${idx}-${Date.now()}`,
-          startTime,
-          endTime: startTime + 3.5,
-          text
+    const timestamps: number[] = [];
+    let match: RegExpExecArray | null;
+    timeRegex.lastIndex = 0;
+
+    while ((match = timeRegex.exec(raw)) !== null) {
+      const min = parseInt(match[1], 10);
+      const sec = parseInt(match[2], 10);
+      const fracStr = match[3];
+      const frac = parseInt(fracStr, 10);
+      const seconds = min * 60 + sec + (fracStr.length === 3 ? frac / 1000 : frac / 100);
+      timestamps.push(seconds);
+    }
+
+    const cleanText = raw.replace(/\[\d{1,2}:\d{2}[.:]\d{2,3}\]/g, '').trim();
+    if (cleanText) {
+      if (timestamps.length > 0) {
+        timestamps.forEach((t) => {
+          result.push({
+            id: `lrc-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+            startTime: t,
+            endTime: t + 3.5,
+            text: cleanText
+          });
         });
       }
     }
   });
 
-  // Calculate realistic end times based on next line's start time
-  for (let i = 0; i < result.length - 1; i++) {
-    result[i].endTime = Math.min(result[i].startTime + 6, result[i + 1].startTime);
+  result.sort((a, b) => a.startTime - b.startTime);
+
+  for (let i = 0; i < result.length; i++) {
+    if (i < result.length - 1) {
+      result[i].endTime = Math.max(result[i].startTime + 0.5, result[i + 1].startTime);
+    } else {
+      result[i].endTime = result[i].startTime + 5.0;
+    }
   }
 
   return result;
@@ -52,8 +69,8 @@ export function parseLRCContent(lrcText: string): LyricLineWithWords[] {
 // Parse DOCX or plain text files
 export async function parseUploadedLyricFile(file: File): Promise<{ rawText: string; lines?: LyricLineWithWords[] }> {
   const text = await file.text();
-  if (file.name.endsWith('.lrc') || text.includes('[00:') || text.includes('[01:')) {
-    const parsed = parseLRCContent(text);
+  const parsed = parseLRCContent(text);
+  if (parsed.length > 0) {
     return { rawText: text, lines: parsed };
   }
   return { rawText: text };
@@ -70,6 +87,7 @@ export class GeminiServerProvider implements TranscriptionProvider {
     const response = await fetch('/api/transcribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: options?.signal,
       body: JSON.stringify({
         audioBase64: base64Audio,
         mimeType,
@@ -94,6 +112,7 @@ export class GeminiServerProvider implements TranscriptionProvider {
     const response = await fetch('/api/align', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: options?.signal,
       body: JSON.stringify({
         audioBase64: base64Audio,
         mimeType,
@@ -111,11 +130,12 @@ export class GeminiServerProvider implements TranscriptionProvider {
     return data;
   }
 
-  async detectBpmAndKey(audioFile: File | Blob): Promise<{ bpm: number; key: string }> {
+  async detectBpmAndKey(audioFile: File | Blob, signal?: AbortSignal): Promise<{ bpm: number; key: string }> {
     const base64Audio = await fileToBase64(audioFile);
     const response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal,
       body: JSON.stringify({ audioBase64: base64Audio, mimeType: audioFile.type || 'audio/mp3' })
     });
 

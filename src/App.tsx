@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { TopBar } from './components/Editor/TopBar';
 import { LeftPanel } from './components/Editor/LeftPanel';
@@ -12,15 +12,22 @@ import { Preview } from './components/Editor/Preview';
 import { BottomBar } from './components/Editor/BottomBar';
 import { ExportModal } from './components/Editor/ExportModal';
 import { StudioLayout } from './components/Studio/StudioLayout';
+import { GlobalAudioPlayer } from './components/Audio/GlobalAudioPlayer';
 
 export default function App() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [mobileTab, setMobileTab] = useState<'layers' | 'settings'>('layers');
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const activeTab = useStore(s => s.activeTab);
+  const initFromStorage = useStore(s => s.initFromStorage);
+
+  useEffect(() => {
+    initFromStorage();
+  }, [initFromStorage]);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#030304] spotify-grid text-slate-300 font-sans overflow-hidden select-none">
+      <GlobalAudioPlayer />
       <TopBar onExport={() => setShowExportModal(true)} />
       
       {activeTab === 'studio' ? (

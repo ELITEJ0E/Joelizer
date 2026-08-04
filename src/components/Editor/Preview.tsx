@@ -101,9 +101,27 @@ export function Preview() {
     }
   };
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
+
+  // Monitor preview container size for perfect aspect ratio fit
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setContainerSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -708,33 +726,44 @@ export function Preview() {
         }}
       />
 
-      <div 
-        className={cn(
-          "relative bg-black rounded-lg overflow-hidden border transition-all duration-700 ease-out flex items-center justify-center",
-          isFullscreen ? "w-full h-full max-w-full max-h-full" : ""
-        )}
-        style={{ 
-          aspectRatio: ASPECT_RATIOS[aspectRatio],
-          maxWidth: isFullscreen ? '100%' : '100%',
-          maxHeight: isFullscreen ? '100%' : '100%',
-          width: ASPECT_RATIOS[aspectRatio] > 1 ? '100%' : 'auto',
-          height: ASPECT_RATIOS[aspectRatio] <= 1 ? '100%' : 'auto',
-          boxShadow: isPlaying ? `0 0 100px ${activeColor}25, 0 0 20px ${activeColor}10` : `0 0 40px rgba(0,0,0,0.8)`,
-          borderColor: isPlaying ? `${activeColor}40` : 'rgba(255,255,255,0.1)'
-        }}
-      >
-        <canvas 
-          ref={canvasRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-        />
-        <div className="absolute bottom-8 left-8 text-white font-black italic tracking-tighter pointer-events-none select-none">
-          {projectName && (
-            <p className="text-xl sm:text-2xl leading-none uppercase tracking-tight text-white drop-shadow-md">{projectName}</p>
-          )}
-        </div>
-      </div>
+      {/* Player Frame with exact fitting aspect ratio */}
+      {(() => {
+        const targetRatio = ASPECT_RATIOS[aspectRatio];
+        const availWidth = Math.max(1, containerSize.width - (isFullscreen ? 32 : 32));
+        const availHeight = Math.max(1, containerSize.height - (isFullscreen ? 32 : 32));
+        const containerRatio = availWidth / availHeight;
+        const isWidthConstrained = containerRatio <= targetRatio;
+
+        return (
+          <div 
+            className={cn(
+              "relative bg-black rounded-lg overflow-hidden border transition-all duration-500 ease-out flex items-center justify-center shrink-0 shadow-2xl",
+              isFullscreen ? "max-w-full max-h-full" : ""
+            )}
+            style={{ 
+              aspectRatio: targetRatio,
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: isWidthConstrained ? '100%' : 'auto',
+              height: isWidthConstrained ? 'auto' : '100%',
+              boxShadow: isPlaying ? `0 0 100px ${activeColor}25, 0 0 20px ${activeColor}10` : `0 0 40px rgba(0,0,0,0.8)`,
+              borderColor: isPlaying ? `${activeColor}40` : 'rgba(255,255,255,0.1)'
+            }}
+          >
+            <canvas 
+              ref={canvasRef}
+              width={dimensions.width}
+              height={dimensions.height}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+            <div className="absolute bottom-8 left-8 text-white font-black italic tracking-tighter pointer-events-none select-none">
+              {projectName && (
+                <p className="text-xl sm:text-2xl leading-none uppercase tracking-tight text-white drop-shadow-md">{projectName}</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {isDragging && (
         <div 

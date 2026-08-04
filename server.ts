@@ -1,14 +1,10 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
@@ -74,27 +70,31 @@ async function startServer() {
       const ai = getGeminiClient();
       const model = 'gemini-2.5-flash';
 
-      const systemPrompt = `You are a professional music transcription system.
-Analyze the provided audio file and generate synchronized lyrics timestamps.
+      const systemPrompt = `You are a professional music transcription and subtitle synchronization system.
+Analyze the provided audio file and generate precise, synchronized lyric timestamps.
 Language hint: ${language || 'Auto-detect'}.
 Extra prompt: ${prompt || 'None'}.
 
-Instructions:
-1. Listen carefully to the singing or speech.
-2. Segment the lyrics into logical line phrases with precise start times (startTime in seconds) and end times (endTime in seconds).
-3. Estimate the song's BPM and musical Key if detectable.
-4. Return strictly valid JSON in this schema:
+Rules:
+1. Listen carefully to the singing or speech in the audio.
+2. Segment the lyrics into logical singing line phrases.
+3. Assign accurate start times (startTime in seconds, float format e.g. 12.34) and end times (endTime in seconds).
+4. Ensure timestamps are strictly chronological (startTime < endTime and sorted ascending).
+5. Detect song BPM and Key if possible.
+6. VERY IMPORTANT: Please assign timestamps precisely where the vocal sound begins and ends. Compensate for any latency, aiming for exact visual synchronization.
+
+Schema required:
 {
   "text": "Full plain text transcription",
-  "language": "Detected language (e.g. English, Spanish)",
+  "language": "Detected language",
   "bpm": 120,
   "key": "C Major",
   "lines": [
     {
       "id": "line-1",
-      "startTime": 12.34,
-      "endTime": 15.80,
-      "text": "First lyric line text"
+      "startTime": 4.25,
+      "endTime": 7.80,
+      "text": "Lyric text line"
     }
   ]
 }`;
@@ -105,38 +105,78 @@ Instructions:
           {
             role: 'user',
             parts: [
-              {
-                inlineData: {
-                  data: audioBase64,
-                  mimeType
-                }
-              },
+              { inlineData: { data: audioBase64, mimeType } },
               { text: systemPrompt }
             ]
           }
         ],
         config: {
-          responseMimeType: 'application/json'
+          maxOutputTokens: 8192,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              text: { type: 'STRING' },
+              language: { type: 'STRING' },
+              bpm: { type: 'NUMBER' },
+              key: { type: 'STRING' },
+              lines: {
+                type: 'ARRAY',
+                items: {
+                  type: 'OBJECT',
+                  properties: {
+                    id: { type: 'STRING' },
+                    startTime: { type: 'NUMBER' },
+                    endTime: { type: 'NUMBER' },
+                    text: { type: 'STRING' }
+                  },
+                  required: ['startTime', 'endTime', 'text']
+                }
+              }
+            },
+            required: ['lines']
+          }
         }
       });
 
       const responseText = aiResponse.text || '';
       const parsedData = safeExtractJson(responseText);
 
-      if (parsedData && Array.isArray(parsedData.lines)) {
-        return res.json(parsedData);
+      if (parsedData && Array.isArray(parsedData.lines) && parsedData.lines.length > 0) {
+        // Clean and sort lines, apply a -300ms latency compensation offset for Gemini speech
+        const LATENCY_OFFSET = -0.3;
+        
+        const sortedLines = parsedData.lines
+          .map((l: any, idx: number) => {
+            const rawStart = typeof l.startTime === 'number' ? l.startTime : idx * 4;
+            const rawEnd = typeof l.endTime === 'number' ? l.endTime : rawStart + 3.5;
+            
+            return {
+              id: l.id || `line-${idx}-${Date.now()}`,
+              startTime: Math.max(0, rawStart + LATENCY_OFFSET),
+              endTime: Math.max((rawStart + LATENCY_OFFSET) + 0.5, rawEnd + LATENCY_OFFSET),
+              text: String(l.text || '').trim()
+            };
+          })
+          .filter((l: any) => l.text.length > 0)
+          .sort((a: any, b: any) => a.startTime - b.startTime);
+
+        return res.json({
+          ...parsedData,
+          lines: sortedLines
+        });
       }
 
       // Fallback if parsing returned null or empty lines
       res.json({
-        text: responseText || "Sample Transcribed Audio",
+        text: responseText || "Transcribed Lyric Audio",
         language: language || "English",
         bpm: 120,
         key: "C Major",
         lines: [
-          { id: 'fb-1', startTime: 2.0, endTime: 5.5, text: "[Verse 1] Welcome to Joelizer Studio" },
-          { id: 'fb-2', startTime: 6.0, endTime: 9.5, text: "AI Synchronized Lyrics Generator" },
-          { id: 'fb-3', startTime: 10.0, endTime: 14.0, text: "Edit timestamps or export in real-time" }
+          { id: 'fb-1', startTime: 2.0, endTime: 5.5, text: "Sample Synchronized Lyric Line 1" },
+          { id: 'fb-2', startTime: 6.0, endTime: 9.5, text: "Sample Synchronized Lyric Line 2" },
+          { id: 'fb-3', startTime: 10.0, endTime: 14.0, text: "Sample Synchronized Lyric Line 3" }
         ]
       });
     } catch (err: any) {
@@ -165,16 +205,20 @@ Instructions:
       const ai = getGeminiClient();
       const model = 'gemini-2.5-flash';
 
-      const systemPrompt = `You are an expert audio forced alignment engine.
-Given the audio file and the user's provided raw lyrics text below, align each line of the user's lyrics to its precise start and end timestamp in seconds from the audio.
+      const systemPrompt = `You are a high-precision forced audio alignment engine.
+You are given an audio file and the exact raw lyric text provided by the user.
 
 User Provided Raw Lyrics:
 ${rawLyrics}
 
 Instructions:
-1. Preserve the user's lyric line text as closely as possible.
-2. Assign accurate start time (startTime in seconds) and end time (endTime in seconds) for each line.
-3. Return strictly valid JSON:
+1. Preserve the user's provided lyric text line-by-line.
+2. For each line in the user's text, listen to the audio and find its exact start timestamp (startTime in seconds) and end timestamp (endTime in seconds).
+3. Do NOT omit any lines from the user's text.
+4. Timestamps must be sorted in strictly ascending chronological order.
+5. VERY IMPORTANT: Please assign timestamps precisely where the vocal sound begins and ends. Compensate for any latency, aiming for exact visual synchronization.
+
+Schema required:
 {
   "text": ${JSON.stringify(rawLyrics)},
   "language": "${language || 'Auto'}",
@@ -185,7 +229,7 @@ Instructions:
       "id": "line-1",
       "startTime": 4.50,
       "endTime": 8.20,
-      "text": "Exact text from user lyrics"
+      "text": "User lyric text line"
     }
   ]
 }`;
@@ -196,29 +240,68 @@ Instructions:
           {
             role: 'user',
             parts: [
-              {
-                inlineData: {
-                  data: audioBase64,
-                  mimeType
-                }
-              },
+              { inlineData: { data: audioBase64, mimeType } },
               { text: systemPrompt }
             ]
           }
         ],
         config: {
-          responseMimeType: 'application/json'
+          maxOutputTokens: 8192,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              text: { type: 'STRING' },
+              language: { type: 'STRING' },
+              bpm: { type: 'NUMBER' },
+              key: { type: 'STRING' },
+              lines: {
+                type: 'ARRAY',
+                items: {
+                  type: 'OBJECT',
+                  properties: {
+                    id: { type: 'STRING' },
+                    startTime: { type: 'NUMBER' },
+                    endTime: { type: 'NUMBER' },
+                    text: { type: 'STRING' }
+                  },
+                  required: ['startTime', 'endTime', 'text']
+                }
+              }
+            },
+            required: ['lines']
+          }
         }
       });
 
       const responseText = aiResponse.text || '';
       const parsedData = safeExtractJson(responseText);
 
-      if (parsedData && Array.isArray(parsedData.lines)) {
-        return res.json(parsedData);
+      if (parsedData && Array.isArray(parsedData.lines) && parsedData.lines.length > 0) {
+        const LATENCY_OFFSET = -0.3;
+        
+        const sortedLines = parsedData.lines
+          .map((l: any, idx: number) => {
+            const rawStart = typeof l.startTime === 'number' ? l.startTime : idx * 4;
+            const rawEnd = typeof l.endTime === 'number' ? l.endTime : rawStart + 3.5;
+            
+            return {
+              id: l.id || `align-${idx}-${Date.now()}`,
+              startTime: Math.max(0, rawStart + LATENCY_OFFSET),
+              endTime: Math.max((rawStart + LATENCY_OFFSET) + 0.5, rawEnd + LATENCY_OFFSET),
+              text: String(l.text || '').trim()
+            };
+          })
+          .filter((l: any) => l.text.length > 0)
+          .sort((a: any, b: any) => a.startTime - b.startTime);
+
+        return res.json({
+          ...parsedData,
+          lines: sortedLines
+        });
       }
 
-      // Fallback alignment algorithm if Gemini API fails or returns non-JSON
+      // Fallback alignment algorithm if Gemini API fails
       const rawLines = (req.body.rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
       const lines = rawLines.map((l: string, idx: number) => ({
         id: `align-fb-${idx}`,

@@ -111,36 +111,6 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             } : {}}
           >
             <span>Studio</span>
-            <span className="text-yellow-400 text-xs animate-bounce">⭐</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('themes');
-              setIsTemplatesOpen(true);
-            }}
-            className={cn(
-              "px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all hidden md:flex items-center gap-1 cursor-pointer",
-              activeTab === 'themes' 
-                ? "bg-white/15 text-white shadow-sm font-black" 
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            )}
-            style={activeTab === 'themes' ? { color: activeColor } : {}}
-          >
-            Themes
-          </button>
-
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={cn(
-              "px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all hidden lg:flex items-center gap-1 cursor-pointer",
-              activeTab === 'settings' 
-                ? "bg-white/15 text-white shadow-sm font-black" 
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            )}
-            style={activeTab === 'settings' ? { color: activeColor } : {}}
-          >
-            Settings
           </button>
         </nav>
       </div>

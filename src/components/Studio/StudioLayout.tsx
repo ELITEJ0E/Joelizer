@@ -3,12 +3,12 @@ import { useStore, LyricLine } from '../../store/useStore';
 import { 
   Upload, Music, FileText, Play, Pause, RotateCcw, Download, Sparkles, 
   Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight,
-  Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, ArrowUpRight
+  Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, ArrowUpRight, ListMusic, XCircle
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 import { analyzeAudioBuffer, drawStudioWaveform, WaveformData, calculateBpmFromBeats } from '../../lib/audioAnalysis';
-import { GeminiServerProvider, parseUploadedLyricFile } from '../../lib/transcriptionProvider';
+import { GeminiServerProvider, parseUploadedLyricFile, parseLRCContent } from '../../lib/transcriptionProvider';
 import { LyricLineWithWords, ProcessingProgress, ExportFormat, SongAnalysis } from '../../types/studio';
 import { generateLRC, generateEnhancedLRC, generateSRT, generateASS, generateJSON, generateTXT, generateZIP, downloadFile, formatLRCStamp } from '../../lib/lyricExporters';
 
@@ -24,10 +24,18 @@ export function StudioLayout() {
   const projectName = useStore(s => s.name);
   const setName = useStore(s => s.setName);
 
+  const isPlaying = useStore(s => s.isPlaying);
+  const setIsPlaying = useStore(s => s.setIsPlaying);
+  const currentTime = useStore(s => s.currentTime);
+  const setCurrentTime = useStore(s => s.setCurrentTime);
+
   // Local Studio State
   const [lines, setLines] = useState<LyricLineWithWords[]>([]);
   const [history, setHistory] = useState<LyricLineWithWords[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
 
   const [rawUploadedLyrics, setRawUploadedLyrics] = useState<string>('');
   const [uploadedLyricsFileName, setUploadedLyricsFileName] = useState<string | null>(null);
@@ -35,12 +43,12 @@ export function StudioLayout() {
   const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
   const [isAnalyzingAudio, setIsAnalyzingAudio] = useState(false);
 
+  // Dragging Marker Pin State
+  const draggingLineRef = useRef<string | null>(null);
+  const isDraggingMarkerRef = useRef<boolean>(false);
+
   // Playback state
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
-  const [volume, setVolume] = useState<number>(1.0);
-  const [isMuted, setIsMuted] = useState(false);
 
   // Waveform Zoom & Drag
   const [zoom, setZoom] = useState<number>(1.0);
@@ -57,9 +65,47 @@ export function StudioLayout() {
   // AI Processing State
   const [progress, setProgress] = useState<ProcessingProgress | null>(null);
   const [activeExportFormat, setActiveExportFormat] = useState<ExportFormat | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const cancelAIGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setProgress({ stage: 'error', message: 'Generation cancelled', percentage: 0 });
+    setTimeout(() => setProgress(null), 1200);
+  };
+
+  const handleRawLyricsChange = (text: string) => {
+    setRawUploadedLyrics(text);
+    // Automatically parse if LRC format timestamps are present
+    if (text.includes('[') && /\[\d{1,2}:\d{2}/.test(text)) {
+      const parsed = parseLRCContent(text);
+      if (parsed.length > 0) {
+        updateLinesWithHistory(parsed);
+      }
+    }
+  };
+
+  const handleManualParseLRC = () => {
+    if (!rawUploadedLyrics.trim()) return;
+    const parsed = parseLRCContent(rawUploadedLyrics);
+    if (parsed.length > 0) {
+      updateLinesWithHistory(parsed);
+    } else {
+      const splitLines = rawUploadedLyrics.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const newLines: LyricLineWithWords[] = splitLines.map((t, idx) => ({
+        id: `lrc-manual-${idx}-${Date.now()}`,
+        startTime: idx * 3.5,
+        endTime: (idx + 1) * 3.5,
+        text: t
+      }));
+      updateLinesWithHistory(newLines);
+    }
+  };
 
   // Initialize lines from store or default
   useEffect(() => {
@@ -127,7 +173,6 @@ export function StudioLayout() {
 
     const width = canvas.width;
     const height = canvas.height;
-    const lyricTimes = lines.map(l => l.startTime);
 
     drawStudioWaveform(
       ctx,
@@ -137,60 +182,110 @@ export function StudioLayout() {
       currentTime,
       zoom,
       scrollOffset,
-      lyricTimes,
-      activeColor
+      lines,
+      activeColor,
+      selectedLineId,
+      hoveredLineId
     );
-  }, [waveformData, currentTime, zoom, scrollOffset, lines, activeColor]);
+  }, [waveformData, currentTime, zoom, scrollOffset, lines, activeColor, selectedLineId, hoveredLineId]);
 
-  // Audio Playback Listener
+  // Non-passive Wheel Listener for smooth Trackpad Pinch & Zoom in both directions and horizontal pan
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const onTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      // Auto-scroll waveform playhead
-      if (waveformData) {
-        const visibleWindow = waveformData.duration / zoom;
-        if (audio.currentTime > scrollOffset + visibleWindow * 0.8) {
-          setScrollOffset(Math.min(waveformData.duration - visibleWindow, audio.currentTime - visibleWindow * 0.2));
-        } else if (audio.currentTime < scrollOffset) {
-          setScrollOffset(Math.max(0, audio.currentTime - 1));
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        // Continuous exponential scale based on deltaY:
+        // Spreading fingers (zooming in): deltaY < 0 => -deltaY > 0 => factor > 1
+        // Pinching fingers (zooming out): deltaY > 0 => -deltaY < 0 => factor < 1
+        const zoomFactor = Math.pow(1.002, -e.deltaY);
+        setZoom(z => Math.min(30, Math.max(0.2, z * zoomFactor)));
+      } else {
+        // Pan horizontally with trackpad swipe / scroll
+        const panFactor = e.deltaX * 0.05 || e.deltaY * 0.05;
+        if (waveformData) {
+          const visibleWindow = waveformData.duration / zoom;
+          setScrollOffset(prev => Math.min(Math.max(0, waveformData.duration - visibleWindow), Math.max(0, prev + panFactor)));
         }
       }
     };
 
-    const onEnded = () => setIsPlaying(false);
-
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('ended', onEnded);
-
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('ended', onEnded);
+      canvas.removeEventListener('wheel', handleWheel);
     };
-  }, [zoom, scrollOffset, waveformData]);
+  }, [waveformData, zoom]);
+
+  // Global Keyboard Shortcuts for Studio Sync Editing
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing inside text input / textarea
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === '[') {
+        e.preventDefault();
+        if (selectedLineId) {
+          handleLineTimeChange(selectedLineId, currentTime);
+        } else if (lines.length > 0) {
+          handleLineTimeChange(lines[0].id, currentTime);
+        }
+      } else if (e.key === ']') {
+        e.preventDefault();
+        if (selectedLineId) {
+          const updated = lines.map(l => l.id === selectedLineId ? { ...l, endTime: Math.max(l.startTime + 0.5, currentTime) } : l);
+          updateLinesWithHistory(updated);
+        }
+      } else if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (lines.length === 0) return;
+        const currentIdx = lines.findIndex(l => l.id === selectedLineId);
+        const prevIdx = currentIdx > 0 ? currentIdx - 1 : lines.length - 1;
+        setSelectedLineId(lines[prevIdx].id);
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        if (lines.length === 0) return;
+        const currentIdx = lines.findIndex(l => l.id === selectedLineId);
+        const nextIdx = currentIdx !== -1 && currentIdx < lines.length - 1 ? currentIdx + 1 : 0;
+        setSelectedLineId(lines[nextIdx].id);
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        handleSeek(Math.max(0, currentTime - 5));
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        handleSeek(Math.min(audioDuration || 1000, currentTime + 5));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedLineId, lines, currentTime, isPlaying, audioDuration]);
+
+  // Auto-scroll waveform playhead
+  useEffect(() => {
+    if (waveformData) {
+      const visibleWindow = waveformData.duration / zoom;
+      if (currentTime > scrollOffset + visibleWindow * 0.8) {
+        setScrollOffset(Math.min(waveformData.duration - visibleWindow, currentTime - visibleWindow * 0.2));
+      } else if (currentTime < scrollOffset) {
+        setScrollOffset(Math.max(0, currentTime - 1));
+      }
+    }
+  }, [currentTime, zoom, scrollOffset, waveformData]);
 
   // Handle Play/Pause
   const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
-    } else {
-      audio.play();
-      setIsPlaying(true);
-    }
+    setIsPlaying(!isPlaying);
   };
 
   const handleSeek = (time: number) => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.currentTime = time;
-      setCurrentTime(time);
-    }
+    audioManager.seek(time);
+    setCurrentTime(time);
   };
 
   // Handle Audio File Upload
@@ -230,28 +325,42 @@ export function StudioLayout() {
       return;
     }
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const provider = new GeminiServerProvider();
     
     // Simulate multi-stage progress
     setProgress({ stage: 'uploading', message: 'Preparing audio payload...', percentage: 10 });
     await new Promise(r => setTimeout(r, 200));
 
+    if (controller.signal.aborted) return;
+
     setProgress({ stage: 'extracting_audio', message: 'Extracting audio frequencies...', percentage: 25 });
     await new Promise(r => setTimeout(r, 300));
+
+    if (controller.signal.aborted) return;
 
     try {
       if (forcedAlignmentMode || rawUploadedLyrics.trim()) {
         setProgress({ stage: 'aligning', message: 'Performing AI Forced Alignment against uploaded lyrics...', percentage: 60 });
-        const result = await provider.align(audioFile, rawUploadedLyrics || lines.map(l => l.text).join('\n'));
+        const result = await provider.align(audioFile, rawUploadedLyrics || lines.map(l => l.text).join('\n'), { signal: controller.signal });
         
+        if (controller.signal.aborted) return;
+
         setProgress({ stage: 'finalizing', message: 'Structuring timestamp alignment...', percentage: 90 });
         if (result.lines && result.lines.length > 0) {
           updateLinesWithHistory(result.lines);
         }
       } else {
         setProgress({ stage: 'transcribing', message: 'Transcribing singing & speech timestamps with Gemini 2.5...', percentage: 65 });
-        const result = await provider.transcribe(audioFile);
+        const result = await provider.transcribe(audioFile, { signal: controller.signal });
         
+        if (controller.signal.aborted) return;
+
         setProgress({ stage: 'finalizing', message: 'Generating synchronized LRC line model...', percentage: 90 });
         if (result.lines && result.lines.length > 0) {
           updateLinesWithHistory(result.lines);
@@ -264,23 +373,43 @@ export function StudioLayout() {
       setProgress({ stage: 'complete', message: 'AI Lyric Synchronization Complete!', percentage: 100 });
       setTimeout(() => setProgress(null), 2000);
     } catch (err: any) {
+      if (err.name === 'AbortError' || controller.signal.aborted) {
+        console.log("AI Generation Aborted by User");
+        return;
+      }
       console.error("AI Error:", err);
       setProgress({ stage: 'error', message: 'Processing Error', percentage: 100, error: err.message });
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   };
 
   // Run AI Analysis (BPM, Key, Sections)
   const runAIAnalysis = async () => {
     if (!audioFile) return;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setProgress({ stage: 'transcribing', message: 'Detecting Song Tempo, Musical Key & Structure...', percentage: 50 });
     try {
       const provider = new GeminiServerProvider();
-      const res = await provider.detectBpmAndKey(audioFile);
+      const res = await provider.detectBpmAndKey(audioFile, controller.signal);
+      if (controller.signal.aborted) return;
       setAnalysis(prev => ({ ...prev, bpm: res.bpm, key: res.key }));
       setProgress({ stage: 'complete', message: 'Musical Analysis Complete!', percentage: 100 });
       setTimeout(() => setProgress(null), 1500);
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError' || controller.signal.aborted) return;
       setProgress(null);
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   };
 
@@ -383,15 +512,6 @@ export function StudioLayout() {
 
   return (
     <div className="flex flex-col h-full w-full bg-[#030304] text-slate-200 overflow-hidden relative font-sans">
-      {/* Hidden HTML Audio Element for Playback */}
-      {audioUrl && (
-        <audio 
-          ref={audioRef} 
-          src={audioUrl} 
-          preload="auto" 
-        />
-      )}
-
       {/* TOP AI TOOLBAR */}
       <div className="h-14 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 flex items-center justify-between z-20 shrink-0 gap-3 overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-3 shrink-0">
@@ -408,6 +528,17 @@ export function StudioLayout() {
 
         {/* AI Action Buttons */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {progress && progress.stage !== 'complete' && (
+            <button
+              onClick={cancelAIGeneration}
+              className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 hover:text-white rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer animate-pulse"
+              title="Cancel ongoing AI task"
+            >
+              <XCircle size={12} />
+              <span>Cancel</span>
+            </button>
+          )}
+
           <button
             onClick={() => runAITranscription(false)}
             className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
@@ -438,42 +569,59 @@ export function StudioLayout() {
           <div className="h-4 w-px bg-white/10 mx-1" />
 
           {/* Export Quick Buttons */}
-          <button
-            onClick={() => handleExportFormat('lrc')}
-            className="px-2 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[9px] font-mono font-bold uppercase hover:text-white transition-all cursor-pointer"
-          >
-            LRC
-          </button>
-
-          <button
-            onClick={() => handleExportFormat('enhanced-lrc')}
-            className="px-2 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[9px] font-mono font-bold uppercase hover:text-white transition-all cursor-pointer hidden sm:block"
-          >
-            Karaoke
-          </button>
-
-          <button
-            onClick={() => handleExportFormat('srt')}
-            className="px-2 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[9px] font-mono font-bold uppercase hover:text-white transition-all cursor-pointer"
-          >
-            SRT
-          </button>
-
-          <button
-            onClick={() => handleExportFormat('ass')}
-            className="px-2 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[9px] font-mono font-bold uppercase hover:text-white transition-all cursor-pointer hidden sm:block"
-          >
-            ASS
-          </button>
-
-          <button
-            onClick={() => handleExportFormat('zip')}
-            className="px-3 py-1.5 text-black font-black text-[10px] uppercase rounded flex items-center gap-1 transition-all cursor-pointer shadow-lg active:scale-95"
-            style={{ backgroundColor: activeColor }}
-          >
-            <Download size={12} />
-            <span>Export Pack</span>
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="px-3 py-1.5 text-black font-black text-[10px] uppercase rounded flex items-center gap-1 transition-all cursor-pointer shadow-lg active:scale-95"
+              style={{ backgroundColor: activeColor }}
+            >
+              <Download size={12} />
+              <span>Export Pack</span>
+            </button>
+            
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-2 bg-[#09090d] border border-white/10 rounded-lg shadow-2xl p-2 min-w-[160px] z-50 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
+                <button
+                  onClick={() => { handleExportFormat('zip'); setShowExportMenu(false); }}
+                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-white hover:bg-white/10 rounded transition-colors flex items-center gap-2"
+                  style={{ color: activeColor }}
+                >
+                  <Download size={12} /> Full ZIP Pack
+                </button>
+                <div className="h-px w-full bg-white/10 my-1" />
+                <button
+                  onClick={() => { handleExportFormat('lrc'); setShowExportMenu(false); }}
+                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
+                >
+                  LRC File
+                </button>
+                <button
+                  onClick={() => { handleExportFormat('enhanced-lrc'); setShowExportMenu(false); }}
+                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
+                >
+                  Enhanced Karaoke LRC
+                </button>
+                <button
+                  onClick={() => { handleExportFormat('srt'); setShowExportMenu(false); }}
+                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
+                >
+                  SRT File
+                </button>
+                <button
+                  onClick={() => { handleExportFormat('ass'); setShowExportMenu(false); }}
+                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
+                >
+                  ASS Subtitles
+                </button>
+                <button
+                  onClick={() => { handleExportFormat('json'); setShowExportMenu(false); }}
+                  className="w-full text-left px-3 py-2 text-[10px] font-mono text-slate-300 hover:bg-white/10 rounded transition-colors"
+                >
+                  JSON Metadata
+                </button>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={() => {
@@ -483,7 +631,7 @@ export function StudioLayout() {
             className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-[10px] uppercase rounded flex items-center gap-1 transition-all cursor-pointer active:scale-95 ml-1"
           >
             <Eye size={12} />
-            <span>Preview Visualizer</span>
+            <span>Preview</span>
           </button>
         </div>
       </div>
@@ -513,7 +661,7 @@ export function StudioLayout() {
               <div className="bg-white/5 rounded-lg p-2.5 flex items-center gap-2.5 border border-white/10">
                 <Music size={16} style={{ color: activeColor }} />
                 <div className="overflow-hidden flex-1">
-                  <span className="text-xs font-bold text-white truncate block">{audioFile.name}</span>
+                  <span className="text-xs font-bold text-white truncate block">{('name' in audioFile) ? (audioFile as File).name : 'Saved Track'}</span>
                   <span className="text-[9px] text-slate-400 font-mono">{Math.round(audioDuration)}s • {(audioFile.size / (1024 * 1024)).toFixed(1)} MB</span>
                 </div>
               </div>
@@ -545,13 +693,22 @@ export function StudioLayout() {
               </div>
             )}
 
-            {/* Quick Textarea Preview */}
+            {/* Quick Textarea Preview & LRC Parser */}
             <textarea
               value={rawUploadedLyrics}
-              onChange={(e) => setRawUploadedLyrics(e.target.value)}
-              placeholder="Paste or write lyrics text here to align..."
+              onChange={(e) => handleRawLyricsChange(e.target.value)}
+              placeholder="Paste or write lyrics text (supports LRC format [mm:ss.xx])..."
               className="w-full h-24 bg-black/50 border border-white/10 rounded-lg p-2.5 text-[10px] font-mono text-slate-300 outline-none focus:border-white/20 resize-none"
             />
+            {rawUploadedLyrics.trim() && (
+              <button
+                onClick={handleManualParseLRC}
+                className="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+              >
+                <ListMusic size={12} style={{ color: activeColor }} />
+                <span>Parse & Sync LRC Lines</span>
+              </button>
+            )}
           </div>
 
           {/* 3. AI Song Intelligence Summary */}
@@ -581,22 +738,90 @@ export function StudioLayout() {
         <div className="flex-1 flex flex-col bg-[#050508] border-r border-white/10 overflow-hidden relative">
           
           {/* Interactive Waveform Canvas Container */}
-          <div className="flex-1 relative bg-black/60 flex flex-col justify-center items-center overflow-hidden">
+          <div className="flex-1 relative bg-black/60 flex flex-col justify-center items-center overflow-hidden select-none">
             <canvas 
               ref={canvasRef} 
               width={900} 
               height={300}
-              onClick={(e) => {
+              onMouseDown={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
                 const ratio = clickX / rect.width;
-                if (waveformData) {
-                  const visibleWindow = waveformData.duration / zoom;
-                  const seekTime = scrollOffset + ratio * visibleWindow;
-                  handleSeek(seekTime);
+                const duration = waveformData?.duration || 1;
+                const visibleWindow = duration / zoom;
+                const clickTime = scrollOffset + ratio * visibleWindow;
+
+                // Check if click is near any line pin marker handle (only at the top 20% of canvas)
+                let hitLineId: string | null = null;
+                const isTopArea = (clickY / rect.height) < 0.2;
+                
+                if (isTopArea) {
+                  lines.forEach(l => {
+                    const lx = ((l.startTime - scrollOffset) / visibleWindow) * rect.width;
+                    if (Math.abs(clickX - lx) <= 14) {
+                      hitLineId = l.id;
+                    }
+                  });
+                }
+
+                if (hitLineId) {
+                  draggingLineRef.current = hitLineId;
+                  isDraggingMarkerRef.current = true;
+                  setSelectedLineId(hitLineId);
+                } else {
+                  handleSeek(clickTime);
                 }
               }}
-              className="w-full h-full cursor-pointer"
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const hoverX = e.clientX - rect.left;
+                const hoverY = e.clientY - rect.top;
+                const ratio = hoverX / rect.width;
+                const duration = waveformData?.duration || 1;
+                const visibleWindow = duration / zoom;
+                const hoverTime = Math.max(0, scrollOffset + ratio * visibleWindow);
+
+                // Find pin hover (only at the top 20% of canvas)
+                let hoverId: string | null = null;
+                const isTopArea = (hoverY / rect.height) < 0.2;
+                
+                if (isTopArea) {
+                  lines.forEach(l => {
+                    const lx = ((l.startTime - scrollOffset) / visibleWindow) * rect.width;
+                    if (Math.abs(hoverX - lx) <= 14) {
+                      hoverId = l.id;
+                    }
+                  });
+                }
+                setHoveredLineId(hoverId);
+
+                // If currently dragging a marker pin
+                if (isDraggingMarkerRef.current && draggingLineRef.current) {
+                  const targetId = draggingLineRef.current;
+                  setLines(prev => prev.map(l => l.id === targetId ? { ...l, startTime: hoverTime } : l));
+                }
+              }}
+              onMouseUp={() => {
+                if (isDraggingMarkerRef.current) {
+                  isDraggingMarkerRef.current = false;
+                  draggingLineRef.current = null;
+                  updateLyricsSettings({ lines });
+                }
+              }}
+              onMouseLeave={() => {
+                if (isDraggingMarkerRef.current) {
+                  isDraggingMarkerRef.current = false;
+                  draggingLineRef.current = null;
+                  updateLyricsSettings({ lines });
+                }
+                setHoveredLineId(null);
+              }}
+              className={cn(
+                "w-full h-full",
+                hoveredLineId || isDraggingMarkerRef.current ? "cursor-ew-resize" : "cursor-pointer"
+              )}
+              style={{ touchAction: 'none' }}
             />
 
             {/* Time Overlay */}
@@ -650,7 +875,7 @@ export function StudioLayout() {
                   key={s}
                   onClick={() => {
                     setPlaybackSpeed(s);
-                    if (audioRef.current) audioRef.current.playbackRate = s;
+                    audioManager.setPlaybackRate(s);
                   }}
                   className={cn(
                     "px-1.5 py-0.5 rounded cursor-pointer transition-all",
@@ -730,6 +955,19 @@ export function StudioLayout() {
             </div>
           </div>
 
+          {/* Hotkey Helper Bar */}
+          <div className="px-3 py-1.5 bg-white/[0.02] border-b border-white/10 text-[9px] font-mono text-slate-400 flex items-center justify-between overflow-x-auto no-scrollbar">
+            <span className="flex items-center gap-1.5 font-bold text-slate-300">
+              <Zap size={10} style={{ color: activeColor }} /> Quick Sync Hotkeys:
+            </span>
+            <div className="flex items-center gap-2">
+              <span><kbd className="px-1 bg-white/10 rounded text-white">[</kbd> Start</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">]</kbd> End</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">Space</kbd> Play</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">↑↓</kbd> Select</span>
+            </div>
+          </div>
+
           {/* Editable Line List */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
             {lines.length === 0 ? (
@@ -740,22 +978,30 @@ export function StudioLayout() {
             ) : (
               lines.map((line, idx) => {
                 const isActive = currentTime >= line.startTime && currentTime <= line.endTime;
+                const isSelected = selectedLineId === line.id;
                 return (
                   <div
                     key={line.id}
+                    onClick={() => setSelectedLineId(line.id)}
                     className={cn(
-                      "p-3 rounded-lg border transition-all space-y-2 relative group",
-                      isActive
-                        ? "bg-white/[0.06] border-white/20 shadow-lg"
+                      "p-3 rounded-lg border transition-all space-y-2 relative group cursor-pointer",
+                      isSelected
+                        ? "bg-white/[0.08] border-white/30 shadow-xl"
+                        : isActive
+                        ? "bg-white/[0.04] border-white/20"
                         : "bg-white/[0.02] border-white/5 hover:border-white/10"
                     )}
-                    style={isActive ? { borderColor: `${activeColor}60` } : {}}
+                    style={isSelected ? { borderColor: activeColor } : (isActive ? { borderColor: `${activeColor}80` } : {})}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      {/* Timestamp Input */}
+                      {/* Line Badge & Timestamp Input */}
                       <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                          #{idx + 1}
+                        </span>
+
                         <button
-                          onClick={() => handleSeek(line.startTime)}
+                          onClick={(e) => { e.stopPropagation(); handleSeek(line.startTime); }}
                           className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer"
                           title="Seek audio to line start"
                         >
@@ -765,6 +1011,7 @@ export function StudioLayout() {
                         <input
                           type="text"
                           value={formatLRCStamp(line.startTime).replace('[', '').replace(']', '')}
+                          onClick={(e) => e.stopPropagation()}
                           onChange={(e) => {
                             const [m, s] = e.target.value.split(':');
                             if (m !== undefined && s !== undefined) {
@@ -776,10 +1023,67 @@ export function StudioLayout() {
                         />
                       </div>
 
+                      {/* Quick Sync & Nudge Controls */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLineTimeChange(line.id, currentTime);
+                          }}
+                          className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 border border-white/15 rounded text-[9px] font-mono font-bold text-emerald-300 hover:text-white cursor-pointer transition-all active:scale-95"
+                          title="Set start time to current playhead position (Shortcut: '[')"
+                        >
+                          Mark Start [
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const updated = lines.map(l => l.id === line.id ? { ...l, endTime: Math.max(l.startTime + 0.5, currentTime) } : l);
+                            updateLinesWithHistory(updated);
+                          }}
+                          className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 border border-white/15 rounded text-[9px] font-mono font-bold text-cyan-300 hover:text-white cursor-pointer transition-all active:scale-95"
+                          title="Set end time to current playhead position (Shortcut: ']')"
+                        >
+                          Mark End ]
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Micro-Nudge Row */}
+                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 pt-0.5 border-t border-white/5">
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-500 font-bold text-[8px]">NUDGE:</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime - 0.5); }}
+                          className="px-1 py-0.5 bg-white/5 hover:bg-white/15 rounded text-slate-300 cursor-pointer"
+                        >
+                          -0.5s
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime - 0.1); }}
+                          className="px-1 py-0.5 bg-white/5 hover:bg-white/15 rounded text-slate-300 cursor-pointer"
+                        >
+                          -0.1s
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime + 0.1); }}
+                          className="px-1 py-0.5 bg-white/5 hover:bg-white/15 rounded text-slate-300 cursor-pointer"
+                        >
+                          +0.1s
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime + 0.5); }}
+                          className="px-1 py-0.5 bg-white/5 hover:bg-white/15 rounded text-slate-300 cursor-pointer"
+                        >
+                          +0.5s
+                        </button>
+                      </div>
+
                       {/* Line Action Buttons */}
                       <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => handleSplitLine(idx)}
+                          onClick={(e) => { e.stopPropagation(); handleSplitLine(idx); }}
                           className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white cursor-pointer"
                           title="Split line into two"
                         >
@@ -787,7 +1091,7 @@ export function StudioLayout() {
                         </button>
 
                         <button
-                          onClick={() => handleMergeLine(idx)}
+                          onClick={(e) => { e.stopPropagation(); handleMergeLine(idx); }}
                           className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white cursor-pointer"
                           title="Merge with next line"
                         >
@@ -795,7 +1099,7 @@ export function StudioLayout() {
                         </button>
 
                         <button
-                          onClick={() => handleAddLine(idx)}
+                          onClick={(e) => { e.stopPropagation(); handleAddLine(idx); }}
                           className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white cursor-pointer"
                           title="Add new line below"
                         >
@@ -803,7 +1107,7 @@ export function StudioLayout() {
                         </button>
 
                         <button
-                          onClick={() => handleDeleteLine(line.id)}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteLine(line.id); }}
                           className="p-1 hover:bg-rose-500/20 rounded text-rose-400 hover:text-rose-300 cursor-pointer"
                           title="Delete line"
                         >
@@ -816,6 +1120,7 @@ export function StudioLayout() {
                     <input
                       type="text"
                       value={line.text}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => handleLineTextChange(line.id, e.target.value)}
                       className="w-full bg-black/30 border border-white/10 focus:border-white/20 rounded px-2.5 py-1.5 text-xs text-white font-medium outline-none"
                     />
@@ -829,36 +1134,56 @@ export function StudioLayout() {
 
       {/* AI PROCESSING PROGRESS MODAL */}
       {progress && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#09090d] border border-white/15 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5">
-            <div className="flex items-center gap-3">
-              <Sparkles size={20} style={{ color: activeColor }} className="animate-spin" />
-              <div>
-                <h3 className="text-xs font-mono font-black uppercase tracking-widest text-white">
-                  JOELIZER AI PROCESSING
-                </h3>
-                <p className="text-[10px] text-slate-400 font-mono mt-0.5">{progress.message}</p>
-              </div>
+        <div className="fixed inset-0 z-50 bg-[#020202]/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 transition-all">
+          <div className="flex flex-col items-center space-y-6 max-w-sm w-full">
+            {/* Minimal Spinner */}
+            <div className="relative flex items-center justify-center w-16 h-16">
+              <div 
+                className="absolute inset-0 rounded-full border border-white/5 animate-[spin_3s_linear_infinite]" 
+              />
+              <div 
+                className="absolute inset-0 rounded-full border-t border-r border-transparent animate-[spin_1.5s_cubic-bezier(0.4,0,0.2,1)_infinite]" 
+                style={{ borderTopColor: activeColor }}
+              />
+              <Sparkles size={18} style={{ color: activeColor }} className="animate-pulse" />
             </div>
 
-            {/* Progress Bar */}
-            <div className="space-y-1.5">
-              <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden relative">
-                <div 
-                  className="h-full transition-all duration-300 rounded-full"
-                  style={{ width: `${progress.percentage}%`, backgroundColor: activeColor }}
-                />
-              </div>
-              <div className="flex justify-between text-[9px] font-mono text-slate-400 font-bold">
-                <span>{progress.stage.toUpperCase()}</span>
-                <span>{progress.percentage}%</span>
-              </div>
+            <div className="text-center space-y-2 w-full">
+              <h3 className="text-[10px] font-mono font-black uppercase tracking-[0.3em] text-white">
+                JOELIZER AI
+              </h3>
+              <p className="text-[11px] text-slate-400 font-medium tracking-wide animate-pulse">
+                {progress.message}
+              </p>
+            </div>
+
+            {/* Ultra minimal progress bar */}
+            <div className="w-48 h-[2px] bg-white/10 rounded-full overflow-hidden">
+              <div 
+                className="h-full transition-all duration-500 ease-out rounded-full shadow-[0_0_10px_currentColor]"
+                style={{ width: `${progress.percentage}%`, backgroundColor: activeColor }}
+              />
+            </div>
+            
+            <div className="text-[9px] font-mono font-bold text-slate-500 tracking-widest uppercase">
+              {progress.percentage}%
             </div>
 
             {progress.error && (
-              <div className="p-3 bg-rose-950/40 border border-rose-800/50 rounded-lg text-rose-300 text-xs font-mono">
+              <div className="mt-4 px-4 py-2 bg-rose-950/20 border border-rose-900/50 rounded text-rose-400 text-[10px] font-mono text-center">
                 {progress.error}
               </div>
+            )}
+
+            {/* Cancel Generation Button */}
+            {progress.stage !== 'complete' && (
+              <button
+                onClick={cancelAIGeneration}
+                className="mt-4 px-4 py-2 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 hover:border-rose-500/50 text-rose-300 hover:text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95"
+              >
+                <XCircle size={15} />
+                <span>Cancel Generation</span>
+              </button>
             )}
           </div>
         </div>

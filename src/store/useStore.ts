@@ -1,4 +1,10 @@
 import { create } from 'zustand';
+import { 
+  saveAudioToStorage, 
+  loadAudioFromStorage, 
+  saveLyricsToStorage, 
+  loadLyricsFromStorage 
+} from '../lib/storage';
 
 export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5';
 
@@ -71,7 +77,7 @@ interface ProjectState {
   
   tracks: Track[];
   currentTrackIndex: number;
-  audioFile: File | null;
+  audioFile: File | Blob | null;
   audioDuration: number;
   audioUrl: string | null;
   albumArt: string | null;
@@ -82,14 +88,14 @@ interface ProjectState {
   isLooping: boolean;
   
   exportResolutionOverride: '1080p' | '720p' | '360p' | null;
-  activeTab: 'lyrics' | 'studio' | 'themes' | 'settings';
+  activeTab: 'lyrics' | 'studio';
   
   // Actions
   setName: (name: string) => void;
   setAspectRatio: (ratio: AspectRatio) => void;
-  setActiveTab: (tab: 'lyrics' | 'studio' | 'themes' | 'settings') => void;
+  setActiveTab: (tab: 'lyrics' | 'studio') => void;
   setExportResolutionOverride: (override: '1080p' | '720p' | '360p' | null) => void;
-  setAudio: (file: File, url: string, duration: number, albumArt: string | null) => void;
+  setAudio: (file: File | Blob, url: string, duration: number, albumArt: string | null) => void;
   setSelectedLayerId: (id: string | null) => void;
   
   updateVisualizerSettings: (settings: Partial<VisualizerSettings>) => void;
@@ -101,12 +107,15 @@ interface ProjectState {
   resetVisualizerSettings: () => void;
   
   setCurrentTime: (time: number) => void;
+  setAudioDuration: (duration: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setIsLooping: (looping: boolean) => void;
   
   nextTrack: () => void;
   previousTrack: () => void;
   selectTrack: (index: number) => void;
+  
+  initFromStorage: () => Promise<void>;
 }
 
 const defaultLayers: Layer[] = [
@@ -129,42 +138,10 @@ const defaultVisualizerSettings: VisualizerSettings = {
   showScanlines: false,
 };
 
-const defaultTracks: Track[] = [
-  {
-    id: 'track-1',
-    name: 'Retro Wave Horizon',
-    artist: 'SoundHelix',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    duration: 372,
-    albumArt: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop'
-  },
-  {
-    id: 'track-2',
-    name: 'Cybernetic Pulse',
-    artist: 'SoundHelix',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    duration: 425,
-    albumArt: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=200&auto=format&fit=crop'
-  },
-  {
-    id: 'track-3',
-    name: 'Ambient Nebulae',
-    artist: 'SoundHelix',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-    duration: 302,
-    albumArt: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=200&auto=format&fit=crop'
-  },
-  {
-    id: 'track-4',
-    name: 'Midnight Overdrive',
-    artist: 'SoundHelix',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
-    duration: 502,
-    albumArt: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=200&auto=format&fit=crop'
-  }
-];
+// Initial state starts with stored lyrics if available
+const initialLyrics = loadLyricsFromStorage() || [];
 
-export const useStore = create<ProjectState>((set) => ({
+export const useStore = create<ProjectState>((set, get) => ({
   name: '',
   aspectRatio: '16:9',
   layers: defaultLayers,
@@ -180,7 +157,7 @@ export const useStore = create<ProjectState>((set) => ({
   },
   
   lyricsSettings: {
-    lines: [],
+    lines: initialLyrics,
     font: 'Inter',
     color: '#ffffff',
     animationStyle: 'karaoke',
@@ -193,12 +170,12 @@ export const useStore = create<ProjectState>((set) => ({
     size: 0.15,
   },
   
-  tracks: defaultTracks,
+  tracks: [],
   currentTrackIndex: 0,
   audioFile: null,
-  audioDuration: defaultTracks[0].duration,
-  audioUrl: defaultTracks[0].url,
-  albumArt: defaultTracks[0].albumArt || null,
+  audioDuration: 0,
+  audioUrl: null,
+  albumArt: null,
   
   currentTime: 0,
   isPlaying: false,
@@ -210,37 +187,41 @@ export const useStore = create<ProjectState>((set) => ({
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
   setActiveTab: (activeTab) => set({ activeTab }),
   setExportResolutionOverride: (exportResolutionOverride) => set({ exportResolutionOverride }),
-  setAudio: (file, url, duration, albumArt) => set((state) => {
-    // When a custom audio file is uploaded, add it as a new track to the playlist or make it active
+  setAudio: (file, url, duration, albumArt) => {
+    const fileName = (file as File).name || 'Uploaded Track';
+    saveAudioToStorage(file, fileName, duration);
+
     const newTrack: Track = {
       id: `uploaded-${Date.now()}`,
-      name: file.name.replace(/\.[^/.]+$/, ""), // remove extension
-      artist: 'Uploaded File',
+      name: fileName.replace(/\.[^/.]+$/, ""),
+      artist: 'Uploaded Audio',
       url: url,
       duration: duration,
       albumArt: albumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop',
       isUserUploaded: true
     };
     
-    const updatedTracks = [...state.tracks, newTrack];
-    const newIndex = updatedTracks.length - 1;
-    
-    return {
-      tracks: updatedTracks,
-      currentTrackIndex: newIndex,
+    set((state) => ({
+      tracks: [newTrack],
+      currentTrackIndex: 0,
       audioFile: file,
       audioUrl: url,
       audioDuration: duration,
       albumArt: newTrack.albumArt || null,
       currentTime: 0,
-      isPlaying: true // play immediately
-    };
-  }),
+      isPlaying: false
+    }));
+  },
   setSelectedLayerId: (selectedLayerId) => set({ selectedLayerId }),
   
   updateVisualizerSettings: (updates) => set((state) => ({ visualizerSettings: { ...state.visualizerSettings, ...updates } })),
   updateBackgroundSettings: (updates) => set((state) => ({ backgroundSettings: { ...state.backgroundSettings, ...updates } })),
-  updateLyricsSettings: (updates) => set((state) => ({ lyricsSettings: { ...state.lyricsSettings, ...updates } })),
+  updateLyricsSettings: (updates) => {
+    if (updates.lines) {
+      saveLyricsToStorage(updates.lines);
+    }
+    set((state) => ({ lyricsSettings: { ...state.lyricsSettings, ...updates } }));
+  },
   updateLogoSettings: (updates) => set((state) => ({ logoSettings: { ...state.logoSettings, ...updates } })),
   
   updateLayerVisibility: (id, visible) => set((state) => ({
@@ -255,10 +236,12 @@ export const useStore = create<ProjectState>((set) => ({
   resetVisualizerSettings: () => set({ visualizerSettings: defaultVisualizerSettings }),
   
   setCurrentTime: (currentTime) => set({ currentTime }),
+  setAudioDuration: (audioDuration) => set({ audioDuration }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setIsLooping: (isLooping) => set({ isLooping }),
   
   nextTrack: () => set((state) => {
+    if (state.tracks.length === 0) return {};
     const nextIndex = (state.currentTrackIndex + 1) % state.tracks.length;
     const nextTrack = state.tracks[nextIndex];
     return {
@@ -267,12 +250,13 @@ export const useStore = create<ProjectState>((set) => ({
       audioDuration: nextTrack.duration,
       albumArt: nextTrack.albumArt || null,
       currentTime: 0,
-      isPlaying: true, // Auto-play next track
+      isPlaying: true,
       audioFile: nextTrack.isUserUploaded ? state.audioFile : null
     };
   }),
   
   previousTrack: () => set((state) => {
+    if (state.tracks.length === 0) return {};
     const prevIndex = state.currentTrackIndex === 0 ? state.tracks.length - 1 : state.currentTrackIndex - 1;
     const prevTrack = state.tracks[prevIndex];
     return {
@@ -281,7 +265,7 @@ export const useStore = create<ProjectState>((set) => ({
       audioDuration: prevTrack.duration,
       albumArt: prevTrack.albumArt || null,
       currentTime: 0,
-      isPlaying: true, // Auto-play previous track
+      isPlaying: true,
       audioFile: prevTrack.isUserUploaded ? state.audioFile : null
     };
   }),
@@ -299,4 +283,39 @@ export const useStore = create<ProjectState>((set) => ({
       audioFile: track.isUserUploaded ? state.audioFile : null
     };
   }),
+
+  initFromStorage: async () => {
+    const savedAudio = await loadAudioFromStorage();
+    if (savedAudio && savedAudio.blob) {
+      const url = URL.createObjectURL(savedAudio.blob);
+      const track: Track = {
+        id: 'stored-track',
+        name: savedAudio.name.replace(/\.[^/.]+$/, ""),
+        artist: 'Uploaded Audio',
+        url: url,
+        duration: savedAudio.duration,
+        albumArt: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop',
+        isUserUploaded: true
+      };
+      set({
+        audioFile: savedAudio.blob,
+        audioUrl: url,
+        audioDuration: savedAudio.duration,
+        tracks: [track],
+        currentTrackIndex: 0,
+        albumArt: track.albumArt || null
+      });
+    }
+
+    const savedLyrics = loadLyricsFromStorage();
+    if (savedLyrics && Array.isArray(savedLyrics) && savedLyrics.length > 0) {
+      set((state) => ({
+        lyricsSettings: {
+          ...state.lyricsSettings,
+          lines: savedLyrics
+        }
+      }));
+    }
+  }
 }));
+

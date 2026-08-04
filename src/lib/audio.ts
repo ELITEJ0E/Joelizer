@@ -52,8 +52,41 @@ export class AudioContextManager {
     return dataArray;
   }
 
+  play() {
+    if (this.audioEl) {
+      this.audioEl.play().catch(console.error);
+    }
+  }
+
+  pause() {
+    if (this.audioEl) {
+      this.audioEl.pause();
+    }
+  }
+
+  seek(time: number) {
+    if (this.audioEl) {
+      this.audioEl.currentTime = time;
+    }
+  }
+
+  setPlaybackRate(rate: number) {
+    if (this.audioEl) {
+      this.audioEl.playbackRate = rate;
+    }
+  }
+
+  setVolume(vol: number) {
+    if (this.audioEl) {
+      this.audioEl.volume = Math.max(0, Math.min(1, vol));
+    }
+  }
+
+  get currentTime() {
+    return this.audioEl ? this.audioEl.currentTime : 0;
+  }
+
   getMediaStream(): MediaStream | null {
-    if (!this.ctx || !this.analyser) return null;
     if (!this.dest) {
       this.dest = this.ctx.createMediaStreamDestination();
       this.analyser.connect(this.dest);

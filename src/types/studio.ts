@@ -29,11 +29,13 @@ export interface TranscriptionOptions {
   language?: string;
   prompt?: string;
   provider?: 'gemini' | 'whisperx' | 'faster_whisper' | 'openai';
+  signal?: AbortSignal;
 }
 
 export interface AlignmentOptions {
-  rawLyrics: string;
+  rawLyrics?: string;
   language?: string;
+  signal?: AbortSignal;
 }
 
 export interface TranscriptionResult {

@@ -81,8 +81,10 @@ export function drawStudioWaveform(
   currentTime: number,
   zoom: number,
   scrollOffset: number,
-  lyricTimes: number[],
-  activeColor = '#00e676'
+  lines: { id: string; startTime: number; endTime?: number; text: string }[],
+  activeColor = '#00e676',
+  selectedLineId?: string | null,
+  hoveredLineId?: string | null
 ) {
   ctx.clearRect(0, 0, width, height);
 
@@ -118,7 +120,7 @@ export function drawStudioWaveform(
 
   // Center vertical axis
   const centerY = height / 2;
-  const maxAmp = (height / 2) * 0.85;
+  const maxAmp = (height / 2) * 0.82;
 
   const numPeaks = waveformData.peaks.length;
   const secPerPeak = duration / numPeaks;
@@ -137,13 +139,13 @@ export function drawStudioWaveform(
     const x = ((peakTime - startSec) / visibleDuration) * width;
     const isPast = peakTime <= currentTime;
 
-    ctx.fillStyle = isPast ? activeColor : 'rgba(255, 255, 255, 0.25)';
+    ctx.fillStyle = isPast ? activeColor : 'rgba(255, 255, 255, 0.22)';
 
     // Mirror top & bottom
     ctx.fillRect(x, centerY - barHeight, Math.max(1.5, peakWidth - 1), barHeight * 2);
   }
 
-  // 2. Draw Beat Markers (subtle yellow dots/lines)
+  // 2. Draw Beat Markers (subtle yellow dots/lines at bottom)
   if (waveformData.beats && waveformData.beats.length > 0) {
     ctx.fillStyle = '#ffb74d';
     waveformData.beats.forEach(bTime => {
@@ -154,26 +156,45 @@ export function drawStudioWaveform(
     });
   }
 
-  // 3. Draw Lyric Timestamps (Neon Pins & Lines)
-  lyricTimes.forEach(lTime => {
+  // 3. Draw Lyric Timestamps (Interactive Pins & Badges)
+  lines.forEach((line, idx) => {
+    const lTime = line.startTime;
     if (lTime >= startSec && lTime <= endSec) {
       const lx = ((lTime - startSec) / visibleDuration) * width;
+      const isSelected = selectedLineId === line.id;
+      const isHovered = hoveredLineId === line.id;
 
-      // Vertical line
-      ctx.strokeStyle = activeColor;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([3, 3]);
+      const pinColor = isSelected ? '#ffffff' : (isHovered ? '#69f0ae' : activeColor);
+
+      // Vertical dashed line
+      ctx.strokeStyle = pinColor;
+      ctx.lineWidth = isSelected || isHovered ? 2 : 1.5;
+      ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(lx, 0);
       ctx.lineTo(lx, height);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Pin head
-      ctx.fillStyle = activeColor;
+      // Top Pin Badge with Line Number
+      const badgeText = `#${idx + 1}`;
+      ctx.font = 'bold 9px monospace';
+      const textWidth = ctx.measureText(badgeText).width;
+      const badgeW = textWidth + 10;
+      const badgeH = 16;
+      const badgeX = Math.min(Math.max(0, lx - badgeW / 2), width - badgeW);
+      const badgeY = 4;
+
+      ctx.fillStyle = isSelected ? '#ffffff' : '#09090d';
+      ctx.strokeStyle = pinColor;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(lx, 8, 4, 0, Math.PI * 2);
+      ctx.roundRect ? ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4) : ctx.rect(badgeX, badgeY, badgeW, badgeH);
       ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = isSelected ? '#000000' : pinColor;
+      ctx.fillText(badgeText, badgeX + 5, badgeY + 11);
     }
   });
 
@@ -199,7 +220,7 @@ export function drawStudioWaveform(
     ctx.beginPath();
     ctx.moveTo(px - 6, 0);
     ctx.lineTo(px + 6, 0);
-    ctx.lineTo(px, 10);
+    ctx.lineTo(px, 12);
     ctx.closePath();
     ctx.fill();
   }
