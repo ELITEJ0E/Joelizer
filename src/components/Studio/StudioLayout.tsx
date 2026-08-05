@@ -243,7 +243,17 @@ export function StudioLayout() {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea') return;
 
-      if (e.code === 'Space') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redo();
+      } else if (e.code === 'Space') {
         e.preventDefault();
         togglePlay();
       } else if (e.key === '[') {
@@ -293,7 +303,7 @@ export function StudioLayout() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedLineId, lines, currentTime, isPlaying, audioDuration]);
+  }, [selectedLineId, lines, currentTime, isPlaying, audioDuration, historyIndex, history, undo, redo]);
 
   // Auto-scroll selected lyric line into view
   useEffect(() => {
@@ -1055,6 +1065,7 @@ export function StudioLayout() {
               <span><kbd className="px-1 bg-white/10 rounded text-white">Enter</kbd> Start & Next</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">Space</kbd> Play</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">↑↓</kbd> Select</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">Ctrl+Z/Y</kbd> Undo/Redo</span>
             </div>
           </div>
 
