@@ -14,7 +14,7 @@ import { GeminiServerProvider, parseUploadedLyricFile, parseLRCContent, getActiv
 import { LyricLineWithWords, ProcessingProgress, ExportFormat, SongAnalysis } from '../../types/studio';
 import { generateLRC, generateEnhancedLRC, generateSRT, generateASS, generateJSON, generateTXT, generateZIP, downloadFile, formatLRCStamp } from '../../lib/lyricExporters';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
-import { SunoUrlModal } from '../Audio/SunoUrlModal';
+import { AudioSourceModal } from '../Audio/AudioSourceModal';
 
 export function StudioLayout() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -71,8 +71,8 @@ export function StudioLayout() {
   const [activeExportFormat, setActiveExportFormat] = useState<ExportFormat | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const { handleClose: handleCloseExportMenu } = usePopstateModal(showExportMenu, () => setShowExportMenu(false));
-  const [isSunoModalOpen, setIsSunoModalOpen] = useState(false);
-  const { handleClose: handleCloseSunoModal } = usePopstateModal(isSunoModalOpen, () => setIsSunoModalOpen(false));
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const { handleClose: handleCloseAudioModal } = usePopstateModal(isAudioModalOpen, () => setIsAudioModalOpen(false));
   const [copiedLRC, setCopiedLRC] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [mobileStudioTab, setMobileStudioTab] = useState<'waveform' | 'lyrics' | 'source'>('waveform');
@@ -781,28 +781,22 @@ export function StudioLayout() {
               {audioFile && <CheckCircle2 size={14} style={{ color: activeColor }} />}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <label className="border border-dashed border-white/15 hover:border-white/30 hover:bg-white/[0.04] rounded-lg p-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all">
-                <Upload size={18} className="text-slate-400" />
-                <div className="text-center">
-                  <span className="text-xs font-bold text-white block">Upload File</span>
-                  <span className="text-[9px] text-slate-500 font-mono">MP3, WAV, etc.</span>
-                </div>
-                <input type="file" accept="audio/*" className="hidden" onChange={handleAudioSelect} />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => setIsSunoModalOpen(true)}
-                className="border border-dashed border-white/15 hover:border-white/30 hover:bg-white/[0.04] rounded-lg p-3 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group"
+            <button
+              type="button"
+              onClick={() => setIsAudioModalOpen(true)}
+              className="w-full border border-dashed border-white/15 hover:border-white/30 hover:bg-white/[0.04] rounded-lg p-3.5 flex items-center justify-center gap-3 transition-all cursor-pointer group"
+            >
+              <div 
+                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform"
+                style={{ color: activeColor }}
               >
-                <Link2 size={18} style={{ color: activeColor }} className="opacity-80 group-hover:opacity-100" />
-                <div className="text-center">
-                  <span className="text-xs font-bold text-white block">Suno / URL</span>
-                  <span className="text-[9px] text-slate-500 font-mono">Import Link</span>
-                </div>
-              </button>
-            </div>
+                <Music size={16} />
+              </div>
+              <div className="text-left flex-1 min-w-0">
+                <span className="text-xs font-bold text-white block">Load Audio Track</span>
+                <span className="text-[9px] text-slate-400 font-mono">Upload local file or paste audio link</span>
+              </div>
+            </button>
 
             {audioFile ? (
               <div className="bg-white/5 rounded-lg p-2.5 flex items-center gap-2.5 border border-white/10">
@@ -1534,10 +1528,10 @@ export function StudioLayout() {
           </div>
         </div>
       )}
-      {/* Suno URL Loader Modal */}
-      <SunoUrlModal
-        isOpen={isSunoModalOpen}
-        onClose={handleCloseSunoModal}
+      {/* Audio Source Modal (File upload & URL paste) */}
+      <AudioSourceModal
+        isOpen={isAudioModalOpen}
+        onClose={handleCloseAudioModal}
         onLyricsExtracted={(lyrics) => setRawUploadedLyrics(lyrics)}
       />
     </div>

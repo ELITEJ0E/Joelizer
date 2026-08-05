@@ -229,6 +229,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       }
     };
 
+    let isExportFinished = false;
+
     finalRecorder.onerror = () => {
       if (audioEl) {
         audioEl.playbackRate = 1.0;
@@ -240,7 +242,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
 
     const handlePauseDuringExport = () => {
-      if (!isCancelledRef.current && audioEl && audioEl.paused) {
+      if (!isExportFinished && !isCancelledRef.current && audioEl && audioEl.paused) {
         audioEl.play().catch(() => {});
       }
     };
@@ -260,34 +262,56 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     
     const pStartTime = performance.now();
     
-    const monitorProgress = () => {
-      if (isCancelledRef.current) return;
-      if (finalRecorder.state === 'inactive') return;
+    const finishExport = () => {
+      if (isExportFinished) return;
+      isExportFinished = true;
 
-      // Ensure audio stays playing at exportSpeed
-      if (audioEl) {
-        if (audioEl.playbackRate !== exportSpeed) {
-          audioEl.playbackRate = exportSpeed;
-        }
-        if (audioEl.paused && !isCancelledRef.current) {
-          audioEl.play().catch(() => {});
-        }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
       }
 
-      const elapsed = audioEl ? audioEl.currentTime : ((performance.now() - pStartTime) / 1000) * exportSpeed;
-      setProgress(Math.min((elapsed / audioDuration) * 100, 100));
-      
-      if (elapsed >= audioDuration || (audioEl && audioEl.ended)) {
-        if (audioEl) {
-          audioEl.playbackRate = 1.0;
-          audioEl.removeEventListener('pause', handlePauseDuringExport);
-        }
-        if (!isCancelledRef.current && (finalRecorder.state as string) !== 'inactive') {
+      if (audioEl) {
+        audioEl.playbackRate = 1.0;
+        audioEl.removeEventListener('pause', handlePauseDuringExport);
+        audioEl.pause();
+      }
+
+      setProgress(100);
+
+      if (!isCancelledRef.current && finalRecorder.state !== 'inactive') {
+        try {
           finalRecorder.stop();
+        } catch (e) {
+          console.warn('Final recorder stop error:', e);
         }
-        setIsPlaying(false);
-        setExportResolutionOverride(null);
+      }
+      setIsPlaying(false);
+      setExportResolutionOverride(null);
+    };
+
+    const monitorProgress = () => {
+      if (isCancelledRef.current || isExportFinished) return;
+      if (finalRecorder.state === 'inactive') return;
+
+      const realElapsed = ((performance.now() - pStartTime) / 1000) * exportSpeed;
+      const audioElapsed = audioEl ? audioEl.currentTime : realElapsed;
+      const effectiveElapsed = Math.max(audioElapsed, realElapsed);
+
+      const currentProgress = Math.min((effectiveElapsed / (audioDuration || 180)) * 100, 100);
+      setProgress(currentProgress);
+
+      if (effectiveElapsed >= (audioDuration || 180) - 0.25 || (audioEl && (audioEl.ended || audioEl.currentTime >= (audioDuration || 180) - 0.25))) {
+        finishExport();
       } else {
+        if (audioEl && !isExportFinished) {
+          if (audioEl.playbackRate !== exportSpeed) {
+            audioEl.playbackRate = exportSpeed;
+          }
+          if (audioEl.paused && !isCancelledRef.current) {
+            audioEl.play().catch(() => {});
+          }
+        }
         animFrameRef.current = requestAnimationFrame(monitorProgress);
       }
     };

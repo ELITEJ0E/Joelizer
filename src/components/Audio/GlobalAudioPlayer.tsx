@@ -112,6 +112,7 @@ export function GlobalAudioPlayer() {
     <audio
       ref={audioRef}
       src={audioUrl || undefined}
+      crossOrigin="anonymous"
       preload="auto"
       onPlay={() => setIsPlaying(true)}
       onPause={() => setIsPlaying(false)}
@@ -126,6 +127,9 @@ export function GlobalAudioPlayer() {
         }
       }}
       onEnded={() => {
+        if (useStore.getState().exportResolutionOverride) {
+          return;
+        }
         if (isLooping) {
           if (audioRef.current) {
             audioRef.current.currentTime = 0;

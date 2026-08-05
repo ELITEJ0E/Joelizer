@@ -77,8 +77,8 @@ async function startServer() {
         const pageUrl = `https://suno.com/song/${songId}`;
         const audioUrl = `https://cdn1.suno.ai/${songId}.mp3`;
         let imageUrl = `https://cdn2.suno.ai/image_large_${songId}.jpeg`;
-        let title = 'Suno Song';
-        let artist = 'Suno AI';
+        let title = 'Online Song';
+        let artist = 'Online Track';
         let lyrics = '';
         let tags = '';
 
@@ -168,7 +168,7 @@ async function startServer() {
         });
       }
 
-      return res.status(400).json({ error: 'Invalid URL. Please enter a valid Suno link (e.g. https://suno.com/song/...) or direct audio URL.' });
+      return res.status(400).json({ error: 'Invalid URL. Please enter a valid track link or direct audio URL.' });
     } catch (err: any) {
       console.error('Suno Info API Error:', err);
       return res.status(500).json({ error: 'Failed to process song URL' });
