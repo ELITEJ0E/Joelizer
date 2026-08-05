@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
-import { Download, Sparkles, Music } from 'lucide-react';
+import { Download, Sparkles, Music, Link2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { TemplatesModal } from './TemplatesModal';
+import { SunoUrlModal } from '../Audio/SunoUrlModal';
 
 export function TopBar({ onExport }: { onExport: () => void }) {
   const name = useStore(s => s.name);
@@ -14,6 +15,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const setActiveTab = useStore(s => s.setActiveTab);
   
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isSunoModalOpen, setIsSunoModalOpen] = useState(false);
   const [isExportHovered, setIsExportHovered] = useState(false);
 
   const ratios: { id: AspectRatio; icon: string; label: string }[] = [
@@ -182,8 +184,18 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           </select>
         </div>
 
+        {/* Suno / Audio URL Link Button */}
+        <button
+          onClick={() => setIsSunoModalOpen(true)}
+          className="cursor-pointer px-1.5 sm:px-3 py-1 sm:py-1.5 bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-glass active:scale-95 flex items-center gap-1 shadow-sm shrink-0"
+          title="Load Suno Song or Audio URL"
+        >
+          <Link2 size={11} style={{ color: activeColor }} className="opacity-80 group-hover:opacity-100 transition-opacity" />
+          <span className="hidden min-[480px]:inline">Suno / Link</span>
+        </button>
+
         {/* Audio Upload */}
-        <label className="cursor-pointer px-1.5 sm:px-3 py-1 sm:py-1.5 bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-glass active:scale-95 flex items-center gap-1 shadow-sm shrink-0" title="Load Audio">
+        <label className="cursor-pointer px-1.5 sm:px-3 py-1 sm:py-1.5 bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-glass active:scale-95 flex items-center gap-1 shadow-sm shrink-0" title="Load Audio File">
           <Music size={11} style={{ color: activeColor }} className="opacity-80 group-hover:opacity-100 transition-opacity" />
           <span className="hidden min-[480px]:inline">Audio</span>
           <input type="file" accept="audio/*" className="hidden" onChange={handleAudioUpload} />
@@ -211,6 +223,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
       </div>
 
       <TemplatesModal isOpen={isTemplatesOpen} onClose={() => setIsTemplatesOpen(false)} />
+      <SunoUrlModal isOpen={isSunoModalOpen} onClose={() => setIsSunoModalOpen(false)} />
     </div>
   );
 }

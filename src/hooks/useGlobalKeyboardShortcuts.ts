@@ -9,6 +9,11 @@ import { audioManager } from '../lib/audio';
 export function useGlobalKeyboardShortcuts() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore keyboard shortcuts if video export is active
+      if (useStore.getState().exportResolutionOverride) {
+        return;
+      }
+
       // Ignore if user is typing in an input, textarea, or contentEditable element
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();

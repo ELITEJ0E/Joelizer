@@ -59,6 +59,122 @@ async function startServer() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
+  // Suno Song / Audio URL resolver endpoint
+  app.post('/api/suno-info', async (req, res) => {
+    try {
+      const { url } = req.body;
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: 'URL is required' });
+      }
+
+      const trimmedUrl = url.trim();
+
+      // Check if URL contains a Suno UUID
+      const uuidMatch = trimmedUrl.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+
+      if (uuidMatch) {
+        const songId = uuidMatch[0].toLowerCase();
+        const pageUrl = `https://suno.com/song/${songId}`;
+        const audioUrl = `https://cdn1.suno.ai/${songId}.mp3`;
+        let imageUrl = `https://cdn2.suno.ai/image_large_${songId}.jpeg`;
+        let title = 'Suno Song';
+        let artist = 'Suno AI';
+        let lyrics = '';
+        let tags = '';
+
+        try {
+          const fetchRes = await fetch(pageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
+
+          if (fetchRes.ok) {
+            const html = await fetchRes.text();
+
+            // Extract title
+            const titleMatch = html.match(/"title":"([^"]+)"/);
+            const ogTitleMatch = html.match(/property="og:title"\s+content="([^"]+)"/i) || html.match(/content="([^"]+)"\s+property="og:title"/i);
+            if (titleMatch && titleMatch[1] && titleMatch[1] !== 'Suno') {
+              title = titleMatch[1];
+            } else if (ogTitleMatch && ogTitleMatch[1]) {
+              title = ogTitleMatch[1];
+            }
+
+            // Extract artist
+            const descMatch = html.match(/property="og:description"\s+content="([^"]+)"/i) || html.match(/content="([^"]+)"\s+property="og:description"/i);
+            if (descMatch && descMatch[1]) {
+              const byMatch = descMatch[1].match(/by ([^(@]+)/);
+              if (byMatch) {
+                artist = byMatch[1].trim();
+              }
+            }
+
+            // Extract OG image
+            const ogImageMatch = html.match(/property="og:image"\s+content="([^"]+)"/i) || html.match(/content="([^"]+)"\s+property="og:image"/i);
+            if (ogImageMatch && ogImageMatch[1]) {
+              imageUrl = ogImageMatch[1];
+            }
+
+            // Extract prompt / lyrics from JSON stream
+            const promptMatch = html.match(/\\?"prompt\\?":\s*\\?"((?:\\\\"|[^"])*)\\?"/);
+            if (promptMatch && promptMatch[1]) {
+              lyrics = promptMatch[1]
+                .replace(/\\\\n/g, '\n')
+                .replace(/\\n/g, '\n')
+                .replace(/\\"/g, '"')
+                .trim();
+            }
+
+            // Extract tags
+            const tagsMatch = html.match(/\\?"tags\\?":\s*\\?"((?:\\\\"|[^"])*)\\?"/);
+            if (tagsMatch && tagsMatch[1]) {
+              tags = tagsMatch[1]
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\')
+                .trim();
+            }
+          }
+        } catch (e) {
+          console.warn('Suno page fetch warning:', e);
+        }
+
+        return res.json({
+          id: songId,
+          title,
+          artist,
+          audioUrl,
+          imageUrl,
+          lyrics,
+          tags,
+          source: 'suno'
+        });
+      }
+
+      // Direct MP3 or generic stream audio URL
+      if (trimmedUrl.match(/\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i) || trimmedUrl.startsWith('http')) {
+        const urlParts = trimmedUrl.split('/');
+        const rawFileName = urlParts[urlParts.length - 1].split('?')[0] || 'Remote Track';
+        const cleanName = decodeURIComponent(rawFileName).replace(/[-_]/g, ' ');
+        return res.json({
+          id: `url-${Date.now()}`,
+          title: cleanName,
+          artist: 'Online Source',
+          audioUrl: trimmedUrl,
+          imageUrl: null,
+          lyrics: '',
+          tags: '',
+          source: 'direct'
+        });
+      }
+
+      return res.status(400).json({ error: 'Invalid URL. Please enter a valid Suno link (e.g. https://suno.com/song/...) or direct audio URL.' });
+    } catch (err: any) {
+      console.error('Suno Info API Error:', err);
+      return res.status(500).json({ error: 'Failed to process song URL' });
+    }
+  });
+
   // 2. Audio Transcription endpoint (Audio -> Synchronized LRC JSON)
   app.post('/api/transcribe', async (req, res) => {
     try {

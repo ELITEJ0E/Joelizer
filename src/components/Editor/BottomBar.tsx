@@ -24,6 +24,7 @@ export function BottomBar() {
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setIsLooping = useStore(s => s.setIsLooping);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+  const isExporting = useStore(s => s.exportResolutionOverride !== null);
   
   const [volume, setVolume] = useState(1);
   const [showPlaylist, setShowPlaylist] = useState(false);
@@ -132,6 +133,7 @@ export function BottomBar() {
               color: 'rgba(255,255,255,0.3)'
             }}
             onClick={() => {
+              if (isExporting) return;
               setIsPlaying(!isPlaying);
               if (!isPlaying) {
                  const audioCtx = (window as any).webkitAudioContext || window.AudioContext;
@@ -140,7 +142,7 @@ export function BottomBar() {
                  }
               }
             }}
-            disabled={!audioUrl}
+            disabled={!audioUrl || isExporting}
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? <Pause size={16} className="fill-current sm:w-[18px] sm:h-[18px]" /> : <Play size={16} className="fill-current ml-0.5 sm:w-[18px] sm:h-[18px]" />}

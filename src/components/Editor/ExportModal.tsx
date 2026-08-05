@@ -17,6 +17,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [resolution, setResolution] = useState<'360p' | '720p' | '1080p'>('720p');
   const [fps, setFps] = useState<15 | 30 | 60>(30);
   const [bitrate, setBitrate] = useState<1500000 | 4000000 | 8000000>(4000000);
+  const [exportSpeed, setExportSpeed] = useState<1 | 1.5 | 2 | 3>(2); // Default to 2x Turbo Speed for fast export
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const isCancelledRef = useRef<boolean>(false);
@@ -30,6 +31,26 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const setExportResolutionOverride = useStore(s => s.setExportResolutionOverride);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+
+  // Apply Quick Presets
+  const applyPreset = (preset: 'turbo' | 'balanced' | 'quality') => {
+    if (preset === 'turbo') {
+      setResolution('360p');
+      setFps(30);
+      setExportSpeed(3);
+      setBitrate(1500000);
+    } else if (preset === 'balanced') {
+      setResolution('720p');
+      setFps(30);
+      setExportSpeed(2);
+      setBitrate(4000000);
+    } else if (preset === 'quality') {
+      setResolution('1080p');
+      setFps(60);
+      setExportSpeed(1);
+      setBitrate(8000000);
+    }
+  };
 
   useEffect(() => {
     // Scale and fade in the export modal card
@@ -50,7 +71,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     });
 
     return () => {
-      // Ensure export is safely cancelled and override is cleared on unmount
+      // Ensure export is safely cancelled and override & playback speed are cleared on unmount
+      const audioEl = document.querySelector('audio');
+      if (audioEl) {
+        audioEl.playbackRate = 1.0;
+      }
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {
         isCancelledRef.current = true;
         try {
@@ -68,6 +93,12 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
     }
+
+    const audioEl = document.querySelector('audio');
+    if (audioEl) {
+      audioEl.playbackRate = 1.0;
+    }
+
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       recorderRef.current.onstop = null; // Prevent file download
       try {
@@ -165,6 +196,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
     
     finalRecorder.onstop = () => {
+      if (audioEl) {
+        audioEl.playbackRate = 1.0;
+        audioEl.removeEventListener('pause', handlePauseDuringExport);
+      }
       if (isCancelledRef.current) return;
       setExportResolutionOverride(null);
       const rawBlob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
@@ -195,15 +230,27 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
 
     finalRecorder.onerror = () => {
+      if (audioEl) {
+        audioEl.playbackRate = 1.0;
+        audioEl.removeEventListener('pause', handlePauseDuringExport);
+      }
       if (isCancelledRef.current) return;
       setExportResolutionOverride(null);
       setIsExporting(false);
     };
+
+    const handlePauseDuringExport = () => {
+      if (!isCancelledRef.current && audioEl && audioEl.paused) {
+        audioEl.play().catch(() => {});
+      }
+    };
     
-    // Start playback and recording
+    // Start playback and recording with chosen export speed
     const audioEl = document.querySelector('audio');
     if (audioEl) {
       audioEl.currentTime = 0;
+      audioEl.playbackRate = exportSpeed;
+      audioEl.addEventListener('pause', handlePauseDuringExport);
       audioEl.play().catch(e => console.warn('Export auto-play:', e));
     }
     setCurrentTime(0);
@@ -217,15 +264,24 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       if (isCancelledRef.current) return;
       if (finalRecorder.state === 'inactive') return;
 
-      // Keep audio element playing during export if it paused
-      if (audioEl && audioEl.paused && !isCancelledRef.current) {
-        audioEl.play().catch(() => {});
+      // Ensure audio stays playing at exportSpeed
+      if (audioEl) {
+        if (audioEl.playbackRate !== exportSpeed) {
+          audioEl.playbackRate = exportSpeed;
+        }
+        if (audioEl.paused && !isCancelledRef.current) {
+          audioEl.play().catch(() => {});
+        }
       }
 
-      const elapsed = audioEl ? audioEl.currentTime : (performance.now() - pStartTime) / 1000;
+      const elapsed = audioEl ? audioEl.currentTime : ((performance.now() - pStartTime) / 1000) * exportSpeed;
       setProgress(Math.min((elapsed / audioDuration) * 100, 100));
       
       if (elapsed >= audioDuration || (audioEl && audioEl.ended)) {
+        if (audioEl) {
+          audioEl.playbackRate = 1.0;
+          audioEl.removeEventListener('pause', handlePauseDuringExport);
+        }
         if (!isCancelledRef.current && (finalRecorder.state as string) !== 'inactive') {
           finalRecorder.stop();
         }
@@ -369,6 +425,86 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               />
             </div>
 
+            {/* Quick Speed Presets */}
+            <div className="export-modal-item-anim space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Quick Render Presets</label>
+                <span className="text-[8px] font-mono text-emerald-400 font-bold uppercase tracking-wider">Fast Encoding Engine Active</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => applyPreset('turbo')}
+                  className={cn(
+                    "py-2 px-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-0.5",
+                    resolution === '360p' && exportSpeed === 3
+                      ? "bg-white/10 border-emerald-500/60 text-white shadow-md"
+                      : "bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03] hover:text-white"
+                  )}
+                >
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">⚡ Ultra Draft</span>
+                  <span className="text-[8px] font-mono text-slate-400">360p @ 3x Turbo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyPreset('balanced')}
+                  className={cn(
+                    "py-2 px-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-0.5",
+                    resolution === '720p' && exportSpeed === 2
+                      ? "bg-white/10 border-white/30 text-white shadow-md"
+                      : "bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03] hover:text-white"
+                  )}
+                  style={resolution === '720p' && exportSpeed === 2 ? { borderColor: `${activeColor}60` } : {}}
+                >
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-white flex items-center gap-1">🚀 Balanced HD</span>
+                  <span className="text-[8px] font-mono text-slate-400">720p @ 2x Speed</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyPreset('quality')}
+                  className={cn(
+                    "py-2 px-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-0.5",
+                    resolution === '1080p' && exportSpeed === 1
+                      ? "bg-white/10 border-purple-500/60 text-white shadow-md"
+                      : "bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03] hover:text-white"
+                  )}
+                >
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1">💎 Pro Studio</span>
+                  <span className="text-[8px] font-mono text-slate-400">1080p @ 1x Speed</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Export Speed Acceleration Selector */}
+            <div className="export-modal-item-anim space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Export Speed Multiplier</label>
+                <span className="text-[8px] font-mono text-slate-400">Speeds up encoding time by up to 3x</span>
+              </div>
+              <div className="flex gap-2">
+                {([1, 1.5, 2, 3] as const).map((spd) => (
+                  <button 
+                    key={spd}
+                    onClick={() => setExportSpeed(spd)}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer flex flex-col items-center justify-center gap-0.5",
+                      exportSpeed === spd
+                        ? "text-white shadow-md border-white/20"
+                        : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
+                    )}
+                    style={exportSpeed === spd ? {
+                      backgroundColor: `${activeColor}15`,
+                      borderColor: `${activeColor}50`,
+                    } : {}}
+                  >
+                    <span>{spd === 1 ? '1.0x Realtime' : spd === 1.5 ? '1.5x Fast' : spd === 2 ? '2.0x Turbo' : '3.0x Ultra'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Container Format & Resolution Side-by-Side */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="export-modal-item-anim space-y-2">
@@ -488,7 +624,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 <p className="text-[9.5px] text-slate-400 leading-relaxed font-medium uppercase tracking-wider">
                   {perfInfo.desc} 
                   <br/>
-                  <span className="text-slate-500 font-mono mt-1 block">EST. ELAPSED TIME FOR ENCODING: {Math.round(audioDuration)}s</span>
+                  <span className="text-slate-500 font-mono mt-1 block">
+                    EST. ENCODING TIME: ~{Math.round((audioDuration || 0) / exportSpeed)}s ({exportSpeed}x SPEED ACCELERATION)
+                  </span>
                 </p>
               </div>
             </div>
