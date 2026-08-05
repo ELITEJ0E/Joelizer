@@ -258,6 +258,18 @@ export function StudioLayout() {
         if (selectedLineId) {
           handleMarkEnd(selectedLineId, currentTime);
         }
+      } else if (e.code === 'Enter' || e.key === 'Enter') {
+        e.preventDefault();
+        if (lines.length === 0) return;
+        const currentIdx = lines.findIndex(l => l.id === selectedLineId);
+        const targetIdx = currentIdx !== -1 ? currentIdx : 0;
+        const targetLine = lines[targetIdx];
+        if (targetLine) {
+          handleMarkStart(targetLine.id, currentTime);
+          if (targetIdx < lines.length - 1) {
+            setSelectedLineId(lines[targetIdx + 1].id);
+          }
+        }
       } else if (e.code === 'ArrowUp') {
         e.preventDefault();
         if (lines.length === 0) return;
@@ -282,6 +294,16 @@ export function StudioLayout() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedLineId, lines, currentTime, isPlaying, audioDuration]);
+
+  // Auto-scroll selected lyric line into view
+  useEffect(() => {
+    if (selectedLineId) {
+      const el = document.getElementById(`lyric-line-${selectedLineId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [selectedLineId]);
 
   // Auto-scroll waveform playhead
   useEffect(() => {
@@ -1023,13 +1045,14 @@ export function StudioLayout() {
           </div>
 
           {/* Hotkey Helper Bar */}
-          <div className="px-3 py-1.5 bg-white/[0.02] border-b border-white/10 text-[9px] font-mono text-slate-400 flex items-center justify-between overflow-x-auto no-scrollbar">
-            <span className="flex items-center gap-1.5 font-bold text-slate-300">
+          <div className="px-3 py-1.5 bg-white/[0.02] border-b border-white/10 text-[9px] font-mono text-slate-400 flex items-center justify-between overflow-x-auto no-scrollbar gap-2">
+            <span className="flex items-center gap-1.5 font-bold text-slate-300 shrink-0">
               <Zap size={10} style={{ color: activeColor }} /> Quick Sync Hotkeys:
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <span><kbd className="px-1 bg-white/10 rounded text-white">[</kbd> Start</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">]</kbd> End</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">Enter</kbd> Start & Next</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">Space</kbd> Play</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">↑↓</kbd> Select</span>
             </div>
@@ -1050,6 +1073,7 @@ export function StudioLayout() {
                 return (
                   <div
                     key={line.id}
+                    id={`lyric-line-${line.id}`}
                     onClick={() => setSelectedLineId(line.id)}
                     className={cn(
                       "p-3 rounded-lg border transition-all space-y-2 relative group cursor-pointer",
