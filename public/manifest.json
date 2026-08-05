@@ -1,17 +1,12 @@
 {
   "short_name": "Joelizer",
-  "name": "Joelizer Music Visualizer",
-  "description": "An immersive cinematic audio and lyrics visualizer with custom renderers, particle simulations, and real-time motion trails.",
+  "name": "Joelizer AI Music & Lyrics Studio",
+  "description": "An immersive cinematic audio and lyrics visualizer with custom renderers, AI transcription, and real-time motion trails.",
   "icons": [
     {
-      "src": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=192&h=192&fit=crop",
-      "type": "image/jpeg",
-      "sizes": "192x192"
-    },
-    {
-      "src": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=512&h=512&fit=crop",
-      "type": "image/jpeg",
-      "sizes": "512x512"
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
     }
   ],
   "start_url": "/",

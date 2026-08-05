@@ -536,6 +536,46 @@ export function Preview() {
           const lineHeight = fontSize * 1.35;
           const totalHeight = (lines.length - 1) * lineHeight;
           const startY = (h / 2) - (totalHeight / 2);
+
+          // Draw background box for lyrics lines if set
+          const hasBg = lyricsSettings.backgroundColor && 
+                        lyricsSettings.backgroundColor !== 'transparent' && 
+                        lyricsSettings.backgroundColor !== 'rgba(0,0,0,0)';
+
+          if (hasBg) {
+            lines.forEach((line, index) => {
+              const lineY = startY + (index * lineHeight);
+              const lineTextWidth = ctx.measureText(line).width;
+              const paddingX = fontSize * 0.45;
+              const paddingY = fontSize * 0.2;
+              const boxWidth = lineTextWidth + (paddingX * 2);
+              const boxHeight = fontSize + (paddingY * 2);
+              const boxX = (w / 2) - (boxWidth / 2);
+              const boxY = lineY - (fontSize / 2) - paddingY;
+              const radius = Math.min(16, fontSize * 0.35);
+
+              ctx.save();
+              if (lyricsSettings.animationStyle !== 'karaoke') {
+                let alpha = 1;
+                const fadeTime = 0.3;
+                if (currentTime - currentLine.startTime < fadeTime) {
+                  alpha = (currentTime - currentLine.startTime) / fadeTime;
+                } else if (currentLine.endTime - currentTime < fadeTime) {
+                  alpha = (currentLine.endTime - currentTime) / fadeTime;
+                }
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+              }
+              ctx.fillStyle = lyricsSettings.backgroundColor!;
+              ctx.beginPath();
+              if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(boxX, boxY, boxWidth, boxHeight, radius);
+              } else {
+                ctx.rect(boxX, boxY, boxWidth, boxHeight);
+              }
+              ctx.fill();
+              ctx.restore();
+            });
+          }
           
           if (lyricsSettings.animationStyle === 'karaoke') {
             const progress = (currentTime - currentLine.startTime) / (currentLine.endTime - currentLine.startTime);

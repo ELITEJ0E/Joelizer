@@ -44,11 +44,41 @@ export function GlobalAudioPlayer() {
     }
   }, [isLooping]);
 
+  // Sync MediaSession metadata and action handlers for browser/keyboard/bluetooth controls
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Joelizer Music Track',
+        artist: 'Joelizer Studio',
+        album: 'AI Music & Lyrics',
+        artwork: [
+          { src: '/favicon.svg', sizes: '512x512', type: 'image/svg+xml' }
+        ]
+      });
+
+      try {
+        navigator.mediaSession.setActionHandler('play', () => {
+          setIsPlaying(true);
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          setIsPlaying(false);
+        });
+        navigator.mediaSession.setActionHandler('stop', () => {
+          setIsPlaying(false);
+        });
+      } catch (err) {
+        console.warn('MediaSession handler setup:', err);
+      }
+    }
+  }, [setIsPlaying]);
+
   return (
     <audio
       ref={audioRef}
       src={audioUrl || undefined}
       preload="auto"
+      onPlay={() => setIsPlaying(true)}
+      onPause={() => setIsPlaying(false)}
       onTimeUpdate={() => {
         if (audioRef.current) {
           setCurrentTime(audioRef.current.currentTime);

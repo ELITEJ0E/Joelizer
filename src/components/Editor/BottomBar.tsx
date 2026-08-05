@@ -43,7 +43,7 @@ export function BottomBar() {
   const currentTrack = tracks[currentTrackIndex];
 
   return (
-    <footer className="h-24 bg-[#09090b] border-t border-white/5 flex flex-col relative z-20">
+    <footer className="sticky bottom-0 left-0 right-0 z-30 shrink-0 w-full bg-[#09090b] border-t border-white/10 flex flex-col shadow-2xl py-2 px-3 sm:px-6">
       {/* Absolute high-tech accent line */}
       <div 
         className="absolute top-0 left-0 right-0 h-[1.5px] transition-all duration-500" 
@@ -52,128 +52,127 @@ export function BottomBar() {
         }}
       />
       
-      <div className="flex-1 flex items-center justify-between px-4 sm:px-6 gap-4">
+      {/* Top progress bar for mobile & desktop */}
+      <div className="w-full flex items-center gap-2 mb-1">
+        <span 
+          className="text-[9px] sm:text-[10px] font-mono font-bold w-8 sm:w-9 text-right tabular-nums transition-colors shrink-0"
+          style={{ color: audioUrl ? activeColor : 'rgba(255,255,255,0.3)' }}
+        >
+          {formatTime(currentTime)}
+        </span>
+        <Scrubber 
+          value={currentTime}
+          min={0}
+          max={audioDuration || 100}
+          step={0.01}
+          onChange={(time) => {
+            audioManager.seek(time);
+            setCurrentTime(time);
+          }}
+          disabled={!audioUrl}
+          formatTooltip={formatTime}
+          className="flex-1"
+        />
+        <span className="text-[9px] sm:text-[10px] font-mono font-bold w-8 sm:w-9 text-slate-400 tabular-nums shrink-0">
+          {formatTime(audioDuration)}
+        </span>
+      </div>
+
+      {/* Control row */}
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
         
         {/* Left Side: Audio Meta */}
-        <div className="flex items-center gap-3 w-1/4 min-w-[150px] sm:min-w-[200px]">
+        <div className="flex items-center gap-2 min-w-0 max-w-[120px] sm:max-w-[200px] shrink-0">
           {/* Minimal visual equalizer overlay when playing */}
           {isPlaying && (
-            <div className="flex items-end gap-0.5 h-3 w-3.5 flex-shrink-0 mb-0.5">
+            <div className="flex items-end gap-0.5 h-3 w-3 flex-shrink-0 mb-0.5">
               <span className="w-[1.5px] bg-current rounded-full animate-bounce h-1.5" style={{ color: activeColor, animationDelay: '0.1s', animationDuration: '0.6s' }} />
               <span className="w-[1.5px] bg-current rounded-full animate-bounce h-3" style={{ color: activeColor, animationDelay: '0.3s', animationDuration: '0.8s' }} />
               <span className="w-[1.5px] bg-current rounded-full animate-bounce h-2" style={{ color: activeColor, animationDelay: '0.5s', animationDuration: '0.7s' }} />
             </div>
           )}
-          <div className="overflow-hidden">
+          <div className="overflow-hidden min-w-0">
             {currentTrack ? (
               <>
-                <p className="text-xs font-extrabold text-white truncate hover:underline cursor-pointer tracking-wide">
+                <p className="text-[11px] sm:text-xs font-extrabold text-white truncate hover:underline cursor-pointer tracking-wide">
                   {currentTrack.name}
                 </p>
-                <p className="text-[10px] text-slate-400 font-medium truncate hover:text-white cursor-pointer mt-0.5">
+                <p className="text-[9px] sm:text-[10px] text-slate-400 font-medium truncate hover:text-white cursor-pointer">
                   {currentTrack.artist}
                 </p>
               </>
             ) : (
-              <p className="text-[10px] font-black tracking-[2px] text-slate-500 uppercase">
-                NO AUDIO LOADED
+              <p className="text-[9px] sm:text-[10px] font-black tracking-[1px] text-slate-500 uppercase truncate">
+                NO AUDIO
               </p>
             )}
           </div>
         </div>
         
-        {/* Center: Playback Controls & Progress Bar */}
-        <div className="flex-1 max-w-[550px] flex flex-col gap-2">
-          <div className="flex items-center justify-center gap-5">
-            {/* Previous Button */}
-            <button 
-              className="text-slate-400 hover:text-white active:text-slate-300 transition-colors cursor-pointer p-1 rounded-full"
-              onClick={previousTrack}
-              title="Previous Track"
-            >
-              <SkipBack size={18} />
-            </button>
-            
-            {/* Play/Pause Button */}
-            <button 
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
-              style={audioUrl ? {
-                backgroundColor: activeColor,
-                boxShadow: `0 0 16px ${activeColor}40`,
-                color: '#000000'
-              } : {
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.3)'
-              }}
-              onClick={() => {
-                setIsPlaying(!isPlaying);
-                if (!isPlaying) {
-                   const audioCtx = (window as any).webkitAudioContext || window.AudioContext;
-                   if ((audioManager as any).ctx?.state === 'suspended') {
-                     (audioManager as any).ctx.resume();
-                   }
-                }
-              }}
-              disabled={!audioUrl}
-              title={isPlaying ? 'Pause' : 'Play'}
-            >
-              {isPlaying ? <Pause size={18} className="fill-current" /> : <Play size={18} className="fill-current ml-0.5" />}
-            </button>
-            
-            {/* Next Button */}
-            <button 
-              className="text-slate-400 hover:text-white active:text-slate-300 transition-colors cursor-pointer p-1 rounded-full"
-              onClick={nextTrack}
-              title="Next Track"
-            >
-              <SkipForward size={18} />
-            </button>
-            
-            {/* Repeat / Looping Button */}
-            <button 
-              className="relative text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
-              style={{ color: isLooping ? activeColor : undefined }}
-              onClick={() => setIsLooping(!isLooping)}
-              title={isLooping ? 'Disable Loop' : 'Enable Loop'}
-            >
-              <Repeat size={16} />
-            </button>
-          </div>
+        {/* Center: Playback Controls */}
+        <div className="flex items-center justify-center gap-3 sm:gap-5 shrink-0">
+          {/* Previous Button */}
+          <button 
+            className="text-slate-400 hover:text-white active:text-slate-300 transition-colors cursor-pointer p-1 rounded-full"
+            onClick={previousTrack}
+            title="Previous Track"
+          >
+            <SkipBack size={16} className="sm:w-[18px] sm:h-[18px]" />
+          </button>
           
-          {/* Progress Slider */}
-          <div className="flex items-center gap-3">
-            <span 
-              className="text-[10px] font-mono font-bold w-9 text-right tabular-nums transition-colors"
-              style={{ color: audioUrl ? activeColor : 'rgba(255,255,255,0.3)' }}
-            >
-              {formatTime(currentTime)}
-            </span>
-            <Scrubber 
-              value={currentTime}
-              min={0}
-              max={audioDuration || 100}
-              step={0.01}
-              onChange={(time) => {
-                audioManager.seek(time);
-                setCurrentTime(time);
-              }}
-              disabled={!audioUrl}
-              formatTooltip={formatTime}
-              className="flex-1"
-            />
-            <span className="text-[10px] font-mono font-bold w-9 text-slate-400 tabular-nums">
-              {formatTime(audioDuration)}
-            </span>
-          </div>
+          {/* Play/Pause Button */}
+          <button 
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
+            style={audioUrl ? {
+              backgroundColor: activeColor,
+              boxShadow: `0 0 16px ${activeColor}40`,
+              color: '#000000'
+            } : {
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.3)'
+            }}
+            onClick={() => {
+              setIsPlaying(!isPlaying);
+              if (!isPlaying) {
+                 const audioCtx = (window as any).webkitAudioContext || window.AudioContext;
+                 if ((audioManager as any).ctx?.state === 'suspended') {
+                   (audioManager as any).ctx.resume();
+                 }
+              }
+            }}
+            disabled={!audioUrl}
+            title={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? <Pause size={16} className="fill-current sm:w-[18px] sm:h-[18px]" /> : <Play size={16} className="fill-current ml-0.5 sm:w-[18px] sm:h-[18px]" />}
+          </button>
+          
+          {/* Next Button */}
+          <button 
+            className="text-slate-400 hover:text-white active:text-slate-300 transition-colors cursor-pointer p-1 rounded-full"
+            onClick={nextTrack}
+            title="Next Track"
+          >
+            <SkipForward size={16} className="sm:w-[18px] sm:h-[18px]" />
+          </button>
+          
+          {/* Repeat / Looping Button */}
+          <button 
+            className="relative text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
+            style={{ color: isLooping ? activeColor : undefined }}
+            onClick={() => setIsLooping(!isLooping)}
+            title={isLooping ? 'Disable Loop' : 'Enable Loop'}
+          >
+            <Repeat size={15} className="sm:w-[16px] sm:h-[16px]" />
+          </button>
         </div>
         
-        {/* Right Side: Additional/Secondary controls (Queue list, volume) */}
-        <div className="w-1/4 min-w-[140px] flex justify-end items-center gap-3">
+        {/* Right Side: Additional controls (Queue list, volume) */}
+        <div className="flex justify-end items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Playlist Drawer Button */}
           <div className="relative">
             <button
               onClick={() => setShowPlaylist(!showPlaylist)}
-              className="text-slate-400 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer relative"
+              className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-full hover:bg-white/5 cursor-pointer relative"
               style={{ color: showPlaylist ? activeColor : undefined }}
               title="Toggle Queue"
             >
@@ -184,7 +183,7 @@ export function BottomBar() {
             {showPlaylist && (
               <div 
                 ref={playlistRef}
-                className="absolute right-0 bottom-14 bg-[#0d0d0f] border border-white/10 p-4 rounded-xl shadow-2xl w-80 max-h-96 overflow-y-auto z-50 animate-in fade-in slide-in-from-bottom-3"
+                className="absolute right-0 bottom-12 bg-[#0d0d0f] border border-white/10 p-3 sm:p-4 rounded-xl shadow-2xl w-72 sm:w-80 max-h-96 overflow-y-auto z-50 animate-in fade-in slide-in-from-bottom-3"
               >
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
                   <span className="text-[10px] font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor }}>
@@ -240,7 +239,7 @@ export function BottomBar() {
           </div>
           
           {/* Volume Control */}
-          <div className="flex items-center gap-2 bg-white/[0.02] border border-white/5 px-3 py-1.5 rounded-full">
+          <div className="hidden sm:flex items-center gap-2 bg-white/[0.02] border border-white/5 px-2.5 py-1 rounded-full">
             <Volume2 size={13} className="text-slate-400" />
             <Scrubber 
               value={volume}
@@ -253,7 +252,7 @@ export function BottomBar() {
               }}
               disabled={!audioUrl}
               formatTooltip={(v) => `${(v * 100).toFixed(0)}%`}
-              className="w-16 sm:w-20"
+              className="w-14 sm:w-20"
             />
           </div>
         </div>

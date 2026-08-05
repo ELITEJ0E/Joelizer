@@ -39,6 +39,7 @@ export interface LyricsSettings {
   lines: LyricLine[];
   font: string;
   color: string;
+  backgroundColor?: string;
   animationStyle: 'fade' | 'karaoke';
 }
 
@@ -160,6 +161,7 @@ export const useStore = create<ProjectState>((set, get) => ({
     lines: initialLyrics,
     font: 'Inter',
     color: '#ffffff',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     animationStyle: 'karaoke',
   },
   

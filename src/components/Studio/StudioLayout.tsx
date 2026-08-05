@@ -3,10 +3,11 @@ import { useStore, LyricLine } from '../../store/useStore';
 import { 
   Upload, Music, FileText, Play, Pause, RotateCcw, Download, Sparkles, 
   Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight,
-  Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, ArrowUpRight, ListMusic, XCircle,
+  Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, SlidersHorizontal, Activity, AudioLines, ArrowUpRight, ListMusic, XCircle,
   Copy, Check, Package, X, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, formatTime } from '../../lib/utils';
+import { Scrubber } from '../ui/scrubber';
 import { audioManager } from '../../lib/audio';
 import { analyzeAudioBuffer, drawStudioWaveform, WaveformData, calculateBpmFromBeats } from '../../lib/audioAnalysis';
 import { GeminiServerProvider, parseUploadedLyricFile, parseLRCContent, getActiveLyricLine } from '../../lib/transcriptionProvider';
@@ -69,6 +70,7 @@ export function StudioLayout() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [copiedLRC, setCopiedLRC] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [mobileStudioTab, setMobileStudioTab] = useState<'waveform' | 'lyrics' | 'source'>('waveform');
 
   const handleCopyLRC = () => {
     const lrcContent = generateLRC(lines, projectName || 'joelizer-lyrics');
@@ -79,10 +81,8 @@ export function StudioLayout() {
 
   const handleClearAllLines = () => {
     if (lines.length === 0) return;
-    if (window.confirm("Are you sure you want to clear all synchronized lyric lines?")) {
-      updateLinesWithHistory([]);
-      setSelectedLineId(null);
-    }
+    updateLinesWithHistory([]);
+    setSelectedLineId(null);
   };
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -627,7 +627,7 @@ export function StudioLayout() {
             className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
             title="AI Speech-to-Text Transcription"
           >
-            <Zap size={12} style={{ color: activeColor }} />
+            <Sparkles size={12} style={{ color: activeColor }} className="animate-pulse" />
             <span>Generate Transcript</span>
           </button>
 
@@ -636,7 +636,7 @@ export function StudioLayout() {
             className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
             title="Forced Lyric Text Alignment"
           >
-            <Radio size={12} className="text-yellow-400" />
+            <SlidersHorizontal size={12} className="text-amber-400" />
             <span>Align Lyrics</span>
           </button>
 
@@ -645,7 +645,7 @@ export function StudioLayout() {
             className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer hidden md:flex"
             title="Detect BPM & Key"
           >
-            <Clock size={12} className="text-cyan-400" />
+            <Activity size={12} className="text-cyan-400" />
             <span>BPM & Key</span>
           </button>
 
@@ -674,11 +674,56 @@ export function StudioLayout() {
         </div>
       </div>
 
+      {/* MOBILE STUDIO SEGMENTED TAB SWITCHER */}
+      <div className="md:hidden flex items-center bg-[#070709] border-b border-white/10 shrink-0 p-1 gap-1 z-10">
+        <button
+          onClick={() => setMobileStudioTab('waveform')}
+          className={cn(
+            "flex-1 py-2 text-[10px] font-mono font-bold uppercase tracking-wider rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+            mobileStudioTab === 'waveform'
+              ? "bg-white/15 text-white font-black shadow-md border border-white/20"
+              : "text-slate-400 hover:text-white"
+          )}
+          style={mobileStudioTab === 'waveform' ? { color: activeColor, borderColor: `${activeColor}50` } : {}}
+        >
+          <AudioLines size={13} />
+          <span>Waveform</span>
+        </button>
+
+        <button
+          onClick={() => setMobileStudioTab('lyrics')}
+          className={cn(
+            "flex-1 py-2 text-[10px] font-mono font-bold uppercase tracking-wider rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+            mobileStudioTab === 'lyrics'
+              ? "bg-white/15 text-white font-black shadow-md border border-white/20"
+              : "text-slate-400 hover:text-white"
+          )}
+          style={mobileStudioTab === 'lyrics' ? { color: activeColor, borderColor: `${activeColor}50` } : {}}
+        >
+          <FileText size={13} />
+          <span>Lyrics ({lines.length})</span>
+        </button>
+
+        <button
+          onClick={() => setMobileStudioTab('source')}
+          className={cn(
+            "flex-1 py-2 text-[10px] font-mono font-bold uppercase tracking-wider rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+            mobileStudioTab === 'source'
+              ? "bg-white/15 text-white font-black shadow-md border border-white/20"
+              : "text-slate-400 hover:text-white"
+          )}
+          style={mobileStudioTab === 'source' ? { color: activeColor, borderColor: `${activeColor}50` } : {}}
+        >
+          <Sliders size={13} />
+          <span>Source & AI</span>
+        </button>
+      </div>
+
       {/* THREE-PANEL STUDIO WORKFLOW */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* LEFT PANEL: AUDIO & LYRIC UPLOADS & METADATA */}
         {isSidebarOpen ? (
-          <div className="w-full md:w-80 bg-black/40 border-r border-white/10 flex flex-col p-4 gap-4 overflow-y-auto shrink-0 transition-all duration-300">
+          <div className={cn("w-full md:w-80 bg-black/40 border-r border-white/10 flex-col p-4 gap-4 overflow-y-auto shrink-0 transition-all duration-300", mobileStudioTab === 'source' ? "flex flex-1 h-full" : "hidden md:flex")}>
             {/* Header inside left panel */}
             <div className="flex items-center justify-between pb-1 border-b border-white/10">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
@@ -800,7 +845,7 @@ export function StudioLayout() {
         )}
 
         {/* CENTER PANEL: WAVEFORM & TIMELINE PREVIEW & CONTROLS */}
-        <div className="flex-1 flex flex-col bg-[#050508] border-r border-white/10 overflow-hidden relative">
+        <div className={cn("flex-1 flex-col bg-[#050508] border-r border-white/10 overflow-hidden relative", mobileStudioTab === 'waveform' ? "flex w-full h-full" : "hidden md:flex")}>
           
           {/* Interactive Waveform Canvas Container */}
           <div className="flex-1 relative bg-black/60 flex flex-col justify-center items-center overflow-hidden select-none">
@@ -910,125 +955,70 @@ export function StudioLayout() {
               })()}
             </div>
           </div>
-
-          {/* PLAYBACK & WAVEFORM CONTROL BAR */}
-          <div className="h-16 bg-black/90 border-t border-white/10 px-4 flex items-center justify-between gap-4 shrink-0">
-            {/* Play/Pause Controls */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={togglePlay}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-black shadow-lg transition-transform active:scale-95 cursor-pointer"
-                style={{ backgroundColor: activeColor }}
-              >
-                {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
-              </button>
-
-              <button
-                onClick={() => handleSeek(0)}
-                className="p-2 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                title="Restart Audio"
-              >
-                <RotateCcw size={16} />
-              </button>
-            </div>
-
-            {/* Speed Selector */}
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-1 text-[10px] font-mono">
-              <span className="text-slate-500 px-1 font-bold">SPEED</span>
-              {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map(s => (
-                <button
-                  key={s}
-                  onClick={() => {
-                    setPlaybackSpeed(s);
-                    audioManager.setPlaybackRate(s);
-                  }}
-                  className={cn(
-                    "px-1.5 py-0.5 rounded cursor-pointer transition-all",
-                    playbackSpeed === s ? "bg-white/20 text-white font-bold" : "text-slate-400 hover:text-white"
-                  )}
-                >
-                  {s}x
-                </button>
-              ))}
-            </div>
-
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-1 text-[10px] font-mono">
-              <span className="text-slate-500 px-1 font-bold">ZOOM</span>
-              {[1, 2, 4, 8].map(z => (
-                <button
-                  key={z}
-                  onClick={() => setZoom(z)}
-                  className={cn(
-                    "px-2 py-0.5 rounded cursor-pointer transition-all",
-                    zoom === z ? "bg-white/20 text-white font-bold" : "text-slate-400 hover:text-white"
-                  )}
-                >
-                  {z}x
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* RIGHT PANEL: EDITABLE LYRIC LINE TIMELINE & HISTORY */}
-        <div className="w-full md:w-96 bg-black/60 border-l border-white/10 flex flex-col shrink-0 overflow-hidden">
+        <div className={cn("w-full md:w-[420px] lg:w-[440px] bg-black/60 border-l border-white/10 flex-col shrink-0 overflow-hidden", mobileStudioTab === 'lyrics' ? "flex flex-1 w-full h-full" : "hidden md:flex")}>
           
           {/* Header Bar */}
-          <div className="p-3.5 bg-black/80 border-b border-white/10 flex items-center justify-between">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-300">
-              Synchronized Lines ({lines.length})
+          <div className="p-3.5 bg-black/80 border-b border-white/10 flex items-center justify-between gap-3">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200 shrink-0">
+              Synced Lines ({lines.length})
             </span>
 
-            {/* History, Clear All & Global Offset */}
-            <div className="flex items-center gap-1.5">
+            {/* Actions: Clear All, Undo, Redo, Global Offset */}
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handleClearAllLines}
                 disabled={lines.length === 0}
-                className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-30 rounded text-[9px] font-mono font-bold text-rose-300 hover:text-rose-200 cursor-pointer flex items-center gap-1 transition-all"
+                className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-30 rounded text-[10px] font-mono font-bold text-rose-300 hover:text-rose-200 cursor-pointer flex items-center gap-1.5 transition-all shrink-0"
                 title="Clear all synchronized lines"
               >
                 <Trash2 size={11} />
                 <span>Clear</span>
               </button>
 
-              <div className="h-4 w-px bg-white/10 mx-0.5" />
+              <div className="h-4 w-px bg-white/10" />
 
-              <button 
-                onClick={undo} 
-                disabled={historyIndex <= 0} 
-                className="p-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded text-slate-300 cursor-pointer"
-                title="Undo"
-              >
-                <Undo2 size={14} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={undo} 
+                  disabled={historyIndex <= 0} 
+                  className="p-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded text-slate-300 cursor-pointer"
+                  title="Undo"
+                >
+                  <Undo2 size={13} />
+                </button>
 
-              <button 
-                onClick={redo} 
-                disabled={historyIndex >= history.length - 1} 
-                className="p-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded text-slate-300 cursor-pointer"
-                title="Redo"
-              >
-                <Redo2 size={14} />
-              </button>
+                <button 
+                  onClick={redo} 
+                  disabled={historyIndex >= history.length - 1} 
+                  className="p-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded text-slate-300 cursor-pointer"
+                  title="Redo"
+                >
+                  <Redo2 size={13} />
+                </button>
+              </div>
 
-              <div className="h-4 w-px bg-white/10 mx-1" />
+              <div className="h-4 w-px bg-white/10" />
 
-              <button
-                onClick={() => shiftAllTimestamps(-0.5)}
-                className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono font-bold text-slate-300 cursor-pointer"
-                title="Shift All Lyrics -0.5s"
-              >
-                -0.5s
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => shiftAllTimestamps(-0.5)}
+                  className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[10px] font-mono font-bold text-slate-300 cursor-pointer hover:text-white transition-colors"
+                  title="Shift All Lyrics -0.5s"
+                >
+                  -0.5s
+                </button>
 
-              <button
-                onClick={() => shiftAllTimestamps(0.5)}
-                className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono font-bold text-slate-300 cursor-pointer"
-                title="Shift All Lyrics +0.5s"
-              >
-                +0.5s
-              </button>
+                <button
+                  onClick={() => shiftAllTimestamps(0.5)}
+                  className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[10px] font-mono font-bold text-slate-300 cursor-pointer hover:text-white transition-colors"
+                  title="Shift All Lyrics +0.5s"
+                >
+                  +0.5s
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1205,6 +1195,89 @@ export function StudioLayout() {
                 );
               });
             })()}
+          </div>
+        </div>
+      </div>
+
+      {/* STICKY BOTTOM PLAYBACK & CONTROL BAR */}
+      <div className="sticky bottom-0 z-30 shrink-0 w-full bg-[#070709] border-t border-white/10 px-3 py-2 sm:px-6 shadow-2xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5">
+        {/* Play/Pause & Seek Controls */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <button
+            onClick={togglePlay}
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-black shadow-lg transition-transform active:scale-95 cursor-pointer shrink-0"
+            style={{ backgroundColor: activeColor }}
+            title={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+          </button>
+
+          <button
+            onClick={() => handleSeek(0)}
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            title="Restart Audio"
+          >
+            <RotateCcw size={15} />
+          </button>
+
+          {/* Time Counter */}
+          <div className="text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1.5 bg-white/5 border border-white/10 px-2 py-1 rounded shrink-0">
+            <span style={{ color: activeColor }}>{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-slate-400">{formatLRCStamp(audioDuration).replace('[', '').replace(']', '')}</span>
+          </div>
+        </div>
+
+        {/* Mini Progress Scrubber (for mobile & desktop) */}
+        <div className="flex-1 min-w-[120px] max-w-md mx-1 sm:mx-4 flex items-center">
+          <Scrubber
+            value={currentTime}
+            min={0}
+            max={audioDuration || 100}
+            step={0.01}
+            onChange={(t) => handleSeek(t)}
+            formatTooltip={formatTime}
+            className="w-full"
+          />
+        </div>
+
+        {/* Speed & Zoom Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Speed Selector */}
+          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-1 text-[9px] sm:text-[10px] font-mono">
+            <span className="text-slate-500 px-1 font-bold shrink-0 hidden min-[400px]:inline">SPEED</span>
+            {[0.5, 1.0, 1.5, 2.0].map(s => (
+              <button
+                key={s}
+                onClick={() => {
+                  setPlaybackSpeed(s);
+                  audioManager.setPlaybackRate(s);
+                }}
+                className={cn(
+                  "px-1.5 py-0.5 rounded cursor-pointer transition-all shrink-0",
+                  playbackSpeed === s ? "bg-white/20 text-white font-bold" : "text-slate-400 hover:text-white"
+                )}
+              >
+                {s}x
+              </button>
+            ))}
+          </div>
+
+          {/* Zoom Controls */}
+          <div className="hidden sm:flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-1 text-[10px] font-mono shrink-0">
+            <span className="text-slate-500 px-1 font-bold">ZOOM</span>
+            {[1, 2, 4, 8].map(z => (
+              <button
+                key={z}
+                onClick={() => setZoom(z)}
+                className={cn(
+                  "px-2 py-0.5 rounded cursor-pointer transition-all",
+                  zoom === z ? "bg-white/20 text-white font-bold" : "text-slate-400 hover:text-white"
+                )}
+              >
+                {z}x
+              </button>
+            ))}
           </div>
         </div>
       </div>

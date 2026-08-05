@@ -18,16 +18,59 @@ function DeferredColorInput({
   boxShadow?: string;
 }) {
   const [localColor, setLocalColor] = useState(value);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    valueRef.current = value;
     setLocalColor(value);
   }, [value]);
 
-  const handleCommit = (newVal: string) => {
-    if (newVal && newVal !== value) {
-      onChange(newVal);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  const commitColor = (newVal: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (newVal && newVal !== valueRef.current) {
+      valueRef.current = newVal;
+      onChangeRef.current(newVal);
     }
   };
+
+  const handleInput = (newVal: string) => {
+    setLocalColor(newVal);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    // Debounce by 120ms: when the user stops dragging or pauses, commit the color automatically without needing to close picker
+    debounceTimerRef.current = setTimeout(() => {
+      commitColor(newVal);
+    }, 120);
+  };
+
+  useEffect(() => {
+    const el = colorInputRef.current;
+    if (!el) return;
+
+    const onNativeChange = (e: Event) => {
+      const val = (e.target as HTMLInputElement).value;
+      commitColor(val);
+    };
+
+    el.addEventListener('change', onNativeChange);
+    return () => {
+      el.removeEventListener('change', onNativeChange);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className={cn("flex gap-2", className)}>
@@ -36,21 +79,27 @@ function DeferredColorInput({
         style={{ backgroundColor: localColor, boxShadow: boxShadow || `0 0 15px ${localColor}30` }}
       >
         <input 
+          ref={colorInputRef}
           type="color" 
           value={localColor}
-          onInput={(e) => setLocalColor((e.target as HTMLInputElement).value)}
-          onChange={(e) => handleCommit(e.target.value)}
-          onBlur={(e) => handleCommit(e.target.value)}
+          onInput={(e) => handleInput((e.target as HTMLInputElement).value)}
+          onBlur={(e) => commitColor((e.target as HTMLInputElement).value)}
           className="absolute -inset-1 w-[150%] h-[150%] cursor-pointer p-0 border-0 bg-transparent opacity-0"
         />
       </div>
       <input 
         type="text"
         value={localColor}
-        onChange={(e) => setLocalColor(e.target.value)}
-        onBlur={(e) => handleCommit(e.target.value)}
+        onChange={(e) => {
+          const val = e.target.value;
+          setLocalColor(val);
+          if (/^#([0-9A-F]{3}){1,2}$/i.test(val)) {
+            handleInput(val);
+          }
+        }}
+        onBlur={() => commitColor(localColor)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') handleCommit(localColor);
+          if (e.key === 'Enter') commitColor(localColor);
         }}
         className="flex-1 bg-white/[0.02] border border-white/10 text-white rounded px-3 text-xs font-mono tabular-nums outline-none focus:border-white/20 transition-glass uppercase tracking-wider font-bold"
       />
@@ -364,9 +413,6 @@ function BackgroundSettingsPanel() {
 function LyricsSettingsPanel() {
   const settings = useStore(s => s.lyricsSettings);
   const updateSettings = useStore(s => s.updateLyricsSettings);
-  const currentTime = useStore(s => s.currentTime);
-  const isPlaying = useStore(s => s.isPlaying);
-  const setIsPlaying = useStore(s => s.setIsPlaying);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   
   const [rawText, setRawText] = useState(settings.lines.map(l => l.text).join('\n'));
@@ -382,29 +428,7 @@ function LyricsSettingsPanel() {
     }
   };
 
-  const nudgeLineStart = (index: number, amount: number) => {
-    const updated = [...settings.lines];
-    updated[index].startTime = Math.max(0, updated[index].startTime + amount);
-    if (index > 0) {
-      updated[index - 1].endTime = updated[index].startTime;
-    }
-    updateSettings({ lines: updated });
-  };
-
-  const nudgeLineEnd = (index: number, amount: number) => {
-    const updated = [...settings.lines];
-    updated[index].endTime = Math.max(updated[index].startTime, updated[index].endTime + amount);
-    if (index < updated.length - 1) {
-      updated[index + 1].startTime = updated[index].endTime;
-    }
-    updateSettings({ lines: updated });
-  };
-
-  const removeLine = (index: number) => {
-    const updated = settings.lines.filter((_, i) => i !== index);
-    updateSettings({ lines: updated });
-    setRawText(updated.map(l => l.text).join('\n'));
-  };
+  const bgColor = settings.backgroundColor || 'transparent';
 
   return (
     <div className="space-y-6">
@@ -419,90 +443,68 @@ function LyricsSettingsPanel() {
         />
       </div>
           
-          <div>
-            <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Animation Preset</label>
-            <Select value={settings.animationStyle} onValueChange={v => updateSettings({ animationStyle: v as any })}>
-              <SelectTrigger className="bg-white/[0.03] border-white/10 hover:border-white/20 transition-glass uppercase font-bold tracking-wider text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0b0b0b]/90 backdrop-blur-xl border-white/10 uppercase text-xs font-bold tracking-wider">
-                <SelectItem value="fade">Classic Fade In/Out</SelectItem>
-                <SelectItem value="karaoke">Smooth Karaoke Highlight</SelectItem>
-              </SelectContent>
-            </Select>
+      <div>
+        <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Animation Preset</label>
+        <Select value={settings.animationStyle} onValueChange={v => updateSettings({ animationStyle: v as any })}>
+          <SelectTrigger className="bg-white/[0.03] border-white/10 hover:border-white/20 transition-glass uppercase font-bold tracking-wider text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-[#0b0b0b]/90 backdrop-blur-xl border-white/10 uppercase text-xs font-bold tracking-wider">
+            <SelectItem value="fade">Classic Fade In/Out</SelectItem>
+            <SelectItem value="karaoke">Smooth Karaoke Highlight</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div>
+        <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Text Accent Color</label>
+        <DeferredColorInput 
+          value={settings.color}
+          onChange={val => updateSettings({ color: val })}
+          boxShadow={`0 0 15px ${settings.color}30`}
+        />
+      </div>
+
+      <div>
+        <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Lyrics Background Color</label>
+        <div className="space-y-2.5">
+          <DeferredColorInput 
+            value={bgColor === 'transparent' ? '#000000' : bgColor}
+            onChange={val => updateSettings({ backgroundColor: val })}
+            boxShadow={bgColor !== 'transparent' ? `0 0 15px ${bgColor}30` : undefined}
+          />
+
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            <button
+              onClick={() => updateSettings({ backgroundColor: 'transparent' })}
+              className={cn(
+                "px-2 py-1 rounded text-[10px] font-mono border transition-all cursor-pointer",
+                bgColor === 'transparent' ? "bg-white/20 border-white/40 text-white font-bold" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+              )}
+            >
+              None (Transparent)
+            </button>
+            <button
+              onClick={() => updateSettings({ backgroundColor: 'rgba(0, 0, 0, 0.6)' })}
+              className={cn(
+                "px-2 py-1 rounded text-[10px] font-mono border transition-all cursor-pointer",
+                bgColor === 'rgba(0, 0, 0, 0.6)' ? "bg-white/20 border-white/40 text-white font-bold" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+              )}
+            >
+              Dark Glass
+            </button>
+            <button
+              onClick={() => updateSettings({ backgroundColor: '#000000' })}
+              className={cn(
+                "px-2 py-1 rounded text-[10px] font-mono border transition-all cursor-pointer",
+                bgColor === '#000000' ? "bg-white/20 border-white/40 text-white font-bold" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+              )}
+            >
+              Solid Black
+            </button>
           </div>
-          
-          <div>
-            <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Text Accent Color</label>
-            <DeferredColorInput 
-              value={settings.color}
-              onChange={val => updateSettings({ color: val })}
-              boxShadow={`0 0 15px ${settings.color}30`}
-            />
-          </div>
-
-          {/* Sync timeline list */}
-          {settings.lines.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-1.5 border-b border-white/5 pb-2">
-                <AlignLeft size={11} className="text-slate-400" />
-                <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Interactive Sync Timeline</label>
-              </div>
-
-              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                {settings.lines.map((line, idx) => (
-                  <div 
-                    key={line.id}
-                    className={`p-2.5 rounded border text-[10px] flex items-center justify-between gap-2.5 transition-glass bg-white/[0.02] border-white/5 hover:border-white/10`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-white font-semibold truncate leading-none">{line.text}</p>
-                      <p className="text-[9px] font-mono text-slate-400 mt-1 uppercase tracking-wider tabular-nums">
-                        SPAN: {line.startTime.toFixed(1)}s - {line.endTime.toFixed(1)}s
-                      </p>
-                    </div>
-
-                    {/* Precision adjust trigger */}
-                    <div className="flex items-center gap-1.5">
-                      {/* Start adjust */}
-                      <div className="flex flex-col gap-0.5 items-center">
-                        <span className="text-[7px] text-slate-500 uppercase tracking-widest font-bold">START</span>
-                        <div className="flex items-center bg-black/40 rounded border border-white/10 p-0.5 transition-colors hover:border-white/20">
-                          <button onClick={() => nudgeLineStart(idx, -0.1)} className="p-0.5 text-slate-400 hover:text-white transition-colors">
-                            <Minus size={9} />
-                          </button>
-                          <button onClick={() => nudgeLineStart(idx, 0.1)} className="p-0.5 text-slate-400 transition-colors" style={{ color: activeColor }}>
-                            <Plus size={9} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* End adjust */}
-                      <div className="flex flex-col gap-0.5 items-center">
-                        <span className="text-[7px] text-slate-500 uppercase tracking-widest font-bold">END</span>
-                        <div className="flex items-center bg-black/40 rounded border border-white/10 p-0.5 transition-colors hover:border-white/20">
-                          <button onClick={() => nudgeLineEnd(idx, -0.1)} className="p-0.5 text-slate-400 hover:text-white transition-colors">
-                            <Minus size={9} />
-                          </button>
-                          <button onClick={() => nudgeLineEnd(idx, 0.1)} className="p-0.5 text-slate-400 transition-colors" style={{ color: activeColor }}>
-                            <Plus size={9} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <button 
-                        onClick={() => removeLine(idx)}
-                        className="p-1 text-slate-500 hover:text-red-500 rounded hover:bg-white/10 transition-colors ml-1"
-                        title="Remove segment"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0f0d"/>
+      <stop offset="100%" stop-color="#020403"/>
+    </linearGradient>
+    <linearGradient id="neonGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ff87"/>
+      <stop offset="100%" stop-color="#60efff"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  
+  <!-- Outer Rounded Container -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGlow)"/>
+  <rect width="504" height="504" x="4" y="4" rx="124" fill="none" stroke="url(#neonGlow)" stroke-width="4" stroke-opacity="0.3"/>
+  
+  <!-- Background Soundwave Bars -->
+  <g opacity="0.15" fill="url(#neonGlow)">
+    <rect x="80" y="200" width="16" height="112" rx="8"/>
+    <rect x="120" y="140" width="16" height="232" rx="8"/>
+    <rect x="160" y="100" width="16" height="312" rx="8"/>
+    <rect x="336" y="120" width="16" height="272" rx="8"/>
+    <rect x="376" y="160" width="16" height="192" rx="8"/>
+    <rect x="416" y="220" width="16" height="72" rx="8"/>
+  </g>
+
+  <!-- Central "J" Waveform Emblem -->
+  <g filter="url(#glow)">
+    <!-- Equalizer Stem forming J -->
+    <path d="M 310 120 L 310 320 C 310 390, 250 420, 180 420 C 130 420, 96 390, 88 350" 
+          fill="none" 
+          stroke="url(#neonGlow)" 
+          stroke-width="36" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+          
+    <!-- Decorative Equalizer Dots & Accent Lines -->
+    <circle cx="310" cy="120" r="22" fill="url(#neonGlow)" />
+    <line x1="220" y1="200" x2="260" y2="200" stroke="url(#neonGlow)" stroke-width="12" stroke-linecap="round"/>
+    <line x1="200" y1="250" x2="260" y2="250" stroke="url(#neonGlow)" stroke-width="12" stroke-linecap="round"/>
+    <line x1="180" y1="300" x2="260" y2="300" stroke="url(#neonGlow)" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>
