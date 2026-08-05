@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import fixWebmDuration from 'fix-webm-duration';
 import { useStore } from '../../store/useStore';
 import { X, Loader2, Download, Zap, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -164,18 +165,31 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     finalRecorder.onstop = () => {
       if (isCancelledRef.current) return;
       setExportResolutionOverride(null);
-      const blob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      
-      const safeProjectName = projectName ? projectName.trim() : '';
-      const baseName = safeProjectName ? safeProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'visualizer';
-      a.download = `${baseName}.${exportFormat}`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setIsExporting(false);
-      onClose();
+      const rawBlob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
+      const durationMs = Math.round((audioDuration || 0) * 1000);
+
+      const triggerDownload = (downloadBlob: Blob) => {
+        if (isCancelledRef.current) return;
+        const url = URL.createObjectURL(downloadBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        const safeProjectName = projectName ? projectName.trim() : '';
+        const baseName = safeProjectName ? safeProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'visualizer';
+        a.download = `${baseName}.${exportFormat}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setIsExporting(false);
+        onClose();
+      };
+
+      if (durationMs > 0) {
+        fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
+          triggerDownload(fixedBlob);
+        });
+      } else {
+        triggerDownload(rawBlob);
+      }
     };
 
     finalRecorder.onerror = () => {
