@@ -1,8 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { useStore } from '../../store/useStore';
 import { audioManager } from '../../lib/audio';
+import { useGlobalKeyboardShortcuts } from '../../hooks/useGlobalKeyboardShortcuts';
 
 export function GlobalAudioPlayer() {
+  useGlobalKeyboardShortcuts();
+  
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioUrl = useStore(s => s.audioUrl);
   const isPlaying = useStore(s => s.isPlaying);
@@ -11,6 +14,12 @@ export function GlobalAudioPlayer() {
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const setAudioDuration = useStore(s => s.setAudioDuration);
   const nextTrack = useStore(s => s.nextTrack);
+  const previousTrack = useStore(s => s.previousTrack);
+
+  const currentTrackIndex = useStore(s => s.currentTrackIndex);
+  const currentTime = useStore(s => s.currentTime);
+  const prevTrackIndexRef = useRef(currentTrackIndex);
+  const prevAudioUrlRef = useRef(audioUrl);
 
   // Initialize audioManager with persistent element
   useEffect(() => {
@@ -19,17 +28,38 @@ export function GlobalAudioPlayer() {
     }
   }, [audioUrl]);
 
-  // Sync play/pause state
+  // Handle track changes and explicit rewinds
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+
+    const trackChanged = prevTrackIndexRef.current !== currentTrackIndex || prevAudioUrlRef.current !== audioUrl;
+    if (trackChanged) {
+      prevTrackIndexRef.current = currentTrackIndex;
+      prevAudioUrlRef.current = audioUrl;
+      el.currentTime = 0;
+    } else if (currentTime === 0 && el.currentTime > 0.5) {
+      el.currentTime = 0;
+    }
+  }, [currentTrackIndex, audioUrl, currentTime]);
+
+  // Sync play/pause state safely
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
 
     if (isPlaying) {
+      if ((audioManager as any).ctx?.state === 'suspended') {
+        (audioManager as any).ctx.resume().catch(() => {});
+      }
       const promise = el.play();
       if (promise !== undefined) {
         promise.catch(err => {
-          console.warn('Playback prevented or interrupted:', err);
-          setIsPlaying(false);
+          // Ignore AbortError caused by rapid track changes or re-loads
+          if (err.name !== 'AbortError') {
+            console.warn('Playback prevented or interrupted:', err);
+            setIsPlaying(false);
+          }
         });
       }
     } else {
@@ -65,6 +95,12 @@ export function GlobalAudioPlayer() {
         });
         navigator.mediaSession.setActionHandler('stop', () => {
           setIsPlaying(false);
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          previousTrack();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          nextTrack();
         });
       } catch (err) {
         console.warn('MediaSession handler setup:', err);

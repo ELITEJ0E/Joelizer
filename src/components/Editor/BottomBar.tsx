@@ -115,7 +115,7 @@ export function BottomBar() {
           <button 
             className="text-slate-400 hover:text-white active:text-slate-300 transition-colors cursor-pointer p-1 rounded-full"
             onClick={previousTrack}
-            title="Previous Track"
+            title="Previous Track (P or Shift+←)"
           >
             <SkipBack size={16} className="sm:w-[18px] sm:h-[18px]" />
           </button>
@@ -141,7 +141,7 @@ export function BottomBar() {
               }
             }}
             disabled={!audioUrl}
-            title={isPlaying ? 'Pause' : 'Play'}
+            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? <Pause size={16} className="fill-current sm:w-[18px] sm:h-[18px]" /> : <Play size={16} className="fill-current ml-0.5 sm:w-[18px] sm:h-[18px]" />}
           </button>
@@ -150,7 +150,7 @@ export function BottomBar() {
           <button 
             className="text-slate-400 hover:text-white active:text-slate-300 transition-colors cursor-pointer p-1 rounded-full"
             onClick={nextTrack}
-            title="Next Track"
+            title="Next Track (N or Shift+→)"
           >
             <SkipForward size={16} className="sm:w-[18px] sm:h-[18px]" />
           </button>

@@ -203,16 +203,20 @@ export const useStore = create<ProjectState>((set, get) => ({
       isUserUploaded: true
     };
     
-    set((state) => ({
-      tracks: [newTrack],
-      currentTrackIndex: 0,
-      audioFile: file,
-      audioUrl: url,
-      audioDuration: duration,
-      albumArt: newTrack.albumArt || null,
-      currentTime: 0,
-      isPlaying: false
-    }));
+    set((state) => {
+      const otherTracks = state.tracks.filter(t => t.id !== newTrack.id);
+      const updatedTracks = [newTrack, ...otherTracks];
+      return {
+        tracks: updatedTracks,
+        currentTrackIndex: 0,
+        audioFile: file,
+        audioUrl: url,
+        audioDuration: duration,
+        albumArt: newTrack.albumArt || null,
+        currentTime: 0,
+        isPlaying: false
+      };
+    });
   },
   setSelectedLayerId: (selectedLayerId) => set({ selectedLayerId }),
   
@@ -243,7 +247,10 @@ export const useStore = create<ProjectState>((set, get) => ({
   setIsLooping: (isLooping) => set({ isLooping }),
   
   nextTrack: () => set((state) => {
-    if (state.tracks.length === 0) return {};
+    if (state.tracks.length === 0) return { currentTime: 0, isPlaying: true };
+    if (state.tracks.length <= 1) {
+      return { currentTime: 0, isPlaying: true };
+    }
     const nextIndex = (state.currentTrackIndex + 1) % state.tracks.length;
     const nextTrack = state.tracks[nextIndex];
     return {
@@ -258,7 +265,10 @@ export const useStore = create<ProjectState>((set, get) => ({
   }),
   
   previousTrack: () => set((state) => {
-    if (state.tracks.length === 0) return {};
+    if (state.tracks.length === 0) return { currentTime: 0, isPlaying: true };
+    if (state.tracks.length <= 1 || state.currentTime > 3) {
+      return { currentTime: 0, isPlaying: true };
+    }
     const prevIndex = state.currentTrackIndex === 0 ? state.tracks.length - 1 : state.currentTrackIndex - 1;
     const prevTrack = state.tracks[prevIndex];
     return {

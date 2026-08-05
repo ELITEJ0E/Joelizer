@@ -238,12 +238,13 @@ export function StudioLayout() {
     };
   }, [waveformData, zoom]);
 
-  // Global Keyboard Shortcuts for Studio Sync Editing
+  // Studio Specific Keyboard Shortcuts (Undo, Redo, Line Marking, Line Selection)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing inside text input / textarea
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      // Ignore if typing inside text input / textarea / contenteditable
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -255,9 +256,6 @@ export function StudioLayout() {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         redo();
-      } else if (e.code === 'Space') {
-        e.preventDefault();
-        togglePlay();
       } else if (e.key === '[') {
         e.preventDefault();
         if (selectedLineId) {
@@ -294,10 +292,10 @@ export function StudioLayout() {
         const currentIdx = lines.findIndex(l => l.id === selectedLineId);
         const nextIdx = currentIdx !== -1 && currentIdx < lines.length - 1 ? currentIdx + 1 : 0;
         setSelectedLineId(lines[nextIdx].id);
-      } else if (e.code === 'ArrowLeft') {
+      } else if (e.code === 'ArrowLeft' && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         handleSeek(Math.max(0, currentTime - 5));
-      } else if (e.code === 'ArrowRight') {
+      } else if (e.code === 'ArrowRight' && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         handleSeek(Math.min(audioDuration || 1000, currentTime + 5));
       }
@@ -1062,10 +1060,10 @@ export function StudioLayout() {
               <Zap size={10} style={{ color: activeColor }} /> Quick Sync Hotkeys:
             </span>
             <div className="flex items-center gap-2 shrink-0">
-              <span><kbd className="px-1 bg-white/10 rounded text-white">[</kbd> Start</span>
-              <span><kbd className="px-1 bg-white/10 rounded text-white">]</kbd> End</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">Space</kbd> Play/Pause</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">P / N</kbd> Prev/Next Track</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">[ ]</kbd> Start/End</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">Enter</kbd> Start & Next</span>
-              <span><kbd className="px-1 bg-white/10 rounded text-white">Space</kbd> Play</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">↑↓</kbd> Select</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">Ctrl+Z/Y</kbd> Undo/Redo</span>
             </div>
