@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { useStore, VisualizerSettings, BackgroundSettings } from '../../store/useStore';
 import { X, Sparkles, Disc, Flame, Sunset, Zap, CircleDot } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 
 interface Preset {
   id: string;
@@ -141,6 +142,7 @@ const PRESETS: Preset[] = [
 ];
 
 export function TemplatesModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { handleClose } = usePopstateModal(isOpen, onClose);
   const updateVisualizerSettings = useStore(s => s.updateVisualizerSettings);
   const updateBackgroundSettings = useStore(s => s.updateBackgroundSettings);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -159,11 +161,11 @@ export function TemplatesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
       type: preset.background.type,
       value: preset.background.value,
     });
-    onClose();
+    handleClose();
   };
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200" />
         <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] bg-black/95 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-3xl focus:outline-none animate-in fade-in zoom-in-95 duration-200 overflow-hidden">

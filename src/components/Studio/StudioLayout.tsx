@@ -13,6 +13,7 @@ import { analyzeAudioBuffer, drawStudioWaveform, WaveformData, calculateBpmFromB
 import { GeminiServerProvider, parseUploadedLyricFile, parseLRCContent, getActiveLyricLine } from '../../lib/transcriptionProvider';
 import { LyricLineWithWords, ProcessingProgress, ExportFormat, SongAnalysis } from '../../types/studio';
 import { generateLRC, generateEnhancedLRC, generateSRT, generateASS, generateJSON, generateTXT, generateZIP, downloadFile, formatLRCStamp } from '../../lib/lyricExporters';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 
 export function StudioLayout() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -68,6 +69,7 @@ export function StudioLayout() {
   const [progress, setProgress] = useState<ProcessingProgress | null>(null);
   const [activeExportFormat, setActiveExportFormat] = useState<ExportFormat | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const { handleClose: handleCloseExportMenu } = usePopstateModal(showExportMenu, () => setShowExportMenu(false));
   const [copiedLRC, setCopiedLRC] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [mobileStudioTab, setMobileStudioTab] = useState<'waveform' | 'lyrics' | 'source'>('waveform');
@@ -1376,7 +1378,10 @@ export function StudioLayout() {
 
       {/* EXPORT PACK MODAL DIALOG */}
       {showExportMenu && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) handleCloseExportMenu(); }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
           <div className="bg-[#09090d] border border-white/10 rounded-2xl p-6 w-full max-w-xl shadow-2xl relative overflow-hidden space-y-5">
             {/* Ambient Background Accent */}
             <div 
@@ -1394,7 +1399,7 @@ export function StudioLayout() {
                 </div>
               </div>
               <button
-                onClick={() => setShowExportMenu(false)}
+                onClick={handleCloseExportMenu}
                 className="p-1.5 text-slate-400 hover:text-white transition-colors rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
               >
                 <X size={16} />

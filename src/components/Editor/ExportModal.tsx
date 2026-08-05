@@ -5,8 +5,10 @@ import { X, Loader2, Download, Zap, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 import { animate, stagger } from 'animejs';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
+  const { handleClose } = usePopstateModal(true, onClose);
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [exportFormat, setExportFormat] = useState<'webm' | 'mp4'>('webm');
@@ -282,7 +284,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const perfInfo = getPerformanceFeedback();
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => { if (e.target === e.currentTarget) { if (isExporting) handleCancelExport(); else handleClose(); } }}
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-200"
+    >
       <div className="export-modal-card bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-5 sm:p-7 w-full max-w-lg shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         
@@ -304,7 +309,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           </div>
           
           <button 
-            onClick={isExporting ? handleCancelExport : onClose} 
+            onClick={isExporting ? handleCancelExport : handleClose} 
             className="text-slate-500 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer"
             title={isExporting ? "Cancel Export" : "Close Window"}
           >
