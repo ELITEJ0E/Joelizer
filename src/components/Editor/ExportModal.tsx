@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/useStore';
 import { X, Loader2, Download, Zap, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -14,6 +14,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [resolution, setResolution] = useState<'360p' | '720p' | '1080p'>('720p');
   const [fps, setFps] = useState<15 | 30 | 60>(30);
   const [bitrate, setBitrate] = useState<1500000 | 4000000 | 8000000>(4000000);
+
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const isCancelledRef = useRef<boolean>(false);
+  const animFrameRef = useRef<number | null>(null);
 
   const audioFile = useStore(s => s.audioFile);
   const audioDuration = useStore(s => s.audioDuration);
@@ -43,10 +47,38 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     });
 
     return () => {
-      // Ensure override is cleared when modal unmounts
+      // Ensure export is safely cancelled and override is cleared on unmount
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        isCancelledRef.current = true;
+        try {
+          recorderRef.current.onstop = null;
+          recorderRef.current.stop();
+        } catch (_) {}
+      }
       useStore.getState().setExportResolutionOverride(null);
     };
   }, []);
+
+  const handleCancelExport = () => {
+    isCancelledRef.current = true;
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.onstop = null; // Prevent file download
+      try {
+        recorderRef.current.stop();
+      } catch (err) {
+        console.warn('Error stopping recorder on cancel:', err);
+      }
+    }
+    recorderRef.current = null;
+    setIsPlaying(false);
+    setExportResolutionOverride(null);
+    setIsExporting(false);
+    setProgress(0);
+  };
 
   const getMimeTypeForFormat = (format: 'webm' | 'mp4') => {
     if (format === 'mp4') {
@@ -81,6 +113,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   const handleExport = async () => {
     if (!audioFile) return;
+    isCancelledRef.current = false;
     setIsExporting(true);
     setProgress(0);
 
@@ -89,6 +122,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     
     // Let layout flush so the canvas dimension state can update
     await new Promise(resolve => setTimeout(resolve, 150));
+    if (isCancelledRef.current) return;
 
     // 1. Get the actual preview canvas from the DOM
     const canvas = document.querySelector('canvas');
@@ -120,6 +154,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     }
     
     const finalRecorder = new MediaRecorder(finalStream, options);
+    recorderRef.current = finalRecorder;
     const finalChunks: Blob[] = [];
     
     finalRecorder.ondataavailable = e => {
@@ -127,6 +162,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
     
     finalRecorder.onstop = () => {
+      if (isCancelledRef.current) return;
       setExportResolutionOverride(null);
       const blob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
       const url = URL.createObjectURL(blob);
@@ -143,6 +179,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
 
     finalRecorder.onerror = () => {
+      if (isCancelledRef.current) return;
       setExportResolutionOverride(null);
       setIsExporting(false);
     };
@@ -151,6 +188,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     const audioEl = document.querySelector('audio');
     if (audioEl) {
       audioEl.currentTime = 0;
+      audioEl.play().catch(e => console.warn('Export auto-play:', e));
     }
     setCurrentTime(0);
     setIsPlaying(true);
@@ -160,22 +198,29 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     const pStartTime = performance.now();
     
     const monitorProgress = () => {
+      if (isCancelledRef.current) return;
       if (finalRecorder.state === 'inactive') return;
+
+      // Keep audio element playing during export if it paused
+      if (audioEl && audioEl.paused && !isCancelledRef.current) {
+        audioEl.play().catch(() => {});
+      }
+
       const elapsed = audioEl ? audioEl.currentTime : (performance.now() - pStartTime) / 1000;
       setProgress(Math.min((elapsed / audioDuration) * 100, 100));
       
       if (elapsed >= audioDuration || (audioEl && audioEl.ended)) {
-        if ((finalRecorder.state as string) !== 'inactive') {
+        if (!isCancelledRef.current && (finalRecorder.state as string) !== 'inactive') {
           finalRecorder.stop();
         }
         setIsPlaying(false);
         setExportResolutionOverride(null);
       } else {
-        requestAnimationFrame(monitorProgress);
+        animFrameRef.current = requestAnimationFrame(monitorProgress);
       }
     };
     
-    monitorProgress();
+    animFrameRef.current = requestAnimationFrame(monitorProgress);
   };
 
   // Performance/Overhead calculations
@@ -243,11 +288,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             </div>
             <h2 className="text-xs font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor }}>[ EXPORT VISUALIZER ]</h2>
           </div>
-          {!isExporting && (
-            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer">
-              <X size={18} />
-            </button>
-          )}
+          
+          <button 
+            onClick={isExporting ? handleCancelExport : onClose} 
+            className="text-slate-500 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer"
+            title={isExporting ? "Cancel Export" : "Close Window"}
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {!audioFile ? (
@@ -274,7 +322,18 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               />
             </div>
             <div className="text-center text-[10px] font-mono text-slate-400 tabular-nums font-bold tracking-widest">
-              {Math.round(progress)}% COMPLETE - DO NOT CLOSE OR MINIMIZE TAB
+              {Math.round(progress)}% COMPLETE - REAL-TIME ENCODING
+            </div>
+
+            {/* Cancel Button */}
+            <div className="pt-2 flex justify-center">
+              <button
+                onClick={handleCancelExport}
+                className="px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-rose-100 rounded-lg text-[10px] font-mono font-bold uppercase tracking-widest flex items-center gap-2 transition-all cursor-pointer shadow-lg hover:scale-[1.02] active:scale-95"
+              >
+                <X size={14} />
+                <span>Cancel Export</span>
+              </button>
             </div>
           </div>
         ) : (
