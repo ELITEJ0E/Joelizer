@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import fixWebmDuration from 'fix-webm-duration';
 import { useStore } from '../../store/useStore';
-import { X, Loader2, Download, Zap, Info } from 'lucide-react';
+import { X, Loader2, Download, Zap, Sliders, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 import { animate, stagger } from 'animejs';
@@ -13,6 +13,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [exportFormat, setExportFormat] = useState<'webm' | 'mp4'>('webm');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   
   // Custom performance optimization settings
   const [resolution, setResolution] = useState<'360p' | '720p' | '1080p'>('720p');
@@ -337,6 +338,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           if (audioEl.paused && !isCancelledRef.current) {
             audioEl.play().catch(() => {});
           }
+          setCurrentTime(audioEl.currentTime);
         }
         animFrameRef.current = requestAnimationFrame(monitorProgress);
       }
@@ -392,9 +394,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   return (
     <div 
       onClick={(e) => { if (e.target === e.currentTarget) { if (isExporting) handleCancelExport(); else handleClose(); } }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200"
     >
-      <div className="export-modal-card bg-black/80 backdrop-blur-2xl border border-white/10 rounded-xl p-5 sm:p-7 w-full max-w-lg shadow-2xl relative overflow-hidden">
+      <div className="export-modal-card bg-[#0d0f12] border border-white/15 rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col max-h-[88vh] my-auto">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         
         {/* Dynamic glow accent */}
@@ -403,20 +405,21 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           style={{ background: activeColor }}
         />
 
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0 mb-3">
+          <div className="flex items-center gap-2.5">
             <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center border border-white/10"
+              className="w-7 h-7 rounded-full flex items-center justify-center border border-white/10"
               style={{ backgroundColor: `${activeColor}15` }}
             >
-              <Download size={14} style={{ color: activeColor }} />
+              <Download size={13} style={{ color: activeColor }} />
             </div>
-            <h2 className="text-xs font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor }}>[ EXPORT VISUALIZER ]</h2>
+            <h2 className="text-xs font-mono uppercase tracking-widest font-black" style={{ color: activeColor }}>Export Video</h2>
           </div>
           
           <button 
             onClick={isExporting ? handleCancelExport : handleClose} 
-            className="text-slate-500 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer"
+            className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 cursor-pointer"
             title={isExporting ? "Cancel Export" : "Close Window"}
           >
             <X size={18} />
@@ -424,19 +427,20 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {!audioFile ? (
-          <div className="text-center text-slate-500 text-[10px] uppercase font-bold tracking-widest py-8 bg-white/[0.02] rounded-lg border border-white/5">
-            NO AUDIO LOADED
+          <div className="text-center text-slate-400 text-xs uppercase font-bold tracking-widest py-8 bg-white/[0.02] rounded-lg border border-white/5">
+            No audio loaded
           </div>
         ) : isExporting ? (
-          <div className="space-y-6 py-6">
-            <div className="flex flex-col items-center justify-center gap-4 mb-2">
+          <div className="space-y-5 py-4 my-auto">
+            <div className="flex flex-col items-center justify-center gap-3">
               <Loader2 className="animate-spin" size={28} style={{ color: activeColor }} />
               <div className="text-center">
-                <span className="font-mono text-[10px] uppercase tracking-[3px] font-black block" style={{ color: activeColor }}>[ ENCODING FRAMES ]</span>
-                <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase mt-1 block">Rendering at {resolution} @ {fps}fps</span>
+                <span className="font-mono text-xs uppercase tracking-widest font-black block" style={{ color: activeColor }}>Encoding Video...</span>
+                <span className="text-[10px] text-slate-400 font-mono uppercase mt-0.5 block">{resolution} @ {fps}fps</span>
               </div>
             </div>
-            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 relative">
+
+            <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 relative">
               <div 
                 className="absolute top-0 bottom-0 left-0 transition-all duration-300 ease-linear rounded-full"
                 style={{ 
@@ -446,15 +450,16 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 }}
               />
             </div>
-            <div className="text-center text-[10px] font-mono text-slate-400 tabular-nums font-bold tracking-widest">
-              {Math.round(progress)}% COMPLETE - REAL-TIME ENCODING
+
+            <div className="text-center text-xs font-mono text-slate-300 tabular-nums font-bold">
+              {Math.round(progress)}% Complete
             </div>
 
             {/* Cancel Button */}
             <div className="pt-2 flex justify-center">
               <button
                 onClick={handleCancelExport}
-                className="px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-rose-100 rounded-lg text-[10px] font-mono font-bold uppercase tracking-widest flex items-center gap-2 transition-all cursor-pointer shadow-lg hover:scale-[1.02] active:scale-95"
+                className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-rose-100 rounded-lg text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <X size={14} />
                 <span>Cancel Export</span>
@@ -462,8 +467,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         ) : (
-          <div className="space-y-6 relative z-10">
-            {/* Range selection slider */}
+          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-3.5 pr-1 py-1">
+            {/* Range Selection */}
             <div className="export-modal-item-anim">
               <ExportRangeSlider
                 duration={audioDuration}
@@ -472,241 +477,195 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 onChange={setExportRange}
                 activeColor={activeColor}
               />
-              <p className="text-[9px] font-mono text-slate-500 mt-1 block">
-                * Exporting a shorter range renders faster.
-              </p>
             </div>
 
-            {/* Project Name Input */}
-            <div className="export-modal-item-anim space-y-2">
-              <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Project Filename</label>
+            {/* Filename Input */}
+            <div className="export-modal-item-anim space-y-1">
+              <label className="text-[10px] font-mono uppercase text-slate-300 font-bold block">Filename</label>
               <input 
                 type="text"
                 value={projectName}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="NAME YOUR FILE..."
-                className="w-full bg-white/[0.02] border border-white/10 hover:border-white/20 focus:border-white/30 hover:bg-white/[0.04] px-3.5 py-2.5 rounded-lg text-white text-xs font-bold uppercase tracking-wider outline-none transition-glass placeholder-white/20 focus:bg-white/[0.05]"
+                placeholder="Name your video file..."
+                className="w-full bg-black/50 border border-white/15 focus:border-white/40 px-3 py-2 rounded-lg text-white text-xs font-bold uppercase tracking-wider outline-none font-mono"
               />
             </div>
 
-            {/* Quick Speed Presets */}
-            <div className="export-modal-item-anim space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Quick Render Presets</label>
-                <span className="text-[8px] font-mono text-emerald-400 font-bold uppercase tracking-wider">Fast Encoding Engine Active</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
+            {/* Preset Selection */}
+            <div className="export-modal-item-anim space-y-1.5">
+              <label className="text-[10px] font-mono uppercase text-slate-300 font-bold block">Quality Preset</label>
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => applyPreset('turbo')}
                   className={cn(
-                    "py-2 px-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-0.5",
+                    "py-2 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5",
                     resolution === '360p' && exportSpeed === 3
-                      ? "bg-white/10 border-emerald-500/60 text-white shadow-md"
-                      : "bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03] hover:text-white"
+                      ? "bg-white/10 border-emerald-500/80 text-white font-bold"
+                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05] hover:text-white"
                   )}
                 >
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">⚡ Ultra Draft</span>
-                  <span className="text-[8px] font-mono text-slate-400">360p @ 3x Turbo</span>
+                  <span className="text-[10px] font-bold uppercase text-emerald-400">⚡ Draft</span>
+                  <span className="text-[9px] font-mono text-slate-400">360p • 3x</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => applyPreset('balanced')}
                   className={cn(
-                    "py-2 px-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-0.5",
+                    "py-2 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5",
                     resolution === '720p' && exportSpeed === 2
-                      ? "bg-white/10 border-white/30 text-white shadow-md"
-                      : "bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03] hover:text-white"
+                      ? "bg-white/10 border-white/40 text-white font-bold"
+                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05] hover:text-white"
                   )}
-                  style={resolution === '720p' && exportSpeed === 2 ? { borderColor: `${activeColor}60` } : {}}
+                  style={resolution === '720p' && exportSpeed === 2 ? { borderColor: `${activeColor}80` } : {}}
                 >
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-white flex items-center gap-1">🚀 Balanced HD</span>
-                  <span className="text-[8px] font-mono text-slate-400">720p @ 2x Speed</span>
+                  <span className="text-[10px] font-bold uppercase text-white">🚀 HD</span>
+                  <span className="text-[9px] font-mono text-slate-400">720p • 2x</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => applyPreset('quality')}
                   className={cn(
-                    "py-2 px-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-0.5",
+                    "py-2 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5",
                     resolution === '1080p' && exportSpeed === 1
-                      ? "bg-white/10 border-purple-500/60 text-white shadow-md"
-                      : "bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03] hover:text-white"
+                      ? "bg-white/10 border-purple-500/80 text-white font-bold"
+                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05] hover:text-white"
                   )}
                 >
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1">💎 Pro Studio</span>
-                  <span className="text-[8px] font-mono text-slate-400">1080p @ 1x Speed</span>
+                  <span className="text-[10px] font-bold uppercase text-purple-300">💎 Pro</span>
+                  <span className="text-[9px] font-mono text-slate-400">1080p • 1x</span>
                 </button>
               </div>
             </div>
 
-            {/* Export Speed Acceleration Selector */}
-            <div className="export-modal-item-anim space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Export Speed Multiplier</label>
-                <span className="text-[8px] font-mono text-slate-400">Speeds up encoding time by up to 3x</span>
-              </div>
+            {/* Container Format */}
+            <div className="export-modal-item-anim space-y-1.5">
+              <label className="text-[10px] font-mono uppercase text-slate-300 font-bold block">Format</label>
               <div className="flex gap-2">
-                {([1, 1.5, 2, 3] as const).map((spd) => (
+                {(['webm', 'mp4'] as const).map((fmt) => (
                   <button 
-                    key={spd}
-                    onClick={() => setExportSpeed(spd)}
+                    key={fmt}
+                    type="button"
+                    onClick={() => setExportFormat(fmt)}
                     className={cn(
-                      "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer flex flex-col items-center justify-center gap-0.5",
-                      exportSpeed === spd
-                        ? "text-white shadow-md border-white/20"
-                        : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
+                      "flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer",
+                      exportFormat === fmt
+                        ? "text-white bg-white/10 border-white/30"
+                        : "bg-white/[0.02] border-white/10 text-slate-400 hover:text-white"
                     )}
-                    style={exportSpeed === spd ? {
-                      backgroundColor: `${activeColor}15`,
-                      borderColor: `${activeColor}50`,
+                    style={exportFormat === fmt ? {
+                      borderColor: `${activeColor}60`,
+                      color: activeColor
                     } : {}}
                   >
-                    <span>{spd === 1 ? '1.0x Realtime' : spd === 1.5 ? '1.5x Fast' : spd === 2 ? '2.0x Turbo' : '3.0x Ultra'}</span>
+                    {fmt === 'webm' ? 'WebM (Fast)' : 'MP4'}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Container Format & Resolution Side-by-Side */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="export-modal-item-anim space-y-2">
-                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Container Format</label>
-                <div className="flex gap-2">
-                  {(['webm', 'mp4'] as const).map((fmt) => (
-                    <button 
-                      key={fmt}
-                      onClick={() => setExportFormat(fmt)}
-                      className={cn(
-                        "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer",
-                        exportFormat === fmt
-                          ? "text-white shadow-md border-white/20"
-                          : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
-                      )}
-                      style={exportFormat === fmt ? {
-                        backgroundColor: `${activeColor}15`,
-                        borderColor: `${activeColor}50`,
-                      } : {}}
-                    >
-                      {fmt === 'webm' ? 'WebM (Fast)' : 'MP4 (Standard)'}
-                    </button>
-                  ))}
+            {/* Toggle Advanced Custom Settings */}
+            <div className="export-modal-item-anim pt-1">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full py-1.5 px-3 bg-white/[0.02] hover:bg-white/[0.05] border border-white/10 rounded-lg text-[10px] font-mono font-bold uppercase text-slate-300 hover:text-white flex items-center justify-between transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Sliders size={12} style={{ color: activeColor }} />
+                  <span>Custom Settings (Speed, FPS, Bitrate)</span>
                 </div>
-              </div>
+                {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
 
-              <div className="export-modal-item-anim space-y-2">
-                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Quality / Resolution</label>
-                <div className="flex gap-2">
-                  {(['360p', '720p', '1080p'] as const).map((res) => (
-                    <button 
-                      key={res}
-                      onClick={() => setResolution(res)}
-                      className={cn(
-                        "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer",
-                        resolution === res
-                          ? "text-white shadow-md border-white/20"
-                          : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
-                      )}
-                      style={resolution === res ? {
-                        backgroundColor: `${activeColor}15`,
-                        borderColor: `${activeColor}50`,
-                      } : {}}
-                    >
-                      {res === '360p' ? '360p' : res === '720p' ? '720p' : '1080p'}
-                    </button>
-                  ))}
+              {showAdvanced && (
+                <div className="mt-2.5 p-3 bg-black/40 border border-white/10 rounded-lg space-y-3 animate-in fade-in duration-150">
+                  {/* Speed Multiplier */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono text-slate-400 font-bold block">Export Speed</label>
+                    <div className="flex gap-1.5">
+                      {([1, 1.5, 2, 3] as const).map((spd) => (
+                        <button 
+                          key={spd}
+                          type="button"
+                          onClick={() => setExportSpeed(spd)}
+                          className={cn(
+                            "flex-1 py-1.5 rounded text-[10px] font-mono font-bold border transition-all cursor-pointer",
+                            exportSpeed === spd ? "bg-white/15 border-white/40 text-white" : "bg-white/5 border-transparent text-slate-400"
+                          )}
+                          style={exportSpeed === spd ? { color: activeColor } : {}}
+                        >
+                          {spd}x
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* FPS & Resolution */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-mono text-slate-400 font-bold block">Frame Rate</label>
+                      <div className="flex gap-1">
+                        {([15, 30, 60] as const).map((fpsVal) => (
+                          <button 
+                            key={fpsVal}
+                            type="button"
+                            onClick={() => setFps(fpsVal)}
+                            className={cn(
+                              "flex-1 py-1.5 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer",
+                              fps === fpsVal ? "bg-white/15 border-white/40 text-white" : "bg-white/5 border-transparent text-slate-400"
+                            )}
+                          >
+                            {fpsVal}fps
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-mono text-slate-400 font-bold block">Resolution</label>
+                      <div className="flex gap-1">
+                        {(['360p', '720p', '1080p'] as const).map((res) => (
+                          <button 
+                            key={res}
+                            type="button"
+                            onClick={() => setResolution(res)}
+                            className={cn(
+                              "flex-1 py-1.5 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer",
+                              resolution === res ? "bg-white/15 border-white/40 text-white" : "bg-white/5 border-transparent text-slate-400"
+                            )}
+                          >
+                            {res}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* FPS and Bitrate Side-by-Side */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="export-modal-item-anim space-y-2">
-                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Frame Rate (FPS)</label>
-                <div className="flex gap-2">
-                  {([15, 30, 60] as const).map((fpsVal) => (
-                    <button 
-                      key={fpsVal}
-                      onClick={() => setFps(fpsVal)}
-                      className={cn(
-                        "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer",
-                        fps === fpsVal
-                          ? "text-white shadow-md border-white/20"
-                          : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
-                      )}
-                      style={fps === fpsVal ? {
-                        backgroundColor: `${activeColor}15`,
-                        borderColor: `${activeColor}50`,
-                      } : {}}
-                    >
-                      {fpsVal} FPS
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="export-modal-item-anim space-y-2">
-                <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Target Bitrate</label>
-                <div className="flex gap-2">
-                  {([1500000, 4000000, 8000000] as const).map((bitrateVal) => (
-                    <button 
-                      key={bitrateVal}
-                      onClick={() => setBitrate(bitrateVal)}
-                      className={cn(
-                        "flex-1 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-glass cursor-pointer",
-                        bitrate === bitrateVal
-                          ? "text-white shadow-md border-white/20"
-                          : "bg-white/[0.01] border-white/5 text-slate-400 hover:text-white hover:bg-white/[0.03]"
-                      )}
-                      style={bitrate === bitrateVal ? {
-                        backgroundColor: `${activeColor}15`,
-                        borderColor: `${activeColor}50`,
-                      } : {}}
-                    >
-                      {bitrateVal === 1500000 ? '1.5M' : bitrateVal === 4000000 ? '4.0M' : '8.0M'}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {/* Est Summary Badge */}
+            <div className="export-modal-item-anim bg-white/[0.02] border border-white/10 px-3 py-2 rounded-lg flex items-center justify-between text-[10px] font-mono">
+              <span className="text-slate-400 font-bold">EST. ENCODING TIME</span>
+              <span className="font-bold text-white flex items-center gap-1" style={{ color: activeColor }}>
+                <Zap size={11} /> ~{Math.round(((exportRangeEnd - exportRangeStart) || 0) / exportSpeed)}s ({exportSpeed}x Speed)
+              </span>
             </div>
 
-            {/* Performance Advisor */}
-            <div className="export-modal-item-anim bg-white/[0.01] border border-white/5 p-4 rounded-lg flex gap-3.5 items-start">
-              <div className="p-1 rounded bg-white/5 flex-shrink-0 mt-0.5">
-                <Zap size={14} style={{ color: perfInfo.color }} />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-mono uppercase font-black" style={{ color: perfInfo.color }}>
-                    {perfInfo.tag}
-                  </span>
-                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 font-mono text-slate-400 font-bold">
-                    {perfInfo.percent}
-                  </span>
-                </div>
-                <p className="text-[9.5px] text-slate-400 leading-relaxed font-medium uppercase tracking-wider">
-                  {perfInfo.desc} 
-                  <br/>
-                  <span className="text-slate-500 font-mono mt-1 block">
-                    EST. ENCODING TIME: ~{Math.round(((exportRangeEnd - exportRangeStart) || 0) / exportSpeed)}s ({exportSpeed}x SPEED ACCELERATION)
-                  </span>
-                </p>
-              </div>
-            </div>
-
+            {/* Start Export Action */}
             <button
               onClick={handleExport}
-              className="export-modal-item-anim w-full py-3.5 text-black font-black uppercase tracking-widest text-[10px] rounded-lg transition-all hover:scale-[1.01] active:scale-95 shadow-xl relative overflow-hidden group cursor-pointer"
+              className="export-modal-item-anim w-full py-3 text-black font-black uppercase tracking-wider text-xs rounded-lg transition-all hover:brightness-110 active:scale-95 shadow-xl flex items-center justify-center gap-2 cursor-pointer mt-2"
               style={{
                 background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
-                boxShadow: `0 0 25px ${activeColor}40`
+                boxShadow: `0 0 20px ${activeColor}40`
               }}
             >
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-              <span className="relative z-10 flex items-center justify-center gap-2">
-                <Download size={14} /> Start Optimized Export
-              </span>
+              <Download size={15} /> 
+              <span>Start Export</span>
             </button>
           </div>
         )}

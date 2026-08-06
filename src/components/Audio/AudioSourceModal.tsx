@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useStore } from '../../store/useStore';
-import { X, Upload, Link2, Sparkles, Music, Check, Loader2, FileText } from 'lucide-react';
+import { X, Upload, Link2, Sparkles, Music, Check, Loader2, FileText, HardDrive } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface AudioSourceModalProps {
@@ -10,10 +10,11 @@ interface AudioSourceModalProps {
 }
 
 export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted }: AudioSourceModalProps) {
-  const [activeTab, setActiveTab] = useState<'upload' | 'url'>('url');
+  const [activeTab, setActiveTab] = useState<'all' | 'upload' | 'url'>('all');
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [songInfo, setSongInfo] = useState<{
     id: string;
     title: string;
@@ -155,33 +156,45 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted }: AudioSo
         {/* Tab Navigation */}
         <div className="flex border-b border-white/10 bg-black/40 shrink-0 text-xs">
           <button
-            onClick={() => { setActiveTab('url'); setError(null); }}
+            onClick={() => { setActiveTab('all'); setError(null); }}
             className={cn(
-              "flex-1 py-2.5 font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 border-b-2 transition-all cursor-pointer",
-              activeTab === 'url' ? "text-white border-b-2 bg-white/[0.04]" : "text-slate-400 hover:text-white border-transparent"
+              "flex-1 py-2.5 font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1 border-b-2 transition-all cursor-pointer min-h-[44px]",
+              activeTab === 'all' ? "text-white bg-white/[0.04]" : "text-slate-400 hover:text-white border-transparent"
             )}
-            style={activeTab === 'url' ? { borderColor: activeColor, color: activeColor } : {}}
+            style={activeTab === 'all' ? { borderColor: activeColor, color: activeColor } : {}}
           >
-            <Link2 size={13} />
-            <span>Track Link</span>
+            <Sparkles size={12} />
+            <span>All</span>
           </button>
 
           <button
             onClick={() => { setActiveTab('upload'); setError(null); }}
             className={cn(
-              "flex-1 py-2.5 font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 border-b-2 transition-all cursor-pointer",
-              activeTab === 'upload' ? "text-white border-b-2 bg-white/[0.04]" : "text-slate-400 hover:text-white border-transparent"
+              "flex-1 py-2.5 font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1 border-b-2 transition-all cursor-pointer min-h-[44px]",
+              activeTab === 'upload' ? "text-white bg-white/[0.04]" : "text-slate-400 hover:text-white border-transparent"
             )}
             style={activeTab === 'upload' ? { borderColor: activeColor, color: activeColor } : {}}
           >
-            <Upload size={13} />
+            <Upload size={12} />
             <span>Upload File</span>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('url'); setError(null); }}
+            className={cn(
+              "flex-1 py-2.5 font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1 border-b-2 transition-all cursor-pointer min-h-[44px]",
+              activeTab === 'url' ? "text-white bg-white/[0.04]" : "text-slate-400 hover:text-white border-transparent"
+            )}
+            style={activeTab === 'url' ? { borderColor: activeColor, color: activeColor } : {}}
+          >
+            <Link2 size={12} />
+            <span>Track Link</span>
           </button>
         </div>
 
         {/* Modal Body */}
         <div className="p-4 space-y-3.5 overflow-y-auto custom-scrollbar">
-          {activeTab === 'url' ? (
+          {(activeTab === 'all' || activeTab === 'url') && (
             <div className="space-y-3">
               {/* URL Input Box */}
               <div className="space-y-1.5">
@@ -284,27 +297,62 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted }: AudioSo
                 </div>
               )}
             </div>
-          ) : (
-            /* Upload File Tab */
-            <div className="py-2">
-              <label className="border-2 border-dashed border-white/20 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.04] rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all group">
+          )}
+
+          {/* Divider when both are visible */}
+          {activeTab === 'all' && (
+            <div className="relative flex items-center justify-center my-1">
+              <div className="border-t border-white/10 w-full" />
+              <span className="bg-[#0d0f12] px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest absolute">
+                OR
+              </span>
+            </div>
+          )}
+
+          {/* Upload File Section */}
+          {(activeTab === 'all' || activeTab === 'upload') && (
+            <div className="py-1 space-y-2">
+              <label className="text-[10px] font-mono font-bold uppercase text-slate-300 block">
+                Local Audio File
+              </label>
+
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-white/20 hover:border-white/40 bg-white/[0.02] hover:bg-white/[0.05] rounded-xl p-5 flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-all group active:scale-[0.99] relative"
+              >
                 <div 
                   className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-105 transition-transform"
                   style={{ color: activeColor }}
                 >
                   <Upload size={18} />
                 </div>
-                <div className="text-center space-y-0.5">
+                
+                <div className="text-center space-y-1">
                   <span className="text-xs font-bold text-white block">Drop audio file or click to browse</span>
-                  <span className="text-[10px] text-slate-400 font-mono block">MP3, WAV, FLAC, M4A, AAC, OGG</span>
+                  <span className="text-[10px] text-slate-400 font-mono block">Supports MP3, WAV, FLAC, M4A, AAC, OGG</span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-4 py-2 text-black font-bold uppercase text-xs rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-md hover:brightness-110 active:scale-95 mt-1"
+                  style={{ backgroundColor: activeColor }}
+                >
+                  <HardDrive size={13} />
+                  <span>Choose Local File</span>
+                </button>
+
                 <input 
+                  ref={fileInputRef}
                   type="file" 
                   accept="audio/*" 
                   className="hidden" 
                   onChange={handleFileUpload} 
                 />
-              </label>
+              </div>
             </div>
           )}
         </div>

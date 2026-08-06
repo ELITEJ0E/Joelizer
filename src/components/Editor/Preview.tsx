@@ -348,6 +348,17 @@ export function Preview() {
       const w = canvas.width;
       const h = canvas.height;
       
+      // High precision real-time audio timestamp for accurate fast export & sync
+      const curTime = (isPlaying || exportResolutionOverride) ? (audioManager.currentTime || currentTime) : currentTime;
+
+      // Sync background video speed with audio playback rate
+      if (videoRef.current) {
+        const audioEl = document.querySelector('audio');
+        if (audioEl && videoRef.current.playbackRate !== audioEl.playbackRate) {
+          videoRef.current.playbackRate = audioEl.playbackRate;
+        }
+      }
+
       if (visCanvas.width !== w || visCanvas.height !== h) {
         visCanvas.width = w;
         visCanvas.height = h;
@@ -498,7 +509,7 @@ export function Preview() {
       // 3. Draw Lyrics
       const lyrLayer = layers.find(l => l.id === 'lyr');
       if (lyrLayer?.visible && lyricsSettings.lines.length > 0) {
-        const currentLine = getActiveLyricLine(lyricsSettings.lines, currentTime);
+        const currentLine = getActiveLyricLine(lyricsSettings.lines, curTime);
         
         if (currentLine) {
           ctx.save();
@@ -558,10 +569,10 @@ export function Preview() {
               if (lyricsSettings.animationStyle !== 'karaoke') {
                 let alpha = 1;
                 const fadeTime = 0.3;
-                if (currentTime - currentLine.startTime < fadeTime) {
-                  alpha = (currentTime - currentLine.startTime) / fadeTime;
-                } else if (currentLine.endTime - currentTime < fadeTime) {
-                  alpha = (currentLine.endTime - currentTime) / fadeTime;
+                if (curTime - currentLine.startTime < fadeTime) {
+                  alpha = (curTime - currentLine.startTime) / fadeTime;
+                } else if (currentLine.endTime - curTime < fadeTime) {
+                  alpha = (currentLine.endTime - curTime) / fadeTime;
                 }
                 ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
               }
@@ -578,7 +589,7 @@ export function Preview() {
           }
           
           if (lyricsSettings.animationStyle === 'karaoke') {
-            const progress = (currentTime - currentLine.startTime) / (currentLine.endTime - currentLine.startTime);
+            const progress = (curTime - currentLine.startTime) / (currentLine.endTime - currentLine.startTime);
             
             const fullText = currentLine.text;
             const totalChars = fullText.length;
@@ -626,10 +637,10 @@ export function Preview() {
             // Fade Style
             let alpha = 1;
             const fadeTime = 0.3;
-            if (currentTime - currentLine.startTime < fadeTime) {
-              alpha = (currentTime - currentLine.startTime) / fadeTime;
-            } else if (currentLine.endTime - currentTime < fadeTime) {
-              alpha = (currentLine.endTime - currentTime) / fadeTime;
+            if (curTime - currentLine.startTime < fadeTime) {
+              alpha = (curTime - currentLine.startTime) / fadeTime;
+            } else if (currentLine.endTime - curTime < fadeTime) {
+              alpha = (currentLine.endTime - curTime) / fadeTime;
             }
             
             ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
