@@ -50,6 +50,7 @@ export function StudioLayout() {
   // Dragging Marker Pin State
   const draggingLineRef = useRef<string | null>(null);
   const isDraggingMarkerRef = useRef<boolean>(false);
+  const isDraggingPlayheadRef = useRef<boolean>(false);
 
   // Playback state
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
@@ -924,6 +925,7 @@ export function StudioLayout() {
                   setSelectedLineId(hitLineId);
                 } else {
                   handleSeek(clickTime);
+                  isDraggingPlayheadRef.current = true;
                 }
               }}
               onMouseMove={(e) => {
@@ -953,6 +955,8 @@ export function StudioLayout() {
                 if (isDraggingMarkerRef.current && draggingLineRef.current) {
                   const targetId = draggingLineRef.current;
                   setLines(prev => prev.map(l => l.id === targetId ? { ...l, startTime: hoverTime } : l));
+                } else if (isDraggingPlayheadRef.current) {
+                  handleSeek(hoverTime);
                 }
               }}
               onMouseUp={() => {
@@ -961,6 +965,9 @@ export function StudioLayout() {
                   draggingLineRef.current = null;
                   updateLyricsSettings({ lines });
                 }
+                if (isDraggingPlayheadRef.current) {
+                  isDraggingPlayheadRef.current = false;
+                }
               }}
               onMouseLeave={() => {
                 if (isDraggingMarkerRef.current) {
@@ -968,7 +975,68 @@ export function StudioLayout() {
                   draggingLineRef.current = null;
                   updateLyricsSettings({ lines });
                 }
+                if (isDraggingPlayheadRef.current) {
+                  isDraggingPlayheadRef.current = false;
+                }
                 setHoveredLineId(null);
+              }}
+              onTouchStart={(e) => {
+                if (e.touches.length > 0) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const clickX = e.touches[0].clientX - rect.left;
+                  const ratio = clickX / rect.width;
+                  const duration = waveformData?.duration || 1;
+                  const visibleWindow = duration / zoom;
+                  const clickTime = scrollOffset + ratio * visibleWindow;
+                  
+                  // For touch, prioritize seeking / dragging playhead unless very specifically hitting a pin
+                  let hitLineId: string | null = null;
+                  const clickY = e.touches[0].clientY - rect.top;
+                  if ((clickY / rect.height) < 0.3) {
+                    lines.forEach(l => {
+                      const lx = ((l.startTime - scrollOffset) / visibleWindow) * rect.width;
+                      if (Math.abs(clickX - lx) <= 20) {
+                        hitLineId = l.id;
+                      }
+                    });
+                  }
+                  
+                  if (hitLineId) {
+                    draggingLineRef.current = hitLineId;
+                    isDraggingMarkerRef.current = true;
+                    setSelectedLineId(hitLineId);
+                  } else {
+                    handleSeek(clickTime);
+                    isDraggingPlayheadRef.current = true;
+                  }
+                }
+              }}
+              onTouchMove={(e) => {
+                if (e.touches.length > 0) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const hoverX = e.touches[0].clientX - rect.left;
+                  const ratio = hoverX / rect.width;
+                  const duration = waveformData?.duration || 1;
+                  const visibleWindow = duration / zoom;
+                  const hoverTime = Math.max(0, scrollOffset + ratio * visibleWindow);
+
+                  if (isDraggingMarkerRef.current && draggingLineRef.current) {
+                    const targetId = draggingLineRef.current;
+                    setLines(prev => prev.map(l => l.id === targetId ? { ...l, startTime: hoverTime } : l));
+                  } else if (isDraggingPlayheadRef.current) {
+                    handleSeek(hoverTime);
+                  }
+                }
+              }}
+              onTouchEnd={() => {
+                if (isDraggingMarkerRef.current) {
+                  isDraggingMarkerRef.current = false;
+                  draggingLineRef.current = null;
+                  updateLyricsSettings({ lines });
+                }
+                if (isDraggingPlayheadRef.current) {
+                  isDraggingPlayheadRef.current = false;
+                }
               }}
               className={cn(
                 "w-full h-full",

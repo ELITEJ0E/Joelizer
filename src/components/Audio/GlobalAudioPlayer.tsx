@@ -8,6 +8,8 @@ export function GlobalAudioPlayer() {
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioUrl = useStore(s => s.audioUrl);
+  const audioFile = useStore(s => s.audioFile);
+  const setWaveformPeaks = useStore(s => s.setWaveformPeaks);
   const isPlaying = useStore(s => s.isPlaying);
   const isLooping = useStore(s => s.isLooping);
   const setIsPlaying = useStore(s => s.setIsPlaying);
@@ -20,6 +22,48 @@ export function GlobalAudioPlayer() {
   const currentTime = useStore(s => s.currentTime);
   const prevTrackIndexRef = useRef(currentTrackIndex);
   const prevAudioUrlRef = useRef(audioUrl);
+
+  // Decode audio data for waveform peaks whenever audioFile or audioUrl changes
+  useEffect(() => {
+    let active = true;
+    if (!audioFile && !audioUrl) {
+      setWaveformPeaks([]);
+      return;
+    }
+
+    const loadPeaks = async () => {
+      try {
+        const source = audioFile || audioUrl;
+        if (!source) return;
+        
+        const { decodeAudioForWaveform, generateWaveformPeaks } = await import('../../lib/waveform');
+        const buffer = await decodeAudioForWaveform(source);
+        if (!active) return;
+
+        // target points = 180 for richer timeline peaks
+        const peaks = generateWaveformPeaks(buffer, 180);
+        if (active) {
+          setWaveformPeaks(peaks);
+        }
+      } catch (err) {
+        console.warn('Error generating waveform peaks:', err);
+        if (active) {
+          // fallback with default simple peaks if decoding fails or CORS blocks
+          const fallbackPeaks = Array.from({ length: 180 }, (_, i) => {
+            const x = i / 180;
+            return 0.15 + Math.sin(x * Math.PI * 4) * 0.15 + Math.random() * 0.2;
+          });
+          setWaveformPeaks(fallbackPeaks);
+        }
+      }
+    };
+
+    loadPeaks();
+
+    return () => {
+      active = false;
+    };
+  }, [audioFile, audioUrl, setWaveformPeaks]);
 
   // Initialize audioManager with persistent element
   useEffect(() => {

@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 import { animate, stagger } from 'animejs';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
+import { ExportRangeSlider } from './ExportRangeSlider';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const { handleClose } = usePopstateModal(true, onClose);
@@ -31,6 +32,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const setExportResolutionOverride = useStore(s => s.setExportResolutionOverride);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+
+  const exportRangeStart = useStore(s => s.exportRangeStart);
+  const exportRangeEnd = useStore(s => s.exportRangeEnd) !== null ? useStore(s => s.exportRangeEnd)! : audioDuration;
+  const setExportRange = useStore(s => s.setExportRange);
 
   // Apply Quick Presets
   const applyPreset = (preset: 'turbo' | 'balanced' | 'quality') => {
@@ -97,6 +102,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     const audioEl = document.querySelector('audio');
     if (audioEl) {
       audioEl.playbackRate = 1.0;
+      audioEl.currentTime = 0;
     }
 
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
@@ -112,6 +118,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setExportResolutionOverride(null);
     setIsExporting(false);
     setProgress(0);
+    setCurrentTime(0);
   };
 
   const getMimeTypeForFormat = (format: 'webm' | 'mp4') => {
@@ -198,12 +205,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     finalRecorder.onstop = () => {
       if (audioEl) {
         audioEl.playbackRate = 1.0;
+        audioEl.currentTime = 0;
         audioEl.removeEventListener('pause', handlePauseDuringExport);
       }
       if (isCancelledRef.current) return;
       setExportResolutionOverride(null);
       const rawBlob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
-      const durationMs = Math.round((audioDuration || 0) * 1000);
+      const recordedDuration = exportRangeEnd - exportRangeStart;
+      const durationMs = Math.round((recordedDuration || 0) * 1000);
 
       const triggerDownload = (downloadBlob: Blob) => {
         if (isCancelledRef.current) return;
@@ -213,9 +222,21 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         
         const safeProjectName = projectName ? projectName.trim() : '';
         const baseName = safeProjectName ? safeProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'visualizer';
-        a.download = `${baseName}.${exportFormat}`;
+        
+        const isFull = exportRangeStart === 0 && (exportRangeEnd === audioDuration || Math.abs(exportRangeEnd - audioDuration) < 0.1);
+        let rangeSuffix = '';
+        if (!isFull) {
+          const startMin = Math.floor(exportRangeStart / 60).toString().padStart(2, '0');
+          const startSec = Math.floor(exportRangeStart % 60).toString().padStart(2, '0');
+          const endMin = Math.floor(exportRangeEnd / 60).toString().padStart(2, '0');
+          const endSec = Math.floor(exportRangeEnd % 60).toString().padStart(2, '0');
+          rangeSuffix = `_${startMin}-${startSec}to${endMin}-${endSec}`;
+        }
+        a.download = `${baseName}${rangeSuffix}.${exportFormat}`;
         a.click();
         URL.revokeObjectURL(url);
+        setIsPlaying(false);
+        setCurrentTime(0);
         setIsExporting(false);
         onClose();
       };
@@ -250,12 +271,12 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     // Start playback and recording with chosen export speed
     const audioEl = document.querySelector('audio');
     if (audioEl) {
-      audioEl.currentTime = 0;
+      audioEl.currentTime = exportRangeStart;
       audioEl.playbackRate = exportSpeed;
       audioEl.addEventListener('pause', handlePauseDuringExport);
       audioEl.play().catch(e => console.warn('Export auto-play:', e));
     }
-    setCurrentTime(0);
+    setCurrentTime(exportRangeStart);
     setIsPlaying(true);
     
     finalRecorder.start(100);
@@ -273,6 +294,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
       if (audioEl) {
         audioEl.playbackRate = 1.0;
+        audioEl.currentTime = 0;
         audioEl.removeEventListener('pause', handlePauseDuringExport);
         audioEl.pause();
       }
@@ -287,6 +309,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         }
       }
       setIsPlaying(false);
+      setCurrentTime(0);
       setExportResolutionOverride(null);
     };
 
@@ -294,14 +317,17 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       if (isCancelledRef.current || isExportFinished) return;
       if (finalRecorder.state === 'inactive') return;
 
-      const realElapsed = ((performance.now() - pStartTime) / 1000) * exportSpeed;
+      const realElapsed = ((performance.now() - pStartTime) / 1000) * exportSpeed + exportRangeStart;
       const audioElapsed = audioEl ? audioEl.currentTime : realElapsed;
       const effectiveElapsed = Math.max(audioElapsed, realElapsed);
 
-      const currentProgress = Math.min((effectiveElapsed / (audioDuration || 180)) * 100, 100);
+      const recordedSoFar = effectiveElapsed - exportRangeStart;
+      const totalToRecord = exportRangeEnd - exportRangeStart;
+
+      const currentProgress = Math.min((recordedSoFar / (totalToRecord || 0.1)) * 100, 100);
       setProgress(currentProgress);
 
-      if (effectiveElapsed >= (audioDuration || 180) - 0.25 || (audioEl && (audioEl.ended || audioEl.currentTime >= (audioDuration || 180) - 0.25))) {
+      if (effectiveElapsed >= exportRangeEnd - 0.25 || (audioEl && (audioEl.ended || audioEl.currentTime >= exportRangeEnd - 0.25))) {
         finishExport();
       } else {
         if (audioEl && !isExportFinished) {
@@ -437,6 +463,20 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <div className="space-y-6 relative z-10">
+            {/* Range selection slider */}
+            <div className="export-modal-item-anim">
+              <ExportRangeSlider
+                duration={audioDuration}
+                start={exportRangeStart}
+                end={exportRangeEnd}
+                onChange={setExportRange}
+                activeColor={activeColor}
+              />
+              <p className="text-[9px] font-mono text-slate-500 mt-1 block">
+                * Exporting a shorter range renders faster.
+              </p>
+            </div>
+
             {/* Project Name Input */}
             <div className="export-modal-item-anim space-y-2">
               <label className="text-[9px] font-mono uppercase text-slate-400 font-bold tracking-widest block">Project Filename</label>
@@ -649,7 +689,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   {perfInfo.desc} 
                   <br/>
                   <span className="text-slate-500 font-mono mt-1 block">
-                    EST. ENCODING TIME: ~{Math.round((audioDuration || 0) / exportSpeed)}s ({exportSpeed}x SPEED ACCELERATION)
+                    EST. ENCODING TIME: ~{Math.round(((exportRangeEnd - exportRangeStart) || 0) / exportSpeed)}s ({exportSpeed}x SPEED ACCELERATION)
                   </span>
                 </p>
               </div>

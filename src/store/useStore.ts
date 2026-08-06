@@ -90,6 +90,10 @@ interface ProjectState {
   
   exportResolutionOverride: '1080p' | '720p' | '360p' | null;
   activeTab: 'lyrics' | 'studio';
+
+  exportRangeStart: number;
+  exportRangeEnd: number | null;
+  waveformPeaks: number[];
   
   // Actions
   setName: (name: string) => void;
@@ -111,6 +115,10 @@ interface ProjectState {
   setAudioDuration: (duration: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setIsLooping: (looping: boolean) => void;
+
+  setExportRange: (start: number, end: number) => void;
+  resetExportRange: () => void;
+  setWaveformPeaks: (peaks: number[]) => void;
   
   nextTrack: () => void;
   previousTrack: () => void;
@@ -184,6 +192,9 @@ export const useStore = create<ProjectState>((set, get) => ({
   isLooping: false,
   exportResolutionOverride: null,
   activeTab: 'lyrics',
+  exportRangeStart: 0,
+  exportRangeEnd: null,
+  waveformPeaks: [],
   
   setName: (name) => set({ name }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
@@ -214,7 +225,10 @@ export const useStore = create<ProjectState>((set, get) => ({
         audioDuration: duration,
         albumArt: newTrack.albumArt || null,
         currentTime: 0,
-        isPlaying: false
+        isPlaying: false,
+        exportRangeStart: 0,
+        exportRangeEnd: duration,
+        waveformPeaks: []
       };
     });
   },
@@ -245,6 +259,21 @@ export const useStore = create<ProjectState>((set, get) => ({
   setAudioDuration: (audioDuration) => set({ audioDuration }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setIsLooping: (isLooping) => set({ isLooping }),
+
+  setExportRange: (start, end) => set((state) => {
+    const duration = state.audioDuration || 180;
+    const clampedStart = Math.max(0, Math.min(start, duration - 0.5));
+    const clampedEnd = Math.max(clampedStart + 0.5, Math.min(end, duration));
+    return {
+      exportRangeStart: clampedStart,
+      exportRangeEnd: clampedEnd
+    };
+  }),
+  resetExportRange: () => set((state) => ({
+    exportRangeStart: 0,
+    exportRangeEnd: state.audioDuration || null
+  })),
+  setWaveformPeaks: (waveformPeaks) => set({ waveformPeaks }),
   
   nextTrack: () => set((state) => {
     if (state.tracks.length === 0) return { currentTime: 0, isPlaying: true };
@@ -260,7 +289,10 @@ export const useStore = create<ProjectState>((set, get) => ({
       albumArt: nextTrack.albumArt || null,
       currentTime: 0,
       isPlaying: true,
-      audioFile: nextTrack.isUserUploaded ? state.audioFile : null
+      audioFile: nextTrack.isUserUploaded ? state.audioFile : null,
+      exportRangeStart: 0,
+      exportRangeEnd: nextTrack.duration,
+      waveformPeaks: []
     };
   }),
   
@@ -278,7 +310,10 @@ export const useStore = create<ProjectState>((set, get) => ({
       albumArt: prevTrack.albumArt || null,
       currentTime: 0,
       isPlaying: true,
-      audioFile: prevTrack.isUserUploaded ? state.audioFile : null
+      audioFile: prevTrack.isUserUploaded ? state.audioFile : null,
+      exportRangeStart: 0,
+      exportRangeEnd: prevTrack.duration,
+      waveformPeaks: []
     };
   }),
   
@@ -292,7 +327,10 @@ export const useStore = create<ProjectState>((set, get) => ({
       albumArt: track.albumArt || null,
       currentTime: 0,
       isPlaying: true,
-      audioFile: track.isUserUploaded ? state.audioFile : null
+      audioFile: track.isUserUploaded ? state.audioFile : null,
+      exportRangeStart: 0,
+      exportRangeEnd: track.duration,
+      waveformPeaks: []
     };
   }),
 
@@ -315,7 +353,10 @@ export const useStore = create<ProjectState>((set, get) => ({
         audioDuration: savedAudio.duration,
         tracks: [track],
         currentTrackIndex: 0,
-        albumArt: track.albumArt || null
+        albumArt: track.albumArt || null,
+        exportRangeStart: 0,
+        exportRangeEnd: savedAudio.duration,
+        waveformPeaks: []
       });
     }
 
