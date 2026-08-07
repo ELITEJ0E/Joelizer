@@ -34,12 +34,19 @@ export function StudioLayout() {
   const currentTime = useStore(s => s.currentTime);
   const setCurrentTime = useStore(s => s.setCurrentTime);
 
+  // Global Studio State from Store for persistence across tab unmounts
+  const selectedLineId = useStore(s => s.selectedStudioLineId);
+  const setSelectedLineId = useStore(s => s.setSelectedStudioLineId);
+  const zoom = useStore(s => s.studioZoom);
+  const setZoom = useStore(s => s.setStudioZoom);
+  const scrollOffset = useStore(s => s.studioScrollOffset);
+  const setScrollOffset = useStore(s => s.setStudioScrollOffset);
+
   // Local Studio State
   const [lines, setLines] = useState<LyricLineWithWords[]>([]);
   const [history, setHistory] = useState<LyricLineWithWords[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
 
   const [rawUploadedLyrics, setRawUploadedLyrics] = useState<string>('');
@@ -55,10 +62,6 @@ export function StudioLayout() {
 
   // Playback state
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
-
-  // Waveform Zoom & Drag
-  const [zoom, setZoom] = useState<number>(1.0);
-  const [scrollOffset, setScrollOffset] = useState<number>(0);
 
   // Song AI Intelligence
   const [analysis, setAnalysis] = useState<SongAnalysis>({

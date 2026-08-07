@@ -33,6 +33,17 @@ export async function saveAudioToStorage(file: File | Blob, name: string, durati
   }
 }
 
+export async function clearAudioFromStorage(): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.clear();
+  } catch (err) {
+    console.warn('Failed to clear audio from IndexedDB:', err);
+  }
+}
+
 export async function loadAudioFromStorage(): Promise<{ blob: Blob; name: string; duration: number } | null> {
   try {
     const db = await openDB();

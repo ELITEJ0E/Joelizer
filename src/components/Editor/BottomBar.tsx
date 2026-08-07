@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, ListMusic, Music } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, ListMusic, Music, Trash2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 import { VideoSlider } from '../ui/video-slider';
@@ -19,6 +19,7 @@ export function BottomBar() {
   const nextTrack = useStore(s => s.nextTrack);
   const previousTrack = useStore(s => s.previousTrack);
   const selectTrack = useStore(s => s.selectTrack);
+  const removeTrack = useStore(s => s.removeTrack);
   
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const setIsPlaying = useStore(s => s.setIsPlaying);
@@ -232,6 +233,17 @@ export function BottomBar() {
                         <span className="text-[10px] font-mono text-slate-500">
                           {formatTime(track.duration)}
                         </span>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeTrack(i);
+                          }}
+                          className="p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors cursor-pointer shrink-0 ml-1"
+                          title="Remove track from queue & storage"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     );
                   })}

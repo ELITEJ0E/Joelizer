@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { 
   saveAudioToStorage, 
   loadAudioFromStorage, 
+  clearAudioFromStorage,
   saveLyricsToStorage, 
   loadLyricsFromStorage 
 } from '../lib/storage';
@@ -91,6 +92,10 @@ interface ProjectState {
   exportResolutionOverride: '1080p' | '720p' | '360p' | null;
   activeTab: 'lyrics' | 'studio';
 
+  selectedStudioLineId: string | null;
+  studioZoom: number;
+  studioScrollOffset: number;
+
   exportRangeStart: number;
   exportRangeEnd: number | null;
   waveformPeaks: number[];
@@ -99,6 +104,9 @@ interface ProjectState {
   setName: (name: string) => void;
   setAspectRatio: (ratio: AspectRatio) => void;
   setActiveTab: (tab: 'lyrics' | 'studio') => void;
+  setSelectedStudioLineId: (id: string | null | ((prev: string | null) => string | null)) => void;
+  setStudioZoom: (zoom: number | ((prev: number) => number)) => void;
+  setStudioScrollOffset: (offset: number | ((prev: number) => number)) => void;
   setExportResolutionOverride: (override: '1080p' | '720p' | '360p' | null) => void;
   setAudio: (file: File | Blob, url: string, duration: number, albumArt: string | null) => void;
   setSelectedLayerId: (id: string | null) => void;
@@ -123,6 +131,7 @@ interface ProjectState {
   nextTrack: () => void;
   previousTrack: () => void;
   selectTrack: (index: number) => void;
+  removeTrack: (index: number) => void;
   
   initFromStorage: () => Promise<void>;
 }
@@ -192,6 +201,11 @@ export const useStore = create<ProjectState>((set, get) => ({
   isLooping: false,
   exportResolutionOverride: null,
   activeTab: 'lyrics',
+
+  selectedStudioLineId: null,
+  studioZoom: 1.0,
+  studioScrollOffset: 0,
+  
   exportRangeStart: 0,
   exportRangeEnd: null,
   waveformPeaks: [],
@@ -199,6 +213,15 @@ export const useStore = create<ProjectState>((set, get) => ({
   setName: (name) => set({ name }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
   setActiveTab: (activeTab) => set({ activeTab }),
+  setSelectedStudioLineId: (selectedStudioLineId) => set((state) => ({
+    selectedStudioLineId: typeof selectedStudioLineId === 'function' ? (selectedStudioLineId as Function)(state.selectedStudioLineId) : selectedStudioLineId
+  })),
+  setStudioZoom: (studioZoom) => set((state) => ({
+    studioZoom: typeof studioZoom === 'function' ? (studioZoom as Function)(state.studioZoom) : studioZoom
+  })),
+  setStudioScrollOffset: (studioScrollOffset) => set((state) => ({
+    studioScrollOffset: typeof studioScrollOffset === 'function' ? (studioScrollOffset as Function)(state.studioScrollOffset) : studioScrollOffset
+  })),
   setExportResolutionOverride: (exportResolutionOverride) => set({ exportResolutionOverride }),
   setAudio: (file, url, duration, albumArt) => {
     const fileName = (file as File).name || 'Uploaded Track';
@@ -331,6 +354,58 @@ export const useStore = create<ProjectState>((set, get) => ({
       exportRangeStart: 0,
       exportRangeEnd: track.duration,
       waveformPeaks: []
+    };
+  }),
+
+  removeTrack: (index) => set((state) => {
+    if (index < 0 || index >= state.tracks.length) return state;
+
+    const trackToRemove = state.tracks[index];
+    const newTracks = state.tracks.filter((_, i) => i !== index);
+
+    if (trackToRemove.isUserUploaded || trackToRemove.id === 'stored-track' || newTracks.length === 0) {
+      clearAudioFromStorage();
+    }
+
+    if (newTracks.length === 0) {
+      return {
+        tracks: [],
+        currentTrackIndex: 0,
+        audioUrl: null,
+        audioFile: null,
+        audioDuration: 0,
+        albumArt: null,
+        currentTime: 0,
+        isPlaying: false,
+        waveformPeaks: []
+      };
+    }
+
+    let newCurrentIndex = state.currentTrackIndex;
+    let newAudioUrl = state.audioUrl;
+    let newAudioFile = state.audioFile;
+    let newAudioDuration = state.audioDuration;
+    let newAlbumArt = state.albumArt;
+
+    if (index === state.currentTrackIndex) {
+      newCurrentIndex = index >= newTracks.length ? newTracks.length - 1 : index;
+      const activeTrack = newTracks[newCurrentIndex];
+      newAudioUrl = activeTrack.url;
+      newAudioFile = activeTrack.isUserUploaded ? state.audioFile : null;
+      newAudioDuration = activeTrack.duration;
+      newAlbumArt = activeTrack.albumArt || null;
+    } else if (index < state.currentTrackIndex) {
+      newCurrentIndex = state.currentTrackIndex - 1;
+    }
+
+    return {
+      tracks: newTracks,
+      currentTrackIndex: newCurrentIndex,
+      audioUrl: newAudioUrl,
+      audioFile: newAudioFile,
+      audioDuration: newAudioDuration,
+      albumArt: newAlbumArt,
+      currentTime: index === state.currentTrackIndex ? 0 : state.currentTime
     };
   }),
 

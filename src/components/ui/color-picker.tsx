@@ -43,9 +43,13 @@ export function AppColorPicker({
     }
   }, [value]);
 
-  const handleChange = (c: any) => {
+  const handleLocalChange = (c: any) => {
     if (!c) return;
     setColorVal(c);
+  };
+
+  const handleCommitChange = (c: any) => {
+    if (!c) return;
     try {
       const hex = typeof c.toString === 'function' ? c.toString('hex') : String(c);
       const formatted = hex.startsWith('#') ? hex : `#${hex}`;
@@ -57,7 +61,7 @@ export function AppColorPicker({
 
   return (
     <div className={cn("flex gap-2 items-center", className)}>
-      <ColorPicker value={colorVal} onChange={handleChange}>
+      <ColorPicker value={colorVal} onChange={handleLocalChange} onChangeEnd={handleCommitChange}>
         <ColorPicker.Trigger className="p-0 h-auto w-auto bg-transparent border-0 hover:bg-transparent focus:ring-0">
           <div 
             className="relative w-9 h-9 rounded-lg overflow-hidden border border-white/20 flex items-center justify-center cursor-pointer shadow-md hover:border-white/40 transition-all hover:scale-105 group shrink-0"

@@ -15,8 +15,16 @@ async function startServer() {
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Initialize Gemini AI Client lazily
-  function getGeminiClient() {
-    const apiKey = process.env.GEMINI_API_KEY;
+  function getGeminiClient(req?: express.Request) {
+    const headerKey = req ? (req.headers['x-gemini-api-key'] || req.headers['x-gemini-key'] || req.headers['authorization']) : undefined;
+    const bodyKey = req && req.body ? req.body.apiKey : undefined;
+    
+    // In Vercel deploy or custom client-side override, use the client key or custom header key.
+    // Otherwise, default to process.env.GEMINI_API_KEY (AI Studio Developer Testing key).
+    const apiKey = (typeof headerKey === 'string' ? headerKey : undefined) || 
+                   (typeof bodyKey === 'string' ? bodyKey : undefined) || 
+                   process.env.GEMINI_API_KEY;
+
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY environment variable is not configured.");
     }
@@ -151,6 +159,101 @@ async function startServer() {
         });
       }
 
+      // Check if URL is YouTube
+      const isYoutube = trimmedUrl.match(/(youtube\.com|youtu\.be|youtube-nocookie\.com)\/(watch\?v=|embed\/|v\/|shorts\/)?([a-zA-Z0-9_-]{11})/i) || trimmedUrl.includes('youtube.com') || trimmedUrl.includes('youtu.be');
+      if (isYoutube) {
+        let videoId = 'dQw4w9WgXcQ'; // default fallback ID
+        const idMatch = trimmedUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+        if (idMatch && idMatch[1]) {
+          videoId = idMatch[1];
+        }
+
+        const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        
+        // Try Cobalt API first
+        try {
+          const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            body: JSON.stringify({
+              url: pageUrl,
+              downloadMode: 'audio',
+              audioFormat: 'mp3',
+              audioBitrate: '128'
+            })
+          });
+
+          if (cobaltRes.ok) {
+            const cobaltData = await cobaltRes.json();
+            if (cobaltData && cobaltData.url) {
+              return res.json({
+                id: `yt-${videoId}`,
+                title: `YouTube Audio (${videoId})`,
+                artist: 'YouTube Video',
+                audioUrl: cobaltData.url,
+                imageUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                lyrics: '',
+                tags: '',
+                source: 'youtube'
+              });
+            }
+          }
+        } catch (err) {
+          console.warn("Primary Cobalt API attempt failed, trying fallback mirrors...", err);
+        }
+
+        // Fallback mirrors
+        const fallbackMirrors = [
+          'https://cobalt.api.ryb.sh/api/json',
+          'https://api.cobalt.tools/api/json'
+        ];
+
+        for (const mirror of fallbackMirrors) {
+          try {
+            const cobaltRes = await fetch(mirror, {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0'
+              },
+              body: JSON.stringify({
+                url: pageUrl,
+                downloadMode: 'audio',
+                audioFormat: 'mp3'
+              })
+            });
+
+            if (cobaltRes.ok) {
+              const cobaltData = await cobaltRes.json();
+              if (cobaltData && cobaltData.url) {
+                return res.json({
+                  id: `yt-${videoId}`,
+                  title: `YouTube Audio (${videoId})`,
+                  artist: 'YouTube Video',
+                  audioUrl: cobaltData.url,
+                  imageUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                  lyrics: '',
+                  tags: '',
+                  source: 'youtube'
+                });
+              }
+            }
+          } catch (mirrorErr) {
+            console.warn(`Fallback mirror ${mirror} failed:`, mirrorErr);
+          }
+        }
+
+        // If all automated APIs fail, provide a clear, helpful error on how to proceed.
+        return res.status(400).json({ 
+          error: 'YouTube conversion service is currently busy or rate-limited. Please use a direct MP3 link or upload your audio file directly in the Studio.' 
+        });
+      }
+
       // Direct MP3 or generic stream audio URL
       if (trimmedUrl.match(/\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i) || trimmedUrl.startsWith('http')) {
         const urlParts = trimmedUrl.split('/');
@@ -168,7 +271,7 @@ async function startServer() {
         });
       }
 
-      return res.status(400).json({ error: 'Invalid URL. Please enter a valid track link or direct audio URL.' });
+      return res.status(400).json({ error: 'Invalid URL. Please enter a valid track link, YouTube URL, or direct audio URL.' });
     } catch (err: any) {
       console.error('Suno Info API Error:', err);
       return res.status(500).json({ error: 'Failed to process song URL' });
@@ -183,7 +286,7 @@ async function startServer() {
         return res.status(400).json({ error: 'Audio data is required' });
       }
 
-      const ai = getGeminiClient();
+      const ai = getGeminiClient(req);
       const model = 'gemini-2.5-flash';
 
       const systemPrompt = `You are a professional music transcription and subtitle synchronization system.
@@ -318,7 +421,7 @@ Schema required:
         return res.status(400).json({ error: 'Audio data and raw lyrics text are required' });
       }
 
-      const ai = getGeminiClient();
+      const ai = getGeminiClient(req);
       const model = 'gemini-2.5-flash';
 
       const systemPrompt = `You are a high-precision forced audio alignment engine.
@@ -459,7 +562,7 @@ Schema required:
         return res.status(400).json({ error: 'Audio data is required' });
       }
 
-      const ai = getGeminiClient();
+      const ai = getGeminiClient(req);
       const model = 'gemini-2.5-flash';
 
       const systemPrompt = `Analyze the audio file and determine:
