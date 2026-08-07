@@ -1,7 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { formatTime } from '../../lib/utils';
-import { RefreshCw, Play, Square, Volume2 } from 'lucide-react';
+import { RefreshCw, Play, Square, Magnet } from 'lucide-react';
 import { WaveformTimeline } from './WaveformTimeline';
 
 interface ExportRangeSliderProps {
@@ -22,22 +22,63 @@ export function ExportRangeSlider({
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeHandle, setActiveHandle] = useState<'start' | 'end' | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [isSnappingEnabled, setIsSnappingEnabled] = useState(true);
 
   const resetExportRange = useStore((s) => s.resetExportRange);
   const isPlaying = useStore((s) => s.isPlaying);
   const setIsPlaying = useStore((s) => s.setIsPlaying);
   const currentTime = useStore((s) => s.currentTime);
   const setCurrentTime = useStore((s) => s.setCurrentTime);
+  const waveformPeaks = useStore((s) => s.waveformPeaks);
 
   const startPct = duration > 0 ? (start / duration) * 100 : 0;
   const endPct = duration > 0 ? (end / duration) * 100 : 100;
   const currentPct = duration > 0 ? Math.min(Math.max((currentTime / duration) * 100, 0), 100) : 0;
 
+  // Compute significant transient points (time values)
+  const transientPoints = useMemo(() => {
+    if (!waveformPeaks || waveformPeaks.length === 0 || duration <= 0) return [];
+    const points: number[] = [];
+    
+    // Smooth to find local maxima
+    for (let i = 2; i < waveformPeaks.length - 2; i++) {
+      const p = waveformPeaks[i];
+      // If it's a local maximum and relatively strong
+      if (p > waveformPeaks[i-1] && p > waveformPeaks[i-2] && p > waveformPeaks[i+1] && p > waveformPeaks[i+2]) {
+        if (p > 0.15) { // Threshold for significance
+          points.push((i / (waveformPeaks.length - 1)) * duration);
+        }
+      }
+    }
+    return points;
+  }, [waveformPeaks, duration]);
+
+  const snapToNearestTransient = (time: number) => {
+    if (!isSnappingEnabled || transientPoints.length === 0) return time;
+    
+    // Snap window: roughly 2% of the track duration, capped at 1.5s
+    const snapWindow = Math.min(duration * 0.02, 1.5);
+    
+    let closestTime = time;
+    let minDiff = snapWindow;
+    
+    for (const p of transientPoints) {
+      const diff = Math.abs(time - p);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestTime = p;
+      }
+    }
+    
+    return closestTime;
+  };
+
   const calculateValueFromCoords = (clientX: number) => {
     if (!containerRef.current || duration <= 0) return 0;
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    return (x / rect.width) * duration;
+    const rawTime = (x / rect.width) * duration;
+    return snapToNearestTransient(rawTime);
   };
 
   const handlePointerDown = (clientX: number) => {
@@ -207,20 +248,31 @@ export function ExportRangeSlider({
           </button>
         </div>
 
-        <button
-          onClick={() => {
-            if (isPreviewPlaying) {
-              setIsPreviewPlaying(false);
-              setIsPlaying(false);
-            }
-            resetExportRange();
-          }}
-          disabled={isFullTrack}
-          className="flex items-center gap-1.5 text-[9px] font-mono uppercase font-bold text-slate-500 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
-        >
-          <RefreshCw size={10} />
-          <span>Reset to full</span>
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setIsSnappingEnabled(!isSnappingEnabled)}
+            className={`flex items-center gap-1.5 text-[9px] font-mono uppercase font-bold transition-colors cursor-pointer ${isSnappingEnabled ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+            title="Snap to audio transients"
+          >
+            <Magnet size={10} className={isSnappingEnabled ? 'text-amber-400' : ''} />
+            <span>Snap to Beat</span>
+          </button>
+          
+          <button
+            onClick={() => {
+              if (isPreviewPlaying) {
+                setIsPreviewPlaying(false);
+                setIsPlaying(false);
+              }
+              resetExportRange();
+            }}
+            disabled={isFullTrack}
+            className="flex items-center gap-1.5 text-[9px] font-mono uppercase font-bold text-slate-500 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+          >
+            <RefreshCw size={10} />
+            <span>Reset to full</span>
+          </button>
+        </div>
       </div>
 
       {/* Range Slider Track */}

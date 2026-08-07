@@ -36,6 +36,22 @@ export function useGlobalKeyboardShortcuts() {
         (e.shiftKey && e.code === 'ArrowRight') ||
         (e.altKey && e.code === 'ArrowRight');
 
+      const isUndo = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyZ';
+      const isRedo = (e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyZ';
+
+      // 0. Undo / Redo
+      if (isUndo) {
+        e.preventDefault();
+        useStore.getState().undo();
+        return;
+      }
+
+      if (isRedo) {
+        e.preventDefault();
+        useStore.getState().redo();
+        return;
+      }
+
       // 1. Play / Pause with Space
       if (isSpace) {
         e.preventDefault();

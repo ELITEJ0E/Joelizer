@@ -16,9 +16,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportPhase, setExportPhase] = useState<'recording' | 'encoding'>('recording');
   const [progress, setProgress] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [exportFormat, setExportFormat] = useState<'webm' | 'mp4'>('webm');
   const [showAdvanced, setShowAdvanced] = useState(false);
   
+  const [batchMode, setBatchMode] = useState(false);
+  const [currentBatchIndex, setCurrentBatchIndex] = useState(-1);
+  const tracks = useStore(s => s.tracks);
+
   // Custom performance optimization settings
   const [resolution, setResolution] = useState<'360p' | '720p' | '1080p'>('720p');
   const [fps, setFps] = useState<15 | 30 | 60>(30);
