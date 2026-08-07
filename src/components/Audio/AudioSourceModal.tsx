@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { X, Upload, Link2, Sparkles, Music, Check, Loader2, FileText, HardDrive } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -11,7 +12,7 @@ interface AudioSourceModalProps {
 }
 
 export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted }: AudioSourceModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | 'upload' | 'url'>('all');
+  const { handleClose } = usePopstateModal(isOpen, onClose);
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,13 +123,15 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted }: AudioSo
       if (songInfo.lyrics && onLyricsExtracted) onLyricsExtracted(songInfo.lyrics);
       setIsPlaying(true);
       setIsLoading(false);
-      onClose();
+      handleClose();
     }
   };
 
+  if (!isOpen) return null;
+
   return createPortal(
     <div 
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
       className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150"
     >
       <div 
@@ -150,63 +153,23 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted }: AudioSo
             </div>
           </div>
           <button 
-            onClick={onClose}
+            onClick={handleClose}
             className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer shrink-0"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-white/10 bg-black/40 shrink-0 text-xs">
-          <button
-            onClick={() => { setActiveTab('all'); setError(null); }}
-            className={cn(
-              "flex-1 py-2.5 font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1 border-b-2 transition-all cursor-pointer min-h-[44px]",
-              activeTab === 'all' ? "text-white bg-white/[0.04]" : "text-slate-400 hover:text-white border-transparent"
-            )}
-            style={activeTab === 'all' ? { borderColor: activeColor, color: activeColor } : {}}
-          >
-            <Sparkles size={12} />
-            <span>All</span>
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('upload'); setError(null); }}
-            className={cn(
-              "flex-1 py-2.5 font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1 border-b-2 transition-all cursor-pointer min-h-[44px]",
-              activeTab === 'upload' ? "text-white bg-white/[0.04]" : "text-slate-400 hover:text-white border-transparent"
-            )}
-            style={activeTab === 'upload' ? { borderColor: activeColor, color: activeColor } : {}}
-          >
-            <Upload size={12} />
-            <span>Upload File</span>
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('url'); setError(null); }}
-            className={cn(
-              "flex-1 py-2.5 font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1 border-b-2 transition-all cursor-pointer min-h-[44px]",
-              activeTab === 'url' ? "text-white bg-white/[0.04]" : "text-slate-400 hover:text-white border-transparent"
-            )}
-            style={activeTab === 'url' ? { borderColor: activeColor, color: activeColor } : {}}
-          >
-            <Link2 size={12} />
-            <span>Track Link</span>
-          </button>
-        </div>
-
         {/* Modal Body */}
         <div className="p-4 space-y-3.5 overflow-y-auto custom-scrollbar">
           {/* Upload File Section FIRST for instant visibility */}
-          {(activeTab === 'all' || activeTab === 'upload') && (
-            <div className="py-1 space-y-2">
-              <label className="text-[10px] font-mono font-bold uppercase text-slate-300 block">
-                Local Audio File
-              </label>
+          <div className="py-1 space-y-2">
+            <label className="text-[10px] font-mono font-bold uppercase text-slate-300 block">
+              Local Audio File
+            </label>
 
-              <div 
-                onClick={() => fileInputRef.current?.click()}
+            <div 
+              onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-white/20 hover:border-white/40 bg-white/[0.03] hover:bg-white/[0.06] rounded-xl p-4 sm:p-5 flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-all group active:scale-[0.99] relative"
               >
                 <div 
@@ -243,122 +206,117 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted }: AudioSo
                 />
               </div>
             </div>
-          )}
 
           {/* Divider when both are visible */}
-          {activeTab === 'all' && (
-            <div className="relative flex items-center justify-center my-1">
-              <div className="border-t border-white/10 w-full" />
-              <span className="bg-[#0d0f12] px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest absolute">
-                OR PASTE LINK
-              </span>
-            </div>
-          )}
+          <div className="relative flex items-center justify-center my-1">
+            <div className="border-t border-white/10 w-full" />
+            <span className="bg-[#0d0f12] px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest absolute">
+              OR PASTE LINK
+            </span>
+          </div>
 
           {/* Track URL Section */}
-          {(activeTab === 'all' || activeTab === 'url') && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono font-bold uppercase text-slate-300 block">
-                  Track URL
-                </label>
-                <div className="flex items-center gap-1.5">
-                  <div className="relative flex-1 min-w-0">
-                    <input 
-                      type="text" 
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleFetchUrl(); }}
-                      placeholder="Paste track link or MP3 URL..."
-                      className="w-full bg-black/60 border border-white/15 rounded-lg px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-white/40 font-mono truncate"
-                    />
-                    {url && (
-                      <button 
-                        onClick={() => { setUrl(''); setSongInfo(null); setError(null); }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs cursor-pointer"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => handleFetchUrl()}
-                    disabled={isLoading || !url.trim()}
-                    className="px-3.5 py-2 text-black font-bold uppercase text-xs rounded-lg flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-95"
-                    style={{ backgroundColor: activeColor }}
-                  >
-                    {isLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                    <span>Load</span>
-                  </button>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono font-bold uppercase text-slate-300 block">
+                Track URL
+              </label>
+              <div className="flex items-center gap-1.5">
+                <div className="relative flex-1 min-w-0">
+                  <input 
+                    type="text" 
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleFetchUrl(); }}
+                    placeholder="Paste track link or MP3 URL..."
+                    className="w-full bg-black/60 border border-white/15 rounded-lg px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-white/40 font-mono truncate"
+                  />
+                  {url && (
+                    <button 
+                      onClick={() => { setUrl(''); setSongInfo(null); setError(null); }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
-              </div>
 
-              {/* Sample Button */}
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] font-mono uppercase text-slate-500">Sample:</span>
                 <button
-                  onClick={() => {
-                    setUrl(EXAMPLE_URL);
-                    handleFetchUrl(EXAMPLE_URL);
-                  }}
-                  className="px-2 py-0.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-mono text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer truncate"
+                  onClick={() => handleFetchUrl()}
+                  disabled={isLoading || !url.trim()}
+                  className="px-3.5 py-2 text-black font-bold uppercase text-xs rounded-lg flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-95"
+                  style={{ backgroundColor: activeColor }}
                 >
-                  <Music size={10} style={{ color: activeColor }} />
-                  <span className="truncate">Neon Skies</span>
+                  {isLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                  <span>Load</span>
                 </button>
               </div>
+            </div>
 
-              {/* Error */}
-              {error && (
-                <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-300 text-xs font-mono">
-                  {error}
-                </div>
-              )}
+            {/* Sample Button */}
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-mono uppercase text-slate-500">Sample:</span>
+              <button
+                onClick={() => {
+                  setUrl(EXAMPLE_URL);
+                  handleFetchUrl(EXAMPLE_URL);
+                }}
+                className="px-2 py-0.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-mono text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer truncate"
+              >
+                <Music size={10} style={{ color: activeColor }} />
+                <span className="truncate">Neon Skies</span>
+              </button>
+            </div>
 
-              {/* Song Card */}
-              {songInfo && (
-                <div className="bg-white/[0.03] border border-white/15 rounded-lg p-3 space-y-2.5 animate-in fade-in duration-150">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {songInfo.imageUrl ? (
-                      <img 
-                        src={songInfo.imageUrl} 
-                        alt={songInfo.title}
-                        className="w-12 h-12 rounded-md object-cover border border-white/10 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 shrink-0">
-                        <Music size={20} />
+            {/* Error */}
+            {error && (
+              <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-300 text-xs font-mono">
+                {error}
+              </div>
+            )}
+
+            {/* Song Card */}
+            {songInfo && (
+              <div className="bg-white/[0.03] border border-white/15 rounded-lg p-3 space-y-2.5 animate-in fade-in duration-150">
+                <div className="flex items-center gap-3 min-w-0">
+                  {songInfo.imageUrl ? (
+                    <img 
+                      src={songInfo.imageUrl} 
+                      alt={songInfo.title}
+                      className="w-12 h-12 rounded-md object-cover border border-white/10 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 shrink-0">
+                      <Music size={20} />
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs font-bold text-white truncate">{songInfo.title}</h4>
+                    {songInfo.artist && (
+                      <p className="text-[10px] text-slate-400 font-mono truncate">{songInfo.artist}</p>
+                    )}
+                    {songInfo.lyrics && (
+                      <div className="flex items-center gap-1 text-[9px] font-mono text-emerald-400 mt-0.5">
+                        <FileText size={10} />
+                        <span>Lyrics included</span>
                       </div>
                     )}
-
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-bold text-white truncate">{songInfo.title}</h4>
-                      {songInfo.artist && (
-                        <p className="text-[10px] text-slate-400 font-mono truncate">{songInfo.artist}</p>
-                      )}
-                      {songInfo.lyrics && (
-                        <div className="flex items-center gap-1 text-[9px] font-mono text-emerald-400 mt-0.5">
-                          <FileText size={10} />
-                          <span>Lyrics included</span>
-                        </div>
-                      )}
-                    </div>
                   </div>
-
-                  <button
-                    onClick={handleApplyUrlSong}
-                    disabled={isLoading}
-                    className="w-full py-2.5 text-black font-bold uppercase text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
-                    style={{ backgroundColor: activeColor }}
-                  >
-                    {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.5} />}
-                    <span>Load & Play</span>
-                  </button>
                 </div>
-              )}
-            </div>
-          )}
+
+                <button
+                  onClick={handleApplyUrlSong}
+                  disabled={isLoading}
+                  className="w-full py-2.5 text-black font-bold uppercase text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                  style={{ backgroundColor: activeColor }}
+                >
+                  {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.5} />}
+                  <span>Load & Play</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>,

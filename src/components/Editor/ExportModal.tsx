@@ -20,7 +20,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [resolution, setResolution] = useState<'360p' | '720p' | '1080p'>('720p');
   const [fps, setFps] = useState<15 | 30 | 60>(30);
   const [bitrate, setBitrate] = useState<1500000 | 4000000 | 8000000>(4000000);
-  const [exportSpeed, setExportSpeed] = useState<1 | 1.5 | 2 | 3>(2); // Default to 2x Turbo Speed for fast export
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const isCancelledRef = useRef<boolean>(false);
@@ -44,17 +43,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     if (preset === 'turbo') {
       setResolution('360p');
       setFps(30);
-      setExportSpeed(3);
       setBitrate(1500000);
     } else if (preset === 'balanced') {
       setResolution('720p');
       setFps(30);
-      setExportSpeed(2);
       setBitrate(4000000);
     } else if (preset === 'quality') {
       setResolution('1080p');
       setFps(60);
-      setExportSpeed(1);
       setBitrate(8000000);
     }
   };
@@ -270,11 +266,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       }
     };
     
-    // Start playback and recording with chosen export speed
+    // Start playback and recording at normal 1.0x speed
     const audioEl = document.querySelector('audio');
     if (audioEl) {
       audioEl.currentTime = exportRangeStart;
-      audioEl.playbackRate = exportSpeed;
+      audioEl.playbackRate = 1.0;
       audioEl.addEventListener('pause', handlePauseDuringExport);
       audioEl.play().catch(e => console.warn('Export auto-play:', e));
     }
@@ -319,7 +315,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       if (isCancelledRef.current || isExportFinished) return;
       if (finalRecorder.state === 'inactive') return;
 
-      const realElapsed = ((performance.now() - pStartTime) / 1000) * exportSpeed + exportRangeStart;
+      const realElapsed = ((performance.now() - pStartTime) / 1000) + exportRangeStart;
       const audioElapsed = audioEl ? audioEl.currentTime : realElapsed;
       const effectiveElapsed = Math.max(audioElapsed, realElapsed);
 
@@ -333,8 +329,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         finishExport();
       } else {
         if (audioEl && !isExportFinished) {
-          if (audioEl.playbackRate !== exportSpeed) {
-            audioEl.playbackRate = exportSpeed;
+          if (audioEl.playbackRate !== 1.0) {
+            audioEl.playbackRate = 1.0;
           }
           if (audioEl.paused && !isCancelledRef.current) {
             audioEl.play().catch(() => {});
@@ -501,13 +497,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   onClick={() => applyPreset('turbo')}
                   className={cn(
                     "py-2 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5",
-                    resolution === '360p' && exportSpeed === 3
+                    resolution === '360p'
                       ? "bg-white/10 border-emerald-500/80 text-white font-bold"
                       : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05] hover:text-white"
                   )}
                 >
                   <span className="text-[10px] font-bold uppercase text-emerald-400">⚡ Draft</span>
-                  <span className="text-[9px] font-mono text-slate-400">360p • 3x</span>
+                  <span className="text-[9px] font-mono text-slate-400">360p • 30fps</span>
                 </button>
 
                 <button
@@ -515,14 +511,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   onClick={() => applyPreset('balanced')}
                   className={cn(
                     "py-2 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5",
-                    resolution === '720p' && exportSpeed === 2
+                    resolution === '720p'
                       ? "bg-white/10 border-white/40 text-white font-bold"
                       : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05] hover:text-white"
                   )}
-                  style={resolution === '720p' && exportSpeed === 2 ? { borderColor: `${activeColor}80` } : {}}
+                  style={resolution === '720p' ? { borderColor: `${activeColor}80` } : {}}
                 >
                   <span className="text-[10px] font-bold uppercase text-white">🚀 HD</span>
-                  <span className="text-[9px] font-mono text-slate-400">720p • 2x</span>
+                  <span className="text-[9px] font-mono text-slate-400">720p • 30fps</span>
                 </button>
 
                 <button
@@ -530,13 +526,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   onClick={() => applyPreset('quality')}
                   className={cn(
                     "py-2 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5",
-                    resolution === '1080p' && exportSpeed === 1
+                    resolution === '1080p'
                       ? "bg-white/10 border-purple-500/80 text-white font-bold"
                       : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05] hover:text-white"
                   )}
                 >
                   <span className="text-[10px] font-bold uppercase text-purple-300">💎 Pro</span>
-                  <span className="text-[9px] font-mono text-slate-400">1080p • 1x</span>
+                  <span className="text-[9px] font-mono text-slate-400">1080p • 60fps</span>
                 </button>
               </div>
             </div>
@@ -567,7 +563,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
-            {/* Toggle Advanced Custom Settings */}
+            {/* Toggle Custom Settings */}
             <div className="export-modal-item-anim pt-1">
               <button
                 type="button"
@@ -576,55 +572,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               >
                 <div className="flex items-center gap-1.5">
                   <Sliders size={12} style={{ color: activeColor }} />
-                  <span>Custom Settings (Speed, FPS, Bitrate)</span>
+                  <span>Custom Settings (Resolution, FPS, Bitrate)</span>
                 </div>
                 {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
 
               {showAdvanced && (
                 <div className="mt-2.5 p-3 bg-black/40 border border-white/10 rounded-lg space-y-3 animate-in fade-in duration-150">
-                  {/* Speed Multiplier */}
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-mono text-slate-400 font-bold block">Export Speed</label>
-                    <div className="flex gap-1.5">
-                      {([1, 1.5, 2, 3] as const).map((spd) => (
-                        <button 
-                          key={spd}
-                          type="button"
-                          onClick={() => setExportSpeed(spd)}
-                          className={cn(
-                            "flex-1 py-1.5 rounded text-[10px] font-mono font-bold border transition-all cursor-pointer",
-                            exportSpeed === spd ? "bg-white/15 border-white/40 text-white" : "bg-white/5 border-transparent text-slate-400"
-                          )}
-                          style={exportSpeed === spd ? { color: activeColor } : {}}
-                        >
-                          {spd}x
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* FPS & Resolution */}
+                  {/* Resolution & Frame Rate */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-mono text-slate-400 font-bold block">Frame Rate</label>
-                      <div className="flex gap-1">
-                        {([15, 30, 60] as const).map((fpsVal) => (
-                          <button 
-                            key={fpsVal}
-                            type="button"
-                            onClick={() => setFps(fpsVal)}
-                            className={cn(
-                              "flex-1 py-1.5 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer",
-                              fps === fpsVal ? "bg-white/15 border-white/40 text-white" : "bg-white/5 border-transparent text-slate-400"
-                            )}
-                          >
-                            {fpsVal}fps
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
                     <div className="space-y-1">
                       <label className="text-[9px] font-mono text-slate-400 font-bold block">Resolution</label>
                       <div className="flex gap-1">
@@ -637,11 +593,57 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                               "flex-1 py-1.5 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer",
                               resolution === res ? "bg-white/15 border-white/40 text-white" : "bg-white/5 border-transparent text-slate-400"
                             )}
+                            style={resolution === res ? { color: activeColor } : {}}
                           >
                             {res}
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-mono text-slate-400 font-bold block">Frame Rate</label>
+                      <div className="flex gap-1">
+                        {([15, 30, 60] as const).map((fpsVal) => (
+                          <button 
+                            key={fpsVal}
+                            type="button"
+                            onClick={() => setFps(fpsVal)}
+                            className={cn(
+                              "flex-1 py-1.5 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer",
+                              fps === fpsVal ? "bg-white/15 border-white/40 text-white" : "bg-white/5 border-transparent text-slate-400"
+                            )}
+                            style={fps === fpsVal ? { color: activeColor } : {}}
+                          >
+                            {fpsVal}fps
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bitrate Selection */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono text-slate-400 font-bold block">Bitrate (Quality)</label>
+                    <div className="flex gap-1.5">
+                      {([
+                        { label: '1.5M Low', val: 1500000 as const },
+                        { label: '4.0M Med', val: 4000000 as const },
+                        { label: '8.0M High', val: 8000000 as const }
+                      ]).map((item) => (
+                        <button
+                          key={item.val}
+                          type="button"
+                          onClick={() => setBitrate(item.val)}
+                          className={cn(
+                            "flex-1 py-1.5 rounded text-[9px] font-mono font-bold border transition-all cursor-pointer",
+                            bitrate === item.val ? "bg-white/15 border-white/40 text-white" : "bg-white/5 border-transparent text-slate-400"
+                          )}
+                          style={bitrate === item.val ? { color: activeColor } : {}}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -650,9 +652,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
             {/* Est Summary Badge */}
             <div className="export-modal-item-anim bg-white/[0.02] border border-white/10 px-3 py-2 rounded-lg flex items-center justify-between text-[10px] font-mono">
-              <span className="text-slate-400 font-bold">EST. ENCODING TIME</span>
+              <span className="text-slate-400 font-bold">RECORDING DURATION</span>
               <span className="font-bold text-white flex items-center gap-1" style={{ color: activeColor }}>
-                <Zap size={11} /> ~{Math.round(((exportRangeEnd - exportRangeStart) || 0) / exportSpeed)}s ({exportSpeed}x Speed)
+                <Zap size={11} /> ~{Math.round((exportRangeEnd - exportRangeStart) || 0)}s ({resolution} @ {fps}fps)
               </span>
             </div>
 
