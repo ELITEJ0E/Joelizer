@@ -364,8 +364,38 @@ export function Preview() {
         visCanvas.height = h;
       }
       
-      const freqData = audioManager.getFrequencyData();
-      const timeData = audioManager.getTimeDomainData();
+      let freqData = audioManager.getFrequencyData();
+      let timeData = audioManager.getTimeDomainData();
+
+      // Check if real WebAudio data is available
+      let sumFreq = 0;
+      if (freqData.length > 0) {
+        for (let i = 0; i < freqData.length; i++) sumFreq += freqData[i];
+      }
+
+      // If WebAudio is zeroed or uninitialized during active playback/export, generate dynamic fallback audio energy
+      const isAudioActive = isPlaying || !!exportResolutionOverride;
+      if ((freqData.length === 0 || sumFreq === 0) && isAudioActive && audioUrl) {
+        const dummyLen = 256;
+        const dummyFreq = new Uint8Array(dummyLen);
+        const dummyTime = new Uint8Array(dummyLen);
+        const storeState = useStore.getState();
+        const peaks = storeState.waveformPeaks || [];
+        const totalDur = storeState.audioDuration || 1;
+        
+        const peakIdx = Math.floor((curTime / totalDur) * (peaks.length || 180)) % Math.max(1, peaks.length);
+        const basePeak = peaks.length > 0 ? (peaks[peakIdx] || 0.4) : 0.5;
+
+        for (let i = 0; i < dummyLen; i++) {
+          const norm = i / dummyLen;
+          const val = Math.sin(curTime * 14 + norm * 10) * 0.35 + 0.65;
+          const bassBoost = norm < 0.15 ? 1.6 : Math.max(0.2, 1 - norm * 0.7);
+          dummyFreq[i] = Math.min(255, Math.floor(basePeak * val * bassBoost * 210));
+          dummyTime[i] = Math.min(255, Math.floor(128 + Math.sin(curTime * 22 + i) * basePeak * 65));
+        }
+        freqData = dummyFreq;
+        timeData = dummyTime;
+      }
       
       // Calculate hit envelope from bass frequencies
       let bass = 0;

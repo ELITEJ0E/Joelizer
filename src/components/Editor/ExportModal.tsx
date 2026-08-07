@@ -151,10 +151,20 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleExport = async () => {
-    if (!audioFile) return;
+    const audioUrl = useStore.getState().audioUrl;
+    if (!audioFile && !audioUrl) return;
     isCancelledRef.current = false;
     setIsExporting(true);
     setProgress(0);
+
+    // 0. Ensure audio element and audioManager are initialized and unmuted
+    const audioEl = document.querySelector('audio');
+    if (audioEl) {
+      audioManager.init(audioEl);
+      audioManager.resume();
+      audioEl.muted = false;
+      if (audioEl.volume === 0) audioEl.volume = 1.0;
+    }
 
     // Apply the active canvas resolution override (resizes canvas for faster frame processing)
     setExportResolutionOverride(resolution);
@@ -171,28 +181,92 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // 2. Get audio stream from audioManager
-    const audioStream = audioManager.getMediaStream();
-    if (!audioStream) {
-      console.warn("No audio stream available from AudioContextManager.");
+    // 2. Get audio stream from audioManager or HTML5 audio fallback
+    let audioStream = audioManager.getMediaStream();
+    if (!audioStream || audioStream.getAudioTracks().length === 0) {
+      if (audioEl) {
+        try {
+          const elStream = (audioEl as any).captureStream ? (audioEl as any).captureStream() : ((audioEl as any).mozCaptureStream ? (audioEl as any).mozCaptureStream() : null);
+          if (elStream && elStream.getAudioTracks().length > 0) {
+            audioStream = elStream;
+          }
+        } catch (e) {
+          console.warn('Fallback audio stream capture from audio element failed:', e);
+        }
+      }
     }
     
     // 3. Setup MediaRecorder with chosen container format, optimized FPS and bitrate
     const canvasStream = canvas.captureStream(fps);
     const finalTracks = [...canvasStream.getVideoTracks()];
     if (audioStream) {
-      finalTracks.push(...audioStream.getAudioTracks());
+      const aTracks = audioStream.getAudioTracks();
+      if (aTracks.length > 0) {
+        finalTracks.push(...aTracks);
+      }
     }
     
     const finalStream = new MediaStream(finalTracks);
-    
-    const mimeType = getMimeTypeForFormat(exportFormat);
-    const options: MediaRecorderOptions = { videoBitsPerSecond: bitrate };
-    if (mimeType) {
-      options.mimeType = mimeType;
+
+    const createRecorder = (stream: MediaStream, prefFormat: 'webm' | 'mp4', targetBitrate: number) => {
+      const candidates: string[] = [];
+      if (prefFormat === 'mp4') {
+        candidates.push(
+          'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+          'video/mp4;codecs=h264,aac',
+          'video/mp4;codecs=h264,mp3',
+          'video/mp4;codecs=h264',
+          'video/mp4'
+        );
+      }
+      candidates.push(
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=h264,opus',
+        'video/webm',
+        'video/ogg'
+      );
+
+      for (const mimeType of candidates) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          try {
+            const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: targetBitrate });
+            return { recorder: rec, mimeType };
+          } catch (e) {
+            console.warn(`Failed creating MediaRecorder for ${mimeType} with bitrate ${targetBitrate}:`, e);
+          }
+        }
+      }
+
+      for (const mimeType of candidates) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          try {
+            const rec = new MediaRecorder(stream, { mimeType });
+            return { recorder: rec, mimeType };
+          } catch (e) {
+            console.warn(`Failed creating MediaRecorder for ${mimeType}:`, e);
+          }
+        }
+      }
+
+      const rec = new MediaRecorder(stream);
+      return { recorder: rec, mimeType: rec.mimeType || 'video/webm' };
+    };
+
+    let finalRecorder: MediaRecorder;
+    let mimeType = '';
+    try {
+      const result = createRecorder(finalStream, exportFormat, bitrate);
+      finalRecorder = result.recorder;
+      mimeType = result.mimeType;
+    } catch (err) {
+      console.error('Fatal error initializing MediaRecorder:', err);
+      alert('Your browser does not support encoding video recordings with the selected options. Please try WebM format.');
+      setExportResolutionOverride(null);
+      setIsExporting(false);
+      return;
     }
-    
-    const finalRecorder = new MediaRecorder(finalStream, options);
+
     recorderRef.current = finalRecorder;
     const finalChunks: Blob[] = [];
     
@@ -208,6 +282,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       }
       if (isCancelledRef.current) return;
       setExportResolutionOverride(null);
+
+      const actualExt = mimeType.includes('mp4') ? 'mp4' : 'webm';
       const rawBlob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
       const recordedDuration = exportRangeEnd - exportRangeStart;
       const durationMs = Math.round((recordedDuration || 0) * 1000);
@@ -230,7 +306,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           const endSec = Math.floor(exportRangeEnd % 60).toString().padStart(2, '0');
           rangeSuffix = `_${startMin}-${startSec}to${endMin}-${endSec}`;
         }
-        a.download = `${baseName}${rangeSuffix}.${exportFormat}`;
+        a.download = `${baseName}${rangeSuffix}.${actualExt}`;
         a.click();
         URL.revokeObjectURL(url);
         setIsPlaying(false);
@@ -239,10 +315,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         onClose();
       };
 
-      if (durationMs > 0) {
-        fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
-          triggerDownload(fixedBlob);
-        });
+      if (durationMs > 0 && (mimeType.includes('webm') || !mimeType)) {
+        try {
+          fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
+            triggerDownload(fixedBlob);
+          });
+        } catch (e) {
+          console.warn('fixWebmDuration failed:', e);
+          triggerDownload(rawBlob);
+        }
       } else {
         triggerDownload(rawBlob);
       }
@@ -267,7 +348,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
     
     // Start playback and recording at normal 1.0x speed
-    const audioEl = document.querySelector('audio');
     if (audioEl) {
       audioEl.currentTime = exportRangeStart;
       audioEl.playbackRate = 1.0;
@@ -277,7 +357,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setCurrentTime(exportRangeStart);
     setIsPlaying(true);
     
-    finalRecorder.start(100);
+    try {
+      finalRecorder.start(100);
+    } catch (e) {
+      console.error('Failed to start MediaRecorder:', e);
+      alert('Could not start recording. Please try WebM format or a lower resolution.');
+      setExportResolutionOverride(null);
+      setIsExporting(false);
+      return;
+    }
     
     const pStartTime = performance.now();
     

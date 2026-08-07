@@ -86,7 +86,14 @@ export class AudioContextManager {
     return this.audioEl ? this.audioEl.currentTime : 0;
   }
 
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
   getMediaStream(): MediaStream | null {
+    if (!this.ctx || !this.analyser) return null;
     if (!this.dest) {
       this.dest = this.ctx.createMediaStreamDestination();
       this.analyser.connect(this.dest);
