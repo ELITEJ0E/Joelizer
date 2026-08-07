@@ -52,6 +52,18 @@ export function Preview() {
   const albumArt = useStore(s => s.albumArt);
   const currentTime = useStore(s => s.currentTime);
   const isPlaying = useStore(s => s.isPlaying);
+  
+  const currentTimeRef = useRef(currentTime);
+  const isPlayingRef = useRef(isPlaying);
+  
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
   const projectName = useStore(s => s.name);
   const exportResolutionOverride = useStore(s => s.exportResolutionOverride);
   
@@ -349,7 +361,8 @@ export function Preview() {
       const h = canvas.height;
       
       // High precision real-time audio timestamp for accurate fast export & sync
-      const curTime = (isPlaying || exportResolutionOverride) ? (audioManager.currentTime || currentTime) : currentTime;
+      const isPlay = isPlayingRef.current;
+      const curTime = (isPlay || exportResolutionOverride) ? (audioManager.currentTime || currentTimeRef.current) : currentTimeRef.current;
 
       // Sync background video speed with audio playback rate
       if (videoRef.current) {
@@ -374,7 +387,7 @@ export function Preview() {
       }
 
       // If WebAudio is zeroed or uninitialized during active playback/export, generate dynamic fallback audio energy
-      const isAudioActive = isPlaying || !!exportResolutionOverride;
+      const isAudioActive = isPlay || !!exportResolutionOverride;
       if ((freqData.length === 0 || sumFreq === 0) && isAudioActive && audioUrl) {
         const dummyLen = 256;
         const dummyFreq = new Uint8Array(dummyLen);
@@ -739,7 +752,7 @@ export function Preview() {
     return () => cancelAnimationFrame(reqRef.current);
   }, [
     dimensions, layers, visualizerSettings, backgroundSettings, 
-    lyricsSettings, logoSettings, audioUrl, albumArt, currentTime
+    lyricsSettings, logoSettings, audioUrl, albumArt
   ]);
 
   const activeColor = visualizerSettings.color || '#00e676';

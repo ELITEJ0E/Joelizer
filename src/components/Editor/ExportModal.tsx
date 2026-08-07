@@ -8,10 +8,13 @@ import { audioManager } from '../../lib/audio';
 import { animate, stagger } from 'animejs';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { ExportRangeSlider } from './ExportRangeSlider';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const { handleClose } = usePopstateModal(true, onClose);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportPhase, setExportPhase] = useState<'recording' | 'encoding'>('recording');
   const [progress, setProgress] = useState(0);
   const [exportFormat, setExportFormat] = useState<'webm' | 'mp4'>('webm');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -24,6 +27,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const isCancelledRef = useRef<boolean>(false);
   const animFrameRef = useRef<number | null>(null);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
 
   const audioFile = useStore(s => s.audioFile);
   const audioDuration = useStore(s => s.audioDuration);
@@ -56,6 +60,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   useEffect(() => {
+    ffmpegRef.current = new FFmpeg();
     // Scale and fade in the export modal card
     animate('.export-modal-card', {
       scale: [0.93, 1],
@@ -288,7 +293,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       const recordedDuration = exportRangeEnd - exportRangeStart;
       const durationMs = Math.round((recordedDuration || 0) * 1000);
 
-      const triggerDownload = (downloadBlob: Blob) => {
+      const triggerDownload = (downloadBlob: Blob, forcedExt?: string) => {
         if (isCancelledRef.current) return;
         const url = URL.createObjectURL(downloadBlob);
         const a = document.createElement('a');
@@ -306,26 +311,82 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           const endSec = Math.floor(exportRangeEnd % 60).toString().padStart(2, '0');
           rangeSuffix = `_${startMin}-${startSec}to${endMin}-${endSec}`;
         }
-        a.download = `${baseName}${rangeSuffix}.${actualExt}`;
+        a.download = `${baseName}${rangeSuffix}.${forcedExt || actualExt}`;
         a.click();
         URL.revokeObjectURL(url);
         setIsPlaying(false);
         setCurrentTime(0);
         setIsExporting(false);
+        setExportPhase('recording');
         onClose();
+      };
+
+      const runFfmpeg = async (blob: Blob) => {
+        setExportPhase('encoding');
+        setProgress(0);
+        try {
+          const ffmpeg = ffmpegRef.current;
+          if (!ffmpeg) throw new Error("FFmpeg not initialized");
+          if (!ffmpeg.loaded) {
+            await ffmpeg.load({
+              coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+              wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+            });
+          }
+          
+          ffmpeg.on('progress', ({ progress: p }) => {
+            setProgress(Math.round(p * 100));
+          });
+
+          const inputName = `input.${actualExt}`;
+          const outputName = `output.${exportFormat}`;
+          
+          const arrayBuffer = await blob.arrayBuffer();
+          await ffmpeg.writeFile(inputName, new Uint8Array(arrayBuffer));
+          
+          const ratio = useStore.getState().aspectRatio === '16:9' ? 16/9 : 
+                        useStore.getState().aspectRatio === '9:16' ? 9/16 : 
+                        useStore.getState().aspectRatio === '1:1' ? 1 : 4/5;
+          const isPortrait = ratio < 1;
+          let baseWidth = isPortrait ? 1080 : 1920;
+          if (resolution === '720p') {
+            baseWidth = isPortrait ? 720 : 1280;
+          } else if (resolution === '360p') {
+            baseWidth = isPortrait ? 360 : 640;
+          }
+          const baseHeight = Math.round(baseWidth / ratio);
+          
+          const vf = `scale=${baseWidth}:${baseHeight}`;
+          const args = ['-i', inputName];
+          if (exportFormat === 'mp4') {
+             args.push('-c:v', 'libx264', '-b:v', `${Math.round(bitrate / 1000)}k`, '-vf', vf, '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', outputName);
+          } else {
+             args.push('-c:v', 'libvpx-vp9', '-b:v', `${Math.round(bitrate / 1000)}k`, '-vf', vf, '-c:a', 'libopus', '-b:a', '192k', outputName);
+          }
+          
+          await ffmpeg.exec(args);
+          
+          const data = await ffmpeg.readFile(outputName);
+          const finalBlob = new Blob([data], { type: exportFormat === 'mp4' ? 'video/mp4' : 'video/webm' });
+          
+          triggerDownload(finalBlob, exportFormat);
+        } catch (e) {
+          console.error("FFmpeg encoding failed:", e);
+          triggerDownload(blob);
+        }
       };
 
       if (durationMs > 0 && (mimeType.includes('webm') || !mimeType)) {
         try {
           fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
-            triggerDownload(fixedBlob);
+            runFfmpeg(fixedBlob);
           });
         } catch (e) {
           console.warn('fixWebmDuration failed:', e);
-          triggerDownload(rawBlob);
+          runFfmpeg(rawBlob);
         }
       } else {
-        triggerDownload(rawBlob);
+        runFfmpeg(rawBlob);
       }
     };
 
@@ -399,11 +460,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setExportResolutionOverride(null);
     };
 
+    let lastTimeUpdate = 0;
+
     const monitorProgress = () => {
       if (isCancelledRef.current || isExportFinished) return;
       if (finalRecorder.state === 'inactive') return;
 
-      const realElapsed = ((performance.now() - pStartTime) / 1000) + exportRangeStart;
+      const now = performance.now();
+      const realElapsed = ((now - pStartTime) / 1000) + exportRangeStart;
       const audioElapsed = audioEl ? audioEl.currentTime : realElapsed;
       const effectiveElapsed = Math.max(audioElapsed, realElapsed);
 
@@ -423,7 +487,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           if (audioEl.paused && !isCancelledRef.current) {
             audioEl.play().catch(() => {});
           }
-          setCurrentTime(audioEl.currentTime);
+          if (now - lastTimeUpdate > 100) {
+            setCurrentTime(audioEl.currentTime);
+            lastTimeUpdate = now;
+          }
         }
         animFrameRef.current = requestAnimationFrame(monitorProgress);
       }
@@ -520,7 +587,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             <div className="flex flex-col items-center justify-center gap-3">
               <Loader2 className="animate-spin" size={28} style={{ color: activeColor }} />
               <div className="text-center">
-                <span className="font-mono text-xs uppercase tracking-widest font-black block" style={{ color: activeColor }}>Encoding Video...</span>
+                <span className="font-mono text-xs uppercase tracking-widest font-black block" style={{ color: activeColor }}>
+                  {exportPhase === 'recording' ? 'Recording Video...' : 'Encoding Video...'}
+                </span>
                 <span className="text-[10px] text-slate-400 font-mono uppercase mt-0.5 block">{resolution} @ {fps}fps</span>
               </div>
             </div>

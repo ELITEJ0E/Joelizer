@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { formatTime } from '../../lib/utils';
 import { RefreshCw, Play, Square, Volume2 } from 'lucide-react';
+import { WaveformTimeline } from './WaveformTimeline';
 
 interface ExportRangeSliderProps {
   duration: number;
@@ -235,19 +236,18 @@ export function ExportRangeSlider({
             handlePointerDown(e.touches[0].clientX);
           }
         }}
-        className="relative h-7 flex items-center cursor-pointer select-none outline-none mt-2"
+        className="relative h-12 flex items-center cursor-pointer select-none outline-none mt-2"
       >
-        {/* Full grey bar */}
-        <div className="absolute left-0 right-0 h-2 bg-white/10 rounded-full" />
+        <WaveformTimeline duration={duration} start={start} end={end} activeColor={activeColor} />
 
         {/* Selected Highlight bar */}
         <div 
-          className="absolute h-2 rounded-full transition-all duration-75"
+          className="absolute h-full rounded-md transition-all duration-75 border-y border-white/20"
           style={{
             left: `${startPct}%`,
             width: `${endPct - startPct}%`,
             backgroundColor: activeColor,
-            opacity: 0.45,
+            opacity: 0.15,
             boxShadow: `0 0 12px ${activeColor}40`
           }}
         />
@@ -272,10 +272,10 @@ export function ExportRangeSlider({
             setActiveHandle('start');
           }}
           onKeyDown={(e) => handleKeyDown('start', e)}
-          className="absolute w-5 h-5 -ml-2.5 rounded-full bg-white shadow-xl flex items-center justify-center outline-none focus:ring-2 focus:ring-white/80 transition-transform duration-75 hover:scale-125 active:scale-125 z-20 cursor-grab active:cursor-grabbing"
+          className="absolute w-2 h-full -ml-1 rounded-full bg-white shadow-xl flex items-center justify-center outline-none focus:ring-2 focus:ring-white/80 transition-transform duration-75 hover:scale-110 active:scale-110 z-20 cursor-ew-resize active:cursor-ew-resize"
           style={{ 
             left: `${startPct}%`,
-            border: `2px solid ${activeColor}`,
+            backgroundColor: activeColor,
             boxShadow: `0 0 10px rgba(0,0,0,0.8)`
           }}
           role="slider"
@@ -284,9 +284,8 @@ export function ExportRangeSlider({
           aria-valuemax={end - 0.5}
           aria-valuenow={start}
         >
-          <div className="w-1 h-2 bg-slate-600 rounded-full" />
           {/* Handle tooltip */}
-          <div className="absolute bottom-full mb-1.5 px-1.5 py-0.5 bg-black border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-30 shadow-lg font-bold">
+          <div className="absolute bottom-full mb-1 px-1.5 py-0.5 bg-black border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-30 shadow-lg font-bold">
             {formatTime(start)}
           </div>
         </div>
@@ -303,10 +302,10 @@ export function ExportRangeSlider({
             setActiveHandle('end');
           }}
           onKeyDown={(e) => handleKeyDown('end', e)}
-          className="absolute w-5 h-5 -ml-2.5 rounded-full bg-white shadow-xl flex items-center justify-center outline-none focus:ring-2 focus:ring-white/80 transition-transform duration-75 hover:scale-125 active:scale-125 z-20 cursor-grab active:cursor-grabbing"
+          className="absolute w-2 h-full -ml-1 rounded-full bg-white shadow-xl flex items-center justify-center outline-none focus:ring-2 focus:ring-white/80 transition-transform duration-75 hover:scale-110 active:scale-110 z-20 cursor-ew-resize active:cursor-ew-resize"
           style={{ 
             left: `${endPct}%`,
-            border: `2px solid ${activeColor}`,
+            backgroundColor: activeColor,
             boxShadow: `0 0 10px rgba(0,0,0,0.8)`
           }}
           role="slider"
@@ -315,9 +314,8 @@ export function ExportRangeSlider({
           aria-valuemax={duration}
           aria-valuenow={end}
         >
-          <div className="w-1 h-2 bg-slate-600 rounded-full" />
           {/* Handle tooltip */}
-          <div className="absolute bottom-full mb-1.5 px-1.5 py-0.5 bg-black border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-30 shadow-lg font-bold">
+          <div className="absolute bottom-full mb-1 px-1.5 py-0.5 bg-black border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-30 shadow-lg font-bold">
             {formatTime(end)}
           </div>
         </div>
