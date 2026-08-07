@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
-import { Download, Sparkles, Music } from 'lucide-react';
+import { Download, Music } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { TemplatesModal } from './TemplatesModal';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export function TopBar({ onExport }: { onExport: () => void }) {
   const name = useStore(s => s.name);
@@ -13,7 +13,6 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const activeTab = useStore(s => s.activeTab);
   const setActiveTab = useStore(s => s.setActiveTab);
   
-  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
   const [isExportHovered, setIsExportHovered] = useState(false);
 
@@ -27,7 +26,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
   return (
-    <div className="h-14 sm:h-16 bg-black/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-2 sm:px-6 z-30 relative shadow-xl w-full max-w-full overflow-hidden">
+    <div className="h-16 sm:h-16 bg-black/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-3 sm:px-6 z-30 relative shadow-xl w-full max-w-full overflow-hidden shrink-0">
       <div className="absolute top-0 inset-x-0 h-[1px] bg-white/10 pointer-events-none" />
       <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
         {/* Branding with gradient, equalizer motif, and soft glow */}
@@ -126,16 +125,6 @@ export function TopBar({ onExport }: { onExport: () => void }) {
       </div>
       
       <div className="flex items-center gap-1 sm:gap-2.5 shrink-0 ml-1">
-        {/* Templates Button */}
-        <button 
-          onClick={() => setIsTemplatesOpen(true)}
-          title="Templates"
-          className="group bg-white/[0.02] border border-white/5 hover:border-white/15 hover:bg-white/[0.06] text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest px-1.5 sm:px-3 py-1 sm:py-1.5 rounded transition-glass flex items-center gap-1 shadow-sm active:scale-95 shrink-0"
-        >
-          <Sparkles size={11} style={{ color: activeColor }} className="opacity-80 group-hover:opacity-100 group-hover:animate-pulse transition-opacity" />
-          <span className="hidden sm:inline">Templates</span>
-        </button>
-
         {/* Aspect Ratio Selector (Desktop) */}
         <div className="hidden md:flex bg-white/[0.02] border border-white/5 rounded-md p-0.5 gap-0.5 shrink-0">
           {ratios.map(ratio => (
@@ -156,20 +145,20 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           ))}
         </div>
 
-        {/* Aspect Ratio Selector (Mobile) */}
-        <div className="flex md:hidden bg-white/[0.02] border border-white/5 rounded px-1.5 py-1 items-center shrink-0">
-          <select
-            value={aspectRatio}
-            onChange={(e) => setAspectRatio(e.target.value as any)}
-            className="bg-transparent text-white text-[9px] font-bold uppercase outline-none cursor-pointer"
-            title="Aspect Ratio"
-          >
-            {ratios.map(ratio => (
-              <option key={ratio.id} value={ratio.id} className="bg-[#0a0a0a] text-white py-1">
-                {ratio.label}
-              </option>
-            ))}
-          </select>
+        {/* Aspect Ratio Selector (Mobile - Shadcn Select) */}
+        <div className="flex md:hidden shrink-0">
+          <Select value={aspectRatio} onValueChange={(val) => setAspectRatio(val as AspectRatio)}>
+            <SelectTrigger className="h-7 w-[72px] px-2 bg-white/[0.03] border-white/10 text-[9px] font-bold tracking-wider">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-[#0a0a0c]/95 border-white/15 backdrop-blur-2xl">
+              {ratios.map(ratio => (
+                <SelectItem key={ratio.id} value={ratio.id} className="text-[10px] font-bold">
+                  {ratio.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Audio Load Button */}
@@ -203,7 +192,6 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         </button>
       </div>
 
-      <TemplatesModal isOpen={isTemplatesOpen} onClose={() => setIsTemplatesOpen(false)} />
       <AudioSourceModal isOpen={isAudioModalOpen} onClose={() => setIsAudioModalOpen(false)} />
     </div>
   );

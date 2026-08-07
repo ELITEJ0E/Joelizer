@@ -13,8 +13,11 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@heroui/react": "^3.2.3",
+    "@heroui/styles": "^3.2.3",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-select": "^2.3.3",
+    "@radix-ui/react-slider": "^1.4.7",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "animejs": "^4.5.0",

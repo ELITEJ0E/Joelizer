@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { cn, formatTime } from '../../lib/utils';
 import { Scrubber } from '../ui/scrubber';
+import { VideoSlider } from '../ui/video-slider';
 import { audioManager } from '../../lib/audio';
 import { analyzeAudioBuffer, drawStudioWaveform, WaveformData, calculateBpmFromBeats } from '../../lib/audioAnalysis';
 import { GeminiServerProvider, parseUploadedLyricFile, parseLRCContent, getActiveLyricLine } from '../../lib/transcriptionProvider';
@@ -632,7 +633,7 @@ export function StudioLayout() {
   return (
     <div className="flex flex-col h-full w-full bg-[#030304] text-slate-200 overflow-hidden relative font-sans">
       {/* TOP AI TOOLBAR */}
-      <div className="h-14 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 flex items-center justify-between z-20 shrink-0 gap-3 overflow-x-auto no-scrollbar">
+      <div className="h-16 sm:h-16 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 flex items-center justify-between z-20 shrink-0 gap-3 overflow-x-auto no-scrollbar">
         <div className="hidden md:flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles size={16} style={{ color: activeColor }} className="animate-pulse" />
@@ -1314,7 +1315,7 @@ export function StudioLayout() {
       </div>
 
       {/* STICKY BOTTOM PLAYBACK & CONTROL BAR */}
-      <div className="sticky bottom-0 z-30 shrink-0 w-full bg-[#070709] border-t border-white/10 px-3 py-2 sm:px-6 shadow-2xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5">
+      <div className="sticky bottom-0 z-30 shrink-0 w-full bg-[#070709] border-t border-white/10 px-3 py-3.5 sm:py-2.5 sm:px-6 shadow-2xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 min-h-[86px] sm:min-h-0">
         {/* Play/Pause & Seek Controls */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
@@ -1342,9 +1343,9 @@ export function StudioLayout() {
           </div>
         </div>
 
-        {/* Mini Progress Scrubber (for mobile & desktop) */}
+        {/* Mini Progress Video Slider (for mobile & desktop) */}
         <div className="flex-1 min-w-[120px] max-w-md mx-1 sm:mx-4 flex items-center">
-          <Scrubber
+          <VideoSlider
             value={currentTime}
             min={0}
             max={audioDuration || 100}

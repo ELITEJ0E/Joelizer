@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { Layers as LayersIcon, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { Layers as LayersIcon, Eye, EyeOff, GripVertical, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { TemplatesModal } from './TemplatesModal';
 
 export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
   const layers = useStore(s => s.layers);
@@ -10,6 +11,7 @@ export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
   const updateLayerVisibility = useStore(s => s.updateLayerVisibility);
   const reorderLayers = useStore(s => s.reorderLayers);
 
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
@@ -34,11 +36,22 @@ export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
   return (
     <div className="w-full h-full bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col relative overflow-hidden animate-in fade-in slide-in-from-left-2 duration-150">
       
-      <div className="h-16 px-5 border-b border-white/10 flex items-center justify-between">
-        <span className="text-[10px] font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor, textShadow: `0 0 10px ${activeColor}40` }}>[ LAYERS ]</span>
-        <div className="w-6 h-6 rounded bg-black/40 border flex items-center justify-center" style={{ borderColor: `${activeColor}20`, color: activeColor }}>
-          <LayersIcon size={12} />
+      <div className="h-14 sm:h-16 px-4 sm:px-5 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor, textShadow: `0 0 10px ${activeColor}40` }}>[ LAYERS ]</span>
+          <div className="w-5 h-5 rounded bg-black/40 border flex items-center justify-center" style={{ borderColor: `${activeColor}20`, color: activeColor }}>
+            <LayersIcon size={11} />
+          </div>
         </div>
+
+        <button 
+          onClick={() => setIsTemplatesOpen(true)}
+          title="Templates & Presets"
+          className="group bg-white/[0.04] border border-white/10 hover:border-white/20 hover:bg-white/[0.08] text-white text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer shrink-0"
+        >
+          <Sparkles size={11} style={{ color: activeColor }} className="opacity-90 group-hover:animate-pulse transition-opacity" />
+          <span>Templates</span>
+        </button>
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -109,6 +122,8 @@ export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
           );
         })}
       </div>
+
+      <TemplatesModal isOpen={isTemplatesOpen} onClose={() => setIsTemplatesOpen(false)} />
     </div>
   );
 }

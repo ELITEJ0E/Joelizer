@@ -4,108 +4,8 @@ import { Play, Upload, Clock, Plus, Minus, Trash2, Eye, EyeOff, Film, AlignLeft 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { parseLRC, cn } from '../../lib/utils';
 import { Scrubber } from '../ui/scrubber';
+import { AppColorPicker } from '../ui/color-picker';
 import { animate, stagger } from 'animejs';
-
-function DeferredColorInput({
-  value,
-  onChange,
-  className,
-  boxShadow,
-}: {
-  value: string;
-  onChange: (val: string) => void;
-  className?: string;
-  boxShadow?: string;
-}) {
-  const [localColor, setLocalColor] = useState(value);
-  const colorInputRef = useRef<HTMLInputElement>(null);
-  const valueRef = useRef(value);
-  const onChangeRef = useRef(onChange);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    valueRef.current = value;
-    setLocalColor(value);
-  }, [value]);
-
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
-
-  const commitColor = (newVal: string) => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-    if (newVal && newVal !== valueRef.current) {
-      valueRef.current = newVal;
-      onChangeRef.current(newVal);
-    }
-  };
-
-  const handleInput = (newVal: string) => {
-    setLocalColor(newVal);
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    // Debounce by 120ms: when the user stops dragging or pauses, commit the color automatically without needing to close picker
-    debounceTimerRef.current = setTimeout(() => {
-      commitColor(newVal);
-    }, 120);
-  };
-
-  useEffect(() => {
-    const el = colorInputRef.current;
-    if (!el) return;
-
-    const onNativeChange = (e: Event) => {
-      const val = (e.target as HTMLInputElement).value;
-      commitColor(val);
-    };
-
-    el.addEventListener('change', onNativeChange);
-    return () => {
-      el.removeEventListener('change', onNativeChange);
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, []);
-
-  return (
-    <div className={cn("flex gap-2", className)}>
-      <div 
-        className="relative w-9 h-9 rounded overflow-hidden border border-white/15 flex-shrink-0 cursor-pointer shadow-sm hover:border-white/30 transition-glass"
-        style={{ backgroundColor: localColor, boxShadow: boxShadow || `0 0 15px ${localColor}30` }}
-      >
-        <input 
-          ref={colorInputRef}
-          type="color" 
-          value={localColor}
-          onInput={(e) => handleInput((e.target as HTMLInputElement).value)}
-          onBlur={(e) => commitColor((e.target as HTMLInputElement).value)}
-          className="absolute -inset-1 w-[150%] h-[150%] cursor-pointer p-0 border-0 bg-transparent opacity-0"
-        />
-      </div>
-      <input 
-        type="text"
-        value={localColor}
-        onChange={(e) => {
-          const val = e.target.value;
-          setLocalColor(val);
-          if (/^#([0-9A-F]{3}){1,2}$/i.test(val)) {
-            handleInput(val);
-          }
-        }}
-        onBlur={() => commitColor(localColor)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commitColor(localColor);
-        }}
-        className="flex-1 bg-white/[0.02] border border-white/10 text-white rounded px-3 text-xs font-mono tabular-nums outline-none focus:border-white/20 transition-glass uppercase tracking-wider font-bold"
-      />
-    </div>
-  );
-}
 
 function VisualizerSettingsPanel() {
   const settings = useStore(s => s.visualizerSettings);
@@ -166,7 +66,7 @@ function VisualizerSettingsPanel() {
 
       <div>
         <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Neon Accent Color</label>
-        <DeferredColorInput 
+        <AppColorPicker 
           value={settings.color}
           onChange={val => updateSettings({ color: val })}
           className="mb-3"
@@ -313,7 +213,7 @@ function BackgroundSettingsPanel() {
       {settings.type === 'color' && (
         <div>
           <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Hex Code</label>
-          <DeferredColorInput 
+          <AppColorPicker 
             value={settings.value}
             onChange={val => updateSettings({ value: val })}
           />
@@ -324,7 +224,7 @@ function BackgroundSettingsPanel() {
         <div className="space-y-4">
           <div>
             <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Color 1</label>
-            <DeferredColorInput 
+            <AppColorPicker 
               value={settings.value.split(',')[0]?.trim() || '#0c0c14'}
               onChange={val => {
                 const c2 = settings.value.split(',')[1]?.trim() || '#030308';
@@ -334,7 +234,7 @@ function BackgroundSettingsPanel() {
           </div>
           <div>
             <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Color 2</label>
-            <DeferredColorInput 
+            <AppColorPicker 
               value={settings.value.split(',')[1]?.trim() || '#030308'}
               onChange={val => {
                 const c1 = settings.value.split(',')[0]?.trim() || '#0c0c14';
@@ -458,7 +358,7 @@ function LyricsSettingsPanel() {
       
       <div>
         <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Text Accent Color</label>
-        <DeferredColorInput 
+        <AppColorPicker 
           value={settings.color}
           onChange={val => updateSettings({ color: val })}
           boxShadow={`0 0 15px ${settings.color}30`}
@@ -468,7 +368,7 @@ function LyricsSettingsPanel() {
       <div>
         <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Lyrics Background Color</label>
         <div className="space-y-2.5">
-          <DeferredColorInput 
+          <AppColorPicker 
             value={bgColor === 'transparent' ? '#000000' : bgColor}
             onChange={val => updateSettings({ backgroundColor: val })}
             boxShadow={bgColor !== 'transparent' ? `0 0 15px ${bgColor}30` : undefined}

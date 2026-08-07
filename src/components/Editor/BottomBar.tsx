@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, ListMusic, Music } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
-import { Scrubber } from '../ui/scrubber';
+import { VideoSlider } from '../ui/video-slider';
 
 export function BottomBar() {
   const audioUrl = useStore(s => s.audioUrl);
@@ -44,7 +44,7 @@ export function BottomBar() {
   const currentTrack = tracks[currentTrackIndex];
 
   return (
-    <footer className="sticky bottom-0 left-0 right-0 z-30 shrink-0 w-full bg-[#09090b] border-t border-white/10 flex flex-col shadow-2xl py-3.5 sm:py-2.5 px-4 sm:px-6">
+    <footer className="sticky bottom-0 left-0 right-0 z-30 shrink-0 w-full bg-[#09090b] border-t border-white/10 flex flex-col shadow-2xl py-4 sm:py-3 px-4 sm:px-6 min-h-[92px] sm:min-h-0">
       {/* Absolute high-tech accent line */}
       <div 
         className="absolute top-0 left-0 right-0 h-[1.5px] transition-all duration-500" 
@@ -54,14 +54,14 @@ export function BottomBar() {
       />
       
       {/* Top progress bar for mobile & desktop */}
-      <div className="w-full flex items-center gap-2 mb-1">
+      <div className="w-full flex items-center gap-2 mb-1.5 sm:mb-1">
         <span 
           className="text-[9px] sm:text-[10px] font-mono font-bold w-8 sm:w-9 text-right tabular-nums transition-colors shrink-0"
           style={{ color: audioUrl ? activeColor : 'rgba(255,255,255,0.3)' }}
         >
           {formatTime(currentTime)}
         </span>
-        <Scrubber 
+        <VideoSlider 
           value={currentTime}
           min={0}
           max={audioDuration || 100}
@@ -243,7 +243,7 @@ export function BottomBar() {
           {/* Volume Control */}
           <div className="hidden sm:flex items-center gap-2 bg-white/[0.02] border border-white/5 px-2.5 py-1 rounded-full">
             <Volume2 size={13} className="text-slate-400" />
-            <Scrubber 
+            <VideoSlider 
               value={volume}
               min={0}
               max={1}
