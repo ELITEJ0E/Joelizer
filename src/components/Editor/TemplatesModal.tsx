@@ -167,8 +167,8 @@ export function TemplatesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] bg-black/95 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-3xl focus:outline-none animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+        <Dialog.Overlay className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200" />
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-[9999] w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] bg-black/95 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-3xl focus:outline-none animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
           {/* Dynamic background glow based on hover */}
           <div 
             className="absolute -top-32 -right-32 w-64 h-64 rounded-full blur-[80px] pointer-events-none transition-colors duration-500 opacity-20"

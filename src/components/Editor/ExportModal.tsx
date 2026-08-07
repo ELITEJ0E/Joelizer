@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import fixWebmDuration from 'fix-webm-duration';
 import { useStore } from '../../store/useStore';
 import { X, Loader2, Download, Zap, Sliders, ChevronDown, ChevronUp } from 'lucide-react';
@@ -391,10 +392,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   const perfInfo = getPerformanceFeedback();
 
-  return (
+  return createPortal(
     <div 
       onClick={(e) => { if (e.target === e.currentTarget) { if (isExporting) handleCancelExport(); else handleClose(); } }}
-      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200"
     >
       <div className="export-modal-card bg-[#0d0f12] border border-white/15 rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-2xl relative overflow-hidden flex flex-col max-h-[88vh] my-auto">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
@@ -670,6 +671,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
