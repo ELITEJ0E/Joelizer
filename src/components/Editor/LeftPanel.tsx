@@ -1,8 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { useStore } from '../../store/useStore';
 import { Layers as LayersIcon, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { animate, stagger } from 'animejs';
 
 export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
   const layers = useStore(s => s.layers);
@@ -32,18 +31,8 @@ export function LeftPanel({ onLayerSelect }: { onLayerSelect?: () => void }) {
 
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
 
-  useEffect(() => {
-    animate('.layer-item-anim', {
-      opacity: [0, 1],
-      translateX: [-15, 0],
-      delay: stagger(60, { start: 50 }),
-      duration: 600,
-      easing: 'easeOutQuart'
-    });
-  }, [layers.length]);
-
   return (
-    <div className="w-full h-full bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col relative overflow-hidden">
+    <div className="w-full h-full bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col relative overflow-hidden animate-in fade-in slide-in-from-left-2 duration-150">
       
       <div className="h-16 px-5 border-b border-white/10 flex items-center justify-between">
         <span className="text-[10px] font-mono uppercase tracking-[3px] font-black" style={{ color: activeColor, textShadow: `0 0 10px ${activeColor}40` }}>[ LAYERS ]</span>

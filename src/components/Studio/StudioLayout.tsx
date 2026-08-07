@@ -633,7 +633,7 @@ export function StudioLayout() {
     <div className="flex flex-col h-full w-full bg-[#030304] text-slate-200 overflow-hidden relative font-sans">
       {/* TOP AI TOOLBAR */}
       <div className="h-14 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 flex items-center justify-between z-20 shrink-0 gap-3 overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="hidden md:flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles size={16} style={{ color: activeColor }} className="animate-pulse" />
             <span className="font-black tracking-[2px] uppercase text-xs font-mono" style={{ color: activeColor }}>

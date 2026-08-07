@@ -103,7 +103,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             )}
             style={activeTab === 'lyrics' ? { color: activeColor } : {}}
           >
-            Lyrics
+            Preview
           </button>
           
           <button

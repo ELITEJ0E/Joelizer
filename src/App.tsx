@@ -43,8 +43,8 @@ export default function App() {
 
           {/* Center area containing Preview (always visible at top on mobile) and Mobile Edit Controls below */}
           <div className="flex-1 flex flex-col overflow-hidden h-full">
-            {/* Preview Panel - taking 38vh on mobile, flexible on desktop */}
-            <div className="w-full h-[38vh] md:h-auto md:flex-1 border-b md:border-b-0 border-white/10 relative z-0 bg-[#020202]">
+            {/* Preview Panel - taking 28vh on mobile, flexible on desktop */}
+            <div className="w-full h-[28vh] md:h-auto md:flex-1 border-b md:border-b-0 border-white/10 relative z-0 bg-[#020202]">
               <Preview />
             </div>
 

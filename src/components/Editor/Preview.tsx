@@ -730,7 +730,7 @@ export function Preview() {
       ref={containerRef} 
       className={cn(
         "flex-1 w-full h-full flex items-center justify-center bg-[#020202] overflow-hidden select-none transition-all duration-300 relative",
-        isFullscreen ? "fixed inset-0 z-[100] p-4 sm:p-12 bg-black/95 backdrop-blur-md" : "p-4 sm:p-8"
+        isFullscreen ? "fixed inset-0 z-[100] p-4 sm:p-12 bg-black/95 backdrop-blur-md" : "p-1.5 sm:p-8"
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

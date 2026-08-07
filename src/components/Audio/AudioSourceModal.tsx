@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
@@ -13,6 +13,17 @@ interface AudioSourceModalProps {
 
 export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted }: AudioSourceModalProps) {
   const { handleClose } = usePopstateModal(isOpen, onClose);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleClose]);
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
