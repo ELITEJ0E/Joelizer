@@ -435,10 +435,11 @@ export function Preview() {
         bass = (bass / Math.max(1, bassEnd)) / 255.0; // 0 to 1
       }
       
-      // Fast attack, exponential decay for hitEnvelope
+      // Fast attack, exponential decay for hitEnvelope — attack capped by audioRamp
       const prevEnvelope = hitEnvelope;
-      if (bass > hitEnvelope) {
-        hitEnvelope = bass;
+      const rampedBass = bass * audioRamp;
+      if (rampedBass > hitEnvelope) {
+        hitEnvelope = rampedBass;
       } else {
         hitEnvelope = hitEnvelope * 0.85; 
       }
@@ -511,13 +512,13 @@ export function Preview() {
       
       // Prepare camera shake and punch scale
       ctx.save();
-      const punchScale = 1 + (hitEnvelope * (visualizerSettings.hitResponse || 0) * 0.4);
+      const punchScale = 1 + (hitEnvelope * (visualizerSettings.hitResponse || 0) * 0.4 * audioRamp);
       
       let shakeX = 0;
       let shakeY = 0;
       let shakeRot = 0;
       if (visualizerSettings.shakeIntensity && hitEnvelope > 0.2 && timeData.length > 100) {
-        const intensity = hitEnvelope * visualizerSettings.shakeIntensity * 20;
+        const intensity = hitEnvelope * visualizerSettings.shakeIntensity * 20 * audioRamp;
         // Deterministic pseudo-randomness from time domain audio data
         shakeX = ((timeData[0] || 128) / 128.0 - 1.0) * intensity;
         shakeY = ((timeData[50] || 128) / 128.0 - 1.0) * intensity;

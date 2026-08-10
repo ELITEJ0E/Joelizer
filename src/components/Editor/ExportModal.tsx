@@ -393,30 +393,26 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         }
       };
 
-      const processAndDownload = (blob: Blob) => {
-        if (exportFormat === 'webm') {
-          // Direct WebM download with fixed duration metadata - fast & 100% reliable
-          triggerDownload(blob, 'webm');
-        } else if (exportFormat === 'mp4' && actualExt === 'mp4') {
-          // Native MP4 recording
-          triggerDownload(blob, 'mp4');
-        } else {
-          // Transcode WebM to MP4 using FFmpeg WASM
-          runFfmpegWithTimeout(blob);
-        }
-      };
-
-      if (durationMs > 0 && (mimeType.includes('webm') || !mimeType)) {
-        try {
-          fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
-            processAndDownload(fixedBlob);
-          }, { logger: false });
-        } catch (e) {
-          console.warn('fixWebmDuration failed, falling back:', e);
-          processAndDownload(rawBlob);
-        }
+      if (exportFormat === 'mp4' && actualExt !== 'mp4') {
+        // For MP4, pass rawBlob directly to FFmpeg so it reads pristine frame timestamps
+        runFfmpegWithTimeout(rawBlob);
+      } else if (exportFormat === 'mp4' && actualExt === 'mp4') {
+        // Native MP4 recording
+        triggerDownload(rawBlob, 'mp4');
       } else {
-        processAndDownload(rawBlob);
+        // For WebM export, apply fixWebmDuration to the clean rawBlob
+        if (durationMs > 0 && (mimeType.includes('webm') || !mimeType)) {
+          try {
+            fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
+              triggerDownload(fixedBlob, 'webm');
+            }, { logger: false });
+          } catch (e) {
+            console.warn('fixWebmDuration failed, falling back to raw blob:', e);
+            triggerDownload(rawBlob, 'webm');
+          }
+        } else {
+          triggerDownload(rawBlob, 'webm');
+        }
       }
     };
 
@@ -449,7 +445,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setIsPlaying(true);
     
     try {
-      finalRecorder.start(100);
+      finalRecorder.start(1000);
     } catch (e) {
       console.error('Failed to start MediaRecorder:', e);
       alert('Could not start recording. Please try WebM format or a lower resolution.');
