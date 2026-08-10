@@ -184,7 +184,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     if (isCancelledRef.current) return;
 
     // 1. Get the actual preview canvas from the DOM
-    const canvas = document.querySelector('canvas');
+    const canvas = document.getElementById('visualizer-canvas') as HTMLCanvasElement || document.querySelector('canvas');
     if (!canvas) {
       setExportResolutionOverride(null);
       setIsExporting(false);
@@ -326,9 +326,18 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         onClose();
       };
 
-      const runFfmpeg = async (blob: Blob) => {
+      const runFfmpegWithTimeout = async (blob: Blob) => {
         setExportPhase('encoding');
         setProgress(0);
+        let ffmpegDone = false;
+
+        const timeoutId = setTimeout(() => {
+          if (!ffmpegDone && !isCancelledRef.current) {
+            console.warn("FFmpeg load/transcode timed out. Falling back to high-quality WebM export.");
+            triggerDownload(blob, 'webm');
+          }
+        }, 12000);
+
         try {
           const ffmpeg = ffmpegRef.current;
           if (!ffmpeg) throw new Error("FFmpeg not initialized");
@@ -344,7 +353,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           });
 
           const inputName = `input.${actualExt}`;
-          const outputName = `output.${exportFormat}`;
+          const outputName = `output.mp4`;
           
           const arrayBuffer = await blob.arrayBuffer();
           await ffmpeg.writeFile(inputName, new Uint8Array(arrayBuffer));
@@ -362,36 +371,48 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           const baseHeight = Math.round(baseWidth / ratio);
           
           const vf = `scale=${baseWidth}:${baseHeight}`;
-          const args = ['-i', inputName];
-          if (exportFormat === 'mp4') {
-             args.push('-c:v', 'libx264', '-b:v', `${Math.round(bitrate / 1000)}k`, '-vf', vf, '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', outputName);
-          } else {
-             args.push('-c:v', 'libvpx-vp9', '-b:v', `${Math.round(bitrate / 1000)}k`, '-vf', vf, '-c:a', 'libopus', '-b:a', '192k', outputName);
-          }
+          const args = ['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', `${Math.round(bitrate / 1000)}k`, '-vf', vf, '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', outputName];
           
           await ffmpeg.exec(args);
+          ffmpegDone = true;
+          clearTimeout(timeoutId);
           
           const data = await ffmpeg.readFile(outputName);
-          const finalBlob = new Blob([data], { type: exportFormat === 'mp4' ? 'video/mp4' : 'video/webm' });
+          const finalBlob = new Blob([data], { type: 'video/mp4' });
           
-          triggerDownload(finalBlob, exportFormat);
+          triggerDownload(finalBlob, 'mp4');
         } catch (e) {
+          ffmpegDone = true;
+          clearTimeout(timeoutId);
           console.error("FFmpeg encoding failed:", e);
-          triggerDownload(blob);
+          triggerDownload(blob, 'webm');
+        }
+      };
+
+      const processAndDownload = (blob: Blob) => {
+        if (exportFormat === 'webm') {
+          // Direct WebM download with fixed duration metadata - fast & 100% reliable
+          triggerDownload(blob, 'webm');
+        } else if (exportFormat === 'mp4' && actualExt === 'mp4') {
+          // Native MP4 recording
+          triggerDownload(blob, 'mp4');
+        } else {
+          // Transcode WebM to MP4 using FFmpeg WASM
+          runFfmpegWithTimeout(blob);
         }
       };
 
       if (durationMs > 0 && (mimeType.includes('webm') || !mimeType)) {
         try {
           fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
-            runFfmpeg(fixedBlob);
-          });
+            processAndDownload(fixedBlob);
+          }, { logger: false });
         } catch (e) {
-          console.warn('fixWebmDuration failed:', e);
-          runFfmpeg(rawBlob);
+          console.warn('fixWebmDuration failed, falling back:', e);
+          processAndDownload(rawBlob);
         }
       } else {
-        runFfmpeg(rawBlob);
+        processAndDownload(rawBlob);
       }
     };
 

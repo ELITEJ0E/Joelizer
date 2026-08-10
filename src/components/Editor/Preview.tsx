@@ -347,9 +347,10 @@ export function Preview() {
       gCtx.putImageData(imgData, 0, 0);
     }
     
-    // State for phonk effects
+    // State for phonk effects & smooth audio startup ramp
     let hitEnvelope = 0;
     let glitchFrames = 0;
+    let audioRamp = 0;
     
     // Update smoothing whenever settings change
     audioManager.setSmoothing(visualizerSettings.smoothing);
@@ -363,6 +364,14 @@ export function Preview() {
       // High precision real-time audio timestamp for accurate fast export & sync
       const isPlay = isPlayingRef.current;
       const curTime = (isPlay || exportResolutionOverride) ? (audioManager.currentTime || currentTimeRef.current) : currentTimeRef.current;
+
+      // Smooth audio ramp factor on initial play to prevent flash/glitch
+      const isAudioActive = isPlay || !!exportResolutionOverride;
+      if (isAudioActive) {
+        audioRamp = Math.min(1.0, audioRamp + 0.08);
+      } else {
+        audioRamp = Math.max(0, audioRamp - 0.1);
+      }
 
       // Sync background video speed with audio playback rate
       if (videoRef.current) {
@@ -386,28 +395,36 @@ export function Preview() {
         for (let i = 0; i < freqData.length; i++) sumFreq += freqData[i];
       }
 
-      // If WebAudio is zeroed or uninitialized during active playback/export, generate dynamic fallback audio energy
-      const isAudioActive = isPlay || !!exportResolutionOverride;
+      // If WebAudio is zeroed or uninitialized during active playback/export, generate smooth fallback audio energy
       if ((freqData.length === 0 || sumFreq === 0) && isAudioActive && audioUrl) {
         const dummyLen = 256;
         const dummyFreq = new Uint8Array(dummyLen);
         const dummyTime = new Uint8Array(dummyLen);
         const storeState = useStore.getState();
         const peaks = storeState.waveformPeaks || [];
-        const totalDur = storeState.audioDuration || 1;
+        const totalDur = (storeState.audioDuration && isFinite(storeState.audioDuration) && storeState.audioDuration > 0) ? storeState.audioDuration : 1;
+        const safeCurTime = (isFinite(curTime) && curTime >= 0) ? curTime : 0;
         
-        const peakIdx = Math.floor((curTime / totalDur) * (peaks.length || 180)) % Math.max(1, peaks.length);
-        const basePeak = peaks.length > 0 ? (peaks[peakIdx] || 0.4) : 0.5;
+        const peakIdx = Math.floor((safeCurTime / totalDur) * (peaks.length || 180)) % Math.max(1, peaks.length);
+        const rawPeak = peaks.length > 0 ? peaks[peakIdx] : 0.4;
+        const basePeak = (rawPeak !== undefined && isFinite(rawPeak)) ? rawPeak : 0.4;
 
         for (let i = 0; i < dummyLen; i++) {
           const norm = i / dummyLen;
-          const val = Math.sin(curTime * 14 + norm * 10) * 0.35 + 0.65;
+          const val = Math.sin(safeCurTime * 14 + norm * 10) * 0.35 + 0.65;
           const bassBoost = norm < 0.15 ? 1.6 : Math.max(0.2, 1 - norm * 0.7);
-          dummyFreq[i] = Math.min(255, Math.floor(basePeak * val * bassBoost * 210));
-          dummyTime[i] = Math.min(255, Math.floor(128 + Math.sin(curTime * 22 + i) * basePeak * 65));
+          dummyFreq[i] = Math.min(255, Math.floor(basePeak * val * bassBoost * 210 * audioRamp));
+          dummyTime[i] = Math.min(255, Math.floor(128 + Math.sin(safeCurTime * 22 + i) * basePeak * 65 * audioRamp));
         }
         freqData = dummyFreq;
         timeData = dummyTime;
+      } else if (sumFreq > 0 && audioRamp < 1.0) {
+        // Smoothly ramp up real frequency data during initial 200ms of playback to prevent instant flash
+        const rampedFreq = new Uint8Array(freqData.length);
+        for (let i = 0; i < freqData.length; i++) {
+          rampedFreq[i] = Math.floor(freqData[i] * audioRamp);
+        }
+        freqData = rampedFreq;
       }
       
       // Calculate hit envelope from bass frequencies
@@ -419,14 +436,15 @@ export function Preview() {
       }
       
       // Fast attack, exponential decay for hitEnvelope
+      const prevEnvelope = hitEnvelope;
       if (bass > hitEnvelope) {
         hitEnvelope = bass;
       } else {
         hitEnvelope = hitEnvelope * 0.85; 
       }
       
-      // Transient spike detection for glitch
-      if (bass > hitEnvelope + 0.15 && (visualizerSettings.glitchIntensity || 0) > 0) {
+      // Transient spike detection for glitch: ONLY trigger glitch if playback is stabilized (audioRamp >= 0.8) and prevEnvelope > 0.08
+      if (audioRamp >= 0.8 && prevEnvelope > 0.08 && bass > prevEnvelope + 0.18 && (visualizerSettings.glitchIntensity || 0) > 0) {
         glitchFrames = 3;
       }
       if (glitchFrames > 0) glitchFrames--;
@@ -846,6 +864,7 @@ export function Preview() {
             }}
           >
             <canvas 
+              id="visualizer-canvas"
               ref={canvasRef}
               width={dimensions.width}
               height={dimensions.height}
