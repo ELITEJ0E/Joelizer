@@ -9,7 +9,7 @@ import { animate, stagger } from 'animejs';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { ExportRangeSlider } from './ExportRangeSlider';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile } from '@ffmpeg/util';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const { handleClose } = usePopstateModal(true, onClose);
@@ -184,10 +184,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     if (isCancelledRef.current) return;
 
     // 1. Get the actual preview canvas from the DOM
-    const canvas = document.getElementById('visualizer-canvas') as HTMLCanvasElement || document.querySelector('canvas');
-    if (!canvas) {
+    const canvas = document.getElementById('visualizer-canvas') as HTMLCanvasElement;
+    if (!canvas || canvas.id !== 'visualizer-canvas') {
       setExportResolutionOverride(null);
       setIsExporting(false);
+      setExportPhase('recording');
+      setProgress(0);
+      alert("Could not locate the visualizer canvas — please switch to the Editor tab and try exporting again.");
       return;
     }
 
@@ -334,6 +337,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         const timeoutId = setTimeout(() => {
           if (!ffmpegDone && !isCancelledRef.current) {
             console.warn("FFmpeg load/transcode timed out. Falling back to high-quality WebM export.");
+            alert("MP4 encoding wasn't available on this device, downloaded WebM instead.");
             triggerDownload(blob, 'webm');
           }
         }, 12000);
@@ -342,10 +346,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           const ffmpeg = ffmpegRef.current;
           if (!ffmpeg) throw new Error("FFmpeg not initialized");
           if (!ffmpeg.loaded) {
-            await ffmpeg.load({
-              coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-              wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
-            });
+            const coreURL = await toBlobURL('/ffmpeg/ffmpeg-core.js', 'text/javascript');
+            const wasmURL = await toBlobURL('/ffmpeg/ffmpeg-core.wasm', 'application/wasm');
+            await ffmpeg.load({ coreURL, wasmURL });
           }
           
           ffmpeg.on('progress', ({ progress: p }) => {
@@ -385,6 +388,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           ffmpegDone = true;
           clearTimeout(timeoutId);
           console.error("FFmpeg encoding failed:", e);
+          alert("MP4 encoding wasn't available on this device, downloaded WebM instead.");
           triggerDownload(blob, 'webm');
         }
       };
