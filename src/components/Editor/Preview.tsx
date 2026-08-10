@@ -55,6 +55,12 @@ export function Preview() {
   const projectName = useStore(s => s.name);
   const exportResolutionOverride = useStore(s => s.exportResolutionOverride);
   
+  const currentTimeRef = useRef(currentTime);
+  const isPlayingRef = useRef(isPlaying);
+
+  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Sync with native fullscreen events
@@ -349,7 +355,8 @@ export function Preview() {
       const h = canvas.height;
       
       // High precision real-time audio timestamp for accurate fast export & sync
-      const curTime = (isPlaying || exportResolutionOverride) ? (audioManager.currentTime || currentTime) : currentTime;
+      const isPlay = isPlayingRef.current;
+      const curTime = (isPlay || exportResolutionOverride) ? (audioManager.currentTime || currentTimeRef.current) : currentTimeRef.current;
 
       // Sync background video speed with audio playback rate
       if (videoRef.current) {
@@ -709,7 +716,7 @@ export function Preview() {
     return () => cancelAnimationFrame(reqRef.current);
   }, [
     dimensions, layers, visualizerSettings, backgroundSettings, 
-    lyricsSettings, logoSettings, audioUrl, albumArt, currentTime
+    lyricsSettings, logoSettings, audioUrl, albumArt
   ]);
 
   const activeColor = visualizerSettings.color || '#00e676';
@@ -803,6 +810,7 @@ export function Preview() {
             }}
           >
             <canvas 
+              id="visualizer-canvas"
               ref={canvasRef}
               width={dimensions.width}
               height={dimensions.height}

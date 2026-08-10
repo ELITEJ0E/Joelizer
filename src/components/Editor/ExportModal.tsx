@@ -151,7 +151,19 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleExport = async () => {
-    if (!audioFile) return;
+    const audioUrl = useStore.getState().audioUrl;
+    if (!audioFile && !audioUrl) return;
+
+    const audioEl = document.querySelector('audio');
+    if (audioEl) {
+      audioManager.init(audioEl);
+      if ((audioManager as any).ctx?.state === 'suspended') {
+        (audioManager as any).ctx.resume().catch(() => {});
+      }
+      audioEl.muted = false;
+      if (audioEl.volume === 0) audioEl.volume = 1.0;
+    }
+
     isCancelledRef.current = false;
     setIsExporting(true);
     setProgress(0);
@@ -164,7 +176,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     if (isCancelledRef.current) return;
 
     // 1. Get the actual preview canvas from the DOM
-    const canvas = document.querySelector('canvas');
+    const canvas = (document.getElementById('visualizer-canvas') as HTMLCanvasElement) || document.querySelector('canvas');
     if (!canvas) {
       setExportResolutionOverride(null);
       setIsExporting(false);
@@ -267,7 +279,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
     
     // Start playback and recording at normal 1.0x speed
-    const audioEl = document.querySelector('audio');
     if (audioEl) {
       audioEl.currentTime = exportRangeStart;
       audioEl.playbackRate = 1.0;
