@@ -68,15 +68,6 @@ export interface Track {
   isUserUploaded?: boolean;
 }
 
-export interface HistoryState {
-  layers: Layer[];
-  visualizerSettings: VisualizerSettings;
-  backgroundSettings: BackgroundSettings;
-  lyricsSettings: LyricsSettings;
-  logoSettings: LogoSettings;
-  aspectRatio: AspectRatio;
-}
-
 interface ProjectState {
   name: string;
   aspectRatio: AspectRatio;
@@ -86,12 +77,6 @@ interface ProjectState {
   lyricsSettings: LyricsSettings;
   logoSettings: LogoSettings;
   
-  history: HistoryState[];
-  future: HistoryState[];
-
-  undo: () => void;
-  redo: () => void;
-
   tracks: Track[];
   currentTrackIndex: number;
   audioFile: File | Blob | null;
@@ -174,23 +159,6 @@ const defaultVisualizerSettings: VisualizerSettings = {
 // Initial state starts with stored lyrics if available
 const initialLyrics = loadLyricsFromStorage() || [];
 
-const getSnapshot = (state: ProjectState): HistoryState => ({
-  layers: state.layers,
-  visualizerSettings: state.visualizerSettings,
-  backgroundSettings: state.backgroundSettings,
-  lyricsSettings: state.lyricsSettings,
-  logoSettings: state.logoSettings,
-  aspectRatio: state.aspectRatio,
-});
-
-const pushHistory = (state: ProjectState) => {
-  const snapshot = getSnapshot(state);
-  return {
-    history: [...state.history, snapshot].slice(-50), // keep last 50 edits
-    future: [],
-  };
-};
-
 export const useStore = create<ProjectState>((set, get) => ({
   name: '',
   aspectRatio: '16:9',
@@ -221,35 +189,6 @@ export const useStore = create<ProjectState>((set, get) => ({
     size: 0.15,
   },
   
-  history: [],
-  future: [],
-
-  undo: () => set((state) => {
-    if (state.history.length === 0) return {};
-    const newHistory = [...state.history];
-    const previousState = newHistory.pop()!;
-    const currentSnapshot = getSnapshot(state);
-    
-    return {
-      history: newHistory,
-      future: [currentSnapshot, ...state.future],
-      ...previousState,
-    };
-  }),
-
-  redo: () => set((state) => {
-    if (state.future.length === 0) return {};
-    const newFuture = [...state.future];
-    const nextState = newFuture.shift()!;
-    const currentSnapshot = getSnapshot(state);
-    
-    return {
-      history: [...state.history, currentSnapshot],
-      future: newFuture,
-      ...nextState,
-    };
-  }),
-
   tracks: [],
   currentTrackIndex: 0,
   audioFile: null,
@@ -272,7 +211,7 @@ export const useStore = create<ProjectState>((set, get) => ({
   waveformPeaks: [],
   
   setName: (name) => set({ name }),
-  setAspectRatio: (aspectRatio) => set((state) => ({ ...pushHistory(state), aspectRatio })),
+  setAspectRatio: (aspectRatio) => set({ aspectRatio }),
   setActiveTab: (activeTab) => set({ activeTab }),
   setSelectedStudioLineId: (selectedStudioLineId) => set((state) => ({
     selectedStudioLineId: typeof selectedStudioLineId === 'function' ? (selectedStudioLineId as Function)(state.selectedStudioLineId) : selectedStudioLineId
@@ -302,7 +241,6 @@ export const useStore = create<ProjectState>((set, get) => ({
       const otherTracks = state.tracks.filter(t => t.id !== newTrack.id);
       const updatedTracks = [newTrack, ...otherTracks];
       return {
-        ...pushHistory(state),
         tracks: updatedTracks,
         currentTrackIndex: 0,
         audioFile: file,
@@ -319,42 +257,26 @@ export const useStore = create<ProjectState>((set, get) => ({
   },
   setSelectedLayerId: (selectedLayerId) => set({ selectedLayerId }),
   
-  updateVisualizerSettings: (updates) => set((state) => ({ 
-    ...pushHistory(state), 
-    visualizerSettings: { ...state.visualizerSettings, ...updates } 
-  })),
-  updateBackgroundSettings: (updates) => set((state) => ({ 
-    ...pushHistory(state), 
-    backgroundSettings: { ...state.backgroundSettings, ...updates } 
-  })),
+  updateVisualizerSettings: (updates) => set((state) => ({ visualizerSettings: { ...state.visualizerSettings, ...updates } })),
+  updateBackgroundSettings: (updates) => set((state) => ({ backgroundSettings: { ...state.backgroundSettings, ...updates } })),
   updateLyricsSettings: (updates) => {
     if (updates.lines) {
       saveLyricsToStorage(updates.lines);
     }
-    set((state) => ({ 
-      ...pushHistory(state), 
-      lyricsSettings: { ...state.lyricsSettings, ...updates } 
-    }));
+    set((state) => ({ lyricsSettings: { ...state.lyricsSettings, ...updates } }));
   },
-  updateLogoSettings: (updates) => set((state) => ({ 
-    ...pushHistory(state), 
-    logoSettings: { ...state.logoSettings, ...updates } 
-  })),
+  updateLogoSettings: (updates) => set((state) => ({ logoSettings: { ...state.logoSettings, ...updates } })),
   
   updateLayerVisibility: (id, visible) => set((state) => ({
-    ...pushHistory(state),
     layers: state.layers.map(l => l.id === id ? { ...l, visible } : l)
   })),
   reorderLayers: (startIndex, endIndex) => set((state) => {
     const newLayers = [...state.layers];
     const [removed] = newLayers.splice(startIndex, 1);
     newLayers.splice(endIndex, 0, removed);
-    return { ...pushHistory(state), layers: newLayers };
+    return { layers: newLayers };
   }),
-  resetVisualizerSettings: () => set((state) => ({ 
-    ...pushHistory(state), 
-    visualizerSettings: defaultVisualizerSettings 
-  })),
+  resetVisualizerSettings: () => set({ visualizerSettings: defaultVisualizerSettings }),
   
   setCurrentTime: (currentTime) => set({ currentTime }),
   setAudioDuration: (audioDuration) => set({ audioDuration }),

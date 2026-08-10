@@ -1,8 +1,7 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { formatTime } from '../../lib/utils';
-import { RefreshCw, Play, Square, Magnet } from 'lucide-react';
-import { WaveformTimeline } from './WaveformTimeline';
+import { RefreshCw, Play, Square, Volume2 } from 'lucide-react';
 
 interface ExportRangeSliderProps {
   duration: number;
@@ -22,63 +21,22 @@ export function ExportRangeSlider({
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeHandle, setActiveHandle] = useState<'start' | 'end' | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
-  const [isSnappingEnabled, setIsSnappingEnabled] = useState(true);
 
   const resetExportRange = useStore((s) => s.resetExportRange);
   const isPlaying = useStore((s) => s.isPlaying);
   const setIsPlaying = useStore((s) => s.setIsPlaying);
   const currentTime = useStore((s) => s.currentTime);
   const setCurrentTime = useStore((s) => s.setCurrentTime);
-  const waveformPeaks = useStore((s) => s.waveformPeaks);
 
   const startPct = duration > 0 ? (start / duration) * 100 : 0;
   const endPct = duration > 0 ? (end / duration) * 100 : 100;
   const currentPct = duration > 0 ? Math.min(Math.max((currentTime / duration) * 100, 0), 100) : 0;
 
-  // Compute significant transient points (time values)
-  const transientPoints = useMemo(() => {
-    if (!waveformPeaks || waveformPeaks.length === 0 || duration <= 0) return [];
-    const points: number[] = [];
-    
-    // Smooth to find local maxima
-    for (let i = 2; i < waveformPeaks.length - 2; i++) {
-      const p = waveformPeaks[i];
-      // If it's a local maximum and relatively strong
-      if (p > waveformPeaks[i-1] && p > waveformPeaks[i-2] && p > waveformPeaks[i+1] && p > waveformPeaks[i+2]) {
-        if (p > 0.15) { // Threshold for significance
-          points.push((i / (waveformPeaks.length - 1)) * duration);
-        }
-      }
-    }
-    return points;
-  }, [waveformPeaks, duration]);
-
-  const snapToNearestTransient = (time: number) => {
-    if (!isSnappingEnabled || transientPoints.length === 0) return time;
-    
-    // Snap window: roughly 2% of the track duration, capped at 1.5s
-    const snapWindow = Math.min(duration * 0.02, 1.5);
-    
-    let closestTime = time;
-    let minDiff = snapWindow;
-    
-    for (const p of transientPoints) {
-      const diff = Math.abs(time - p);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestTime = p;
-      }
-    }
-    
-    return closestTime;
-  };
-
   const calculateValueFromCoords = (clientX: number) => {
     if (!containerRef.current || duration <= 0) return 0;
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const rawTime = (x / rect.width) * duration;
-    return snapToNearestTransient(rawTime);
+    return (x / rect.width) * duration;
   };
 
   const handlePointerDown = (clientX: number) => {
@@ -248,31 +206,20 @@ export function ExportRangeSlider({
           </button>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsSnappingEnabled(!isSnappingEnabled)}
-            className={`flex items-center gap-1.5 text-[9px] font-mono uppercase font-bold transition-colors cursor-pointer ${isSnappingEnabled ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
-            title="Snap to audio transients"
-          >
-            <Magnet size={10} className={isSnappingEnabled ? 'text-amber-400' : ''} />
-            <span>Snap to Beat</span>
-          </button>
-          
-          <button
-            onClick={() => {
-              if (isPreviewPlaying) {
-                setIsPreviewPlaying(false);
-                setIsPlaying(false);
-              }
-              resetExportRange();
-            }}
-            disabled={isFullTrack}
-            className="flex items-center gap-1.5 text-[9px] font-mono uppercase font-bold text-slate-500 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
-          >
-            <RefreshCw size={10} />
-            <span>Reset to full</span>
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            if (isPreviewPlaying) {
+              setIsPreviewPlaying(false);
+              setIsPlaying(false);
+            }
+            resetExportRange();
+          }}
+          disabled={isFullTrack}
+          className="flex items-center gap-1.5 text-[9px] font-mono uppercase font-bold text-slate-500 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <RefreshCw size={10} />
+          <span>Reset to full</span>
+        </button>
       </div>
 
       {/* Range Slider Track */}
@@ -288,18 +235,19 @@ export function ExportRangeSlider({
             handlePointerDown(e.touches[0].clientX);
           }
         }}
-        className="relative h-12 flex items-center cursor-pointer select-none outline-none mt-2"
+        className="relative h-7 flex items-center cursor-pointer select-none outline-none mt-2"
       >
-        <WaveformTimeline duration={duration} start={start} end={end} activeColor={activeColor} />
+        {/* Full grey bar */}
+        <div className="absolute left-0 right-0 h-2 bg-white/10 rounded-full" />
 
         {/* Selected Highlight bar */}
         <div 
-          className="absolute h-full rounded-md transition-all duration-75 border-y border-white/20"
+          className="absolute h-2 rounded-full transition-all duration-75"
           style={{
             left: `${startPct}%`,
             width: `${endPct - startPct}%`,
             backgroundColor: activeColor,
-            opacity: 0.15,
+            opacity: 0.45,
             boxShadow: `0 0 12px ${activeColor}40`
           }}
         />
@@ -324,10 +272,10 @@ export function ExportRangeSlider({
             setActiveHandle('start');
           }}
           onKeyDown={(e) => handleKeyDown('start', e)}
-          className="absolute w-2 h-full -ml-1 rounded-full bg-white shadow-xl flex items-center justify-center outline-none focus:ring-2 focus:ring-white/80 transition-transform duration-75 hover:scale-110 active:scale-110 z-20 cursor-ew-resize active:cursor-ew-resize"
+          className="absolute w-5 h-5 -ml-2.5 rounded-full bg-white shadow-xl flex items-center justify-center outline-none focus:ring-2 focus:ring-white/80 transition-transform duration-75 hover:scale-125 active:scale-125 z-20 cursor-grab active:cursor-grabbing"
           style={{ 
             left: `${startPct}%`,
-            backgroundColor: activeColor,
+            border: `2px solid ${activeColor}`,
             boxShadow: `0 0 10px rgba(0,0,0,0.8)`
           }}
           role="slider"
@@ -336,8 +284,9 @@ export function ExportRangeSlider({
           aria-valuemax={end - 0.5}
           aria-valuenow={start}
         >
+          <div className="w-1 h-2 bg-slate-600 rounded-full" />
           {/* Handle tooltip */}
-          <div className="absolute bottom-full mb-1 px-1.5 py-0.5 bg-black border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-30 shadow-lg font-bold">
+          <div className="absolute bottom-full mb-1.5 px-1.5 py-0.5 bg-black border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-30 shadow-lg font-bold">
             {formatTime(start)}
           </div>
         </div>
@@ -354,10 +303,10 @@ export function ExportRangeSlider({
             setActiveHandle('end');
           }}
           onKeyDown={(e) => handleKeyDown('end', e)}
-          className="absolute w-2 h-full -ml-1 rounded-full bg-white shadow-xl flex items-center justify-center outline-none focus:ring-2 focus:ring-white/80 transition-transform duration-75 hover:scale-110 active:scale-110 z-20 cursor-ew-resize active:cursor-ew-resize"
+          className="absolute w-5 h-5 -ml-2.5 rounded-full bg-white shadow-xl flex items-center justify-center outline-none focus:ring-2 focus:ring-white/80 transition-transform duration-75 hover:scale-125 active:scale-125 z-20 cursor-grab active:cursor-grabbing"
           style={{ 
             left: `${endPct}%`,
-            backgroundColor: activeColor,
+            border: `2px solid ${activeColor}`,
             boxShadow: `0 0 10px rgba(0,0,0,0.8)`
           }}
           role="slider"
@@ -366,8 +315,9 @@ export function ExportRangeSlider({
           aria-valuemax={duration}
           aria-valuenow={end}
         >
+          <div className="w-1 h-2 bg-slate-600 rounded-full" />
           {/* Handle tooltip */}
-          <div className="absolute bottom-full mb-1 px-1.5 py-0.5 bg-black border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-30 shadow-lg font-bold">
+          <div className="absolute bottom-full mb-1.5 px-1.5 py-0.5 bg-black border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-30 shadow-lg font-bold">
             {formatTime(end)}
           </div>
         </div>

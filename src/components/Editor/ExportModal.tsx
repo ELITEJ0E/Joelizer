@@ -8,22 +8,14 @@ import { audioManager } from '../../lib/audio';
 import { animate, stagger } from 'animejs';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { ExportRangeSlider } from './ExportRangeSlider';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const { handleClose } = usePopstateModal(true, onClose);
   const [isExporting, setIsExporting] = useState(false);
-  const [exportPhase, setExportPhase] = useState<'recording' | 'encoding'>('recording');
   const [progress, setProgress] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [exportFormat, setExportFormat] = useState<'webm' | 'mp4'>('webm');
   const [showAdvanced, setShowAdvanced] = useState(false);
   
-  const [batchMode, setBatchMode] = useState(false);
-  const [currentBatchIndex, setCurrentBatchIndex] = useState(-1);
-  const tracks = useStore(s => s.tracks);
-
   // Custom performance optimization settings
   const [resolution, setResolution] = useState<'360p' | '720p' | '1080p'>('720p');
   const [fps, setFps] = useState<15 | 30 | 60>(30);
@@ -32,7 +24,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const isCancelledRef = useRef<boolean>(false);
   const animFrameRef = useRef<number | null>(null);
-  const ffmpegRef = useRef<FFmpeg | null>(null);
 
   const audioFile = useStore(s => s.audioFile);
   const audioDuration = useStore(s => s.audioDuration);
@@ -65,7 +56,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   useEffect(() => {
-    ffmpegRef.current = new FFmpeg();
     // Scale and fade in the export modal card
     animate('.export-modal-card', {
       scale: [0.93, 1],
@@ -161,20 +151,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleExport = async () => {
-    const audioUrl = useStore.getState().audioUrl;
-    if (!audioFile && !audioUrl) return;
+    if (!audioFile) return;
     isCancelledRef.current = false;
     setIsExporting(true);
     setProgress(0);
-
-    // 0. Ensure audio element and audioManager are initialized and unmuted
-    const audioEl = document.querySelector('audio');
-    if (audioEl) {
-      audioManager.init(audioEl);
-      audioManager.resume();
-      audioEl.muted = false;
-      if (audioEl.volume === 0) audioEl.volume = 1.0;
-    }
 
     // Apply the active canvas resolution override (resizes canvas for faster frame processing)
     setExportResolutionOverride(resolution);
@@ -184,102 +164,35 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     if (isCancelledRef.current) return;
 
     // 1. Get the actual preview canvas from the DOM
-    const canvas = document.getElementById('visualizer-canvas') as HTMLCanvasElement;
-    if (!canvas || canvas.id !== 'visualizer-canvas') {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) {
       setExportResolutionOverride(null);
       setIsExporting(false);
-      setExportPhase('recording');
-      setProgress(0);
-      alert("Could not locate the visualizer canvas — please switch to the Editor tab and try exporting again.");
       return;
     }
 
-    // 2. Get audio stream from audioManager or HTML5 audio fallback
-    let audioStream = audioManager.getMediaStream();
-    if (!audioStream || audioStream.getAudioTracks().length === 0) {
-      if (audioEl) {
-        try {
-          const elStream = (audioEl as any).captureStream ? (audioEl as any).captureStream() : ((audioEl as any).mozCaptureStream ? (audioEl as any).mozCaptureStream() : null);
-          if (elStream && elStream.getAudioTracks().length > 0) {
-            audioStream = elStream;
-          }
-        } catch (e) {
-          console.warn('Fallback audio stream capture from audio element failed:', e);
-        }
-      }
+    // 2. Get audio stream from audioManager
+    const audioStream = audioManager.getMediaStream();
+    if (!audioStream) {
+      console.warn("No audio stream available from AudioContextManager.");
     }
     
     // 3. Setup MediaRecorder with chosen container format, optimized FPS and bitrate
     const canvasStream = canvas.captureStream(fps);
     const finalTracks = [...canvasStream.getVideoTracks()];
     if (audioStream) {
-      const aTracks = audioStream.getAudioTracks();
-      if (aTracks.length > 0) {
-        finalTracks.push(...aTracks);
-      }
+      finalTracks.push(...audioStream.getAudioTracks());
     }
     
     const finalStream = new MediaStream(finalTracks);
-
-    const createRecorder = (stream: MediaStream, prefFormat: 'webm' | 'mp4', targetBitrate: number) => {
-      const candidates: string[] = [];
-      if (prefFormat === 'mp4') {
-        candidates.push(
-          'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-          'video/mp4;codecs=h264,aac',
-          'video/mp4;codecs=h264,mp3',
-          'video/mp4;codecs=h264',
-          'video/mp4'
-        );
-      }
-      candidates.push(
-        'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=vp8,opus',
-        'video/webm;codecs=h264,opus',
-        'video/webm',
-        'video/ogg'
-      );
-
-      for (const mimeType of candidates) {
-        if (MediaRecorder.isTypeSupported(mimeType)) {
-          try {
-            const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: targetBitrate });
-            return { recorder: rec, mimeType };
-          } catch (e) {
-            console.warn(`Failed creating MediaRecorder for ${mimeType} with bitrate ${targetBitrate}:`, e);
-          }
-        }
-      }
-
-      for (const mimeType of candidates) {
-        if (MediaRecorder.isTypeSupported(mimeType)) {
-          try {
-            const rec = new MediaRecorder(stream, { mimeType });
-            return { recorder: rec, mimeType };
-          } catch (e) {
-            console.warn(`Failed creating MediaRecorder for ${mimeType}:`, e);
-          }
-        }
-      }
-
-      const rec = new MediaRecorder(stream);
-      return { recorder: rec, mimeType: rec.mimeType || 'video/webm' };
-    };
-
-    let finalRecorder: MediaRecorder;
-    let mimeType = '';
-    try {
-      const result = createRecorder(finalStream, exportFormat, bitrate);
-      finalRecorder = result.recorder;
-      mimeType = result.mimeType;
-    } catch (err) {
-      console.error('Fatal error initializing MediaRecorder:', err);
-      alert('Your browser does not support encoding video recordings with the selected options. Please try WebM format.');
-      setExportResolutionOverride(null);
-      setIsExporting(false);
-      return;
+    
+    const mimeType = getMimeTypeForFormat(exportFormat);
+    const options: MediaRecorderOptions = { videoBitsPerSecond: bitrate };
+    if (mimeType) {
+      options.mimeType = mimeType;
     }
-
+    
+    const finalRecorder = new MediaRecorder(finalStream, options);
     recorderRef.current = finalRecorder;
     const finalChunks: Blob[] = [];
     
@@ -295,13 +208,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       }
       if (isCancelledRef.current) return;
       setExportResolutionOverride(null);
-
-      const actualExt = mimeType.includes('mp4') ? 'mp4' : 'webm';
       const rawBlob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
       const recordedDuration = exportRangeEnd - exportRangeStart;
       const durationMs = Math.round((recordedDuration || 0) * 1000);
 
-      const triggerDownload = (downloadBlob: Blob, forcedExt?: string) => {
+      const triggerDownload = (downloadBlob: Blob) => {
         if (isCancelledRef.current) return;
         const url = URL.createObjectURL(downloadBlob);
         const a = document.createElement('a');
@@ -319,100 +230,21 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           const endSec = Math.floor(exportRangeEnd % 60).toString().padStart(2, '0');
           rangeSuffix = `_${startMin}-${startSec}to${endMin}-${endSec}`;
         }
-        a.download = `${baseName}${rangeSuffix}.${forcedExt || actualExt}`;
+        a.download = `${baseName}${rangeSuffix}.${exportFormat}`;
         a.click();
         URL.revokeObjectURL(url);
         setIsPlaying(false);
         setCurrentTime(0);
         setIsExporting(false);
-        setExportPhase('recording');
         onClose();
       };
 
-      const runFfmpegWithTimeout = async (blob: Blob) => {
-        setExportPhase('encoding');
-        setProgress(0);
-        let ffmpegDone = false;
-
-        const timeoutId = setTimeout(() => {
-          if (!ffmpegDone && !isCancelledRef.current) {
-            console.warn("FFmpeg load/transcode timed out. Falling back to high-quality WebM export.");
-            alert("MP4 encoding wasn't available on this device, downloaded WebM instead.");
-            triggerDownload(blob, 'webm');
-          }
-        }, 12000);
-
-        try {
-          const ffmpeg = ffmpegRef.current;
-          if (!ffmpeg) throw new Error("FFmpeg not initialized");
-          if (!ffmpeg.loaded) {
-            const coreURL = await toBlobURL('/ffmpeg/ffmpeg-core.js', 'text/javascript');
-            const wasmURL = await toBlobURL('/ffmpeg/ffmpeg-core.wasm', 'application/wasm');
-            await ffmpeg.load({ coreURL, wasmURL });
-          }
-          
-          ffmpeg.on('progress', ({ progress: p }) => {
-            setProgress(Math.round(p * 100));
-          });
-
-          const inputName = `input.${actualExt}`;
-          const outputName = `output.mp4`;
-          
-          const arrayBuffer = await blob.arrayBuffer();
-          await ffmpeg.writeFile(inputName, new Uint8Array(arrayBuffer));
-          
-          const ratio = useStore.getState().aspectRatio === '16:9' ? 16/9 : 
-                        useStore.getState().aspectRatio === '9:16' ? 9/16 : 
-                        useStore.getState().aspectRatio === '1:1' ? 1 : 4/5;
-          const isPortrait = ratio < 1;
-          let baseWidth = isPortrait ? 1080 : 1920;
-          if (resolution === '720p') {
-            baseWidth = isPortrait ? 720 : 1280;
-          } else if (resolution === '360p') {
-            baseWidth = isPortrait ? 360 : 640;
-          }
-          const baseHeight = Math.round(baseWidth / ratio);
-          
-          const vf = `scale=${baseWidth}:${baseHeight}`;
-          const args = ['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', `${Math.round(bitrate / 1000)}k`, '-vf', vf, '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', outputName];
-          
-          await ffmpeg.exec(args);
-          ffmpegDone = true;
-          clearTimeout(timeoutId);
-          
-          const data = await ffmpeg.readFile(outputName);
-          const finalBlob = new Blob([data], { type: 'video/mp4' });
-          
-          triggerDownload(finalBlob, 'mp4');
-        } catch (e) {
-          ffmpegDone = true;
-          clearTimeout(timeoutId);
-          console.error("FFmpeg encoding failed:", e);
-          alert("MP4 encoding wasn't available on this device, downloaded WebM instead.");
-          triggerDownload(blob, 'webm');
-        }
-      };
-
-      if (exportFormat === 'mp4' && actualExt !== 'mp4') {
-        // For MP4, pass rawBlob directly to FFmpeg so it reads pristine frame timestamps
-        runFfmpegWithTimeout(rawBlob);
-      } else if (exportFormat === 'mp4' && actualExt === 'mp4') {
-        // Native MP4 recording
-        triggerDownload(rawBlob, 'mp4');
+      if (durationMs > 0) {
+        fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
+          triggerDownload(fixedBlob);
+        });
       } else {
-        // For WebM export, apply fixWebmDuration to the clean rawBlob
-        if (durationMs > 0 && (mimeType.includes('webm') || !mimeType)) {
-          try {
-            fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
-              triggerDownload(fixedBlob, 'webm');
-            }, { logger: false });
-          } catch (e) {
-            console.warn('fixWebmDuration failed, falling back to raw blob:', e);
-            triggerDownload(rawBlob, 'webm');
-          }
-        } else {
-          triggerDownload(rawBlob, 'webm');
-        }
+        triggerDownload(rawBlob);
       }
     };
 
@@ -435,6 +267,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     };
     
     // Start playback and recording at normal 1.0x speed
+    const audioEl = document.querySelector('audio');
     if (audioEl) {
       audioEl.currentTime = exportRangeStart;
       audioEl.playbackRate = 1.0;
@@ -444,15 +277,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setCurrentTime(exportRangeStart);
     setIsPlaying(true);
     
-    try {
-      finalRecorder.start(1000);
-    } catch (e) {
-      console.error('Failed to start MediaRecorder:', e);
-      alert('Could not start recording. Please try WebM format or a lower resolution.');
-      setExportResolutionOverride(null);
-      setIsExporting(false);
-      return;
-    }
+    finalRecorder.start(100);
     
     const pStartTime = performance.now();
     
@@ -486,14 +311,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setExportResolutionOverride(null);
     };
 
-    let lastTimeUpdate = 0;
-
     const monitorProgress = () => {
       if (isCancelledRef.current || isExportFinished) return;
       if (finalRecorder.state === 'inactive') return;
 
-      const now = performance.now();
-      const realElapsed = ((now - pStartTime) / 1000) + exportRangeStart;
+      const realElapsed = ((performance.now() - pStartTime) / 1000) + exportRangeStart;
       const audioElapsed = audioEl ? audioEl.currentTime : realElapsed;
       const effectiveElapsed = Math.max(audioElapsed, realElapsed);
 
@@ -513,10 +335,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           if (audioEl.paused && !isCancelledRef.current) {
             audioEl.play().catch(() => {});
           }
-          if (now - lastTimeUpdate > 100) {
-            setCurrentTime(audioEl.currentTime);
-            lastTimeUpdate = now;
-          }
+          setCurrentTime(audioEl.currentTime);
         }
         animFrameRef.current = requestAnimationFrame(monitorProgress);
       }
@@ -613,9 +432,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             <div className="flex flex-col items-center justify-center gap-3">
               <Loader2 className="animate-spin" size={28} style={{ color: activeColor }} />
               <div className="text-center">
-                <span className="font-mono text-xs uppercase tracking-widest font-black block" style={{ color: activeColor }}>
-                  {exportPhase === 'recording' ? 'Recording Video...' : 'Encoding Video...'}
-                </span>
+                <span className="font-mono text-xs uppercase tracking-widest font-black block" style={{ color: activeColor }}>Encoding Video...</span>
                 <span className="text-[10px] text-slate-400 font-mono uppercase mt-0.5 block">{resolution} @ {fps}fps</span>
               </div>
             </div>

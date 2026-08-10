@@ -9,12 +9,9 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit",
-    "postinstall": "mkdir -p public/ffmpeg && cp node_modules/@ffmpeg/core/dist/umd/ffmpeg-core.js public/ffmpeg/ && cp node_modules/@ffmpeg/core/dist/umd/ffmpeg-core.wasm public/ffmpeg/"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2",
     "@google/genai": "^2.4.0",
     "@heroui/react": "^3.2.3",
     "@heroui/styles": "^3.2.3",

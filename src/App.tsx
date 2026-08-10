@@ -30,16 +30,14 @@ export default function App() {
       <GlobalAudioPlayer />
       <TopBar onExport={() => setShowExportModal(true)} />
       
-      <div className="flex-1 relative overflow-hidden flex flex-col">
-        {/* Container for Studio Layout */}
-        <div className={`absolute inset-0 z-20 bg-[#030304] flex flex-col ${activeTab === 'studio' ? 'flex' : 'hidden'}`}>
+      {activeTab === 'studio' ? (
+        <div className="flex-1 overflow-hidden relative">
           <StudioLayout />
         </div>
-
-        {/* Container for Editor Layout */}
-        <div className={`absolute inset-0 z-10 flex flex-col md:flex-row ${activeTab !== 'studio' ? 'flex' : 'opacity-0 pointer-events-none'}`}>
+      ) : (
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden relative">
           {/* Desktop Sidebar Left (Layers) */}
-          <div className="hidden md:block md:w-64 border-r border-white/10 h-full bg-[#030304]">
+          <div className="hidden md:block md:w-64 border-r border-white/10 h-full">
             <LeftPanel />
           </div>
 
@@ -80,11 +78,11 @@ export default function App() {
           </div>
 
           {/* Desktop Sidebar Right (Settings) */}
-          <div className="hidden md:block md:w-80 border-l border-white/10 h-full bg-[#030304]">
+          <div className="hidden md:block md:w-80 border-l border-white/10 h-full">
             <RightPanel />
           </div>
         </div>
-      </div>
+      )}
       
       {activeTab !== 'studio' && <BottomBar />}
       

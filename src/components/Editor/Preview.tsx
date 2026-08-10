@@ -52,18 +52,6 @@ export function Preview() {
   const albumArt = useStore(s => s.albumArt);
   const currentTime = useStore(s => s.currentTime);
   const isPlaying = useStore(s => s.isPlaying);
-  
-  const currentTimeRef = useRef(currentTime);
-  const isPlayingRef = useRef(isPlaying);
-  
-  useEffect(() => {
-    currentTimeRef.current = currentTime;
-  }, [currentTime]);
-
-  useEffect(() => {
-    isPlayingRef.current = isPlaying;
-  }, [isPlaying]);
-
   const projectName = useStore(s => s.name);
   const exportResolutionOverride = useStore(s => s.exportResolutionOverride);
   
@@ -347,10 +335,9 @@ export function Preview() {
       gCtx.putImageData(imgData, 0, 0);
     }
     
-    // State for phonk effects & smooth audio startup ramp
+    // State for phonk effects
     let hitEnvelope = 0;
     let glitchFrames = 0;
-    let audioRamp = 0;
     
     // Update smoothing whenever settings change
     audioManager.setSmoothing(visualizerSettings.smoothing);
@@ -362,16 +349,7 @@ export function Preview() {
       const h = canvas.height;
       
       // High precision real-time audio timestamp for accurate fast export & sync
-      const isPlay = isPlayingRef.current;
-      const curTime = (isPlay || exportResolutionOverride) ? (audioManager.currentTime || currentTimeRef.current) : currentTimeRef.current;
-
-      // Smooth audio ramp factor on initial play to prevent flash/glitch
-      const isAudioActive = isPlay || !!exportResolutionOverride;
-      if (isAudioActive) {
-        audioRamp = Math.min(1.0, audioRamp + 0.08);
-      } else {
-        audioRamp = Math.max(0, audioRamp - 0.1);
-      }
+      const curTime = (isPlaying || exportResolutionOverride) ? (audioManager.currentTime || currentTime) : currentTime;
 
       // Sync background video speed with audio playback rate
       if (videoRef.current) {
@@ -386,46 +364,8 @@ export function Preview() {
         visCanvas.height = h;
       }
       
-      let freqData = audioManager.getFrequencyData();
-      let timeData = audioManager.getTimeDomainData();
-
-      // Check if real WebAudio data is available
-      let sumFreq = 0;
-      if (freqData.length > 0) {
-        for (let i = 0; i < freqData.length; i++) sumFreq += freqData[i];
-      }
-
-      // If WebAudio is zeroed or uninitialized during active playback/export, generate smooth fallback audio energy
-      if ((freqData.length === 0 || sumFreq === 0) && isAudioActive && audioUrl) {
-        const dummyLen = 256;
-        const dummyFreq = new Uint8Array(dummyLen);
-        const dummyTime = new Uint8Array(dummyLen);
-        const storeState = useStore.getState();
-        const peaks = storeState.waveformPeaks || [];
-        const totalDur = (storeState.audioDuration && isFinite(storeState.audioDuration) && storeState.audioDuration > 0) ? storeState.audioDuration : 1;
-        const safeCurTime = (isFinite(curTime) && curTime >= 0) ? curTime : 0;
-        
-        const peakIdx = Math.floor((safeCurTime / totalDur) * (peaks.length || 180)) % Math.max(1, peaks.length);
-        const rawPeak = peaks.length > 0 ? peaks[peakIdx] : 0.4;
-        const basePeak = (rawPeak !== undefined && isFinite(rawPeak)) ? rawPeak : 0.4;
-
-        for (let i = 0; i < dummyLen; i++) {
-          const norm = i / dummyLen;
-          const val = Math.sin(safeCurTime * 14 + norm * 10) * 0.35 + 0.65;
-          const bassBoost = norm < 0.15 ? 1.6 : Math.max(0.2, 1 - norm * 0.7);
-          dummyFreq[i] = Math.min(255, Math.floor(basePeak * val * bassBoost * 210 * audioRamp));
-          dummyTime[i] = Math.min(255, Math.floor(128 + Math.sin(safeCurTime * 22 + i) * basePeak * 65 * audioRamp));
-        }
-        freqData = dummyFreq;
-        timeData = dummyTime;
-      } else if (sumFreq > 0 && audioRamp < 1.0) {
-        // Smoothly ramp up real frequency data during initial 200ms of playback to prevent instant flash
-        const rampedFreq = new Uint8Array(freqData.length);
-        for (let i = 0; i < freqData.length; i++) {
-          rampedFreq[i] = Math.floor(freqData[i] * audioRamp);
-        }
-        freqData = rampedFreq;
-      }
+      const freqData = audioManager.getFrequencyData();
+      const timeData = audioManager.getTimeDomainData();
       
       // Calculate hit envelope from bass frequencies
       let bass = 0;
@@ -435,17 +375,15 @@ export function Preview() {
         bass = (bass / Math.max(1, bassEnd)) / 255.0; // 0 to 1
       }
       
-      // Fast attack, exponential decay for hitEnvelope — attack capped by audioRamp
-      const prevEnvelope = hitEnvelope;
-      const rampedBass = bass * audioRamp;
-      if (rampedBass > hitEnvelope) {
-        hitEnvelope = rampedBass;
+      // Fast attack, exponential decay for hitEnvelope
+      if (bass > hitEnvelope) {
+        hitEnvelope = bass;
       } else {
         hitEnvelope = hitEnvelope * 0.85; 
       }
       
-      // Transient spike detection for glitch: ONLY trigger glitch if playback is stabilized (audioRamp >= 0.8) and prevEnvelope > 0.08
-      if (audioRamp >= 0.8 && prevEnvelope > 0.08 && bass > prevEnvelope + 0.18 && (visualizerSettings.glitchIntensity || 0) > 0) {
+      // Transient spike detection for glitch
+      if (bass > hitEnvelope + 0.15 && (visualizerSettings.glitchIntensity || 0) > 0) {
         glitchFrames = 3;
       }
       if (glitchFrames > 0) glitchFrames--;
@@ -512,13 +450,13 @@ export function Preview() {
       
       // Prepare camera shake and punch scale
       ctx.save();
-      const punchScale = 1 + (hitEnvelope * (visualizerSettings.hitResponse || 0) * 0.4 * audioRamp);
+      const punchScale = 1 + (hitEnvelope * (visualizerSettings.hitResponse || 0) * 0.4);
       
       let shakeX = 0;
       let shakeY = 0;
       let shakeRot = 0;
       if (visualizerSettings.shakeIntensity && hitEnvelope > 0.2 && timeData.length > 100) {
-        const intensity = hitEnvelope * visualizerSettings.shakeIntensity * 20 * audioRamp;
+        const intensity = hitEnvelope * visualizerSettings.shakeIntensity * 20;
         // Deterministic pseudo-randomness from time domain audio data
         shakeX = ((timeData[0] || 128) / 128.0 - 1.0) * intensity;
         shakeY = ((timeData[50] || 128) / 128.0 - 1.0) * intensity;
@@ -771,7 +709,7 @@ export function Preview() {
     return () => cancelAnimationFrame(reqRef.current);
   }, [
     dimensions, layers, visualizerSettings, backgroundSettings, 
-    lyricsSettings, logoSettings, audioUrl, albumArt
+    lyricsSettings, logoSettings, audioUrl, albumArt, currentTime
   ]);
 
   const activeColor = visualizerSettings.color || '#00e676';
@@ -865,7 +803,6 @@ export function Preview() {
             }}
           >
             <canvas 
-              id="visualizer-canvas"
               ref={canvasRef}
               width={dimensions.width}
               height={dimensions.height}
