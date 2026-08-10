@@ -14,6 +14,8 @@ import { ExportModal } from './components/Editor/ExportModal';
 import { StudioLayout } from './components/Studio/StudioLayout';
 import { GlobalAudioPlayer } from './components/Audio/GlobalAudioPlayer';
 
+import { MVStudioLayout } from './components/MVStudio/MVStudioLayout';
+
 export default function App() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [mobileTab, setMobileTab] = useState<'layers' | 'settings'>('layers');
@@ -30,7 +32,11 @@ export default function App() {
       <GlobalAudioPlayer />
       <TopBar onExport={() => setShowExportModal(true)} />
       
-      {activeTab === 'studio' ? (
+      {activeTab === 'mv-studio' ? (
+        <div className="flex-1 overflow-hidden relative">
+          <MVStudioLayout />
+        </div>
+      ) : activeTab === 'studio' ? (
         <div className="flex-1 overflow-hidden relative">
           <StudioLayout />
         </div>
@@ -84,7 +90,7 @@ export default function App() {
         </div>
       )}
       
-      {activeTab !== 'studio' && <BottomBar />}
+      {activeTab === 'lyrics' && <BottomBar />}
       
       {showExportModal && (
         <ExportModal onClose={() => setShowExportModal(false)} />
