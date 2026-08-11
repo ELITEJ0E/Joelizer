@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore, TimelineClip } from '../../store/useMVStore';
 import { MVTimeline } from './MVTimeline';
@@ -9,7 +9,12 @@ import { Layers, Sliders, Play } from 'lucide-react';
 
 export function MVStudioLayout() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+  const rehydrateMVAssets = useMVStore(s => s.rehydrateMVAssets);
   
+  useEffect(() => {
+    rehydrateMVAssets();
+  }, [rehydrateMVAssets]);
+
   // 'media' | 'controls' | 'none'
   const [activePanel, setActivePanel] = useState<'media' | 'controls' | 'none'>('media');
 

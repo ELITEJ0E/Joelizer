@@ -125,23 +125,34 @@ export function generateAutoEdit(options: AutoEditOptions): {
 
       if (lineEnd <= lineStart) lineEnd = lineStart + 3.0;
 
-      const wordsArr = tokenizeLyricLine(line.text);
-      const wordCount = wordsArr.length || 1;
-      const totalDuration = lineEnd - lineStart;
-      const wordDuration = totalDuration / wordCount;
+      let words = (line as any).words;
+      let isEstimated = false;
 
-      const words = wordsArr.map((w, wIdx) => ({
-        word: w,
-        start: lineStart + wIdx * wordDuration,
-        end: lineStart + (wIdx + 0.95) * wordDuration
-      }));
+      if (words && Array.isArray(words) && words.length > 0) {
+        // Real WhisperX / forced-alignment word timings exist
+        isEstimated = false;
+      } else {
+        // Fallback: estimate word timings evenly across line duration
+        isEstimated = true;
+        const wordsArr = tokenizeLyricLine(line.text);
+        const wordCount = wordsArr.length || 1;
+        const totalDuration = lineEnd - lineStart;
+        const wordDuration = totalDuration / wordCount;
+
+        words = wordsArr.map((w, wIdx) => ({
+          word: w,
+          start: lineStart + wIdx * wordDuration,
+          end: lineStart + (wIdx + 0.95) * wordDuration
+        }));
+      }
 
       wordTimings.push({
         id: line.id || `line-${idx}`,
         text: line.text,
         startTime: lineStart,
         endTime: lineEnd,
-        words
+        words,
+        isEstimated
       });
     });
   }

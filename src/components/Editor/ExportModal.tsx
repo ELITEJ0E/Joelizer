@@ -33,6 +33,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const setExportResolutionOverride = useStore(s => s.setExportResolutionOverride);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+  const activeTab = useStore(s => s.activeTab);
 
   const exportRangeStart = useStore(s => s.exportRangeStart);
   const exportRangeEnd = useStore(s => s.exportRangeEnd) !== null ? useStore(s => s.exportRangeEnd)! : audioDuration;
@@ -231,7 +232,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         a.href = url;
         
         const safeProjectName = projectName ? projectName.trim() : '';
-        const baseName = safeProjectName ? safeProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'visualizer';
+        const defaultBaseName = activeTab === 'mv-studio' ? 'music-video' : 'visualizer';
+        const baseName = safeProjectName ? safeProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : defaultBaseName;
         
         const isFull = exportRangeStart === 0 && (exportRangeEnd === audioDuration || Math.abs(exportRangeEnd - audioDuration) < 0.1);
         let rangeSuffix = '';
@@ -423,6 +425,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               <Download size={13} style={{ color: activeColor }} />
             </div>
             <h2 className="text-xs font-mono uppercase tracking-widest font-black" style={{ color: activeColor }}>Export Video</h2>
+            {activeTab === 'mv-studio' ? (
+              <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                🎬 Music Video
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                ✨ Visualizer
+              </span>
+            )}
           </div>
           
           <button 

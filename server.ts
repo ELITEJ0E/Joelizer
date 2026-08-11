@@ -68,6 +68,37 @@ async function startServer() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
+  // 1b. Media CORS proxy endpoint
+  app.get('/api/proxy-media', async (req, res) => {
+    try {
+      const targetUrl = req.query.url as string;
+      if (!targetUrl || !targetUrl.startsWith('http')) {
+        return res.status(400).json({ error: 'Valid http/https target URL parameter required' });
+      }
+
+      const mediaRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      if (!mediaRes.ok) {
+        return res.status(mediaRes.status).json({ error: `Remote media returned status ${mediaRes.status}` });
+      }
+
+      const contentType = mediaRes.headers.get('content-type') || 'application/octet-stream';
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+
+      const arrayBuffer = await mediaRes.arrayBuffer();
+      return res.send(Buffer.from(arrayBuffer));
+    } catch (err: any) {
+      console.error('Proxy Media Error:', err);
+      return res.status(500).json({ error: 'Failed to proxy remote media asset' });
+    }
+  });
+
   // Suno Song / Audio URL resolver endpoint
   app.post('/api/suno-info', async (req, res) => {
     try {

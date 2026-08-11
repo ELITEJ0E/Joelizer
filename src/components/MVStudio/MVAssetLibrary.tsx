@@ -5,6 +5,8 @@ import { formatTime } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 import { ImageGeneratorPanel } from './Generator/ImageGeneratorPanel';
 
+import { validateDirectMediaUrl } from '../../lib/providers/stockProviders';
+
 export function MVAssetLibrary() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const videoAssets = useMVStore(s => s.videoAssets);
@@ -109,19 +111,19 @@ export function MVAssetLibrary() {
     }
 
     const cleanUrl = urlInput.trim();
-    const isVideoString = cleanUrl.match(/\.(mp4|webm|mov)(\?.*)?$/i) || cleanUrl.includes('video');
-    const isImageString = cleanUrl.match(/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i) || cleanUrl.includes('unsplash') || (cleanUrl.includes('image') && !cleanUrl.includes('video')) || cleanUrl.includes('photo');
+    const validation = validateDirectMediaUrl(cleanUrl);
 
-    if (!cleanUrl.startsWith('http')) {
-      setUrlError('Please provide a valid URL starting with http:// or https://');
+    if (!validation.valid) {
+      setUrlError(validation.reason || 'Invalid media URL');
       return;
     }
 
-    const mediaType = isVideoString && !isImageString ? 'video' : 'image';
+    const mediaType = validation.mediaType || 'image';
     const filename = cleanUrl.split('/').pop()?.split('?')[0] || `stock-${mediaType}`;
 
     if (mediaType === 'video') {
       const videoEl = document.createElement('video');
+      videoEl.crossOrigin = 'anonymous';
       videoEl.src = cleanUrl;
       videoEl.muted = true;
       videoEl.onloadedmetadata = () => {
@@ -140,10 +142,11 @@ export function MVAssetLibrary() {
         setShowUrlModal(false);
       };
       videoEl.onerror = () => {
-        setUrlError('Failed to load video from this URL. It might be blocked or invalid.');
+        setUrlError('Failed to load video from this URL. The host server may block cross-origin access.');
       };
     } else {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.src = cleanUrl;
       img.onload = () => {
         addVideoAsset({
@@ -161,7 +164,7 @@ export function MVAssetLibrary() {
         setShowUrlModal(false);
       };
       img.onerror = () => {
-        setUrlError('Failed to load image from this URL.');
+        setUrlError('Failed to load image from this URL. Check connection or CORS rules.');
       };
     }
   };

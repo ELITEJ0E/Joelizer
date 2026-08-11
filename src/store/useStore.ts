@@ -34,6 +34,7 @@ export interface LyricLine {
   text: string;
   startTime: number; // in seconds
   endTime: number; // in seconds
+  words?: { word: string; start?: number; end?: number; startTime?: number; endTime?: number }[];
 }
 
 export interface LyricsSettings {

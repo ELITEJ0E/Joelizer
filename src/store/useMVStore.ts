@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { saveMVAssetToStorage, removeMVAssetFromStorage, loadMVAssetsFromStorage } from '../lib/storage';
 
 export interface MediaAsset {
   id: string;
@@ -36,6 +37,7 @@ export interface TimelineText {
   startTime: number;
   endTime: number;
   words?: { word: string; start: number; end: number }[];
+  isEstimated?: boolean;
 }
 
 export interface SongAnalysis {
@@ -118,6 +120,7 @@ export interface MVProjectState {
   addVideoAsset: (asset: MediaAsset) => void;
   updateVideoAsset: (id: string, updates: Partial<MediaAsset>) => void;
   removeVideoAsset: (id: string) => void;
+  rehydrateMVAssets: () => Promise<void>;
 
   setSongAnalysis: (analysis: SongAnalysis | null) => void;
   setWordTimings: (timings: TimelineText[]) => void;
@@ -237,14 +240,59 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   }),
   setSelectedClipId: (selectedClipId) => set({ selectedClipId }),
 
-  addVideoAsset: (asset) => set((s) => ({ videoAssets: [...s.videoAssets, asset] })),
+  addVideoAsset: (asset) => {
+    saveMVAssetToStorage({
+      id: asset.id,
+      blob: asset.file,
+      url: asset.url,
+      name: asset.name,
+      mediaType: asset.mediaType,
+      duration: asset.duration,
+      thumbnail: asset.thumbnail,
+      isStock: asset.isStock,
+      sourceType: asset.sourceType
+    });
+    set((s) => ({ videoAssets: [...s.videoAssets, asset] }));
+  },
   updateVideoAsset: (id, updates) => set((s) => ({
     videoAssets: s.videoAssets.map((v) => v.id === id ? { ...v, ...updates } : v)
   })),
-  removeVideoAsset: (id) => set((s) => ({
-    videoAssets: s.videoAssets.filter((v) => v.id !== id),
-    timelineClips: s.timelineClips.filter((c) => c.assetId !== id)
-  })),
+  removeVideoAsset: (id) => {
+    removeMVAssetFromStorage(id);
+    set((s) => ({
+      videoAssets: s.videoAssets.filter((v) => v.id !== id),
+      timelineClips: s.timelineClips.filter((c) => c.assetId !== id)
+    }));
+  },
+  rehydrateMVAssets: async () => {
+    const storedAssets = await loadMVAssetsFromStorage();
+    if (storedAssets && storedAssets.length > 0) {
+      const restoredAssets: MediaAsset[] = storedAssets.map(sa => {
+        let finalUrl = sa.url;
+        if (sa.blob && sa.blob instanceof Blob) {
+          finalUrl = URL.createObjectURL(sa.blob);
+        }
+        return {
+          id: sa.id,
+          file: sa.blob instanceof File ? sa.blob : undefined,
+          url: finalUrl,
+          name: sa.name,
+          mediaType: sa.mediaType,
+          duration: sa.duration,
+          thumbnail: sa.thumbnail || finalUrl,
+          isStock: sa.isStock,
+          sourceType: sa.sourceType || 'local',
+          status: 'ready'
+        };
+      });
+
+      set((s) => {
+        const existingIds = new Set(s.videoAssets.map(a => a.id));
+        const newUnique = restoredAssets.filter(a => !existingIds.has(a.id));
+        return { videoAssets: [...s.videoAssets, ...newUnique] };
+      });
+    }
+  },
 
   setSongAnalysis: (songAnalysis) => set({ songAnalysis }),
   setWordTimings: (wordTimings) => set({ wordTimings }),
