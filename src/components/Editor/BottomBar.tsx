@@ -45,7 +45,7 @@ export function BottomBar() {
   const currentTrack = tracks[currentTrackIndex];
 
   return (
-    <footer className="sticky bottom-0 left-0 right-0 z-30 shrink-0 w-full bg-[#09090b] border-t border-white/10 flex flex-col shadow-2xl py-4 sm:py-3 px-4 sm:px-6 min-h-[92px] sm:min-h-0">
+    <footer className="sticky bottom-0 left-0 right-0 z-30 shrink-0 w-full bg-[#09090b] border-t border-white/10 flex flex-col shadow-2xl py-1.5 px-3 sm:px-4 min-h-[58px]">
       {/* Absolute high-tech accent line */}
       <div 
         className="absolute top-0 left-0 right-0 h-[1.5px] transition-all duration-500" 

@@ -1,14 +1,17 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
-import { Lock, Unlock, Scissors, Trash2, ZoomIn, ZoomOut, Film, Image as ImageIcon, Music, Type } from 'lucide-react';
+import { Lock, Unlock, Scissors, Trash2, Film, Image as ImageIcon, Music, Type, Play, Pause } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 
 export function MVTimeline() {
+  const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const containerRef = useRef<HTMLDivElement>(null);
   const currentTime = useStore(s => s.currentTime);
   const duration = useStore(s => s.audioDuration) || 120;
   const setCurrentTime = useStore(s => s.setCurrentTime);
+  const isPlaying = useStore(s => s.isPlaying);
+  const setIsPlaying = useStore(s => s.setIsPlaying);
   const waveformPeaks = useStore(s => s.waveformPeaks);
   
   const timelineClips = useMVStore(s => s.timelineClips);
@@ -21,6 +24,26 @@ export function MVTimeline() {
   const splitTimelineClip = useMVStore(s => s.splitTimelineClip);
 
   const [zoom, setZoom] = useState(1);
+
+  // Non-passive Wheel Listener for smooth Trackpad Pinch & Zoom in both directions
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        e.preventDefault();
+        // Continuous exponential scale based on deltaY:
+        const zoomFactor = Math.pow(1.002, -e.deltaY);
+        setZoom(z => Math.min(15, Math.max(1, z * zoomFactor)));
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   const handleTimelineClick = (e: React.MouseEvent) => {
     if (!containerRef.current || duration <= 0) return;
@@ -41,9 +64,18 @@ export function MVTimeline() {
   return (
     <div className="flex flex-col h-full bg-[#08080c] text-slate-300 select-none">
       {/* Toolbar */}
-      <div className="h-8 border-b border-white/10 flex items-center px-3 justify-between bg-black/60 text-xs">
+      <div className="h-8 border-b border-white/10 flex items-center px-3 justify-between bg-black/60 text-xs shrink-0">
         <div className="flex items-center gap-3">
-          <span className="font-mono text-[10px] text-purple-400 font-bold uppercase tracking-widest flex items-center gap-1">
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded text-black text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow active:scale-95 shrink-0"
+            style={{ backgroundColor: activeColor }}
+          >
+            {isPlaying ? <Pause size={10} /> : <Play size={10} className="ml-0.5" />}
+            <span>{isPlaying ? 'Pause' : 'Play'}</span>
+          </button>
+
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: activeColor }}>
             <Film size={12} />
             Multitrack Timeline
           </span>
@@ -89,23 +121,11 @@ export function MVTimeline() {
           )}
         </div>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-1">
-          <button 
-            onClick={() => setZoom(z => Math.max(1, z - 0.5))} 
-            className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10"
-            title="Zoom Out"
-          >
-            <ZoomOut size={12} />
-          </button>
-          <span className="text-[10px] font-mono text-slate-400 w-8 text-center">{zoom}x</span>
-          <button 
-            onClick={() => setZoom(z => Math.min(5, z + 0.5))} 
-            className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10"
-            title="Zoom In"
-          >
-            <ZoomIn size={12} />
-          </button>
+        {/* Dynamic Trackpad Pinch Zoom Badge */}
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-slate-400 font-medium">
+          <span className="text-[9px] uppercase tracking-wider opacity-75 font-bold">Zoom:</span>
+          <span className="font-mono text-white font-extrabold">{zoom.toFixed(1)}x</span>
+          <span className="text-[8px] opacity-60 italic ml-1 hidden sm:inline-block">(Pinch/Trackpad)</span>
         </div>
       </div>
       
@@ -140,12 +160,17 @@ export function MVTimeline() {
                     }}
                     className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-all cursor-pointer ${
                       isSelected 
-                        ? 'ring-2 ring-yellow-400 border-white bg-purple-600/60 z-20 shadow-lg' 
+                        ? 'ring-2 border-white z-20 shadow-lg' 
                         : clip.locked 
                         ? 'bg-amber-900/40 border-amber-500/60' 
                         : 'bg-blue-600/40 border-blue-400/50 hover:bg-blue-600/60'
                     }`}
-                    style={{ left: `${left}%`, width: `${width}%` }}
+                    style={{ 
+                      left: `${left}%`, 
+                      width: `${width}%`,
+                      borderColor: isSelected ? activeColor : undefined,
+                      boxShadow: isSelected ? `0 0 12px ${activeColor}` : undefined
+                    }}
                   >
                     {asset && asset.thumbnail && (
                       <img src={asset.thumbnail} alt="" className="h-full opacity-60 object-cover pointer-events-none" />

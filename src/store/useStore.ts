@@ -90,7 +90,7 @@ interface ProjectState {
   isLooping: boolean;
   
   exportResolutionOverride: '1080p' | '720p' | '360p' | null;
-  activeTab: 'lyrics' | 'studio' | 'mv-studio';
+  activeTab: 'lyrics' | 'studio' | 'mv-studio' | 'create';
 
   selectedStudioLineId: string | null;
   studioZoom: number;
@@ -103,7 +103,7 @@ interface ProjectState {
   // Actions
   setName: (name: string) => void;
   setAspectRatio: (ratio: AspectRatio) => void;
-  setActiveTab: (tab: 'lyrics' | 'studio' | 'mv-studio') => void;
+  setActiveTab: (tab: 'lyrics' | 'studio' | 'mv-studio' | 'create') => void;
   setSelectedStudioLineId: (id: string | null | ((prev: string | null) => string | null)) => void;
   setStudioZoom: (zoom: number | ((prev: number) => number)) => void;
   setStudioScrollOffset: (offset: number | ((prev: number) => number)) => void;

@@ -4,7 +4,7 @@ import {
   Upload, Music, FileText, Play, Pause, RotateCcw, Download, Sparkles, 
   Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight,
   Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, SlidersHorizontal, Activity, AudioLines, ArrowUpRight, ListMusic, XCircle,
-  Copy, Check, Package, X, PanelLeftClose, PanelLeftOpen, Link2
+  Copy, Check, Package, X, PanelLeftClose, PanelLeftOpen, Link2, Globe
 } from 'lucide-react';
 import { cn, formatTime } from '../../lib/utils';
 import { Scrubber } from '../ui/scrubber';
@@ -63,11 +63,12 @@ export function StudioLayout() {
   // Playback state
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
 
-  // Song AI Intelligence
+  // Song AI Intelligence & Language
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('Auto');
   const [analysis, setAnalysis] = useState<SongAnalysis>({
     bpm: 120,
     key: 'C Major',
-    language: 'English',
+    language: 'Auto',
     sections: []
   });
 
@@ -409,7 +410,7 @@ export function StudioLayout() {
     try {
       if (forcedAlignmentMode || rawUploadedLyrics.trim()) {
         setProgress({ stage: 'aligning', message: 'Performing AI Forced Alignment against uploaded lyrics...', percentage: 60 });
-        const result = await provider.align(audioFile, rawUploadedLyrics || lines.map(l => l.text).join('\n'), { signal: controller.signal });
+        const result = await provider.align(audioFile, rawUploadedLyrics || lines.map(l => l.text).join('\n'), { language: selectedLanguage, signal: controller.signal });
         
         if (controller.signal.aborted) return;
 
@@ -417,9 +418,12 @@ export function StudioLayout() {
         if (result.lines && result.lines.length > 0) {
           updateLinesWithHistory(result.lines);
         }
+        if (result.language) {
+          setAnalysis(prev => ({ ...prev, language: result.language, bpm: result.bpm || prev.bpm, key: result.key || prev.key }));
+        }
       } else {
         setProgress({ stage: 'transcribing', message: 'Joelizing...', percentage: 65 });
-        const result = await provider.transcribe(audioFile, { signal: controller.signal });
+        const result = await provider.transcribe(audioFile, { language: selectedLanguage, signal: controller.signal });
         
         if (controller.signal.aborted) return;
 
@@ -651,6 +655,25 @@ export function StudioLayout() {
 
         {/* AI Action Buttons */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Language Selector */}
+          <div className="flex items-center gap-1 bg-white/5 border border-white/10 hover:border-white/20 rounded-md px-2 py-1 text-[10px] font-mono transition-colors">
+            <Globe size={12} className="text-slate-400 shrink-0" />
+            <select
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value)}
+              className="bg-transparent text-white focus:outline-none cursor-pointer font-bold text-[10px]"
+              title="Target Lyric Language"
+            >
+              <option value="Auto" className="bg-[#121218] text-white">🌐 Auto Language</option>
+              <option value="Korean" className="bg-[#121218] text-white">🇰🇷 Korean (한국어)</option>
+              <option value="Chinese" className="bg-[#121218] text-white">🇨🇳 Chinese (中文)</option>
+              <option value="English" className="bg-[#121218] text-white">🇺🇸 English</option>
+              <option value="Japanese" className="bg-[#121218] text-white">🇯🇵 Japanese (日本語)</option>
+              <option value="Spanish" className="bg-[#121218] text-white">🇪🇸 Spanish</option>
+              <option value="French" className="bg-[#121218] text-white">🇫🇷 French</option>
+            </select>
+          </div>
+
           {progress && progress.stage !== 'complete' && (
             <button
               onClick={cancelAIGeneration}
@@ -859,7 +882,13 @@ export function StudioLayout() {
 
           {/* 3. AI Song Intelligence Summary */}
           <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
-            <span className="text-[10px] font-mono font-black uppercase text-slate-400 tracking-wider block">3. AI Song Intelligence</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-black uppercase text-slate-400 tracking-wider block">3. AI Song Intelligence</span>
+              <div className="flex items-center gap-1 text-[9px] font-mono text-slate-400">
+                <Globe size={11} style={{ color: activeColor }} />
+                <span>{selectedLanguage}</span>
+              </div>
+            </div>
             
             <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
               <div className="bg-white/5 p-2 rounded border border-white/5">
@@ -872,9 +901,24 @@ export function StudioLayout() {
                 <span className="font-bold text-white">{analysis.key || 'C Major'}</span>
               </div>
 
-              <div className="bg-white/5 p-2 rounded border border-white/5 col-span-2">
-                <span className="text-slate-500 block text-[8px] uppercase">LANGUAGE</span>
-                <span className="font-bold text-white">{analysis.language || 'English'}</span>
+              <div className="bg-white/5 p-2 rounded border border-white/5 col-span-2 flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-slate-500 block text-[8px] uppercase">DETECTED / TARGET LANGUAGE</span>
+                  <span className="font-bold text-white">{analysis.language && analysis.language !== 'Auto' ? analysis.language : selectedLanguage}</span>
+                </div>
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="bg-black/60 border border-white/15 text-white text-[9px] rounded px-1.5 py-1 outline-none cursor-pointer"
+                >
+                  <option value="Auto" className="bg-[#121218]">Auto Detect</option>
+                  <option value="Korean" className="bg-[#121218]">Korean (한국어)</option>
+                  <option value="Chinese" className="bg-[#121218]">Chinese (中文)</option>
+                  <option value="English" className="bg-[#121218]">English</option>
+                  <option value="Japanese" className="bg-[#121218]">Japanese (日本語)</option>
+                  <option value="Spanish" className="bg-[#121218]">Spanish</option>
+                  <option value="French" className="bg-[#121218]">French</option>
+                </select>
               </div>
             </div>
           </div>

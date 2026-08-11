@@ -3,6 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import { generateMusic } from './server/aceStep';
 
 dotenv.config();
 
@@ -278,6 +279,38 @@ async function startServer() {
     }
   });
 
+  // ACE-Step AI Music Generation endpoint
+  app.post('/api/generate-music', async (req, res) => {
+    try {
+      const { prompt, lyrics, duration } = req.body;
+      if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+        return res.status(400).json({ error: 'Music generation prompt is required' });
+      }
+
+      const numDuration = Number(duration) || 30;
+
+      // Wrap generation with a 75-second timeout for HuggingFace cold starts
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Generation request timed out after 75s. The ACE-Step Space may be waking up or busy. Please retry.')), 75000);
+      });
+
+      const genPromise = generateMusic({
+        prompt: prompt.trim(),
+        lyrics: typeof lyrics === 'string' ? lyrics.trim() : '',
+        duration: numDuration
+      });
+
+      const result = await Promise.race([genPromise, timeoutPromise]) as any;
+
+      return res.json(result);
+    } catch (err: any) {
+      console.error('AI Music Generation Route Error:', err);
+      return res.status(500).json({
+        error: err.message || 'Failed to generate music track with ACE-Step AI.'
+      });
+    }
+  });
+
   // 2. Audio Transcription endpoint (Audio -> Synchronized LRC JSON)
   app.post('/api/transcribe', async (req, res) => {
     try {
@@ -289,23 +322,25 @@ async function startServer() {
       const ai = getGeminiClient(req);
       const model = 'gemini-2.5-flash';
 
-      const systemPrompt = `You are a professional music transcription and subtitle synchronization system.
-Analyze the provided audio file and generate precise, synchronized lyric timestamps.
-Language hint: ${language || 'Auto-detect'}.
-Extra prompt: ${prompt || 'None'}.
+      const systemPrompt = `You are an elite, highly accurate multilingual music transcription and subtitle synchronization system.
+You specialize in English, Korean (한국어 / Hangul, K-Pop, melisma), Chinese (中文 / Mandarin, Cantonese, Traditional & Simplified Hanzi characters), Japanese, and mixed multilingual lyrics.
 
-Rules:
-1. Listen carefully to the singing or speech in the audio.
-2. Segment the lyrics into logical singing line phrases.
-3. Assign accurate start times (startTime in seconds, float format e.g. 12.34) and end times (endTime in seconds).
-4. Ensure timestamps are strictly chronological (startTime < endTime and sorted ascending).
-5. Detect song BPM and Key if possible.
-6. VERY IMPORTANT: Please assign timestamps precisely where the vocal sound begins and ends. Compensate for any latency, aiming for exact visual synchronization.
+Target Song Language: ${language || 'Auto-detect'}.
+Extra User Guidance: ${prompt || 'None'}.
+
+Rules for High-Accuracy Transcription:
+1. Listen carefully to the singing and speech in the audio.
+2. For Korean (한국어): Transcribe in natural, correct Hangul characters with standard word spacing (어절). Keep Korean phrases grouped logically.
+3. For Chinese (中文): Transcribe in accurate Chinese Hanzi characters (Traditional or Simplified as heard). Break lines into natural musical singing phrases (usually 4 to 10 characters per line).
+4. For Mixed Lyrics (e.g. K-pop / C-pop with English rap or chorus): Preserve exact English words alongside Hangul/Hanzi without corrupting non-English parts into phonetic approximations.
+5. Assign precise start times (startTime in seconds, float format e.g. 12.34) and end times (endTime in seconds).
+6. Ensure timestamps are strictly chronological (startTime < endTime and sorted ascending).
+7. VERY IMPORTANT: Match timestamps precisely to vocal sound onsets and offsets. Compensate for latency so lyrics illuminate in exact sync with the audio.
 
 Schema required:
 {
   "text": "Full plain text transcription",
-  "language": "Detected language",
+  "language": "Detected primary language (e.g. Korean, Chinese, English, Mixed)",
   "bpm": 120,
   "key": "C Major",
   "lines": [
@@ -424,18 +459,21 @@ Schema required:
       const ai = getGeminiClient(req);
       const model = 'gemini-2.5-flash';
 
-      const systemPrompt = `You are a high-precision forced audio alignment engine.
+      const systemPrompt = `You are a high-precision multilingual forced audio alignment engine specialized in Korean (한국어), Chinese (中文 - Mandarin/Cantonese), English, Japanese, and mixed language lyrics.
 You are given an audio file and the exact raw lyric text provided by the user.
 
 User Provided Raw Lyrics:
 ${rawLyrics}
 
+Target Language Preference: ${language || 'Auto-detect'}
+
 Instructions:
-1. Preserve the user's provided lyric text line-by-line.
-2. For each line in the user's text, listen to the audio and find its exact start timestamp (startTime in seconds) and end timestamp (endTime in seconds).
-3. Do NOT omit any lines from the user's text.
-4. Timestamps must be sorted in strictly ascending chronological order.
-5. VERY IMPORTANT: Please assign timestamps precisely where the vocal sound begins and ends. Compensate for any latency, aiming for exact visual synchronization.
+1. Preserve the user's provided lyric text line-by-line without altering characters.
+2. Accurately handle Korean Hangul (한국어), Chinese characters (中文 / 繁體 / 簡體), and mixed language phrases.
+3. For each line in the user's text, listen to the audio and find its exact start timestamp (startTime in seconds) and end timestamp (endTime in seconds).
+4. Do NOT omit or drop any lines from the user's text.
+5. Timestamps must be sorted in strictly ascending chronological order.
+6. VERY IMPORTANT: Assign timestamps precisely where the vocal sound begins and ends for each phrase. Compensate for any audio/processing latency to achieve millimeter-exact visual synchronization.
 
 Schema required:
 {

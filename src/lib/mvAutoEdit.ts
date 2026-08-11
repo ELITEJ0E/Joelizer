@@ -33,6 +33,35 @@ const MOTION_EFFECTS = [
   'pan-down'
 ] as const;
 
+// Helper to tokenize lyric text supporting English, Korean (Hangul), Chinese (Hanzi), Japanese, and mixed lyrics
+export function tokenizeLyricLine(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  // Check if line contains CJK characters (Chinese \u4e00-\u9fa1, Hangul \uac00-\ud7a3, Kana \u3040-\u30ff)
+  const hasCJK = /[\u4e00-\u9fa1\u3040-\u30ff\uac00-\ud7a3]/.test(trimmed);
+  if (!hasCJK) {
+    return trimmed.split(/\s+/).filter(Boolean);
+  }
+
+  // Smart tokenization for CJK/mixed text:
+  // - Keeps Latin words intact (e.g., "Forever", "Baby", "Love")
+  // - For Chinese/Japanese: breaks into character/kanji tokens or punctuation
+  // - For Korean: breaks by spaces or Hangul syllable blocks
+  const tokens: string[] = [];
+  const regex = /([a-zA-Z0-9'\-]+)|([\u4e00-\u9fa1\u3040-\u30ff\uac00-\ud7a3])|([^\s\a-zA-Z0-9'\-\u4e00-\u9fa1\u3040-\u30ff\uac00-\ud7a3]+)/g;
+  
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(trimmed)) !== null) {
+    const token = match[0].trim();
+    if (token) {
+      tokens.push(token);
+    }
+  }
+
+  return tokens.length > 0 ? tokens : trimmed.split(/\s+/).filter(Boolean);
+}
+
 export function generateAutoEdit(options: AutoEditOptions): {
   timelineClips: TimelineClip[];
   wordTimings: TimelineText[];
@@ -96,7 +125,7 @@ export function generateAutoEdit(options: AutoEditOptions): {
 
       if (lineEnd <= lineStart) lineEnd = lineStart + 3.0;
 
-      const wordsArr = line.text.trim().split(/\s+/).filter(Boolean);
+      const wordsArr = tokenizeLyricLine(line.text);
       const wordCount = wordsArr.length || 1;
       const totalDuration = lineEnd - lineStart;
       const wordDuration = totalDuration / wordCount;

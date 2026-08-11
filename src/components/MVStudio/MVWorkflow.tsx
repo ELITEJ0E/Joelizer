@@ -5,6 +5,7 @@ import { generateAutoEdit } from '../../lib/mvAutoEdit';
 import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export function MVWorkflow() {
+  const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const videoAssets = useMVStore(s => s.videoAssets);
   const addVideoAsset = useMVStore(s => s.addVideoAsset);
   const style = useMVStore(s => s.style);
@@ -202,19 +203,57 @@ export function MVWorkflow() {
     <div className="flex flex-col h-full bg-[#08080c] text-slate-300">
       {/* Title */}
       <div className="p-3 border-b border-white/10 flex items-center gap-2 text-white text-xs font-bold tracking-widest uppercase">
-        <Sliders size={14} className="text-purple-400" />
+        <Sliders size={14} style={{ color: activeColor }} />
         Auto Editor Controls
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {/* Main Action Section */}
-        <div className="bg-gradient-to-b from-purple-900/30 to-black/60 p-3.5 rounded-lg border border-purple-500/30 flex flex-col gap-3 shadow-lg">
+        {/* AI Music Generation Banner */}
+        <div 
+          className="p-3.5 rounded-lg border flex flex-col gap-2.5 shadow-lg bg-black/60 relative overflow-hidden"
+          style={{ borderColor: `${activeColor}40` }}
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles size={14} className="text-purple-400" />
+              <Sparkles size={14} style={{ color: activeColor }} />
+              ACE-Step AI Music Studio
+            </span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 font-mono font-bold">
+              SUNO UI
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Generate custom synth & vocal tracks using ACE-Step v1.5 DiT in the dedicated Suno Studio tab.
+          </p>
+          <button
+            onClick={() => useStore.getState().setActiveTab('create')}
+            className="w-full py-2 rounded-md text-black text-xs font-black uppercase tracking-widest transition-all shadow flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
+            style={{ backgroundColor: activeColor }}
+          >
+            <Sparkles size={13} />
+            Open Create Tab
+          </button>
+        </div>
+
+        {/* Main Action Section */}
+        <div 
+          className="p-3.5 rounded-lg border flex flex-col gap-3 shadow-lg bg-black/60 relative overflow-hidden"
+          style={{ borderColor: `${activeColor}40` }}
+        >
+          <div 
+            className="absolute inset-0 opacity-15 pointer-events-none"
+            style={{ background: `radial-gradient(circle at top right, ${activeColor}, transparent 70%)` }}
+          />
+
+          <div className="flex items-center justify-between relative z-10">
+            <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles size={14} style={{ color: activeColor }} />
               Music Video Auto Edit
             </span>
-            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold">
+            <span 
+              className="text-[9px] px-2 py-0.5 rounded border font-extrabold uppercase tracking-widest"
+              style={{ backgroundColor: `${activeColor}20`, borderColor: `${activeColor}50`, color: activeColor }}
+            >
               READY
             </span>
           </div>
@@ -222,7 +261,8 @@ export function MVWorkflow() {
           <button
             onClick={() => handleRunBasicAutoEdit()}
             disabled={isProcessing}
-            className="w-full py-2.5 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98]"
+            className="w-full py-2.5 rounded-md text-black text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] relative z-10"
+            style={{ backgroundColor: activeColor, boxShadow: `0 0 15px ${activeColor}40` }}
           >
             <Wand2 size={15} />
             {isProcessing ? statusText : (hasTimeline ? 'Re-Run Auto Edit' : '✦ AUTO EDIT')}
@@ -232,7 +272,7 @@ export function MVWorkflow() {
             <button
               onClick={handleRegenerate}
               disabled={isProcessing}
-              className="w-full py-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5"
+              className="w-full py-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 relative z-10"
             >
               <RefreshCw size={12} />
               Regenerate (New Seed)
@@ -240,22 +280,22 @@ export function MVWorkflow() {
           )}
 
           {isProcessing && (
-            <div className="w-full flex flex-col gap-1 mt-1">
+            <div className="w-full flex flex-col gap-1 mt-1 relative z-10">
               <div className="w-full bg-black/60 h-1.5 rounded-full overflow-hidden">
                 <div 
-                  className="bg-purple-500 h-full transition-all duration-300" 
-                  style={{ width: `${progress}%` }} 
+                  className="h-full transition-all duration-300" 
+                  style={{ width: `${progress}%`, backgroundColor: activeColor }} 
                 />
               </div>
-              <span className="text-[10px] text-purple-300 font-mono text-center">{statusText}</span>
+              <span className="text-[10px] font-mono text-center" style={{ color: activeColor }}>{statusText}</span>
             </div>
           )}
         </div>
 
         {/* Style & Pacing Settings */}
-        <div className="space-y-3 bg-white/5 p-3 rounded border border-white/10">
+        <div className="space-y-3 bg-white/5 p-3 rounded-lg border border-white/10">
           <h4 className="text-[11px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-            <Settings size={13} className="text-purple-400" />
+            <Settings size={13} style={{ color: activeColor }} />
             Editing Aesthetics
           </h4>
 
@@ -265,7 +305,8 @@ export function MVWorkflow() {
             <select 
               value={style}
               onChange={(e) => setStyle(e.target.value)}
-              className="bg-black/60 border border-white/20 rounded p-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+              className="bg-black/80 border border-white/20 rounded p-1.5 text-xs text-white focus:outline-none"
+              style={{ focusBorderColor: activeColor }}
             >
               <option value="Cinematic">Cinematic Montage</option>
               <option value="Performance">Performance Focus</option>
@@ -283,11 +324,16 @@ export function MVWorkflow() {
                 <button
                   key={p}
                   onClick={() => setPacing(p)}
-                  className={`py-1 text-[10px] font-bold rounded border transition-colors ${
-                    pacing === p 
-                      ? 'bg-purple-600 border-purple-400 text-white' 
-                      : 'bg-black/40 border-white/10 text-slate-400 hover:text-white'
-                  }`}
+                  className="py-1 text-[10px] font-bold rounded border transition-colors"
+                  style={pacing === p ? {
+                    backgroundColor: activeColor,
+                    borderColor: activeColor,
+                    color: '#000'
+                  } : {
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    color: '#94a3b8'
+                  }}
                 >
                   {p}
                 </button>
@@ -303,11 +349,16 @@ export function MVWorkflow() {
                 <button
                   key={b}
                   onClick={() => setBeatSync(b)}
-                  className={`py-1 text-[10px] font-bold rounded border transition-colors ${
-                    beatSync === b 
-                      ? 'bg-purple-600 border-purple-400 text-white' 
-                      : 'bg-black/40 border-white/10 text-slate-400 hover:text-white'
-                  }`}
+                  className="py-1 text-[10px] font-bold rounded border transition-colors"
+                  style={beatSync === b ? {
+                    backgroundColor: activeColor,
+                    borderColor: activeColor,
+                    color: '#000'
+                  } : {
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    color: '#94a3b8'
+                  }}
                 >
                   {b}
                 </button>
@@ -337,7 +388,7 @@ export function MVWorkflow() {
         </div>
 
         {/* Optional Local Engine Enhancement */}
-        <div className="bg-white/5 p-3 rounded border border-white/10 flex flex-col gap-2">
+        <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
               <Cpu size={13} className={localEngineConnected ? 'text-emerald-400' : 'text-slate-500'} />
@@ -367,10 +418,10 @@ export function MVWorkflow() {
         </div>
 
         {/* Optional Gemini Intelligence */}
-        <div className="bg-white/5 p-3 rounded border border-white/10 flex flex-col gap-2">
+        <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Key size={13} className="text-purple-400" />
+              <Key size={13} style={{ color: activeColor }} />
               Gemini AI (BYOK)
             </span>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -380,7 +431,10 @@ export function MVWorkflow() {
                 onChange={(e) => setUseGemini(e.target.checked)}
                 className="sr-only peer" 
               />
-              <div className="w-7 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
+              <div 
+                className="w-7 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all"
+                style={{ backgroundColor: useGemini ? activeColor : undefined }}
+              />
             </label>
           </div>
 
@@ -390,7 +444,7 @@ export function MVWorkflow() {
               placeholder="Enter Gemini API Key..."
               value={geminiKey}
               onChange={(e) => setGeminiKey(e.target.value)}
-              className="w-full bg-black/60 border border-white/20 rounded p-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+              className="w-full bg-black/60 border border-white/20 rounded p-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
             />
           )}
         </div>
@@ -401,7 +455,8 @@ export function MVWorkflow() {
         <button 
           onClick={handleExportMV}
           disabled={!hasTimeline || isProcessing}
-          className="w-full py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold tracking-widest uppercase transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full py-2.5 rounded-md text-black text-xs font-black tracking-widest uppercase transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ backgroundColor: activeColor, boxShadow: `0 0 12px ${activeColor}30` }}
         >
           <Download size={14} />
           {localEngineConnected ? 'Export Local FFmpeg' : 'Export Timeline / Manifest'}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
-import { Download, Music } from 'lucide-react';
+import { Download, Music, Film, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -93,6 +93,25 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         {/* Top Navigation Links */}
         <nav className="flex items-center bg-white/[0.03] border border-white/10 rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1 shrink-0">
           <button
+            onClick={() => setActiveTab('create')}
+            className={cn(
+              "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
+              activeTab === 'create' 
+                ? "bg-white/15 text-white shadow-md font-black" 
+                : "text-slate-300 hover:text-white hover:bg-white/5"
+            )}
+            style={activeTab === 'create' ? { 
+              color: activeColor,
+              backgroundColor: `${activeColor}20`,
+              borderColor: `${activeColor}50` 
+            } : {}}
+          >
+            <Sparkles size={12} style={{ color: activeColor }} />
+            <span>Create</span>
+            <span className="text-[7px] font-extrabold px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 ml-0.5 hidden sm:inline-block">ACE v1.5</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('lyrics')}
             className={cn(
               "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
@@ -120,6 +139,25 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             } : {}}
           >
             <span>Studio</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('mv-studio')}
+            className={cn(
+              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
+              activeTab === 'mv-studio' 
+                ? "bg-white/15 text-white shadow-md" 
+                : "text-slate-300 hover:text-white hover:bg-white/5"
+            )}
+            style={activeTab === 'mv-studio' ? { 
+              color: activeColor,
+              backgroundColor: `${activeColor}20`,
+              borderColor: `${activeColor}50` 
+            } : {}}
+          >
+            <Film size={12} />
+            <span>MV Studio</span>
+            <span className="text-[7px] font-extrabold px-1 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 ml-0.5 hidden sm:inline-block">AUTO</span>
           </button>
         </nav>
       </div>

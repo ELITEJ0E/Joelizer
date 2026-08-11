@@ -15,6 +15,7 @@ import { StudioLayout } from './components/Studio/StudioLayout';
 import { GlobalAudioPlayer } from './components/Audio/GlobalAudioPlayer';
 
 import { MVStudioLayout } from './components/MVStudio/MVStudioLayout';
+import { SunoStudioLayout } from './components/SunoStudio/SunoStudioLayout';
 
 export default function App() {
   const [showExportModal, setShowExportModal] = useState(false);
@@ -32,7 +33,11 @@ export default function App() {
       <GlobalAudioPlayer />
       <TopBar onExport={() => setShowExportModal(true)} />
       
-      {activeTab === 'mv-studio' ? (
+      {activeTab === 'create' ? (
+        <div className="flex-1 overflow-hidden relative">
+          <SunoStudioLayout />
+        </div>
+      ) : activeTab === 'mv-studio' ? (
         <div className="flex-1 overflow-hidden relative">
           <MVStudioLayout />
         </div>

@@ -15,17 +15,37 @@ const ASPECT_RATIOS = {
 };
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const words = text.split(' ');
+  if (!text) return [];
+  
+  // Check if text has CJK characters (Chinese, Japanese, Korean)
+  const hasCJK = /[\u4e00-\u9fa1\u3040-\u30ff\uac00-\ud7a3]/.test(text);
+
+  let tokens: string[] = [];
+  if (hasCJK) {
+    // Match words (Latin/alphanumeric) or single CJK characters or punctuation
+    const regex = /([a-zA-Z0-9'\-]+)|([\u4e00-\u9fa1\u3040-\u30ff\uac00-\ud7a3])|([^\s\a-zA-Z0-9'\-\u4e00-\u9fa1\u3040-\u30ff\uac00-\ud7a3]+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      if (match[0]) tokens.push(match[0]);
+    }
+  } else {
+    tokens = text.split(' ');
+  }
+
+  if (tokens.length === 0) tokens = [text];
+
   const lines: string[] = [];
   let currentLine = '';
 
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
-    const testLine = currentLine ? currentLine + ' ' + word : word;
-    const testWidth = ctx.measureText(testLine).width;
-    if (testWidth > maxWidth && i > 0) {
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    const isLatin = /^[a-zA-Z0-9'\-]+$/.test(token);
+    const prevIsLatin = currentLine && /^[a-zA-Z0-9'\-]+$/.test(currentLine.slice(-1));
+    const testLine = currentLine ? (isLatin && prevIsLatin ? currentLine + ' ' + token : currentLine + token) : token;
+
+    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
       lines.push(currentLine);
-      currentLine = word;
+      currentLine = token;
     } else {
       currentLine = testLine;
     }
