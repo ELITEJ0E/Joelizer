@@ -92,8 +92,84 @@ export function MVPreview() {
 
   const aspectRatioVal = aspectRatio === '9:16' ? '9/16' : aspectRatio === '1:1' ? '1/1' : '16/9';
 
+  // Hidden Canvas for Exporting via ExportModal
+  const exportCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let animFrame: number;
+    
+    const drawToExportCanvas = () => {
+      const canvas = exportCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Set resolution based on aspect ratio (e.g. 1080p base)
+      const baseRes = 1080;
+      if (aspectRatio === '16:9') {
+        canvas.width = baseRes * (16/9);
+        canvas.height = baseRes;
+      } else if (aspectRatio === '9:16') {
+        canvas.width = baseRes * (9/16);
+        canvas.height = baseRes;
+      } else {
+        canvas.width = baseRes;
+        canvas.height = baseRes;
+      }
+
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (activeAsset) {
+        if (activeAsset.mediaType === 'video' && videoRef.current && videoRef.current.readyState >= 2) {
+          // Draw video covering canvas
+          const vRatio = (canvas.width / canvas.height) > (videoRef.current.videoWidth / videoRef.current.videoHeight) 
+            ? canvas.width / videoRef.current.videoWidth 
+            : canvas.height / videoRef.current.videoHeight;
+          const cx = (canvas.width - videoRef.current.videoWidth * vRatio) / 2;
+          const cy = (canvas.height - videoRef.current.videoHeight * vRatio) / 2;
+          ctx.drawImage(videoRef.current, cx, cy, videoRef.current.videoWidth * vRatio, videoRef.current.videoHeight * vRatio);
+        } else if (activeAsset.mediaType === 'image') {
+          // Find image element in DOM
+          const imgEl = document.getElementById('mv-active-image') as HTMLImageElement;
+          if (imgEl && imgEl.complete) {
+            ctx.save();
+            // Apply simple Ken Burns approximation for export canvas
+            const scale = 1 + (clipProgress * 0.15); // Base scale animation
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(scale, scale);
+            
+            const iRatio = (canvas.width / canvas.height) > (imgEl.naturalWidth / imgEl.naturalHeight) 
+              ? canvas.width / imgEl.naturalWidth 
+              : canvas.height / imgEl.naturalHeight;
+            
+            ctx.drawImage(imgEl, -(imgEl.naturalWidth * iRatio) / 2, -(imgEl.naturalHeight * iRatio) / 2, imgEl.naturalWidth * iRatio, imgEl.naturalHeight * iRatio);
+            ctx.restore();
+          }
+        }
+      }
+
+      // Draw lyrics on export canvas
+      const currentLyricLine = useMVStore.getState().wordTimings.find(t => currentTime >= t.startTime && currentTime <= t.endTime);
+      if (currentLyricLine) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, canvas.height - 120, canvas.width, 100);
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 36px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(currentLyricLine.text, canvas.width / 2, canvas.height - 60);
+      }
+
+      animFrame = requestAnimationFrame(drawToExportCanvas);
+    };
+
+    animFrame = requestAnimationFrame(drawToExportCanvas);
+    return () => cancelAnimationFrame(animFrame);
+  }, [activeAsset, aspectRatio, clipProgress, currentTime]);
+
   return (
     <div className="flex flex-col items-center justify-between w-full h-full p-1.5 sm:p-2 overflow-hidden gap-1.5 sm:gap-2">
+      <canvas id="visualizer-canvas" ref={exportCanvasRef} style={{ display: 'none' }} />
       {/* Top Header Controls: Aspect Ratio */}
       <div className="flex items-center justify-center w-full shrink-0 px-2.5 py-1 bg-black/60 border border-white/10 rounded-full text-[10px] text-slate-400 backdrop-blur-md max-w-[280px]">
         <div className="flex items-center gap-2">
@@ -147,6 +223,7 @@ export function MVPreview() {
             ) : (
               <div className="w-full h-full overflow-hidden relative">
                 <img
+                  id="mv-active-image"
                   src={activeAsset.url || activeAsset.thumbnail}
                   alt={activeAsset.name}
                   style={getKenBurnsStyle(activeClip?.effect, clipProgress)}

@@ -265,18 +265,6 @@ export function StudioLayout() {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         redo();
-      } else if (e.key === '[') {
-        e.preventDefault();
-        if (selectedLineId) {
-          handleMarkStart(selectedLineId, currentTime);
-        } else if (lines.length > 0) {
-          handleMarkStart(lines[0].id, currentTime);
-        }
-      } else if (e.key === ']') {
-        e.preventDefault();
-        if (selectedLineId) {
-          handleMarkEnd(selectedLineId, currentTime);
-        }
       } else if (e.code === 'Enter' || e.key === 'Enter') {
         e.preventDefault();
         if (lines.length === 0) return;
@@ -284,9 +272,13 @@ export function StudioLayout() {
         const targetIdx = currentIdx !== -1 ? currentIdx : 0;
         const targetLine = lines[targetIdx];
         if (targetLine) {
-          handleMarkStart(targetLine.id, currentTime);
-          if (targetIdx < lines.length - 1) {
-            setSelectedLineId(lines[targetIdx + 1].id);
+          if (e.shiftKey) {
+            handleMarkEnd(targetLine.id, currentTime);
+          } else {
+            handleMarkStart(targetLine.id, currentTime);
+            if (targetIdx < lines.length - 1) {
+              setSelectedLineId(lines[targetIdx + 1].id);
+            }
           }
         }
       } else if (e.code === 'ArrowUp') {
@@ -1189,8 +1181,8 @@ export function StudioLayout() {
             <div className="flex items-center gap-2 shrink-0">
               <span><kbd className="px-1 bg-white/10 rounded text-white">Space</kbd> Play/Pause</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">P / N</kbd> Prev/Next Track</span>
-              <span><kbd className="px-1 bg-white/10 rounded text-white">[ ]</kbd> Start/End</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">Enter</kbd> Start & Next</span>
+              <span><kbd className="px-1 bg-white/10 rounded text-white">Shift+Enter</kbd> End</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">↑↓</kbd> Select</span>
               <span><kbd className="px-1 bg-white/10 rounded text-white">Ctrl+Z/Y</kbd> Undo/Redo</span>
             </div>

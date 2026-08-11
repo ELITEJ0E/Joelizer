@@ -28,6 +28,12 @@ export default function App() {
     initFromStorage();
   }, [initFromStorage]);
 
+  useEffect(() => {
+    const handleOpenExport = () => setShowExportModal(true);
+    window.addEventListener('open-export-modal', handleOpenExport);
+    return () => window.removeEventListener('open-export-modal', handleOpenExport);
+  }, []);
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#030304] spotify-grid text-slate-300 font-sans overflow-hidden select-none">
       <GlobalAudioPlayer />

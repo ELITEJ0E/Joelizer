@@ -24,9 +24,28 @@ export function MVTimeline() {
   const removeTimelineClip = useMVStore(s => s.removeTimelineClip);
   const splitTimelineClip = useMVStore(s => s.splitTimelineClip);
   const addTimelineClip = useMVStore(s => s.addTimelineClip);
+  const commitTimeline = useMVStore(s => s.commitTimeline);
+  const undo = useMVStore(s => s.undo);
+  const redo = useMVStore(s => s.redo);
   const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
 
   const [zoom, setZoom] = useState(1);
+
+  // Undo / Redo Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) redo();
+        else undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
+
 
   // Dragging state for clips on timeline
   const [dragState, setDragState] = useState<{
@@ -67,6 +86,18 @@ export function MVTimeline() {
       const deltaTime = (deltaX / rect.width) * duration;
       const clipDur = dragState.origEnd - dragState.origStart;
 
+      // Get max duration constraint
+      let maxAssetDuration = Infinity;
+      let currentTrimStart = 0;
+      const currentClip = timelineClips.find(c => c.id === dragState.clipId);
+      if (currentClip) {
+        currentTrimStart = currentClip.trimStart || 0;
+        const asset = videoAssets.find(v => v.id === currentClip.assetId);
+        if (asset && asset.duration) {
+          maxAssetDuration = asset.duration;
+        }
+      }
+
       if (dragState.type === 'body') {
         let newStart = Math.max(0, Math.min(duration - clipDur, dragState.origStart + deltaTime));
         updateTimelineClip(dragState.clipId, {
@@ -74,15 +105,17 @@ export function MVTimeline() {
           endTime: Number((newStart + clipDur).toFixed(2))
         });
       } else if (dragState.type === 'resize-left') {
-        let newStart = Math.max(0, Math.min(dragState.origEnd - 0.5, dragState.origStart + deltaTime));
-        let newTrimStart = Math.max(0, newStart - dragState.origStart);
+        const maxLeftShift = currentClip ? dragState.origStart - currentClip.trimStart : dragState.origStart;
+        let newStart = Math.max(Math.max(0, maxLeftShift), Math.min(dragState.origEnd - 0.5, dragState.origStart + deltaTime));
+        let newTrimStart = Math.max(0, (currentClip?.trimStart || 0) + (newStart - dragState.origStart));
         updateTimelineClip(dragState.clipId, {
           startTime: Number(newStart.toFixed(2)),
           trimStart: Number(newTrimStart.toFixed(2))
         });
       } else if (dragState.type === 'resize-right') {
-        let newEnd = Math.max(dragState.origStart + 0.5, Math.min(duration, dragState.origEnd + deltaTime));
-        let newTrimEnd = Math.max(0.5, newEnd - dragState.origStart);
+        const maxPossibleEnd = dragState.origStart + (maxAssetDuration - currentTrimStart);
+        let newEnd = Math.max(dragState.origStart + 0.5, Math.min(Math.min(duration, maxPossibleEnd), dragState.origEnd + deltaTime));
+        let newTrimEnd = Math.max(0.5, currentTrimStart + (newEnd - dragState.origStart));
         updateTimelineClip(dragState.clipId, {
           endTime: Number(newEnd.toFixed(2)),
           trimEnd: Number(newTrimEnd.toFixed(2))
@@ -91,6 +124,7 @@ export function MVTimeline() {
     };
 
     const handleMouseUp = () => {
+      commitTimeline();
       setDragState(null);
     };
 
@@ -100,7 +134,7 @@ export function MVTimeline() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState, duration, updateTimelineClip]);
+  }, [dragState, duration, updateTimelineClip, timelineClips, videoAssets]);
 
   const handleTimelineClick = (e: React.MouseEvent) => {
     if (dragState) return;
@@ -142,6 +176,7 @@ export function MVTimeline() {
       locked: false,
       mediaType: asset.mediaType
     });
+    commitTimeline();
   };
 
   const selectedClip = timelineClips.find(c => c.id === selectedClipId);
@@ -173,6 +208,7 @@ export function MVTimeline() {
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleLockClip(selectedClip.id);
+                  commitTimeline();
                 }}
                 className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-colors ${
                   selectedClip.locked ? 'bg-amber-500 text-black' : 'bg-white/10 text-white hover:bg-white/20'
@@ -186,6 +222,7 @@ export function MVTimeline() {
                 onClick={(e) => {
                   e.stopPropagation();
                   splitTimelineClip(selectedClip.id, currentTime);
+                  commitTimeline();
                 }}
                 disabled={currentTime <= selectedClip.startTime || currentTime >= selectedClip.endTime}
                 className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold flex items-center gap-1 disabled:opacity-30"
@@ -198,6 +235,7 @@ export function MVTimeline() {
                 onClick={(e) => {
                   e.stopPropagation();
                   removeTimelineClip(selectedClip.id);
+                  commitTimeline();
                 }}
                 className="px-2 py-0.5 rounded bg-red-600/30 hover:bg-red-600/50 text-red-300 border border-red-500/30 text-[10px] font-bold flex items-center gap-1"
               >

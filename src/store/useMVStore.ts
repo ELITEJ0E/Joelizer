@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface MediaAsset {
   id: string;
@@ -9,7 +10,7 @@ export interface MediaAsset {
   duration: number; // in seconds (for images, default e.g. 10s)
   thumbnail: string; // data URL or thumbnail image URL
   isStock?: boolean;
-  sourceType?: 'local' | 'url' | 'stock';
+  sourceType?: 'local' | 'url' | 'stock' | 'generated';
   motionScore?: number;
   brightness?: number;
   tags?: string[];
@@ -127,9 +128,14 @@ export interface MVProjectState {
   toggleLockClip: (id: string) => void;
   removeTimelineClip: (id: string) => void;
   splitTimelineClip: (id: string, splitTime: number) => void;
+  timelineHistory: TimelineClip[][];
+  historyIndex: number;
+  commitTimeline: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
-export const useMVStore = create<MVProjectState>((set) => ({
+export const useMVStore = create<MVProjectState>()(persist((set) => ({
   localEngineConnected: false,
   style: 'Cinematic',
   pacing: 'Balanced',
@@ -207,6 +213,28 @@ export const useMVStore = create<MVProjectState>((set) => ({
   setUseGemini: (useGemini) => set({ useGemini }),
   setStockFolder: (stockFolder) => set({ stockFolder }),
   setMediaSourceFilter: (mediaSourceFilter) => set({ mediaSourceFilter }),
+  timelineHistory: [[]],
+  historyIndex: 0,
+  commitTimeline: () => set((state) => {
+    const newHistory = state.timelineHistory.slice(0, state.historyIndex + 1);
+    newHistory.push([...state.timelineClips]);
+    if (newHistory.length > 50) newHistory.shift();
+    return { timelineHistory: newHistory, historyIndex: newHistory.length - 1 };
+  }),
+  undo: () => set((state) => {
+    if (state.historyIndex > 0) {
+      const newIndex = state.historyIndex - 1;
+      return { historyIndex: newIndex, timelineClips: state.timelineHistory[newIndex] };
+    }
+    return state;
+  }),
+  redo: () => set((state) => {
+    if (state.historyIndex < state.timelineHistory.length - 1) {
+      const newIndex = state.historyIndex + 1;
+      return { historyIndex: newIndex, timelineClips: state.timelineHistory[newIndex] };
+    }
+    return state;
+  }),
   setSelectedClipId: (selectedClipId) => set({ selectedClipId }),
 
   addVideoAsset: (asset) => set((s) => ({ videoAssets: [...s.videoAssets, asset] })),
@@ -281,5 +309,23 @@ export const useMVStore = create<MVProjectState>((set) => ({
     newClips.splice(clipIndex, 1, clip1, clip2);
 
     return { timelineClips: newClips };
+  })
+}), {
+  name: 'mv-studio-storage',
+  storage: createJSONStorage(() => sessionStorage),
+  partialize: (state) => ({
+    videoAssets: state.videoAssets.map(asset => ({
+      ...asset,
+      file: undefined
+    })).filter(asset => asset.url && !asset.url.startsWith('blob:')),
+    timelineClips: state.timelineClips,
+    style: state.style,
+    pacing: state.pacing,
+    beatSync: state.beatSync,
+    editSeed: state.editSeed,
+    mediaSourceFilter: state.mediaSourceFilter,
+    songAnalysis: state.songAnalysis,
+    wordTimings: state.wordTimings,
+    aiMusicPrompt: state.aiMusicPrompt
   })
 }));

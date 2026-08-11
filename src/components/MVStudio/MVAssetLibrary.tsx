@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { useMVStore, MediaAsset } from '../../store/useMVStore';
-import { Film, Image as ImageIcon, Plus, Trash2, Link as LinkIcon, FolderPlus, Sparkles, ExternalLink, Globe, Search } from 'lucide-react';
+import { Film, Image as ImageIcon, Plus, Trash2, Link as LinkIcon, FolderPlus, Sparkles, ExternalLink, Globe, Search, Wand2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
+import { ImageGeneratorPanel } from './Generator/ImageGeneratorPanel';
 
 export function MVAssetLibrary() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -14,6 +15,8 @@ export function MVAssetLibrary() {
   const mediaSourceFilter = useMVStore(s => s.mediaSourceFilter);
   const setMediaSourceFilter = useMVStore(s => s.setMediaSourceFilter);
   
+  const [activeTab, setActiveTab] = useState<'media' | 'generate'>('media');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,7 +47,8 @@ export function MVAssetLibrary() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-          const thumb = canvas.toDataURL('image/jpeg', 0.7);
+          let thumb = '';
+          try { thumb = canvas.toDataURL('image/jpeg', 0.7); } catch(e) { thumb = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=60'; }
           addVideoAsset({
             id: `vid-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             file,
@@ -105,32 +109,61 @@ export function MVAssetLibrary() {
     }
 
     const cleanUrl = urlInput.trim();
-    const isDirectVideo = cleanUrl.match(/\.(mp4|webm|mov)(\?.*)?$/i);
-    const isDirectImage = cleanUrl.match(/\.(jpg|jpeg|png|webp)(\?.*)?$/i);
+    const isVideoString = cleanUrl.match(/\.(mp4|webm|mov)(\?.*)?$/i) || cleanUrl.includes('video');
+    const isImageString = cleanUrl.match(/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i) || cleanUrl.includes('unsplash') || (cleanUrl.includes('image') && !cleanUrl.includes('video')) || cleanUrl.includes('photo');
 
-    if (!isDirectVideo && !isDirectImage && !cleanUrl.startsWith('http')) {
-      setUrlError('Please provide a valid direct media URL');
+    if (!cleanUrl.startsWith('http')) {
+      setUrlError('Please provide a valid URL starting with http:// or https://');
       return;
     }
 
-    const mediaType = isDirectImage ? 'image' : 'video';
+    const mediaType = isVideoString && !isImageString ? 'video' : 'image';
     const filename = cleanUrl.split('/').pop()?.split('?')[0] || `stock-${mediaType}`;
 
-    const newAsset: MediaAsset = {
-      id: `url-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      url: cleanUrl,
-      name: filename,
-      mediaType,
-      duration: mediaType === 'video' ? 10 : 8,
-      thumbnail: isDirectImage ? cleanUrl : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=60',
-      isStock: true,
-      sourceType: 'stock',
-      status: 'ready'
-    };
-
-    addVideoAsset(newAsset);
-    setUrlInput('');
-    setShowUrlModal(false);
+    if (mediaType === 'video') {
+      const videoEl = document.createElement('video');
+      videoEl.src = cleanUrl;
+      videoEl.muted = true;
+      videoEl.onloadedmetadata = () => {
+        addVideoAsset({
+          id: `url-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          url: cleanUrl,
+          name: filename,
+          mediaType: 'video',
+          duration: videoEl.duration || 10,
+          thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=60',
+          isStock: true,
+          sourceType: 'stock',
+          status: 'ready'
+        });
+        setUrlInput('');
+        setShowUrlModal(false);
+      };
+      videoEl.onerror = () => {
+        setUrlError('Failed to load video from this URL. It might be blocked or invalid.');
+      };
+    } else {
+      const img = new Image();
+      img.src = cleanUrl;
+      img.onload = () => {
+        addVideoAsset({
+          id: `url-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          url: cleanUrl,
+          name: filename,
+          mediaType: 'image',
+          duration: 8,
+          thumbnail: cleanUrl,
+          isStock: true,
+          sourceType: 'stock',
+          status: 'ready'
+        });
+        setUrlInput('');
+        setShowUrlModal(false);
+      };
+      img.onerror = () => {
+        setUrlError('Failed to load image from this URL.');
+      };
+    }
   };
 
   const handleImportSampleStock = () => {
@@ -221,15 +254,68 @@ export function MVAssetLibrary() {
     { name: 'Pixabay Footage', url: 'https://pixabay.com/videos', category: 'Free Stock Clips', bg: 'from-green-600/30 to-lime-600/30', border: 'border-green-500/40' },
   ];
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Try to get text/uri-list for URL drops
+    const urlStr = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    if (urlStr && urlStr.startsWith('http')) {
+      setUrlInput(urlStr);
+      setShowUrlModal(true);
+      return;
+    }
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        processFile(files[i]);
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-[#08080c] text-slate-300 select-none overflow-hidden">
-      {/* Header */}
-      <div className="p-2.5 border-b border-white/10 flex flex-col gap-2 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-white text-xs font-bold tracking-widest uppercase">
-            <Film size={14} className="text-purple-400" />
-            Media Library
-          </div>
+    <div 
+      className="flex flex-col h-full bg-[#08080c] text-slate-300 select-none overflow-hidden"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Top Tabs */}
+      <div className="flex bg-[#060608] border-b border-white/10 shrink-0 text-[11px] font-black uppercase tracking-wider">
+        <button
+          onClick={() => setActiveTab('media')}
+          className="flex-1 py-3 transition-colors flex items-center justify-center gap-2"
+          style={activeTab === 'media' ? { borderBottom: `2px solid ${activeColor}`, color: activeColor } : { color: '#94a3b8' }}
+        >
+          <Film size={14} />
+          Media
+        </button>
+        <button
+          onClick={() => setActiveTab('generate')}
+          className="flex-1 py-3 transition-colors flex items-center justify-center gap-2"
+          style={activeTab === 'generate' ? { borderBottom: `2px solid ${activeColor}`, color: activeColor } : { color: '#94a3b8' }}
+        >
+          <Wand2 size={14} />
+          AI Generate
+        </button>
+      </div>
+
+      {activeTab === 'generate' ? (
+        <ImageGeneratorPanel />
+      ) : (
+        <>
+          {/* Header */}
+          <div className="p-2.5 border-b border-white/10 flex flex-col gap-2 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-white text-xs font-bold tracking-widest uppercase">
+                <Film size={14} className="text-purple-400" />
+                Media Library
+              </div>
           <div className="flex items-center gap-1">
             <button 
               onClick={() => fileInputRef.current?.click()}
@@ -411,7 +497,7 @@ export function MVAssetLibrary() {
           className="w-full py-1.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-black tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 hover:bg-amber-500/20 cursor-pointer"
         >
           <Globe size={12} className="text-amber-400" />
-          <span>Stock Provider Hub (Artlist, MotionArray...)</span>
+          <span>Stock Provider Hub</span>
         </button>
       </div>
 
@@ -542,6 +628,8 @@ export function MVAssetLibrary() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

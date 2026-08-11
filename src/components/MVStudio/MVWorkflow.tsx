@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { generateAutoEdit } from '../../lib/mvAutoEdit';
-import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2, Image as ImageIcon } from 'lucide-react';
+import { pollinationsProvider } from '../../lib/providers/PollinationsImageProvider';
 
 export function MVWorkflow() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -18,10 +19,6 @@ export function MVWorkflow() {
   const setEditSeed = useMVStore(s => s.setEditSeed);
   
   const localEngineConnected = useMVStore(s => s.localEngineConnected);
-  const geminiKey = useMVStore(s => s.geminiKey);
-  const setGeminiKey = useMVStore(s => s.setGeminiKey);
-  const useGemini = useMVStore(s => s.useGemini);
-  const setUseGemini = useMVStore(s => s.setUseGemini);
 
   const audioUrl = useStore(s => s.audioUrl);
   const audioDuration = useStore(s => s.audioDuration);
@@ -96,105 +93,63 @@ export function MVWorkflow() {
     handleRunBasicAutoEdit(nextSeed);
   };
 
-  // 2. Advanced Local AI Enhancement (When Local Engine on Port 4000 is Online)
-  const handleRunAdvancedLocalAI = async () => {
-    if (!localEngineConnected) return;
-
+  const handleAutoFillVisuals = async () => {
     setIsProcessing(true);
     setProgress(10);
-    setStatusText('Sending Audio to Local WhisperX Engine...');
+    setStatusText('Analyzing missing visual coverage...');
 
     try {
-      const formData = new FormData();
-      if (useStore.getState().audioFile) {
-        formData.append('audio', useStore.getState().audioFile!);
-      } else if (audioUrl) {
-        const res = await fetch(audioUrl);
-        const blob = await res.blob();
-        formData.append('audio', blob, 'song.mp3');
-      }
-      formData.append('rawLyrics', lyrics.map(l => l.text).join('\n'));
+      setProgress(30);
+      setStatusText('Prompting Pollinations.ai for visuals...');
 
-      const audioRes = await fetch('http://localhost:4000/api/mv/analyze-audio', {
-        method: 'POST',
-        body: formData
-      });
-      const audioData = await audioRes.json();
-
-      setProgress(60);
-      setStatusText('Processing WhisperX Alignment & Beat Mapping...');
-
-      if (audioData.sections) {
-        useMVStore.getState().setSongAnalysis(audioData);
-      }
-      if (audioData.wordTimings) {
-        useMVStore.getState().setWordTimings(audioData.wordTimings);
+      // Pick some lyrics or default prompt
+      let prompts = ["Cinematic music video scene, 4k", "Dreamy atmosphere, neon lighting", "Youthful energy, stage lights"];
+      if (lyrics && lyrics.length >= 3) {
+        // Pick 3 random lyrics to generate visuals
+        const shuffled = [...lyrics].sort(() => 0.5 - Math.random());
+        prompts = shuffled.slice(0, 3).map(l => `Cinematic, ${l.text}, moody lighting, 4k`);
       }
 
-      setProgress(85);
-      setStatusText('Refining Timeline Cuts...');
-
-      // Re-run auto edit with improved audio analysis
-      handleRunBasicAutoEdit();
-    } catch (err) {
-      console.error(err);
-      setStatusText('Local AI enhancement failed. Reverting to Basic Auto Edit.');
+      for (let i = 0; i < prompts.length; i++) {
+        const result = await pollinationsProvider.generateImages({
+          prompt: prompts[i],
+          aspectRatio: '16:9',
+          amount: 1
+        });
+        
+        result.forEach(img => {
+          addVideoAsset({
+            id: img.id,
+            file: undefined as any,
+            url: img.url,
+            name: `AI Fill: ${prompts[i].substring(0, 20)}...`,
+            mediaType: 'image',
+            duration: 8,
+            thumbnail: img.url,
+            isStock: true,
+            sourceType: 'generated',
+            status: 'ready'
+          });
+        });
+        setProgress(30 + ((i + 1) / prompts.length) * 40);
+      }
+      
+      setStatusText('Media Generated. Running Auto Edit...');
       setTimeout(() => {
         handleRunBasicAutoEdit();
       }, 1000);
+      
+    } catch (err: any) {
+      console.error(err);
+      setStatusText('Pollinations.ai generation failed. Running fallback Auto Edit...');
+      setTimeout(() => {
+        handleRunBasicAutoEdit();
+      }, 1500);
     }
   };
 
-  // 3. Export Handling
-  const handleExportMV = async () => {
-    setIsProcessing(true);
-    setProgress(20);
-    setStatusText('Preparing Export Manifest...');
-
-    if (localEngineConnected) {
-      try {
-        const exportRes = await fetch('http://localhost:4000/api/mv/export', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            timelineClips: useMVStore.getState().timelineClips,
-            videoAssets,
-            outputPath: `joelizer-mv-${Date.now()}.mp4`
-          })
-        });
-        const exportData = await exportRes.json();
-
-        setProgress(100);
-        setStatusText('Export Triggered in Local Engine!');
-        setTimeout(() => {
-          setIsProcessing(false);
-          alert(`Export job sent to local FFmpeg engine: ${exportData.path || 'joelizer-export.mp4'}`);
-        }, 1000);
-      } catch (err) {
-        console.error(err);
-        setIsProcessing(false);
-        alert('Local FFmpeg export failed.');
-      }
-    } else {
-      // Offline Browser Export / Manifest Download
-      setTimeout(() => {
-        const manifest = {
-          songUrl: audioUrl,
-          timelineClips: useMVStore.getState().timelineClips,
-          wordTimings: useMVStore.getState().wordTimings,
-          exportDate: new Date().toISOString()
-        };
-        const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `joelizer-mv-timeline-${Date.now()}.json`;
-        link.click();
-
-        setProgress(100);
-        setStatusText('Timeline Manifest Downloaded!');
-        setTimeout(() => setIsProcessing(false), 800);
-      }, 1000);
-    }
+  const handleExportMV = () => {
+    window.dispatchEvent(new CustomEvent('open-export-modal'));
   };
 
   const hasTimeline = useMVStore(s => s.timelineClips).length > 0;
@@ -208,32 +163,7 @@ export function MVWorkflow() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {/* AI Music Generation Banner */}
-        <div 
-          className="p-3.5 rounded-lg border flex flex-col gap-2.5 shadow-lg bg-black/60 relative overflow-hidden"
-          style={{ borderColor: `${activeColor}40` }}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles size={14} style={{ color: activeColor }} />
-              ACE-Step AI Music Studio
-            </span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 font-mono font-bold">
-              SUNO UI
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            Generate custom synth & vocal tracks using ACE-Step v1.5 DiT in the dedicated Suno Studio tab.
-          </p>
-          <button
-            onClick={() => useStore.getState().setActiveTab('create')}
-            className="w-full py-2 rounded-md text-black text-xs font-black uppercase tracking-widest transition-all shadow flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
-            style={{ backgroundColor: activeColor }}
-          >
-            <Sparkles size={13} />
-            Open Create Tab
-          </button>
-        </div>
+
 
         {/* Main Action Section */}
         <div 
@@ -269,14 +199,24 @@ export function MVWorkflow() {
           </button>
 
           {hasTimeline && (
-            <button
-              onClick={handleRegenerate}
-              disabled={isProcessing}
-              className="w-full py-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 relative z-10"
-            >
-              <RefreshCw size={12} />
-              Regenerate (New Seed)
-            </button>
+            <>
+              <button
+                onClick={handleRegenerate}
+                disabled={isProcessing}
+                className="w-full py-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 relative z-10"
+              >
+                <RefreshCw size={12} />
+                Regenerate (New Seed)
+              </button>
+              <button
+                onClick={handleAutoFillVisuals}
+                disabled={isProcessing}
+                className="w-full py-1.5 rounded bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 text-purple-200 text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 relative z-10 shadow"
+              >
+                <ImageIcon size={12} />
+                Auto Fill Missing Visuals (AI)
+              </button>
+            </>
           )}
 
           {isProcessing && (
@@ -323,7 +263,7 @@ export function MVWorkflow() {
               {['Slow', 'Balanced', 'Fast'].map(p => (
                 <button
                   key={p}
-                  onClick={() => setPacing(p)}
+                  onClick={() => setPacing(p as any)}
                   className="py-1 text-[10px] font-bold rounded border transition-colors"
                   style={pacing === p ? {
                     backgroundColor: activeColor,
@@ -348,7 +288,7 @@ export function MVWorkflow() {
               {['Off', 'Loose', 'Strong'].map(b => (
                 <button
                   key={b}
-                  onClick={() => setBeatSync(b)}
+                  onClick={() => setBeatSync(b as any)}
                   className="py-1 text-[10px] font-bold rounded border transition-colors"
                   style={beatSync === b ? {
                     backgroundColor: activeColor,
@@ -386,68 +326,6 @@ export function MVWorkflow() {
             </div>
           </div>
         </div>
-
-        {/* Optional Local Engine Enhancement */}
-        <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Cpu size={13} className={localEngineConnected ? 'text-emerald-400' : 'text-slate-500'} />
-              Advanced Local AI
-            </span>
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-              localEngineConnected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
-            }`}>
-              {localEngineConnected ? 'ONLINE' : 'OFFLINE'}
-            </span>
-          </div>
-
-          <p className="text-[10px] text-slate-400 leading-relaxed">
-            {localEngineConnected 
-              ? 'Local engine on port 4000 active for WhisperX word-level lyrics alignment.'
-              : 'Optional. Start the Joelizer local server on port 4000 to enable WhisperX alignment.'}
-          </p>
-
-          <button
-            onClick={handleRunAdvancedLocalAI}
-            disabled={!localEngineConnected || isProcessing}
-            className="w-full py-1.5 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-          >
-            <Sparkles size={12} />
-            Enhance Edit with Local AI
-          </button>
-        </div>
-
-        {/* Optional Gemini Intelligence */}
-        <div className="bg-white/5 p-3 rounded-lg border border-white/10 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Key size={13} style={{ color: activeColor }} />
-              Gemini AI (BYOK)
-            </span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={useGemini} 
-                onChange={(e) => setUseGemini(e.target.checked)}
-                className="sr-only peer" 
-              />
-              <div 
-                className="w-7 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all"
-                style={{ backgroundColor: useGemini ? activeColor : undefined }}
-              />
-            </label>
-          </div>
-
-          {useGemini && (
-            <input 
-              type="password" 
-              placeholder="Enter Gemini API Key..."
-              value={geminiKey}
-              onChange={(e) => setGeminiKey(e.target.value)}
-              className="w-full bg-black/60 border border-white/20 rounded p-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
-            />
-          )}
-        </div>
       </div>
 
       {/* Footer / Export Button */}
@@ -459,7 +337,7 @@ export function MVWorkflow() {
           style={{ backgroundColor: activeColor, boxShadow: `0 0 12px ${activeColor}30` }}
         >
           <Download size={14} />
-          {localEngineConnected ? 'Export Local FFmpeg' : 'Export Timeline / Manifest'}
+          Export Final Music Video
         </button>
       </div>
     </div>
