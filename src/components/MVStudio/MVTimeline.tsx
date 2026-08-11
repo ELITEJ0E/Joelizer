@@ -1,12 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { useMVStore } from '../../store/useMVStore';
+import { useMVStore, TimelineClip } from '../../store/useMVStore';
 import { Lock, Unlock, Scissors, Trash2, Film, Image as ImageIcon, Music, Type, Play, Pause } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 
 export function MVTimeline() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const currentTime = useStore(s => s.currentTime);
   const duration = useStore(s => s.audioDuration) || 120;
   const setCurrentTime = useStore(s => s.setCurrentTime);
@@ -22,8 +23,19 @@ export function MVTimeline() {
   const toggleLockClip = useMVStore(s => s.toggleLockClip);
   const removeTimelineClip = useMVStore(s => s.removeTimelineClip);
   const splitTimelineClip = useMVStore(s => s.splitTimelineClip);
+  const addTimelineClip = useMVStore(s => s.addTimelineClip);
+  const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
 
   const [zoom, setZoom] = useState(1);
+
+  // Dragging state for clips on timeline
+  const [dragState, setDragState] = useState<{
+    clipId: string;
+    type: 'body' | 'resize-left' | 'resize-right';
+    startX: number;
+    origStart: number;
+    origEnd: number;
+  } | null>(null);
 
   // Non-passive Wheel Listener for smooth Trackpad Pinch & Zoom in both directions
   useEffect(() => {
@@ -33,7 +45,6 @@ export function MVTimeline() {
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey || e.shiftKey) {
         e.preventDefault();
-        // Continuous exponential scale based on deltaY:
         const zoomFactor = Math.pow(1.002, -e.deltaY);
         setZoom(z => Math.min(15, Math.max(1, z * zoomFactor)));
       }
@@ -45,7 +56,54 @@ export function MVTimeline() {
     };
   }, []);
 
+  // Global mouse move and mouse up for dragging clips or resizing
+  useEffect(() => {
+    if (!dragState || !containerRef.current || duration <= 0) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const deltaX = e.clientX - dragState.startX;
+      const deltaTime = (deltaX / rect.width) * duration;
+      const clipDur = dragState.origEnd - dragState.origStart;
+
+      if (dragState.type === 'body') {
+        let newStart = Math.max(0, Math.min(duration - clipDur, dragState.origStart + deltaTime));
+        updateTimelineClip(dragState.clipId, {
+          startTime: Number(newStart.toFixed(2)),
+          endTime: Number((newStart + clipDur).toFixed(2))
+        });
+      } else if (dragState.type === 'resize-left') {
+        let newStart = Math.max(0, Math.min(dragState.origEnd - 0.5, dragState.origStart + deltaTime));
+        let newTrimStart = Math.max(0, newStart - dragState.origStart);
+        updateTimelineClip(dragState.clipId, {
+          startTime: Number(newStart.toFixed(2)),
+          trimStart: Number(newTrimStart.toFixed(2))
+        });
+      } else if (dragState.type === 'resize-right') {
+        let newEnd = Math.max(dragState.origStart + 0.5, Math.min(duration, dragState.origEnd + deltaTime));
+        let newTrimEnd = Math.max(0.5, newEnd - dragState.origStart);
+        updateTimelineClip(dragState.clipId, {
+          endTime: Number(newEnd.toFixed(2)),
+          trimEnd: Number(newTrimEnd.toFixed(2))
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDragState(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState, duration, updateTimelineClip]);
+
   const handleTimelineClick = (e: React.MouseEvent) => {
+    if (dragState) return;
     if (!containerRef.current || duration <= 0) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
@@ -55,6 +113,35 @@ export function MVTimeline() {
     // Seek audio
     const audioEl = document.querySelector('audio');
     if (audioEl) audioEl.currentTime = time;
+  };
+
+  // Drop handler on VIS track lane
+  const handleDropOnVisTrack = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const assetId = e.dataTransfer.getData('application/joelizer-asset-id') || e.dataTransfer.getData('text/plain');
+    if (!assetId) return;
+
+    const asset = videoAssets.find(v => v.id === assetId);
+    if (!asset) return;
+
+    if (!containerRef.current || duration <= 0) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const dropTime = (x / rect.width) * duration;
+    const clipDur = Math.min(4, asset.duration || 4);
+
+    addTimelineClip({
+      id: `clip-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      assetId: asset.id,
+      startTime: Number(dropTime.toFixed(2)),
+      endTime: Number(Math.min(duration, dropTime + clipDur).toFixed(2)),
+      trimStart: 0,
+      trimEnd: clipDur,
+      locked: false,
+      mediaType: asset.mediaType
+    });
   };
 
   const selectedClip = timelineClips.find(c => c.id === selectedClipId);
@@ -140,11 +227,24 @@ export function MVTimeline() {
           {/* Track Headers & Lanes */}
           <div className="absolute inset-0 flex flex-col pt-2 pb-2 pl-12">
 
-            {/* Track 1: VIDEO */}
-            <div className="h-16 relative border-b border-white/10 bg-blue-950/20 mb-1">
+            {/* Track 1: VIDEO (VIS) - Drag & Drop Dropzone */}
+            <div 
+              ref={trackRef}
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+              onDrop={handleDropOnVisTrack}
+              className="h-16 relative border-b border-white/10 bg-blue-950/20 mb-1 group/vis"
+            >
               <div className="absolute -left-11 top-0 bottom-0 w-10 flex items-center justify-center text-[9px] font-bold font-mono text-blue-400/80 uppercase tracking-tighter">
                 <Film size={12} className="mr-0.5 inline" /> VIS
               </div>
+
+              {/* Empty Drop Hint */}
+              {timelineClips.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-blue-400/40 text-[10px] font-mono tracking-widest uppercase">
+                  Drag media clip here from Left Media Library or tap +
+                </div>
+              )}
+
               {timelineClips.map(clip => {
                 const asset = videoAssets.find(v => v.id === clip.assetId);
                 const left = (clip.startTime / duration) * 100;
@@ -158,7 +258,21 @@ export function MVTimeline() {
                       e.stopPropagation();
                       setSelectedClipId(clip.id);
                     }}
-                    className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-all cursor-pointer ${
+                    onMouseDown={(e) => {
+                      if (clip.locked) return;
+                      e.stopPropagation();
+                      setSelectedClipId(clip.id);
+                      setDragState({
+                        clipId: clip.id,
+                        type: 'body',
+                        startX: e.clientX,
+                        origStart: clip.startTime,
+                        origEnd: clip.endTime
+                      });
+                    }}
+                    className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-all ${
+                      clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
+                    } ${
                       isSelected 
                         ? 'ring-2 border-white z-20 shadow-lg' 
                         : clip.locked 
@@ -172,19 +286,57 @@ export function MVTimeline() {
                       boxShadow: isSelected ? `0 0 12px ${activeColor}` : undefined
                     }}
                   >
+                    {/* Left Resize Handle */}
+                    {!clip.locked && (
+                      <div 
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setSelectedClipId(clip.id);
+                          setDragState({
+                            clipId: clip.id,
+                            type: 'resize-left',
+                            startX: e.clientX,
+                            origStart: clip.startTime,
+                            origEnd: clip.endTime
+                          });
+                        }}
+                        className="absolute left-0 top-0 bottom-0 w-2 bg-white/30 hover:bg-yellow-400 z-30 cursor-ew-resize opacity-0 group-hover/vis:opacity-100"
+                        title="Drag to trim start"
+                      />
+                    )}
+
                     {asset && asset.thumbnail && (
                       <img src={asset.thumbnail} alt="" className="h-full opacity-60 object-cover pointer-events-none" />
                     )}
 
                     <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60 pointer-events-none" />
 
-                    <div className="absolute left-1.5 right-1.5 flex items-center justify-between pointer-events-none z-10 text-[9px] font-mono text-white truncate">
+                    <div className="absolute left-2 right-2 flex items-center justify-between pointer-events-none z-10 text-[9px] font-mono text-white truncate">
                       <span className="truncate flex items-center gap-1">
                         {clip.mediaType === 'image' ? <ImageIcon size={9} className="text-amber-300" /> : <Film size={9} className="text-blue-300" />}
                         {asset ? asset.name : 'Clip'}
                       </span>
                       {clip.locked && <Lock size={10} className="text-amber-400 shrink-0" />}
                     </div>
+
+                    {/* Right Resize Handle */}
+                    {!clip.locked && (
+                      <div 
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setSelectedClipId(clip.id);
+                          setDragState({
+                            clipId: clip.id,
+                            type: 'resize-right',
+                            startX: e.clientX,
+                            origStart: clip.startTime,
+                            origEnd: clip.endTime
+                          });
+                        }}
+                        className="absolute right-0 top-0 bottom-0 w-2 bg-white/30 hover:bg-yellow-400 z-30 cursor-ew-resize opacity-0 group-hover/vis:opacity-100"
+                        title="Drag to trim end"
+                      />
+                    )}
                   </div>
                 );
               })}

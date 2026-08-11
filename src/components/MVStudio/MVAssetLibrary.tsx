@@ -9,6 +9,8 @@ export function MVAssetLibrary() {
   const videoAssets = useMVStore(s => s.videoAssets);
   const addVideoAsset = useMVStore(s => s.addVideoAsset);
   const removeVideoAsset = useMVStore(s => s.removeVideoAsset);
+  const addTimelineClip = useMVStore(s => s.addTimelineClip);
+  const currentTime = useStore(s => s.currentTime);
   const mediaSourceFilter = useMVStore(s => s.mediaSourceFilter);
   const setMediaSourceFilter = useMVStore(s => s.setMediaSourceFilter);
   
@@ -322,40 +324,75 @@ export function MVAssetLibrary() {
             </div>
           </div>
         ) : (
-          filteredAssets.map(asset => (
-            <div key={asset.id} className="relative group rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:border-purple-500/50 transition-colors shadow">
-              <img src={asset.thumbnail} alt={asset.name} className="w-full h-20 object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
-              
-              {/* Type Badge */}
-              <div className="absolute top-1 left-1.5 flex items-center gap-1">
-                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${asset.mediaType === 'image' ? 'bg-amber-500 text-black' : 'bg-blue-600 text-white'}`}>
-                  {asset.mediaType === 'image' ? <ImageIcon size={9} className="inline mr-0.5" /> : <Film size={9} className="inline mr-0.5" />}
-                  {asset.mediaType}
-                </span>
-                {asset.isStock && (
-                  <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase">
-                    Stock
-                  </span>
-                )}
-              </div>
+          filteredAssets.map(asset => {
+            const handleQuickAdd = (e: React.MouseEvent) => {
+              e.stopPropagation();
+              const dur = Math.min(4, asset.duration || 4);
+              addTimelineClip({
+                id: `clip-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                assetId: asset.id,
+                startTime: currentTime || 0,
+                endTime: (currentTime || 0) + dur,
+                trimStart: 0,
+                trimEnd: dur,
+                locked: false,
+                mediaType: asset.mediaType
+              });
+            };
 
-              {/* Delete Button */}
-              <button 
-                onClick={() => removeVideoAsset(asset.id)}
-                className="absolute top-1 right-1 bg-red-600/80 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
-                title="Remove Media"
+            return (
+              <div 
+                key={asset.id} 
+                draggable={true}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('application/joelizer-asset-id', asset.id);
+                  e.dataTransfer.setData('text/plain', asset.id);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                className="relative group rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:border-purple-500/50 transition-colors shadow cursor-grab active:cursor-grabbing"
               >
-                <Trash2 size={10} />
-              </button>
+                <img src={asset.thumbnail} alt={asset.name} className="w-full h-20 object-cover opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
+                
+                {/* Type Badge */}
+                <div className="absolute top-1 left-1.5 flex items-center gap-1 pointer-events-none">
+                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${asset.mediaType === 'image' ? 'bg-amber-500 text-black' : 'bg-blue-600 text-white'}`}>
+                    {asset.mediaType === 'image' ? <ImageIcon size={9} className="inline mr-0.5" /> : <Film size={9} className="inline mr-0.5" />}
+                    {asset.mediaType}
+                  </span>
+                  {asset.isStock && (
+                    <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase">
+                      Stock
+                    </span>
+                  )}
+                </div>
 
-              {/* Title & Duration */}
-              <div className="absolute bottom-1 left-1.5 right-1.5 flex justify-between items-end text-[9px] font-mono">
-                <span className="truncate max-w-[130px] text-slate-200 font-medium" title={asset.name}>{asset.name}</span>
-                <span className="font-bold text-white bg-black/80 px-1 rounded border border-white/10">{formatTime(asset.duration)}</span>
+                {/* Quick Add & Delete Action Buttons */}
+                <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={handleQuickAdd}
+                    className="bg-emerald-600/90 hover:bg-emerald-500 text-white p-1 rounded cursor-pointer shadow-md transition-all active:scale-95"
+                    title="Add clip to timeline at playhead"
+                  >
+                    <Plus size={10} strokeWidth={3} />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); removeVideoAsset(asset.id); }}
+                    className="bg-red-600/80 text-white p-1 rounded hover:bg-red-600 cursor-pointer shadow-md"
+                    title="Remove Media"
+                  >
+                    <Trash2 size={10} />
+                  </button>
+                </div>
+
+                {/* Title & Duration */}
+                <div className="absolute bottom-1 left-1.5 right-1.5 flex justify-between items-end text-[9px] font-mono pointer-events-none">
+                  <span className="truncate max-w-[120px] text-slate-200 font-medium" title={asset.name}>{asset.name}</span>
+                  <span className="font-bold text-white bg-black/80 px-1 rounded border border-white/10">{formatTime(asset.duration)}</span>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

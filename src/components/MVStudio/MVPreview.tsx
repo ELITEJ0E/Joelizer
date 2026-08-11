@@ -192,9 +192,14 @@ export function MVPreview() {
             </div>
           )}
 
-          {/* Timecode Badge */}
-          <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded text-white font-mono text-[9px] font-bold shadow-md border border-white/10 z-20">
-            {formatTime(currentTime)} / {formatTime(audioDuration || 0)}
+          {/* Timecode & Studio Badge */}
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 z-20">
+            <div className="bg-black/80 backdrop-blur-md px-2 py-0.5 rounded text-white font-mono text-[9px] font-bold shadow-md border border-white/10">
+              {formatTime(currentTime)} / {formatTime(audioDuration || 0)}
+            </div>
+            <div className="bg-purple-900/80 backdrop-blur-md px-2 py-0.5 rounded text-purple-200 font-mono text-[8px] font-extrabold shadow-md border border-purple-500/40 uppercase tracking-wider">
+              Auto MV Preview
+            </div>
           </div>
         </div>
       </div>

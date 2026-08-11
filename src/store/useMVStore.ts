@@ -122,6 +122,7 @@ export interface MVProjectState {
   setWordTimings: (timings: TimelineText[]) => void;
 
   setTimelineClips: (clips: TimelineClip[]) => void;
+  addTimelineClip: (clip: TimelineClip) => void;
   updateTimelineClip: (id: string, updates: Partial<TimelineClip>) => void;
   toggleLockClip: (id: string) => void;
   removeTimelineClip: (id: string) => void;
@@ -221,6 +222,29 @@ export const useMVStore = create<MVProjectState>((set) => ({
   setWordTimings: (wordTimings) => set({ wordTimings }),
 
   setTimelineClips: (timelineClips) => set({ timelineClips }),
+  addTimelineClip: (newClip) => set((s) => {
+    const clipDur = Math.max(0.5, newClip.endTime - newClip.startTime);
+    let start = newClip.startTime;
+
+    // Overlap avoidance: snap start time to after any overlapping clip
+    const sorted = [...s.timelineClips].sort((a, b) => a.startTime - b.startTime);
+    for (const existing of sorted) {
+      if (start < existing.endTime && start + clipDur > existing.startTime) {
+        start = existing.endTime;
+      }
+    }
+
+    const adjustedClip: TimelineClip = {
+      ...newClip,
+      startTime: Number(start.toFixed(2)),
+      endTime: Number((start + clipDur).toFixed(2))
+    };
+
+    return {
+      timelineClips: [...s.timelineClips, adjustedClip],
+      selectedClipId: adjustedClip.id
+    };
+  }),
   updateTimelineClip: (id, updates) => set((s) => ({
     timelineClips: s.timelineClips.map((c) => c.id === id ? { ...c, ...updates } : c)
   })),

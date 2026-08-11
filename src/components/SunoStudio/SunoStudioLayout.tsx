@@ -66,7 +66,7 @@ export function SunoStudioLayout() {
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
-    setStatus('generating', 'Connecting to ACE-Step AI Space...');
+    setStatus('generating', 'CONNECTING TO ACE-STEP AI SPACE (30-60S COLD START)...');
     setErrorMsg(null);
     setProgress(15);
 

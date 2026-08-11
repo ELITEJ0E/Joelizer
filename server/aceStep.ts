@@ -47,34 +47,72 @@ export async function generateMusic({
       onStatusUpdate('Processing prompt & lyrics generation...');
     }
 
-    // Attempt prediction endpoints on HuggingFace Space
-    let result: any = null;
-    let predictError: any = null;
-
-    // List of valid ACE-Step endpoints from model space API definition
-    const targetEndpoints = [
-      '/generation_wrapper',
-      '/handle_create_sample_wrapper',
-      '/handle_format_sample_wrapper'
+    // Default 54 parameter array matching /generation_wrapper schema
+    const defaultParams = [
+      "acestep-v15-xl-turbo", // 0: selected_model
+      "custom",               // 1: generation_mode
+      null,                   // 2: simple_query_input
+      "unknown",              // 3: simple_vocal_language
+      prompt,                 // 4: Prompt
+      lyrics || "",           // 5: Lyrics
+      0,                      // 6: BPM
+      "",                     // 7: Key Signature
+      "",                     // 8: Time Signature
+      "unknown",              // 9: Vocal Language
+      8,                      // 10: DiT Inference Steps
+      7,                      // 11
+      true,                   // 12: Random Seed
+      "-1",                   // 13: Seed
+      null,                   // 14: Reference Audio
+      duration || 30,         // 15: Audio Duration
+      1,                      // 16: batch size
+      null,                   // 17: Source Audio
+      null,                   // 18: Audio Codes
+      0,                      // 19: Start
+      -1,                     // 20: End
+      "Fill the audio semantic mask based on the given conditions:", // 21
+      1,                      // 22
+      "text2music",           // 23
+      false,                  // 24
+      0,                      // 25
+      1,                      // 26
+      3,                      // 27: Shift
+      "ode",                  // 28: Inference Method
+      "",                     // 29: Custom Timesteps
+      "mp3",                  // 30: Audio Format
+      0.85,                   // 31: LM Temperature
+      true,                   // 32: Thinking
+      2,                      // 33: LM CFG Scale
+      0,                      // 34: LM Top-K
+      0.9,                    // 35: LM Top-P
+      "NO USER INPUT",        // 36: LM Negative Prompt
+      true,                   // 37
+      true,                   // 38
+      true,                   // 39
+      null,                   // 40
+      false,                  // 41
+      true,                   // 42
+      false,                  // 43: Get Scores
+      false,                  // 44: Get LRC
+      0.5,                    // 45
+      8,                      // 46
+      null,                   // 47
+      [],                     // 48
+      false,                  // 49
+      null,                   // 50
+      null,                   // 51
+      null,                   // 52
+      null                    // 53
     ];
 
-    for (const endpoint of targetEndpoints) {
-      try {
-        result = await client.predict(endpoint, [
-          prompt,
-          lyrics || '',
-          duration || 30
-        ]);
-        if (result && result.data && result.data.length > 0) {
-          break;
-        }
-      } catch (e) {
-        predictError = e;
-      }
+    let result: any = null;
+    try {
+      result = await client.predict('/generation_wrapper', defaultParams as any);
+    } catch (e: any) {
+      throw new Error(`ACE-Step Space predict error: ${e?.message || e}`);
     }
 
-    if (result && result.data && result.data.length > 0) {
-      // Find audio URL in data output array
+    if (result && Array.isArray(result.data) && result.data.length > 0) {
       let finalAudioUrl = '';
       for (const item of result.data) {
         if (typeof item === 'string' && (item.endsWith('.mp3') || item.endsWith('.wav') || item.startsWith('http'))) {
@@ -99,32 +137,9 @@ export async function generateMusic({
       }
     }
 
-    // High quality royalty-free AI demo fallback tracks if HF Space is cold or parameter format differs
-    const fallbackAudioSamples = [
-      'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-      'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=synthwave-80s-110045.mp3',
-      'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-10781.mp3'
-    ];
-    const fallbackUrl = fallbackAudioSamples[Math.floor(Math.random() * fallbackAudioSamples.length)];
-
-    return {
-      audioUrl: fallbackUrl,
-      duration: duration || 30,
-      title: (prompt.slice(0, 32) || 'ACE-Step AI Track') + ' (ACE-Step)',
-      source: 'ace-step-fallback'
-    };
+    throw new Error('ACE-Step Space returned no audio output.');
   } catch (err: any) {
-    console.warn('ACE-Step Space connection note:', err?.message || err);
-    // Provide clean track response so user never encounters raw unhandled crash errors
-    const fallbackAudioSamples = [
-      'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-      'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=synthwave-80s-110045.mp3'
-    ];
-    return {
-      audioUrl: fallbackAudioSamples[Math.floor(Math.random() * fallbackAudioSamples.length)],
-      duration: duration || 30,
-      title: prompt.slice(0, 32) || 'ACE-Step AI Track',
-      source: 'ace-step'
-    };
+    console.error('ACE-Step Space connection error:', err?.message || err);
+    throw new Error(err?.message || 'Failed to connect to ACE-Step model Space.');
   }
 }

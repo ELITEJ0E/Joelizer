@@ -105,9 +105,10 @@ export function TopBar({ onExport }: { onExport: () => void }) {
               backgroundColor: `${activeColor}20`,
               borderColor: `${activeColor}50` 
             } : {}}
+            title="AI Song & Music Generation Studio (ACE-Step v1.5)"
           >
             <Sparkles size={12} style={{ color: activeColor }} />
-            <span>Create</span>
+            <span>Generate Music</span>
             <span className="text-[7px] font-extrabold px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 ml-0.5 hidden sm:inline-block">ACE v1.5</span>
           </button>
 
@@ -120,8 +121,9 @@ export function TopBar({ onExport }: { onExport: () => void }) {
                 : "text-slate-400 hover:text-white hover:bg-white/5"
             )}
             style={activeTab === 'lyrics' ? { color: activeColor } : {}}
+            title="Single-track canvas for custom lyric video styling & background effects"
           >
-            Preview
+            Design Video
           </button>
           
           <button
@@ -137,8 +139,9 @@ export function TopBar({ onExport }: { onExport: () => void }) {
               backgroundColor: `${activeColor}20`,
               borderColor: `${activeColor}50` 
             } : {}}
+            title="AI word-by-word timestamp alignment studio"
           >
-            <span>Studio</span>
+            <span>Sync Lyrics</span>
           </button>
 
           <button
@@ -154,9 +157,10 @@ export function TopBar({ onExport }: { onExport: () => void }) {
               backgroundColor: `${activeColor}20`,
               borderColor: `${activeColor}50` 
             } : {}}
+            title="Multitrack Music Video Editor with AI Auto-Cuts"
           >
             <Film size={12} />
-            <span>MV Studio</span>
+            <span>Auto Music Video</span>
             <span className="text-[7px] font-extrabold px-1 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 ml-0.5 hidden sm:inline-block">AUTO</span>
           </button>
         </nav>
