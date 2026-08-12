@@ -26,6 +26,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const animFrameRef = useRef<number | null>(null);
 
   const audioFile = useStore(s => s.audioFile);
+  const audioUrl = useStore(s => s.audioUrl);
   const audioDuration = useStore(s => s.audioDuration);
   const projectName = useStore(s => s.name);
   const setName = useStore(s => s.setName);
@@ -35,8 +36,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const activeTab = useStore(s => s.activeTab);
 
+  const mvTimelineClips = useMVStore(s => s.timelineClips);
+  const maxMVClipEnd = mvTimelineClips.reduce((max, clip) => Math.max(max, clip.endTime), 0);
+  const effectiveAudioDuration = audioDuration || maxMVClipEnd || 10;
+
+  const hasAudio = !!audioFile || !!audioUrl || mvTimelineClips.length > 0;
+
   const exportRangeStart = useStore(s => s.exportRangeStart);
-  const exportRangeEnd = useStore(s => s.exportRangeEnd) !== null ? useStore(s => s.exportRangeEnd)! : audioDuration;
+  const rawExportRangeEnd = useStore(s => s.exportRangeEnd);
+  const exportRangeEnd = (rawExportRangeEnd !== null && rawExportRangeEnd > 0) ? rawExportRangeEnd : effectiveAudioDuration;
   const setExportRange = useStore(s => s.setExportRange);
 
   // Apply Quick Presets
@@ -153,65 +161,68 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   const handleExport = async () => {
     const audioUrl = useStore.getState().audioUrl;
-    if (!audioFile && !audioUrl) return;
+    const mvClips = useMVStore.getState().timelineClips;
+    if (!audioFile && !audioUrl && mvClips.length === 0) return;
 
-    const audioEl = document.querySelector('audio');
-    if (audioEl) {
-      audioManager.init(audioEl);
-      if ((audioManager as any).ctx?.state === 'suspended') {
-        (audioManager as any).ctx.resume().catch(() => {});
+    try {
+      const audioEl = document.querySelector('audio');
+      if (audioEl) {
+        audioManager.init(audioEl);
+        if ((audioManager as any).ctx?.state === 'suspended') {
+          (audioManager as any).ctx.resume().catch(() => {});
+        }
+        audioEl.muted = false;
+        if (audioEl.volume === 0) audioEl.volume = 1.0;
       }
-      audioEl.muted = false;
-      if (audioEl.volume === 0) audioEl.volume = 1.0;
-    }
 
-    isCancelledRef.current = false;
-    setIsExporting(true);
-    setProgress(0);
+      isCancelledRef.current = false;
+      setIsExporting(true);
+      setProgress(0);
 
-    // Apply the active canvas resolution override (resizes canvas for faster frame processing)
-    setExportResolutionOverride(resolution);
-    
-    // Let layout flush so the canvas dimension state can update
-    await new Promise(resolve => setTimeout(resolve, 150));
-    if (isCancelledRef.current) return;
+      // Apply the active canvas resolution override (resizes canvas for faster frame processing)
+      setExportResolutionOverride(resolution);
+      
+      // Let layout flush so the canvas dimension state can update
+      await new Promise(resolve => setTimeout(resolve, 150));
+      if (isCancelledRef.current) return;
 
-    // 1. Get the actual preview canvas from the DOM
-    const canvas = (document.getElementById('visualizer-canvas') as HTMLCanvasElement) || document.querySelector('canvas');
-    if (!canvas) {
-      setExportResolutionOverride(null);
-      setIsExporting(false);
-      return;
-    }
+      // 1. Get the actual preview canvas from the DOM
+      const canvas = (document.getElementById('visualizer-canvas') as HTMLCanvasElement) || document.querySelector('canvas');
+      if (!canvas) {
+        setExportResolutionOverride(null);
+        setIsExporting(false);
+        alert('Preview canvas not found. Please ensure the visualizer or MV preview is visible.');
+        return;
+      }
 
-    // 2. Get audio stream from audioManager
-    const audioStream = audioManager.getMediaStream();
-    if (!audioStream) {
-      console.warn("No audio stream available from AudioContextManager.");
-    }
-    
-    // 3. Setup MediaRecorder with chosen container format, optimized FPS and bitrate
-    const canvasStream = canvas.captureStream(fps);
-    const finalTracks = [...canvasStream.getVideoTracks()];
-    if (audioStream) {
-      finalTracks.push(...audioStream.getAudioTracks());
-    }
-    
-    const finalStream = new MediaStream(finalTracks);
-    
-    const mimeType = getMimeTypeForFormat(exportFormat);
-    const options: MediaRecorderOptions = { videoBitsPerSecond: bitrate };
-    if (mimeType) {
-      options.mimeType = mimeType;
-    }
-    
-    const finalRecorder = new MediaRecorder(finalStream, options);
-    recorderRef.current = finalRecorder;
-    const finalChunks: Blob[] = [];
-    
-    finalRecorder.ondataavailable = e => {
-      if (e.data.size > 0) finalChunks.push(e.data);
-    };
+      // 2. Get audio stream from audioManager
+      const audioStream = audioManager.getMediaStream();
+      if (!audioStream) {
+        console.warn("No audio stream available from AudioContextManager.");
+      }
+      
+      // 3. Setup MediaRecorder with chosen container format, optimized FPS and bitrate
+      const canvasStream = canvas.captureStream(fps);
+      const finalTracks = [...canvasStream.getVideoTracks()];
+      if (audioStream && audioStream.getAudioTracks().length > 0) {
+        finalTracks.push(...audioStream.getAudioTracks());
+      }
+      
+      const finalStream = new MediaStream(finalTracks);
+      
+      const mimeType = getMimeTypeForFormat(exportFormat);
+      const options: MediaRecorderOptions = { videoBitsPerSecond: bitrate };
+      if (mimeType) {
+        options.mimeType = mimeType;
+      }
+      
+      const finalRecorder = new MediaRecorder(finalStream, options);
+      recorderRef.current = finalRecorder;
+      const finalChunks: Blob[] = [];
+      
+      finalRecorder.ondataavailable = e => {
+        if (e.data.size > 0) finalChunks.push(e.data);
+      };
     
     finalRecorder.onstop = () => {
       if (audioEl) {
@@ -353,8 +364,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         animFrameRef.current = requestAnimationFrame(monitorProgress);
       }
     };
-    
+      
     animFrameRef.current = requestAnimationFrame(monitorProgress);
+    } catch (err: any) {
+      console.error("Export Error:", err);
+      alert(`Export Failed: ${err?.message || 'Error recording canvas stream'}. Please try again.`);
+      setIsExporting(false);
+      setExportResolutionOverride(null);
+    }
   };
 
   // Performance/Overhead calculations
@@ -445,7 +462,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {!audioFile ? (
+        {!hasAudio ? (
           <div className="text-center text-slate-400 text-xs uppercase font-bold tracking-widest py-8 bg-white/[0.02] rounded-lg border border-white/5">
             No audio loaded
           </div>

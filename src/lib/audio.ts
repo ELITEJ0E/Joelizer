@@ -87,6 +87,7 @@ export class AudioContextManager {
   }
 
   getMediaStream(): MediaStream | null {
+    if (!this.ctx || !this.analyser) return null;
     if (!this.dest) {
       this.dest = this.ctx.createMediaStreamDestination();
       this.analyser.connect(this.dest);

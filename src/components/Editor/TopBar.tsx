@@ -91,7 +91,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         </div>
 
         {/* Top Navigation Links */}
-        <nav className="flex items-center bg-white/[0.03] border border-white/10 rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1 shrink-0">
+        <nav className="flex items-center bg-white/[0.03] border border-white/10 rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1 shrink-0 overflow-x-auto no-scrollbar max-w-[180px] min-[400px]:max-w-[240px] sm:max-w-none">
           <button
             onClick={() => setActiveTab('create')}
             className={cn(

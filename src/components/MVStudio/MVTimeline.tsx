@@ -95,12 +95,12 @@ export function MVTimeline() {
     };
   }, []);
 
-  // Global mouse move and mouse up for dragging clips, resizing, or scrubbing playhead
+  // Global mouse & touch move/up handlers for dragging clips, resizing, or scrubbing playhead
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMove = (clientX: number) => {
       if (isScrubbing && containerRef.current && duration > 0) {
         const rect = containerRef.current.getBoundingClientRect();
-        const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
         const time = (x / rect.width) * duration;
         setCurrentTime(time);
         const audioEl = document.querySelector('audio');
@@ -110,7 +110,7 @@ export function MVTimeline() {
 
       if (!dragState || !containerRef.current || duration <= 0) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const deltaX = e.clientX - dragState.startX;
+      const deltaX = clientX - dragState.startX;
       const deltaTime = (deltaX / rect.width) * duration;
       const clipDur = dragState.origEnd - dragState.origStart;
 
@@ -151,7 +151,14 @@ export function MVTimeline() {
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientX);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches && e.touches.length > 0) {
+        handleMove(e.touches[0].clientX);
+      }
+    };
+
+    const handleEnd = () => {
       if (isScrubbing) {
         setIsScrubbing(false);
       }
@@ -162,10 +169,14 @@ export function MVTimeline() {
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleEnd);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleEnd);
     };
   }, [dragState, isScrubbing, duration, updateTimelineClip, timelineClips, videoAssets, setCurrentTime, commitTimeline]);
 
@@ -179,6 +190,19 @@ export function MVTimeline() {
     setCurrentTime(time);
     
     // Seek audio
+    const audioEl = document.querySelector('audio');
+    if (audioEl) audioEl.currentTime = time;
+  };
+
+  const handleTimelineTouchStart = (e: React.TouchEvent) => {
+    if (dragState) return;
+    if (!containerRef.current || duration <= 0 || !e.touches || e.touches.length === 0) return;
+    setIsScrubbing(true);
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.touches[0].clientX - rect.left, rect.width));
+    const time = (x / rect.width) * duration;
+    setCurrentTime(time);
+    
     const audioEl = document.querySelector('audio');
     if (audioEl) audioEl.currentTime = time;
   };
@@ -314,6 +338,7 @@ export function MVTimeline() {
         <div 
           ref={containerRef}
           onMouseDown={handleTimelineMouseDown}
+          onTouchStart={handleTimelineTouchStart}
           className="h-full relative cursor-ew-resize min-w-full"
           style={{ width: `${100 * zoom}%` }}
         >
