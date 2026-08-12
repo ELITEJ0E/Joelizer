@@ -48,6 +48,16 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const exportRangeEnd = (rawExportRangeEnd !== null && rawExportRangeEnd > 0) ? rawExportRangeEnd : effectiveAudioDuration;
   const setExportRange = useStore(s => s.setExportRange);
 
+  const [isTabHidden, setIsTabHidden] = useState(false);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      setIsTabHidden(document.hidden);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
   // Apply Quick Presets
   const applyPreset = (preset: 'turbo' | 'balanced' | 'quality') => {
     if (preset === 'turbo') {
@@ -225,54 +235,60 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         if (e.data.size > 0) finalChunks.push(e.data);
       };
     
-    finalRecorder.onstop = () => {
-      if (audioEl) {
-        audioEl.playbackRate = 1.0;
-        audioEl.currentTime = 0;
-        audioEl.removeEventListener('pause', handlePauseDuringExport);
-      }
-      if (isCancelledRef.current) return;
-      setExportResolutionOverride(null);
-      const rawBlob = new Blob(finalChunks, { type: mimeType || 'video/webm' });
-      const recordedDuration = exportRangeEnd - exportRangeStart;
-      const durationMs = Math.round((recordedDuration || 0) * 1000);
-
-      const triggerDownload = (downloadBlob: Blob) => {
-        if (isCancelledRef.current) return;
-        const url = URL.createObjectURL(downloadBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        
-        const safeProjectName = projectName ? projectName.trim() : '';
-        const defaultBaseName = activeTab === 'mv-studio' ? 'music-video' : 'visualizer';
-        const baseName = safeProjectName ? safeProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : defaultBaseName;
-        
-        const isFull = exportRangeStart === 0 && (exportRangeEnd === audioDuration || Math.abs(exportRangeEnd - audioDuration) < 0.1);
-        let rangeSuffix = '';
-        if (!isFull) {
-          const startMin = Math.floor(exportRangeStart / 60).toString().padStart(2, '0');
-          const startSec = Math.floor(exportRangeStart % 60).toString().padStart(2, '0');
-          const endMin = Math.floor(exportRangeEnd / 60).toString().padStart(2, '0');
-          const endSec = Math.floor(exportRangeEnd % 60).toString().padStart(2, '0');
-          rangeSuffix = `_${startMin}-${startSec}to${endMin}-${endSec}`;
+      finalRecorder.onstop = () => {
+        if (audioEl) {
+          audioEl.playbackRate = 1.0;
+          audioEl.currentTime = 0;
+          audioEl.removeEventListener('pause', handlePauseDuringExport);
         }
-        a.download = `${baseName}${rangeSuffix}.${exportFormat}`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setIsPlaying(false);
-        setCurrentTime(0);
-        setIsExporting(false);
-        onClose();
-      };
+        if (isCancelledRef.current) return;
+        setExportResolutionOverride(null);
+        const rawBlob = new Blob(finalChunks, { type: mimeType || (exportFormat === 'mp4' ? 'video/mp4' : 'video/webm') });
+        const recordedDuration = exportRangeEnd - exportRangeStart;
+        const actualElapsedMs = Math.round(performance.now() - pStartTime);
+        const durationMs = actualElapsedMs > 0 ? actualElapsedMs : Math.round((recordedDuration || 0) * 1000);
 
-      if (durationMs > 0) {
-        fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
-          triggerDownload(fixedBlob);
-        });
-      } else {
-        triggerDownload(rawBlob);
-      }
-    };
+        const triggerDownload = (downloadBlob: Blob) => {
+          if (isCancelledRef.current) return;
+          const url = URL.createObjectURL(downloadBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          
+          const safeProjectName = projectName ? projectName.trim() : '';
+          const defaultBaseName = activeTab === 'mv-studio' ? 'music-video' : 'visualizer';
+          const baseName = safeProjectName ? safeProjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : defaultBaseName;
+          
+          const isFull = exportRangeStart === 0 && (exportRangeEnd === audioDuration || Math.abs(exportRangeEnd - audioDuration) < 0.1);
+          let rangeSuffix = '';
+          if (!isFull) {
+            const startMin = Math.floor(exportRangeStart / 60).toString().padStart(2, '0');
+            const startSec = Math.floor(exportRangeStart % 60).toString().padStart(2, '0');
+            const endMin = Math.floor(exportRangeEnd / 60).toString().padStart(2, '0');
+            const endSec = Math.floor(exportRangeEnd % 60).toString().padStart(2, '0');
+            rangeSuffix = `_${startMin}-${startSec}to${endMin}-${endSec}`;
+          }
+          a.download = `${baseName}${rangeSuffix}.${exportFormat}`;
+          a.click();
+          URL.revokeObjectURL(url);
+          setIsPlaying(false);
+          setCurrentTime(0);
+          setIsExporting(false);
+          onClose();
+        };
+
+        if (durationMs > 0 && exportFormat === 'webm') {
+          try {
+            fixWebmDuration(rawBlob, durationMs, (fixedBlob) => {
+              triggerDownload(fixedBlob);
+            });
+          } catch (e) {
+            console.warn("fixWebmDuration failed, downloading raw blob:", e);
+            triggerDownload(rawBlob);
+          }
+        } else {
+          triggerDownload(rawBlob);
+        }
+      };
 
     let isExportFinished = false;
 
@@ -468,12 +484,12 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             No audio loaded
           </div>
         ) : isExporting ? (
-          <div className="space-y-5 py-4 my-auto">
-            <div className="flex flex-col items-center justify-center gap-3">
+          <div className="space-y-4 py-3 my-auto">
+            <div className="flex flex-col items-center justify-center gap-2.5">
               <Loader2 className="animate-spin" size={28} style={{ color: activeColor }} />
               <div className="text-center">
                 <span className="font-mono text-xs uppercase tracking-widest font-black block" style={{ color: activeColor }}>Encoding Video...</span>
-                <span className="text-[10px] text-slate-400 font-mono uppercase mt-0.5 block">{resolution} @ {fps}fps</span>
+                <span className="text-[10px] text-slate-400 font-mono uppercase mt-0.5 block">{resolution} @ {fps}fps • {exportFormat.toUpperCase()}</span>
               </div>
             </div>
 
@@ -491,6 +507,21 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             <div className="text-center text-xs font-mono text-slate-300 tabular-nums font-bold">
               {Math.round(progress)}% Complete
             </div>
+
+            {/* Browser Active Tab Notice / Warning */}
+            {isTabHidden ? (
+              <div className="bg-amber-500/15 border border-amber-500/40 p-3 rounded-xl text-amber-200 text-[11px] leading-relaxed flex items-start gap-2 animate-pulse">
+                <span className="text-sm">⚠️</span>
+                <div>
+                  <strong className="block text-amber-300 font-bold">Tab is currently backgrounded!</strong>
+                  Browsers throttle canvas rendering in hidden tabs. Please keep this tab active on screen until export completes to prevent video frame glitches or flickering.
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/[0.03] border border-white/10 p-2.5 rounded-xl text-slate-300 text-[10px] leading-normal text-center">
+                💡 <strong className="text-white">Keep this tab active on screen:</strong> Real-time canvas recording requires active browser rendering.
+              </div>
+            )}
 
             {/* Cancel Button */}
             <div className="pt-2 flex justify-center">
