@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import fixWebmDuration from 'fix-webm-duration';
 import { useStore } from '../../store/useStore';
+import { useMVStore } from '../../store/useMVStore';
 import { X, Loader2, Download, Zap, Sliders, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
