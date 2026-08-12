@@ -188,24 +188,112 @@ export function ImageGeneratorPanel() {
       )}
 
       {capabilities.externalGenerator ? (
-        <div className="flex flex-col gap-3 mt-2">
-          <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-500/90 text-[10px] p-3 rounded-lg flex items-start gap-2 leading-relaxed">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-            <div className="flex flex-col gap-2">
-              <p className="font-bold">External Generation Required</p>
-              <p>Perchance generation is hosted by Perchance and cannot be called directly from Joelizer due to platform security restrictions.</p>
-              <p className="opacity-80">1. Copy your prompt above.<br/>2. Open Perchance.<br/>3. Generate your image.<br/>4. Drag and drop the downloaded image back into Joelizer.</p>
+        <div className="flex flex-col gap-3 mt-1">
+          <div className="bg-purple-950/40 border border-purple-500/30 text-purple-200 text-[11px] p-3.5 rounded-xl flex flex-col gap-2.5 leading-relaxed shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold text-white flex items-center gap-1.5 text-xs">
+                <Sparkles size={14} className="text-purple-400" />
+                Perchance AI Generator Suite
+              </span>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-purple-900/60 text-purple-300 font-mono border border-purple-500/30 font-bold">
+                External Hub
+              </span>
+            </div>
+
+            <p className="text-slate-300 text-[11px]">
+              Perchance enforces browser cross-origin security headers (<code className="text-purple-300 font-mono text-[10px]">X-Frame-Options: SAMEORIGIN</code>) that prevent embedded inline rendering. Use the quick launch workflow below to generate on Perchance and import back into Joelizer!
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-purple-500/20">
+              <button
+                onClick={() => {
+                  handleCopyPrompt();
+                  window.open('https://perchance.org/image-generator-professional', '_blank', 'width=1000,height=800,scrollbars=yes');
+                }}
+                className="w-full sm:w-auto flex-1 py-2 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-95"
+              >
+                <Copy size={12} />
+                <ExternalLink size={12} />
+                <span>Copy Prompt & Launch Perchance</span>
+              </button>
+
+              <button
+                onClick={() => setActiveProviderName('Pollinations (Headless)')}
+                className="w-full sm:w-auto py-2 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <Wand2 size={12} className="text-emerald-400" />
+                <span>Use Inline AI Instead</span>
+              </button>
             </div>
           </div>
-          <a
-            href={`https://perchance.org/image-generator-professional`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-2.5 rounded-lg font-black tracking-wider uppercase text-xs flex items-center justify-center gap-2 transition-all shadow-md bg-white/10 hover:bg-white/20 text-white"
-          >
-            <ExternalLink size={14} />
-            Open Perchance
-          </a>
+
+          {/* Quick Import Form for Perchance Output */}
+          <div className="bg-black/60 border border-white/15 rounded-xl p-3.5 flex flex-col gap-3 shadow-xl">
+            <label className="text-[10px] font-black uppercase tracking-wider text-purple-300 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <ImageIcon size={13} />
+                Import Generated Image
+              </span>
+              <span className="text-[9px] text-slate-400 font-normal">Copy Image Address & Paste Here</span>
+            </label>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="https://... or data:image/..."
+                value={prompt}
+                onChange={(e) => {
+                  setPrompt(e.target.value);
+                  setErrorMsg(null);
+                }}
+                className="flex-1 bg-black/80 border border-white/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-mono placeholder-slate-600"
+              />
+              <button
+                onClick={() => {
+                  const val = prompt.trim();
+                  if (val.startsWith('http') || val.startsWith('data:image')) {
+                    addVideoAsset({
+                      id: `perchance-${Date.now()}`,
+                      url: val,
+                      name: `Perchance AI - ${Date.now().toString().slice(-4)}`,
+                      mediaType: 'image',
+                      duration: 8,
+                      thumbnail: val,
+                      isStock: true,
+                      sourceType: 'generated',
+                      status: 'ready'
+                    });
+                    setPrompt('');
+                    setErrorMsg(null);
+                  } else {
+                    setErrorMsg('Please paste a valid image URL starting with http:// or https://');
+                  }
+                }}
+                className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shrink-0 cursor-pointer shadow-md transition-all active:scale-95"
+              >
+                Import
+              </button>
+            </div>
+
+            {/* Live Preview of pasted URL */}
+            {prompt.trim() && (prompt.trim().startsWith('http') || prompt.trim().startsWith('data:image')) && (
+              <div className="relative w-full h-36 bg-black/80 rounded-lg overflow-hidden border border-white/20 flex items-center justify-center">
+                <img 
+                  src={prompt.trim()} 
+                  alt="Import Preview" 
+                  className="w-full h-full object-contain"
+                  onError={() => setErrorMsg('Image failed to load. Check that the link points directly to an image file.')}
+                />
+              </div>
+            )}
+
+            {errorMsg && (
+              <div className="flex items-center gap-1.5 text-red-400 text-[10px] font-mono bg-red-500/10 p-2 rounded border border-red-500/20">
+                <AlertTriangle size={12} className="shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <>

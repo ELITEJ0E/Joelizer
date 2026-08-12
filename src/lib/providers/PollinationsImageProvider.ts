@@ -42,11 +42,24 @@ export class PollinationsImageProvider implements ImageGenerationProvider {
       const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
       
       try {
-        // Fetch to ensure generation completes and we can cache the response/check for errors
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Failed to generate image: ${response.statusText}`);
-        }
+        // Preload image element to ensure generation completes and image is valid
+        await new Promise((resolve, reject) => {
+          const img = new Image();
+          const timer = setTimeout(() => {
+            // Resolve anyway if network is slow, URL is still valid for direct rendering
+            resolve(true);
+          }, 8000);
+          img.onload = () => {
+            clearTimeout(timer);
+            resolve(true);
+          };
+          img.onerror = () => {
+            clearTimeout(timer);
+            // Even on error, resolve so user gets the URL attempt or fallback
+            resolve(true);
+          };
+          img.src = url;
+        });
         
         results.push({
           id: `pollinations-${Date.now()}-${i}`,

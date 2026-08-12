@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
-import { Play, Monitor, Smartphone, Square, Film } from 'lucide-react';
+import { Play, Maximize2, Minimize2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 
 export function MVPreview() {
@@ -10,11 +10,30 @@ export function MVPreview() {
   const isPlaying = useStore(s => s.isPlaying);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const audioDuration = useStore(s => s.audioDuration);
+  const aspectRatio = useStore(s => s.aspectRatio);
 
   const videoAssets = useMVStore(s => s.videoAssets);
 
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9');
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync fullscreen state with document
+  useEffect(() => {
+    const handleFSChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFSChange);
+    return () => document.removeEventListener('fullscreenchange', handleFSChange);
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (!stageRef.current) return;
+    if (!document.fullscreenElement) {
+      stageRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
 
   // Asset element caches to avoid re-creating elements and avoid black frames on transitions
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
@@ -119,6 +138,14 @@ export function MVPreview() {
               videoEl.muted = true;
               videoEl.playsInline = true;
               videoEl.crossOrigin = 'anonymous';
+
+              // If direct URL fails, auto-retry via CORS media proxy
+              videoEl.onerror = () => {
+                if (videoEl && !videoEl.src.includes('/api/proxy-media')) {
+                  videoEl.src = `/api/proxy-media?url=${encodeURIComponent(asset.url)}`;
+                }
+              };
+
               videoElementsRef.current.set(asset.url, videoEl);
             }
 
@@ -135,6 +162,8 @@ export function MVPreview() {
               videoEl.pause();
             }
 
+            let drewFrame = false;
+
             // Draw video if current frame is ready
             if (videoEl.readyState >= 2) {
               const vW = videoEl.videoWidth || 1920;
@@ -147,13 +176,30 @@ export function MVPreview() {
 
               try {
                 ctx.drawImage(videoEl, cx, cy, drawW, drawH);
+                drewFrame = true;
               } catch (e) {
-                // Ignore transient draw errors during video buffer switches
+                drewFrame = false;
               }
-            } else {
-              // Subtle background pulse while video buffers
-              ctx.fillStyle = '#0d0e15';
-              ctx.fillRect(0, 0, W, H);
+            }
+
+            // Fallback: if video frame isn't ready or drawImage threw, draw thumbnail image instead of pitch black
+            if (!drewFrame && asset.thumbnail) {
+              let thumbImg = imageElementsRef.current.get(asset.thumbnail);
+              if (!thumbImg) {
+                thumbImg = new Image();
+                thumbImg.crossOrigin = 'anonymous';
+                thumbImg.src = asset.thumbnail;
+                imageElementsRef.current.set(asset.thumbnail, thumbImg);
+              }
+              if (thumbImg.complete && thumbImg.naturalWidth > 0) {
+                const iScale = Math.max(W / thumbImg.naturalWidth, H / thumbImg.naturalHeight);
+                const drawW = thumbImg.naturalWidth * iScale;
+                const drawH = thumbImg.naturalHeight * iScale;
+                ctx.drawImage(thumbImg, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
+              } else {
+                ctx.fillStyle = '#0d0e15';
+                ctx.fillRect(0, 0, W, H);
+              }
             }
           } else if (asset.mediaType === 'image') {
             let imgEl = imageElementsRef.current.get(asset.url);
@@ -341,39 +387,12 @@ export function MVPreview() {
   }, [aspectRatio]);
 
   return (
-    <div className="flex flex-col items-center justify-between w-full h-full p-1.5 sm:p-2 overflow-hidden gap-1.5 sm:gap-2">
-      {/* Top Header Controls: Aspect Ratio */}
-      <div className="flex items-center justify-center w-full shrink-0 px-2.5 py-1 bg-black/60 border border-white/10 rounded-full text-[10px] text-slate-400 backdrop-blur-md max-w-[280px]">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setAspectRatio('16:9')}
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full transition-all cursor-pointer font-medium"
-            style={aspectRatio === '16:9' ? { backgroundColor: activeColor, color: '#000', fontWeight: 'bold' } : {}}
-          >
-            <Monitor size={11} />
-            <span>16:9</span>
-          </button>
-          <button
-            onClick={() => setAspectRatio('9:16')}
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full transition-all cursor-pointer font-medium"
-            style={aspectRatio === '9:16' ? { backgroundColor: activeColor, color: '#000', fontWeight: 'bold' } : {}}
-          >
-            <Smartphone size={11} />
-            <span>9:16</span>
-          </button>
-          <button
-            onClick={() => setAspectRatio('1:1')}
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full transition-all cursor-pointer font-medium"
-            style={aspectRatio === '1:1' ? { backgroundColor: activeColor, color: '#000', fontWeight: 'bold' } : {}}
-          >
-            <Square size={11} />
-            <span>1:1</span>
-          </button>
-        </div>
-      </div>
-
+    <div className="flex flex-col items-center justify-center w-full h-full p-1.5 sm:p-2 overflow-hidden gap-1.5 sm:gap-2">
       {/* Main Stage Canvas Area - Perfectly Proportional & 1:1 Match for Preview & Export */}
-      <div className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1">
+      <div 
+        ref={stageRef}
+        className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-black/40 rounded-xl"
+      >
         <div 
           className="bg-black rounded-xl overflow-hidden relative shadow-2xl ring-1 ring-white/20 flex items-center justify-center transition-all duration-300"
           style={{
@@ -403,16 +422,21 @@ export function MVPreview() {
             )}
           </button>
 
-          {/* Timecode & Studio Badge Overlay */}
+          {/* Timecode Overlay */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-20 pointer-events-none">
             <div className="bg-black/80 backdrop-blur-md px-2 py-0.5 rounded text-white font-mono text-[9px] font-bold shadow-md border border-white/10">
               {formatTime(currentTime)} / {formatTime(audioDuration || 0)}
             </div>
-            <div className="bg-purple-900/80 backdrop-blur-md px-2 py-0.5 rounded text-purple-200 font-mono text-[8px] font-extrabold shadow-md border border-purple-500/40 uppercase tracking-wider flex items-center gap-1">
-              <Film size={10} />
-              <span>MV Studio Live</span>
-            </div>
           </div>
+
+          {/* Fullscreen Toggle Button */}
+          <button
+            onClick={handleToggleFullscreen}
+            className="absolute top-2 right-2 z-20 bg-black/80 hover:bg-black text-white p-1.5 rounded-md backdrop-blur-md cursor-pointer transition-all active:scale-95 shadow-md border border-white/10"
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview"}
+          >
+            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          </button>
         </div>
       </div>
     </div>

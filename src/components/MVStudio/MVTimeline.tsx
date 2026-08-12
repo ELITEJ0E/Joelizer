@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore, TimelineClip } from '../../store/useMVStore';
-import { Lock, Unlock, Scissors, Trash2, Film, Image as ImageIcon, Music, Type, Play, Pause } from 'lucide-react';
+import { Lock, Unlock, Scissors, Trash2, Film, Image as ImageIcon, Music, Type, Play, Pause, Undo2, Redo2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 
 export function MVTimeline() {
@@ -30,21 +30,41 @@ export function MVTimeline() {
   const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
 
   const [zoom, setZoom] = useState(1);
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
-  // Undo / Redo Shortcuts
+  // Keydown shortcuts: Undo/Redo & Delete/Backspace selected clip
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (isInput) return;
+        e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        if (isInput) return;
+        e.preventDefault();
         redo();
+      }
+
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !isInput) {
+        if (selectedClipId) {
+          e.preventDefault();
+          removeTimelineClip(selectedClipId);
+          setSelectedClipId(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
+  }, [undo, redo, selectedClipId, removeTimelineClip, setSelectedClipId]);
 
 
   // Dragging state for clips on timeline
@@ -75,12 +95,20 @@ export function MVTimeline() {
     };
   }, []);
 
-  // Global mouse move and mouse up for dragging clips or resizing
+  // Global mouse move and mouse up for dragging clips, resizing, or scrubbing playhead
   useEffect(() => {
-    if (!dragState || !containerRef.current || duration <= 0) return;
-
     const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
+      if (isScrubbing && containerRef.current && duration > 0) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        const time = (x / rect.width) * duration;
+        setCurrentTime(time);
+        const audioEl = document.querySelector('audio');
+        if (audioEl) audioEl.currentTime = time;
+        return;
+      }
+
+      if (!dragState || !containerRef.current || duration <= 0) return;
       const rect = containerRef.current.getBoundingClientRect();
       const deltaX = e.clientX - dragState.startX;
       const deltaTime = (deltaX / rect.width) * duration;
@@ -124,8 +152,13 @@ export function MVTimeline() {
     };
 
     const handleMouseUp = () => {
-      commitTimeline();
-      setDragState(null);
+      if (isScrubbing) {
+        setIsScrubbing(false);
+      }
+      if (dragState) {
+        commitTimeline();
+        setDragState(null);
+      }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -134,11 +167,12 @@ export function MVTimeline() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState, duration, updateTimelineClip, timelineClips, videoAssets]);
+  }, [dragState, isScrubbing, duration, updateTimelineClip, timelineClips, videoAssets, setCurrentTime, commitTimeline]);
 
-  const handleTimelineClick = (e: React.MouseEvent) => {
+  const handleTimelineMouseDown = (e: React.MouseEvent) => {
     if (dragState) return;
     if (!containerRef.current || duration <= 0) return;
+    setIsScrubbing(true);
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const time = (x / rect.width) * duration;
@@ -202,6 +236,27 @@ export function MVTimeline() {
             Multitrack Timeline
           </span>
 
+          {/* Undo / Redo Buttons */}
+          <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+            <button
+              onClick={(e) => { e.stopPropagation(); undo(); }}
+              title="Undo (Ctrl+Z)"
+              className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
+            >
+              <Undo2 size={10} />
+              <span>Undo</span>
+            </button>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); redo(); }}
+              title="Redo (Ctrl+Y)"
+              className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors active:scale-95"
+            >
+              <Redo2 size={10} />
+              <span>Redo</span>
+            </button>
+          </div>
+
           {selectedClip && (
             <div className="flex items-center gap-1.5 pl-3 border-l border-white/10">
               <button
@@ -258,12 +313,26 @@ export function MVTimeline() {
       <div className="flex-1 relative overflow-x-auto overflow-y-hidden bg-black/40">
         <div 
           ref={containerRef}
-          onMouseDown={handleTimelineClick}
-          className="h-full relative cursor-text min-w-full"
+          onMouseDown={handleTimelineMouseDown}
+          className="h-full relative cursor-ew-resize min-w-full"
           style={{ width: `${100 * zoom}%` }}
         >
+          {/* Time Ruler Scrubber Header Bar */}
+          <div className="h-5 bg-white/5 border-b border-white/10 relative text-[9px] font-mono text-slate-400 flex items-center pl-12 pointer-events-none select-none">
+            {Array.from({ length: 13 }, (_, i) => (duration / 12) * i).map((tick, idx) => (
+              <div 
+                key={idx}
+                className="absolute flex flex-col items-center -translate-x-1/2"
+                style={{ left: `calc(3rem + ${(idx / 12) * 100}% * (1 - 3rem / 100%))` }}
+              >
+                <span className="text-[8px] font-mono opacity-80">{formatTime(tick)}</span>
+                <div className="w-[1px] h-1.5 bg-white/20" />
+              </div>
+            ))}
+          </div>
+
           {/* Track Headers & Lanes */}
-          <div className="absolute inset-0 flex flex-col pt-2 pb-2 pl-12">
+          <div className="absolute inset-0 flex flex-col pt-6 pb-2 pl-12">
 
             {/* Track 1: VIDEO (VIS) - Drag & Drop Dropzone */}
             <div 

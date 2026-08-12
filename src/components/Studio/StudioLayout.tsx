@@ -16,6 +16,7 @@ import { LyricLineWithWords, ProcessingProgress, ExportFormat, SongAnalysis } fr
 import { generateLRC, generateEnhancedLRC, generateSRT, generateASS, generateJSON, generateTXT, generateZIP, downloadFile, formatLRCStamp } from '../../lib/lyricExporters';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export function StudioLayout() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -898,19 +899,20 @@ export function StudioLayout() {
                   <span className="text-slate-500 block text-[8px] uppercase">DETECTED / TARGET LANGUAGE</span>
                   <span className="font-bold text-white">{analysis.language && analysis.language !== 'Auto' ? analysis.language : selectedLanguage}</span>
                 </div>
-                <select
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="bg-black/60 border border-white/15 text-white text-[9px] rounded px-1.5 py-1 outline-none cursor-pointer"
-                >
-                  <option value="Auto" className="bg-[#121218]">Auto Detect</option>
-                  <option value="Korean" className="bg-[#121218]">Korean (한국어)</option>
-                  <option value="Chinese" className="bg-[#121218]">Chinese (中文)</option>
-                  <option value="English" className="bg-[#121218]">English</option>
-                  <option value="Japanese" className="bg-[#121218]">Japanese (日本語)</option>
-                  <option value="Spanish" className="bg-[#121218]">Spanish</option>
-                  <option value="French" className="bg-[#121218]">French</option>
-                </select>
+                <Select value={selectedLanguage} onValueChange={(val) => setSelectedLanguage(val)}>
+                  <SelectTrigger className="h-7 w-28 text-[9px] bg-black/60 border-white/15">
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Auto">Auto Detect</SelectItem>
+                    <SelectItem value="Korean">Korean (한국어)</SelectItem>
+                    <SelectItem value="Chinese">Chinese (中文)</SelectItem>
+                    <SelectItem value="English">English</SelectItem>
+                    <SelectItem value="Japanese">Japanese (日本語)</SelectItem>
+                    <SelectItem value="Spanish">Spanish</SelectItem>
+                    <SelectItem value="French">French</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

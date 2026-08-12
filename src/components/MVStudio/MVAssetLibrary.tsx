@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useMVStore, MediaAsset } from '../../store/useMVStore';
 import { Film, Image as ImageIcon, Plus, Trash2, Link as LinkIcon, FolderPlus, Sparkles, ExternalLink, Globe, Search, Wand2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
@@ -24,8 +24,22 @@ export function MVAssetLibrary() {
 
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [showLocalUploadModal, setShowLocalUploadModal] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [urlError, setUrlError] = useState('');
+
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowStockModal(false);
+        setShowUrlModal(false);
+        setShowLocalUploadModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const processFile = (file: File, isStock = false) => {
     const isVideo = file.type.startsWith('video/') || file.name.match(/\.(mp4|mov|webm|m4v)$/i);
@@ -103,6 +117,22 @@ export function MVAssetLibrary() {
     if (folderInputRef.current) folderInputRef.current.value = '';
   };
 
+function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image'): string {
+  const cleanTitle = (title || 'Stock Media').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const badge = mediaType === 'video' ? 'VIDEO' : 'IMAGE';
+  const color = mediaType === 'video' ? '#a855f7' : '#3b82f6';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
+    <rect width="320" height="180" fill="#0f0f18"/>
+    <rect x="10" y="10" width="300" height="160" rx="12" fill="#181824" stroke="${color}" stroke-width="1.5" stroke-opacity="0.4"/>
+    <circle cx="160" cy="75" r="26" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2"/>
+    ${mediaType === 'video' ? `<polygon points="154,65 174,75 154,85" fill="${color}"/>` : `<rect x="148" y="65" width="24" height="20" rx="3" fill="none" stroke="${color}" stroke-width="2"/>`}
+    <text x="160" y="125" font-family="sans-serif" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">${cleanTitle.slice(0, 24)}</text>
+    <rect x="120" y="138" width="80" height="18" rx="9" fill="${color}" fill-opacity="0.3"/>
+    <text x="160" y="151" font-family="sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">${badge}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
   const handleAddUrl = () => {
     setUrlError('');
     if (!urlInput.trim()) {
@@ -121,19 +151,21 @@ export function MVAssetLibrary() {
     const mediaType = validation.mediaType || 'image';
     const filename = cleanUrl.split('/').pop()?.split('?')[0] || `stock-${mediaType}`;
 
-    if (mediaType === 'video') {
+    const tryLoadVideo = (targetUrl: string, isProxyRetry = false) => {
       const videoEl = document.createElement('video');
       videoEl.crossOrigin = 'anonymous';
-      videoEl.src = cleanUrl;
+      videoEl.src = targetUrl;
       videoEl.muted = true;
-      videoEl.onloadedmetadata = () => {
+      videoEl.playsInline = true;
+
+      const finishAddVideo = (thumbUrl: string) => {
         addVideoAsset({
           id: `url-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          url: cleanUrl,
+          url: cleanUrl, // Preserve original or proxied URL
           name: filename,
           mediaType: 'video',
-          duration: videoEl.duration || 10,
-          thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=60',
+          duration: videoEl.duration && !isNaN(videoEl.duration) ? videoEl.duration : 10,
+          thumbnail: thumbUrl,
           isStock: true,
           sourceType: 'stock',
           status: 'ready'
@@ -141,31 +173,85 @@ export function MVAssetLibrary() {
         setUrlInput('');
         setShowUrlModal(false);
       };
+
+      videoEl.onloadedmetadata = () => {
+        videoEl.currentTime = Math.min(1, (videoEl.duration || 2) / 2);
+      };
+
+      videoEl.onseeked = () => {
+        let thumb = '';
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 160;
+          canvas.height = (videoEl.videoHeight / (videoEl.videoWidth || 1)) * 160 || 90;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+            thumb = canvas.toDataURL('image/jpeg', 0.7);
+          }
+        } catch (e) {
+          thumb = generateFallbackSvgThumbnail(filename, 'video');
+        }
+        finishAddVideo(thumb || generateFallbackSvgThumbnail(filename, 'video'));
+      };
+
       videoEl.onerror = () => {
-        setUrlError('Failed to load video from this URL. The host server may block cross-origin access.');
+        if (!isProxyRetry) {
+          const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(cleanUrl)}`;
+          tryLoadVideo(proxyUrl, true);
+        } else {
+          setUrlError('Failed to load video from this URL. The host server may block cross-origin or hotlinking.');
+        }
       };
+    };
+
+    if (mediaType === 'video') {
+      tryLoadVideo(cleanUrl, false);
     } else {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = cleanUrl;
-      img.onload = () => {
-        addVideoAsset({
-          id: `url-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          url: cleanUrl,
-          name: filename,
-          mediaType: 'image',
-          duration: 8,
-          thumbnail: cleanUrl,
-          isStock: true,
-          sourceType: 'stock',
-          status: 'ready'
-        });
-        setUrlInput('');
-        setShowUrlModal(false);
+      const tryLoadImage = (targetUrl: string, isProxyRetry = false) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = targetUrl;
+        img.onload = () => {
+          let thumb = targetUrl;
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 160;
+            canvas.height = (img.height / (img.width || 1)) * 160 || 90;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              thumb = canvas.toDataURL('image/jpeg', 0.8);
+            }
+          } catch (e) {
+            thumb = targetUrl;
+          }
+          addVideoAsset({
+            id: `url-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            url: cleanUrl,
+            name: filename,
+            mediaType: 'image',
+            duration: 8,
+            thumbnail: thumb,
+            isStock: true,
+            sourceType: 'stock',
+            status: 'ready'
+          });
+          setUrlInput('');
+          setShowUrlModal(false);
+        };
+
+        img.onerror = () => {
+          if (!isProxyRetry) {
+            const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(cleanUrl)}`;
+            tryLoadImage(proxyUrl, true);
+          } else {
+            setUrlError('Failed to load image from this URL. Check connection or CORS rules.');
+          }
+        };
       };
-      img.onerror = () => {
-        setUrlError('Failed to load image from this URL. Check connection or CORS rules.');
-      };
+
+      tryLoadImage(cleanUrl, false);
     }
   };
 
@@ -249,12 +335,11 @@ export function MVAssetLibrary() {
   });
 
   const stockProviders = [
-    { name: 'Motion Array', url: 'https://motionarray.com', category: '4K Footage & Templates', bg: 'from-amber-600/30 to-purple-600/30', border: 'border-amber-500/40' },
-    { name: 'Artlist.io', url: 'https://artlist.io/stock-footage', category: 'Cinematic Stock Video', bg: 'from-purple-600/30 to-pink-600/30', border: 'border-purple-500/40' },
-    { name: 'Envato Elements', url: 'https://elements.envato.com/stock-video', category: 'Unlimited Video Assets', bg: 'from-emerald-600/30 to-teal-600/30', border: 'border-emerald-500/40' },
-    { name: 'Pexels Video', url: 'https://www.pexels.com/videos', category: 'Free HD/4K Videos', bg: 'from-blue-600/30 to-cyan-600/30', border: 'border-blue-500/40' },
-    { name: 'Unsplash', url: 'https://unsplash.com', category: 'High-Res Music Photos', bg: 'from-slate-600/30 to-slate-800/30', border: 'border-slate-500/40' },
-    { name: 'Pixabay Footage', url: 'https://pixabay.com/videos', category: 'Free Stock Clips', bg: 'from-green-600/30 to-lime-600/30', border: 'border-green-500/40' },
+    { name: 'Pexels Video & Photos', url: 'https://www.pexels.com/videos', category: 'Free 4K Footage & HD Photos', badge: '100% Free', bg: 'from-emerald-600/30 to-teal-600/30', border: 'border-emerald-500/40' },
+    { name: 'Pixabay Footage', url: 'https://pixabay.com/videos', category: 'Free Stock Videos & Visuals', badge: '100% Free', bg: 'from-blue-600/30 to-cyan-600/30', border: 'border-blue-500/40' },
+    { name: 'Unsplash Photos', url: 'https://unsplash.com', category: 'High-Res Music & Stage Photos', badge: '100% Free', bg: 'from-purple-600/30 to-pink-600/30', border: 'border-purple-500/40' },
+    { name: 'Coverr Footage', url: 'https://coverr.co', category: 'Free HD Video Backgrounds', badge: '100% Free', bg: 'from-amber-600/30 to-orange-600/30', border: 'border-amber-500/40' },
+    { name: 'Mixkit Stock Video', url: 'https://mixkit.co/free-stock-video', category: 'Free Music Video Clips & FX', badge: '100% Free', bg: 'from-indigo-600/30 to-purple-600/30', border: 'border-indigo-500/40' },
   ];
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -321,24 +406,17 @@ export function MVAssetLibrary() {
               </div>
           <div className="flex items-center gap-1">
             <button 
-              onClick={() => fileInputRef.current?.click()}
-              title="Add Local Files"
-              className="bg-white/10 hover:bg-white/20 p-1.5 rounded text-white transition-colors flex items-center gap-1 text-[10px] font-bold"
-            >
-              <Plus size={12} />
-              <span>Files</span>
-            </button>
-            <button 
-              onClick={() => folderInputRef.current?.click()}
-              title="Add Local Folder"
-              className="bg-white/10 hover:bg-white/20 p-1.5 rounded text-white transition-colors text-[10px]"
+              onClick={() => setShowLocalUploadModal(true)}
+              title="Import Local Files or Folder"
+              className="bg-white/10 hover:bg-white/20 px-2 py-1.5 rounded text-white transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer"
             >
               <FolderPlus size={12} />
+              <span>Import Media</span>
             </button>
             <button 
               onClick={() => setShowUrlModal(true)}
               title="Add Direct Media URL"
-              className="bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 p-1.5 rounded border border-purple-500/30 transition-colors text-[10px]"
+              className="bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 p-1.5 rounded border border-purple-500/30 transition-colors text-[10px] cursor-pointer"
             >
               <LinkIcon size={12} />
             </button>
@@ -504,10 +582,73 @@ export function MVAssetLibrary() {
         </button>
       </div>
 
+      {/* Local Files / Folder Upload Modal */}
+      {showLocalUploadModal && (
+        <div 
+          onClick={() => setShowLocalUploadModal(false)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#121218] border border-white/20 rounded-2xl p-6 max-w-md w-full flex flex-col gap-4 text-slate-200 shadow-2xl relative"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <FolderPlus size={18} className="text-purple-400" />
+                Import Local Media
+              </h3>
+              <button onClick={() => setShowLocalUploadModal(false)} className="text-slate-400 hover:text-white text-xs p-1">✕</button>
+            </div>
+
+            <div 
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const files = e.dataTransfer.files;
+                if (files) {
+                  for (let i = 0; i < files.length; i++) {
+                    processFile(files[i]);
+                  }
+                }
+                setShowLocalUploadModal(false);
+              }}
+              className="border-2 border-dashed border-white/20 hover:border-purple-500/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-black/40 text-center transition-colors"
+            >
+              <FolderPlus size={36} className="text-purple-400 opacity-80" />
+              <div>
+                <p className="text-xs font-bold text-white">Drag & drop files or entire folder here</p>
+                <p className="text-[10px] text-slate-400 mt-1">Supports MP4, WebM, MOV, JPG, PNG, WEBP</p>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <button 
+                  onClick={() => { fileInputRef.current?.click(); setShowLocalUploadModal(false); }}
+                  className="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow transition-colors cursor-pointer"
+                >
+                  Choose Files
+                </button>
+                <button 
+                  onClick={() => { folderInputRef.current?.click(); setShowLocalUploadModal(false); }}
+                  className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Choose Folder
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Direct URL Import Modal */}
       {showUrlModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#121218] border border-white/20 rounded-xl p-5 max-w-md w-full flex flex-col gap-4 text-slate-200 shadow-2xl">
+        <div 
+          onClick={() => setShowUrlModal(false)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#121218] border border-white/20 rounded-xl p-5 max-w-md w-full flex flex-col gap-4 text-slate-200 shadow-2xl"
+          >
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <LinkIcon size={16} className="text-purple-400" />
@@ -553,13 +694,19 @@ export function MVAssetLibrary() {
 
       {/* Stock Providers Hub Modal */}
       {showStockModal && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f0f15] border border-white/20 rounded-2xl p-6 max-w-lg w-full flex flex-col gap-4 text-slate-200 shadow-2xl relative overflow-hidden">
+        <div 
+          onClick={() => setShowStockModal(false)}
+          className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#0f0f15] border border-white/20 rounded-2xl p-6 max-w-lg w-full flex flex-col gap-4 text-slate-200 shadow-2xl relative overflow-hidden"
+          >
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div>
                 <h3 className="text-base font-black text-white flex items-center gap-2">
                   <Globe size={18} className="text-amber-400" />
-                  Pro Stock Footage & Visual Hub
+                  Stock Provider Hub
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   Browse stock sites directly or copy video/image links to import into Joelizer MV Studio.
@@ -575,13 +722,17 @@ export function MVAssetLibrary() {
                   href={provider.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`p-3 rounded-xl border bg-gradient-to-br ${provider.bg} ${provider.border} hover:scale-[1.02] transition-transform flex flex-col justify-between group cursor-pointer`}
+                  className={`p-3 rounded-xl border bg-gradient-to-br ${provider.bg} ${provider.border} hover:scale-[1.02] transition-transform flex flex-col justify-between group cursor-pointer relative overflow-hidden`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-white text-xs tracking-wide">{provider.name}</span>
+                    <span className="font-extrabold text-white text-xs tracking-wide flex items-center gap-1.5">
+                      {provider.name}
+                    </span>
                     <ExternalLink size={12} className="text-slate-400 group-hover:text-white transition-colors" />
                   </div>
-                  <span className="text-[10px] text-slate-300 font-mono mt-1">{provider.category}</span>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[10px] text-slate-300 font-mono">{provider.category}</span>
+                  </div>
                 </a>
               ))}
             </div>
@@ -611,17 +762,7 @@ export function MVAssetLibrary() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-2 border-t border-white/10">
-              <button
-                onClick={() => {
-                  handleImportSampleStock();
-                  setShowStockModal(false);
-                }}
-                className="text-xs text-purple-300 hover:text-purple-200 font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Sparkles size={13} />
-                Or Load Pre-bundled Stock Pack (6 Clips)
-              </button>
+            <div className="flex justify-end items-center pt-2 border-t border-white/10">
               <button 
                 onClick={() => setShowStockModal(false)}
                 className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs text-white cursor-pointer font-bold"

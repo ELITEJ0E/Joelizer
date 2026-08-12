@@ -4,6 +4,7 @@ import { useMVStore } from '../../store/useMVStore';
 import { generateAutoEdit } from '../../lib/mvAutoEdit';
 import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import { pollinationsProvider } from '../../lib/providers/PollinationsImageProvider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export function MVWorkflow() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -242,18 +243,18 @@ export function MVWorkflow() {
           {/* Style Preset */}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-semibold text-slate-400 uppercase">Visual Style</label>
-            <select 
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              className="bg-black/80 border border-white/20 rounded p-1.5 text-xs text-white focus:outline-none"
-              style={{ focusBorderColor: activeColor }}
-            >
-              <option value="Cinematic">Cinematic Montage</option>
-              <option value="Performance">Performance Focus</option>
-              <option value="K-pop">K-pop Fast Cut</option>
-              <option value="Y2K">Y2K / Glitch Aesthetic</option>
-              <option value="Dreamy">Dreamy & Slow Motion</option>
-            </select>
+            <Select value={style} onValueChange={(val) => setStyle(val)}>
+              <SelectTrigger className="h-8 text-xs bg-black/80 border-white/20">
+                <SelectValue placeholder="Select Visual Style" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Cinematic">Cinematic Montage</SelectItem>
+                <SelectItem value="Performance">Performance Focus</SelectItem>
+                <SelectItem value="K-pop">K-pop Fast Cut</SelectItem>
+                <SelectItem value="Y2K">Y2K / Glitch Aesthetic</SelectItem>
+                <SelectItem value="Dreamy">Dreamy & Slow Motion</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Pacing */}
