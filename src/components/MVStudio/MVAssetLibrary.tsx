@@ -442,6 +442,53 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
           onChange={handleFileChange}
         />
 
+        {/* Timeline Scene Presets */}
+        <div className="p-2 bg-white/[0.02] border border-white/10 rounded-lg flex flex-col gap-1.5">
+          <span className="text-[10px] font-black uppercase tracking-wider text-purple-300 flex items-center gap-1">
+            <Sparkles size={11} className="text-yellow-400" />
+            Add Timeline Scenes
+          </span>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => {
+                addTimelineClip({
+                  id: `clip-vinyl-${Date.now()}`,
+                  assetId: 'vinyl-lyrics',
+                  startTime: currentTime || 0,
+                  endTime: (currentTime || 0) + 15,
+                  trimStart: 0,
+                  trimEnd: 15,
+                  mediaType: 'vinyl-lyrics'
+                });
+              }}
+              className="px-2 py-1.5 rounded bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 text-indigo-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
+              title="Add Vinyl & Karaoke Lyric Scene to timeline"
+            >
+              <span>💿</span>
+              <span>Vinyl Lyrics</span>
+            </button>
+
+            <button
+              onClick={() => {
+                addTimelineClip({
+                  id: `clip-vis-${Date.now()}`,
+                  assetId: 'visualizer',
+                  startTime: currentTime || 0,
+                  endTime: (currentTime || 0) + 15,
+                  trimStart: 0,
+                  trimEnd: 15,
+                  mediaType: 'visualizer'
+                });
+              }}
+              className="px-2 py-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
+              title="Add Audio Visualizer Scene to timeline"
+            >
+              <span>📊</span>
+              <span>Audio Visualizer</span>
+            </button>
+          </div>
+        </div>
+
         {/* Filter Tabs */}
         <div className="flex items-center bg-black/40 p-0.5 rounded border border-white/10 text-[10px]">
           <button

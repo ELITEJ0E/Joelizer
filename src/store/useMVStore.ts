@@ -8,7 +8,7 @@ export interface MediaAsset {
   file?: File;
   url: string; // Object URL or direct HTTP URL
   name: string;
-  mediaType: 'video' | 'image';
+  mediaType: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
   duration: number; // in seconds (for images, default e.g. 10s)
   thumbnail: string; // data URL or thumbnail image URL
   isStock?: boolean;
@@ -27,7 +27,7 @@ export interface TimelineClip {
   trimStart: number; // Start trim within media asset
   trimEnd: number;   // End trim within media asset
   locked?: boolean;
-  mediaType?: 'video' | 'image';
+  mediaType?: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
   effect?: 'ken-burns-in' | 'ken-burns-out' | 'pan-left' | 'pan-right' | 'pan-up' | 'pan-down' | 'none';
   transition?: 'cut' | 'fade' | 'dissolve' | 'glitch';
 }

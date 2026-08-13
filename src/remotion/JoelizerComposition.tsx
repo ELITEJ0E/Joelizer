@@ -27,46 +27,25 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   const mode = projectJson.exportMode || 'lyrics-video';
   const { audio, lyrics, background, artwork, visualizer, videoClips, effects } = projectJson;
 
-  // Find active video clip for Music Video mode
-  const activeClip = mode === 'music-video' 
-    ? videoClips.find(c => currentTime >= c.startTime && currentTime < c.endTime)
-    : undefined;
+  // Find active video clip for timeline mode
+  const activeClip = videoClips.find(c => currentTime >= c.startTime && currentTime < c.endTime);
 
-  // Find current active lyric line
-  const activeLineIndex = lyrics.lines.findIndex(
-    l => currentTime >= l.startTime && currentTime <= l.endTime
-  );
-
-  const activeLine: CanonicalLyricLine | undefined = activeLineIndex !== -1 
-    ? lyrics.lines[activeLineIndex] 
-    : undefined;
-
-  // Calculate rotation angle for spinning artwork
-  const rotationDegrees = (currentTime * 40) % 360;
-
-  // Calculate beat pulse intensity (120 bpm fallback or analyzed bpm)
-  const bpm = audio.bpm || 120;
-  const beatPeriod = 60 / bpm;
-  const beatPhase = (currentTime % beatPeriod) / beatPeriod;
-  const beatPulse = Math.pow(Math.sin(beatPhase * Math.PI), 4);
-  const artworkScale = artwork.animation === 'scale-beat' 
-    ? 1.0 + beatPulse * 0.08 
-    : artwork.animation === 'pulse' 
-    ? 1.0 + Math.sin(currentTime * 6) * 0.03 
-    : 1.0;
+  const isVinylScene = activeClip?.mediaType === 'vinyl-lyrics' || activeClip?.assetId === 'vinyl-lyrics';
+  const isVisualizerScene = activeClip?.mediaType === 'visualizer' || activeClip?.assetId === 'visualizer';
+  const isMediaClip = activeClip && (activeClip.mediaType === 'video' || activeClip.mediaType === 'image');
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#050508', overflow: 'hidden', fontFamily: lyrics.fontFamily }}>
       
       {/* 1. BACKGROUND LAYER */}
-      {mode === 'music-video' && activeClip ? (
+      {isMediaClip ? (
         <BackgroundClipLayer clip={activeClip} currentTime={currentTime} width={width} height={height} />
       ) : (
         <BackgroundLayer bg={background} albumArt={audio.albumArt} width={width} height={height} currentTime={currentTime} />
       )}
 
       {/* 2. ARTWORK OBJECT LAYER (Vinyl, CD, Glowing Disc) */}
-      {mode === 'lyrics-video' && artwork.style !== 'none' && audio.albumArt && (
+      {(isVinylScene || (!activeClip && mode === 'lyrics-video') || (mode === 'lyrics-video' && !isMediaClip && !isVisualizerScene)) && artwork.style !== 'none' && audio.albumArt && (
         <ArtworkLayer 
           artwork={artwork} 
           albumArt={audio.albumArt} 
@@ -78,7 +57,9 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* 3. VISUALIZER OVERLAY */}
-      <VisualizerLayer visualizer={visualizer} currentTime={currentTime} beatPulse={beatPulse} width={width} height={height} />
+      {(isVisualizerScene || (!activeClip && mode === 'lyrics-video')) && (
+        <VisualizerLayer visualizer={visualizer} currentTime={currentTime} beatPulse={beatPulse} width={width} height={height} />
+      )}
 
       {/* 4. ANIMATED LYRICS LAYER */}
       <LyricsLayer 

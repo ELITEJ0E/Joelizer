@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
@@ -9,11 +10,30 @@ import { startExportJob, getExportJob, runAutomatedRenderTest } from './server/r
 
 dotenv.config();
 
+// Ensure public staged directory exists
+const STAGED_DIR = path.resolve('./public/staged');
+if (!fs.existsSync(STAGED_DIR)) {
+  fs.mkdirSync(STAGED_DIR, { recursive: true });
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // JSON Body parser with extended payload limit for audio files
+  // Serve staged media files statically
+  app.use('/staged', express.static(STAGED_DIR));
+
+  const stageStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, STAGED_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || '.bin';
+      const uniqueName = `staged-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+      cb(null, uniqueName);
+    }
+  });
+  const stageUpload = multer({ storage: stageStorage, limits: { fileSize: 500 * 1024 * 1024 } });
+
+  // JSON Body parser with extended payload limit
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -68,6 +88,27 @@ async function startServer() {
   // 1. Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
+  // 1b. Asset Staging Endpoint (Converts local Blobs/Files into server-renderable URLs)
+  app.post('/api/stage-asset', stageUpload.single('file'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file provided for staging' });
+      }
+      const fileUrl = `/staged/${req.file.filename}`;
+      return res.json({
+        success: true,
+        url: fileUrl,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimeType: req.file.mimetype
+      });
+    } catch (err: any) {
+      console.error('Asset Staging Error:', err);
+      return res.status(500).json({ error: err.message || 'Failed to stage asset' });
+    }
   });
 
   // 1c. Server Video Export Endpoints

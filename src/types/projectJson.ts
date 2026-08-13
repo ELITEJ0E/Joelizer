@@ -71,7 +71,7 @@ export interface CanonicalVideoClip {
   id: string;
   assetId: string;
   url: string; // Object URL or http URL or base64 data URI
-  mediaType: 'video' | 'image';
+  mediaType: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
   startTime: number; // Timeline start in seconds
   endTime: number;   // Timeline end in seconds
   duration: number;  // Clip duration on timeline

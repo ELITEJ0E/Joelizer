@@ -11,6 +11,7 @@ import { animate, stagger } from 'animejs';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { ExportRangeSlider } from './ExportRangeSlider';
 import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
+import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
 import { AspectRatioType, ExportResolutionType, ExportModeType } from '../../types/projectJson';
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
@@ -25,6 +26,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<number | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [activeRendererName, setActiveRendererName] = useState<string>('');
 
   // Settings
   const [resolution, setResolution] = useState<ExportResolutionType>('1080p');
@@ -135,7 +137,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setDownloadUrl(null);
   };
 
-  // Primary Production Server Export (Remotion + FFmpeg)
+  // Unified Production Export (Server Remotion / Local FFmpeg / Browser Fallback)
   const handleServerExport = async () => {
     if (!hasAudio) return;
 
@@ -143,70 +145,42 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       isCancelledRef.current = false;
       setIsExporting(true);
       setExportStage('preparing');
-      setStageMessage('Building Canonical Project JSON & media assets...');
+      setStageMessage('Building Canonical Project JSON & staging media assets...');
       setProgress(5);
       setExportError(null);
       setDownloadUrl(null);
 
-      // Build canonical JSON with embedded media URIs for user-uploaded files
+      // Build canonical JSON with staging for local assets (no base64 data URIs)
       const projectJson = await buildCanonicalProjectJson({
         resolution,
         fps,
-        modeOverride: exportMode,
-        embedMediaAsDataUri: true
+        modeOverride: exportMode
       });
 
-      setStageMessage('Submitting project to Remotion server rendering pipeline...');
-      setProgress(15);
+      setStageMessage('Detecting optimal video render engine...');
+      setProgress(12);
 
-      const res = await fetch('/api/export-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(projectJson)
+      const renderer = await getBestAvailableRenderer(useBrowserFallback ? 'browser' : undefined);
+      setActiveRendererName(renderer.name);
+
+      const result = await renderer.render(projectJson, (prog) => {
+        if (isCancelledRef.current) return;
+        setExportStage(prog.stage as any);
+        setStageMessage(prog.stageMessage);
+        setProgress(prog.progress);
+        if (prog.error) setExportError(prog.error);
       });
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || `Server export request failed (${res.status})`);
+      if (result.outputUrl) {
+        setDownloadUrl(result.outputUrl);
+        setFileSize(result.fileSize || null);
+        setExportStage('ready');
+        setProgress(100);
       }
-
-      const { exportId } = await res.json();
-      setExportJobId(exportId);
-
-      // Poll progress endpoint
-      pollIntervalRef.current = setInterval(async () => {
-        if (isCancelledRef.current) {
-          clearInterval(pollIntervalRef.current);
-          return;
-        }
-
-        try {
-          const progRes = await fetch(`/api/export-progress/${exportId}`);
-          if (!progRes.ok) return;
-
-          const job = await progRes.json();
-          setExportStage(job.stage);
-          setStageMessage(job.stageMessage || 'Processing video...');
-          setProgress(job.progress || 0);
-
-          if (job.stage === 'ready') {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-            setDownloadUrl(job.outputUrl || `/api/download-export/${exportId}`);
-            setFileSize(job.fileSize || null);
-          } else if (job.stage === 'error') {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-            setExportError(job.error || 'Server rendering failed');
-          }
-        } catch (pollErr) {
-          console.warn('Error polling export progress:', pollErr);
-        }
-      }, 800);
     } catch (err: any) {
-      console.error('Server export initiation error:', err);
+      console.error('Unified export error:', err);
       setExportStage('error');
-      setExportError(err.message || 'Failed to start video export process');
+      setExportError(err.message || 'Failed to export video');
     }
   };
 

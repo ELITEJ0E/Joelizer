@@ -382,6 +382,24 @@ export function MVTimeline() {
                 const left = (clip.startTime / duration) * 100;
                 const width = Math.max(0.2, ((clip.endTime - clip.startTime) / duration) * 100);
                 const isSelected = clip.id === selectedClipId;
+                const isVinyl = clip.mediaType === 'vinyl-lyrics' || clip.assetId === 'vinyl-lyrics';
+                const isVisualizer = clip.mediaType === 'visualizer' || clip.assetId === 'visualizer';
+                const isImage = clip.mediaType === 'image';
+
+                let clipBg = 'bg-blue-600/40 border-blue-400/50 hover:bg-blue-600/60';
+                if (clip.locked) {
+                  clipBg = 'bg-amber-900/40 border-amber-500/60';
+                } else if (isVinyl) {
+                  clipBg = 'bg-indigo-900/60 border-indigo-400/60 hover:bg-indigo-800/80';
+                } else if (isVisualizer) {
+                  clipBg = 'bg-emerald-900/60 border-emerald-400/60 hover:bg-emerald-800/80';
+                } else if (isImage) {
+                  clipBg = 'bg-amber-900/40 border-amber-500/50 hover:bg-amber-800/60';
+                }
+
+                let clipLabel = asset ? asset.name : 'Media Clip';
+                if (isVinyl) clipLabel = 'Vinyl Lyrics Scene';
+                if (isVisualizer) clipLabel = 'Audio Visualizer Scene';
 
                 return (
                   <div 
@@ -407,9 +425,7 @@ export function MVTimeline() {
                     } ${
                       isSelected 
                         ? 'ring-2 border-white z-20 shadow-lg' 
-                        : clip.locked 
-                        ? 'bg-amber-900/40 border-amber-500/60' 
-                        : 'bg-blue-600/40 border-blue-400/50 hover:bg-blue-600/60'
+                        : clipBg
                     }`}
                     style={{ 
                       left: `${left}%`, 
@@ -437,16 +453,24 @@ export function MVTimeline() {
                       />
                     )}
 
-                    {asset && asset.thumbnail && (
+                    {asset && asset.thumbnail && !isVinyl && !isVisualizer && (
                       <img src={asset.thumbnail} alt="" className="h-full opacity-60 object-cover pointer-events-none" />
                     )}
 
                     <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60 pointer-events-none" />
 
                     <div className="absolute left-2 right-2 flex items-center justify-between pointer-events-none z-10 text-[9px] font-mono text-white truncate">
-                      <span className="truncate flex items-center gap-1">
-                        {clip.mediaType === 'image' ? <ImageIcon size={9} className="text-amber-300" /> : <Film size={9} className="text-blue-300" />}
-                        {asset ? asset.name : 'Clip'}
+                      <span className="truncate flex items-center gap-1 font-bold">
+                        {isVinyl ? (
+                          <span className="text-purple-300">💿</span>
+                        ) : isVisualizer ? (
+                          <span className="text-emerald-300">📊</span>
+                        ) : isImage ? (
+                          <ImageIcon size={9} className="text-amber-300" />
+                        ) : (
+                          <Film size={9} className="text-blue-300" />
+                        )}
+                        {clipLabel}
                       </span>
                       {clip.locked && <Lock size={10} className="text-amber-400 shrink-0" />}
                     </div>

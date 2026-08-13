@@ -1,6 +1,7 @@
 import { useStore } from '../store/useStore';
 import { useMVStore } from '../store/useMVStore';
 import { useLyricsVideoStore } from '../store/useLyricsVideoStore';
+import { stageAssetIfNeeded } from './assetStaging';
 import { 
   CanonicalProjectJson, 
   CanonicalLyricLine, 
@@ -10,36 +11,11 @@ import {
   getResolutionDimensions 
 } from '../types/projectJson';
 
-export async function blobToDataUri(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-export async function urlToDataUriIfNeeded(url: string | null): Promise<string | null> {
-  if (!url) return null;
-  if (url.startsWith('data:')) return url;
-  if (url.startsWith('blob:')) {
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      return await blobToDataUri(blob);
-    } catch (e) {
-      console.warn('Failed to convert blob URL to data URI:', url, e);
-      return url;
-    }
-  }
-  return url;
-}
-
 export async function buildCanonicalProjectJson(options?: {
   resolution?: ExportResolutionType;
   fps?: number;
   modeOverride?: ExportModeType;
-  embedMediaAsDataUri?: boolean;
+  skipStaging?: boolean;
 }): Promise<CanonicalProjectJson> {
   const mainStore = useStore.getState();
   const mvStore = useMVStore.getState();
@@ -57,13 +33,13 @@ export async function buildCanonicalProjectJson(options?: {
   const audioDuration = mainStore.audioDuration || currentTrack?.duration || 10;
   
   let rawAudioUrl = mainStore.audioUrl || currentTrack?.url || null;
-  let audioDataUri: string | null = null;
+  let stagedAudioUrl: string | null = rawAudioUrl;
 
-  if (options?.embedMediaAsDataUri || (rawAudioUrl && rawAudioUrl.startsWith('blob:'))) {
-    if (mainStore.audioFile && mainStore.audioFile instanceof Blob) {
-      audioDataUri = await blobToDataUri(mainStore.audioFile);
+  if (!options?.skipStaging) {
+    if (mainStore.audioFile) {
+      stagedAudioUrl = await stageAssetIfNeeded(mainStore.audioFile, 'track_audio');
     } else if (rawAudioUrl) {
-      audioDataUri = await urlToDataUriIfNeeded(rawAudioUrl);
+      stagedAudioUrl = await stageAssetIfNeeded(rawAudioUrl, 'track_audio');
     }
   }
 
@@ -108,11 +84,11 @@ export async function buildCanonicalProjectJson(options?: {
     const asset = mvStore.videoAssets.find(a => a.id === clip.assetId);
     let clipUrl = asset?.url || clip.assetId;
 
-    if (options?.embedMediaAsDataUri && clipUrl && clipUrl.startsWith('blob:')) {
+    if (!options?.skipStaging && clipUrl) {
       if (asset?.file) {
-        clipUrl = await blobToDataUri(asset.file);
+        clipUrl = (await stageAssetIfNeeded(asset.file, `clip_${clip.id}`)) || clipUrl;
       } else {
-        clipUrl = (await urlToDataUriIfNeeded(clipUrl)) || clipUrl;
+        clipUrl = (await stageAssetIfNeeded(clipUrl, `clip_${clip.id}`)) || clipUrl;
       }
     }
 
@@ -138,8 +114,18 @@ export async function buildCanonicalProjectJson(options?: {
   const vis = mainStore.visualizerSettings;
 
   let albumArtUrl = currentTrack?.albumArt || mainStore.albumArt;
-  if (options?.embedMediaAsDataUri && albumArtUrl && albumArtUrl.startsWith('blob:')) {
-    albumArtUrl = (await urlToDataUriIfNeeded(albumArtUrl)) || albumArtUrl;
+  if (!options?.skipStaging && albumArtUrl) {
+    albumArtUrl = (await stageAssetIfNeeded(albumArtUrl, 'album_art')) || albumArtUrl;
+  }
+
+  let bgVideoUrl = bg.videoUrl;
+  if (!options?.skipStaging && bgVideoUrl) {
+    bgVideoUrl = (await stageAssetIfNeeded(bgVideoUrl, 'bg_video')) || bgVideoUrl;
+  }
+
+  let bgValue = bg.value || '#111111';
+  if (!options?.skipStaging && bg.type === 'image' && bgValue) {
+    bgValue = (await stageAssetIfNeeded(bgValue, 'bg_image')) || bgValue;
   }
 
   const projectJson: CanonicalProjectJson = {
@@ -157,8 +143,8 @@ export async function buildCanonicalProjectJson(options?: {
       duration: Number(duration.toFixed(3))
     },
     audio: {
-      url: rawAudioUrl,
-      audioDataUri,
+      url: stagedAudioUrl,
+      audioDataUri: null,
       title: currentTrack?.name || mainStore.name || 'Untitled Song',
       artist: currentTrack?.artist || 'Joelizer Studio',
       albumArt: albumArtUrl,
@@ -181,8 +167,8 @@ export async function buildCanonicalProjectJson(options?: {
     },
     background: {
       type: bg.type || 'color',
-      value: bg.value || '#111111',
-      videoUrl: bg.videoUrl,
+      value: bgValue,
+      videoUrl: bgVideoUrl,
       blurAlbumArt: mainStore.backgroundSettings.blurAlbumArt
     },
     artwork: {

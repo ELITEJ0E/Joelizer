@@ -157,17 +157,152 @@ app.post('/api/mv/auto-edit', (req, res) => {
   res.json({ timelineClips });
 });
 
-// 5. Local Export using FFmpeg
+// 5. Real Local Export using FFmpeg
 app.post('/api/mv/export', async (req, res) => {
   try {
-    const { timelineClips, videoAssets, outputPath } = req.body;
-    // In a real local engine, we would generate an FFmpeg complex filter graph
-    // concatting all the video clips, resizing them, and overlaying the audio track.
+    const { project, timelineClips, videoAssets, outputPath: customOutputPath } = req.body;
     
-    res.json({ status: 'success', message: 'Export logic executed', path: outputPath || 'output.mp4' });
+    const exportDir = path.resolve('./exports');
+    if (!fs.existsSync(exportDir)) {
+      fs.mkdirSync(exportDir, { recursive: true });
+    }
+
+    const exportId = `local-export-${Date.now()}`;
+    const finalMp4Path = customOutputPath 
+      ? path.resolve(customOutputPath)
+      : path.join(exportDir, `${exportId}.mp4`);
+
+    const width = project?.width || 1920;
+    const height = project?.height || 1080;
+    const fps = project?.fps || 30;
+
+    // Helper to resolve URL or relative staged path to a local file
+    const resolveLocalPath = async (urlStr) => {
+      if (!urlStr) return null;
+      if (urlStr.startsWith('/staged/')) {
+        const localPath = path.resolve('./public' + urlStr);
+        if (fs.existsSync(localPath)) return localPath;
+      }
+      if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
+        const tmpPath = path.join(exportDir, `tmp-${Date.now()}-${Math.random().toString(36).slice(2,6)}.bin`);
+        const fetchRes = await fetch(urlStr);
+        if (fetchRes.ok) {
+          const buf = Buffer.from(await fetchRes.arrayBuffer());
+          fs.writeFileSync(tmpPath, buf);
+          return tmpPath;
+        }
+      }
+      if (fs.existsSync(urlStr)) return urlStr;
+      return null;
+    };
+
+    // Resolve audio track
+    const rawAudioUrl = project?.audio?.url || req.body.audioUrl;
+    let localAudioPath = await resolveLocalPath(rawAudioUrl);
+
+    // If no audio track provided, create a 5-second silent audio track
+    if (!localAudioPath) {
+      localAudioPath = path.join(exportDir, `silent-${exportId}.mp3`);
+      await execAsync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 5 -q:a 9 -acodec libmp3lame "${localAudioPath}"`);
+    }
+
+    const clips = project?.videoClips || timelineClips || [];
+
+    if (clips.length > 0) {
+      // Process multiple video / image clips
+      const resolvedClips = [];
+      for (const clip of clips) {
+        const clipAsset = videoAssets?.find(a => a.id === clip.assetId);
+        const clipUrl = clip.url || clipAsset?.url;
+        const clipPath = await resolveLocalPath(clipUrl);
+        if (clipPath) {
+          resolvedClips.push({
+            ...clip,
+            localPath: clipPath
+          });
+        }
+      }
+
+      if (resolvedClips.length > 0) {
+        // Build FFmpeg complex filter
+        let filterGraph = '';
+        let inputCmds = '';
+
+        resolvedClips.forEach((c, idx) => {
+          inputCmds += `-i "${c.localPath}" `;
+          const tStart = c.trimStart || 0;
+          const tEnd = c.trimEnd || (c.endTime - c.startTime) || 5;
+          filterGraph += `[${idx}:v]trim=start=${tStart}:end=${tEnd},setpts=PTS-STARTPTS,scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=${fps}[v${idx}]; `;
+        });
+
+        const concatInputs = resolvedClips.map((_, idx) => `[v${idx}]`).join('');
+        filterGraph += `${concatInputs}concat=n=${resolvedClips.length}:v=1:a=0[vout]`;
+
+        const ffmpegCmd = `ffmpeg -y ${inputCmds} -i "${localAudioPath}" -filter_complex "${filterGraph}" -map "[vout]" -map ${resolvedClips.length}:a -c:v libx264 -preset fast -pix_fmt yuv420p -c:a aac -b:a 192k -shortest "${finalMp4Path}"`;
+        
+        await execAsync(ffmpegCmd);
+      } else {
+        // Fallback: render background color video + audio
+        const ffmpegCmd = `ffmpeg -y -f lavfi -i color=c=0x111111:s=${width}x${height}:r=${fps} -i "${localAudioPath}" -c:v libx264 -preset fast -pix_fmt yuv420p -c:a aac -b:a 192k -shortest "${finalMp4Path}"`;
+        await execAsync(ffmpegCmd);
+      }
+    } else {
+      // Single background / artwork image or color fallback
+      const albumArtUrl = project?.audio?.albumArt || project?.background?.value;
+      const albumArtPath = await resolveLocalPath(albumArtUrl);
+
+      if (albumArtPath && fs.existsSync(albumArtPath) && albumArtPath.match(/\.(png|jpg|jpeg|webp)$/i)) {
+        const ffmpegCmd = `ffmpeg -y -loop 1 -i "${albumArtPath}" -i "${localAudioPath}" -filter_complex "scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}" -c:v libx264 -preset fast -tune stillimage -pix_fmt yuv420p -c:a aac -b:a 192k -shortest "${finalMp4Path}"`;
+        await execAsync(ffmpegCmd);
+      } else {
+        const ffmpegCmd = `ffmpeg -y -f lavfi -i color=c=0x111111:s=${width}x${height}:r=${fps} -i "${localAudioPath}" -c:v libx264 -preset fast -pix_fmt yuv420p -c:a aac -b:a 192k -shortest "${finalMp4Path}"`;
+        await execAsync(ffmpegCmd);
+      }
+    }
+
+    if (!fs.existsSync(finalMp4Path)) {
+      throw new Error('FFmpeg completed but output MP4 file was not generated');
+    }
+
+    const stats = fs.statSync(finalMp4Path);
+    if (stats.size === 0) {
+      throw new Error('Generated MP4 file is empty (0 bytes)');
+    }
+
+    return res.json({ 
+      status: 'success', 
+      message: 'Local FFmpeg export completed successfully', 
+      path: finalMp4Path,
+      fileSize: stats.size,
+      outputUrl: `/exports/${path.basename(finalMp4Path)}`
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to export' });
+    console.error('Local Engine Export Error:', error);
+    return res.status(500).json({ error: error.message || 'Local FFmpeg export failed' });
+  }
+});
+
+// 6. Local Engine Automated Render Test
+app.get('/api/mv/render-test', async (req, res) => {
+  try {
+    const exportDir = path.resolve('./exports');
+    if (!fs.existsSync(exportDir)) {
+      fs.mkdirSync(exportDir, { recursive: true });
+    }
+    const testPath = path.join(exportDir, `local-test-${Date.now()}.mp4`);
+    const cmd = `ffmpeg -y -f lavfi -i color=c=0x00e676:s=640x360:r=30 -f lavfi -i anullsrc=r=44100:cl=stereo -t 3 -c:v libx264 -pix_fmt yuv420p -c:a aac "${testPath}"`;
+    await execAsync(cmd);
+
+    if (fs.existsSync(testPath) && fs.statSync(testPath).size > 0) {
+      return res.json({
+        success: true,
+        message: `Local FFmpeg render test passed. File size: ${fs.statSync(testPath).size} bytes.`,
+        path: testPath
+      });
+    }
+    return res.status(500).json({ success: false, error: 'Render test output file empty or missing' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

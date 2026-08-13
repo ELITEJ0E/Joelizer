@@ -4,6 +4,8 @@ import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { renderLyricsVideoFrame } from '../../lib/lyricsEngine';
+import { audioManager } from '../../lib/audio';
+import { renderVisualizer } from '../../lib/renderers';
 import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay';
 import { Play, Maximize2, Minimize2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
@@ -192,7 +194,56 @@ export function MVPreview() {
       const assets = mvState.videoAssets;
       const activeClip = clips.find(c => curTime >= c.startTime && curTime <= c.endTime);
 
-      if (activeClip) {
+      const isVinylScene = activeClip && (activeClip.mediaType === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
+      const isVisualizerScene = activeClip && (activeClip.mediaType === 'visualizer' || activeClip.assetId === 'visualizer');
+
+      if (isVinylScene || (!activeClip && clips.length === 0)) {
+        // Render Vinyl Lyrics Scene
+        const currentTrack = storeState.tracks[storeState.currentTrackIndex];
+        const tmpl = LYRIC_VIDEO_TEMPLATES[lyricsVideoState.selectedTemplateId || 'vinyl'];
+
+        renderLyricsVideoFrame(
+          ctx,
+          W,
+          H,
+          curTime,
+          storeState.lyricsSettings?.lines || [],
+          {
+            title: currentTrack?.name || 'Untitled Track',
+            artist: currentTrack?.artist || 'Joelizer Studio',
+            albumArtUrl: currentTrack?.albumArt || storeState.albumArt
+          },
+          {
+            template: tmpl,
+            aspectRatio: storeState.aspectRatio,
+            customBackground: lyricsVideoState.customBackground,
+            typographyOverride: lyricsVideoState.typographyOverride,
+            artworkOverride: lyricsVideoState.artworkOverride,
+            animationOverride: lyricsVideoState.animationOverride,
+            elementPositions: lyricsVideoState.elementPositions,
+            watermarkText: 'Made with Joelizer',
+            showSafeArea: lyricsVideoState.showSafeArea
+          }
+        );
+
+        animFrameId = requestAnimationFrame(render);
+        return;
+      }
+
+      if (isVisualizerScene) {
+        // Render Audio-Reactive Visualizer Scene
+        const freqData = audioManager.getFrequencyData();
+        const timeData = audioManager.getTimeDomainData();
+
+        renderVisualizer(
+          ctx,
+          freqData,
+          timeData,
+          storeState.visualizerSettings,
+          W,
+          H
+        );
+      } else if (activeClip) {
         const asset = assets.find(a => a.id === activeClip.assetId);
         if (asset && asset.url) {
           const clipDuration = activeClip.endTime - activeClip.startTime || 1;
@@ -323,7 +374,7 @@ export function MVPreview() {
           }
         }
       } else {
-        // Fallback placeholder stage if no timeline clip at currentTime
+        // Fallback placeholder stage if gap in timeline
         const grad = ctx.createRadialGradient(W / 2, H / 2, 50, W / 2, H / 2, W / 1.2);
         grad.addColorStop(0, '#131622');
         grad.addColorStop(1, '#050508');
