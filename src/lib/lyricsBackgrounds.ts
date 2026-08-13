@@ -120,14 +120,23 @@ export function drawBackgroundCanvas(
     ctx.fillStyle = bgSettings.value || '#09090b';
     ctx.fillRect(0, 0, W, H);
   } else if (bgSettings.type === 'gradient') {
-    if (bgSettings.value && bgSettings.value.includes('gradient')) {
+    const val = bgSettings.value || '';
+    const colorMatches = val.match(/(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\))/g);
+    if (colorMatches && colorMatches.length >= 2) {
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      colorMatches.forEach((color, idx) => {
+        const stop = idx / (colorMatches.length - 1);
+        grad.addColorStop(stop, color);
+      });
+      ctx.fillStyle = grad;
+    } else if (val.startsWith('#')) {
+      ctx.fillStyle = val;
+    } else {
       const grad = ctx.createLinearGradient(0, 0, W, H);
       grad.addColorStop(0, '#0f172a');
       grad.addColorStop(0.5, '#1e1b4b');
       grad.addColorStop(1, '#0f172a');
       ctx.fillStyle = grad;
-    } else {
-      ctx.fillStyle = bgSettings.value || '#0f172a';
     }
     ctx.fillRect(0, 0, W, H);
   } else if (bgSettings.type === 'image' && bgSettings.imageElement && bgSettings.imageElement.complete && bgSettings.imageElement.naturalWidth > 0) {

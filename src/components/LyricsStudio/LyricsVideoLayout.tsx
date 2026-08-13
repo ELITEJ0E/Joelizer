@@ -33,12 +33,13 @@ export function LyricsVideoLayout() {
 
   const visibleLineCount = useLyricsVideoStore(s => s.visibleLineCount);
   const setVisibleLineCount = useLyricsVideoStore(s => s.setVisibleLineCount);
+  const resetElementPositions = useLyricsVideoStore(s => s.resetElementPositions);
 
   const currentTime = useStore(s => s.currentTime);
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const isPlaying = useStore(s => s.isPlaying);
   const setIsPlaying = useStore(s => s.setIsPlaying);
-  const audioDuration = useStore(s => s.audioDuration);
+  const audioDuration = useStore(s => s.audioDuration) || 180;
 
   const aspectRatio = useStore(s => s.aspectRatio);
   const setAspectRatio = useStore(s => s.setAspectRatio);
@@ -48,47 +49,23 @@ export function LyricsVideoLayout() {
   const lyricsLines = useStore(s => s.lyricsSettings?.lines) || [];
 
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const stageContainerRef = useRef<HTMLDivElement>(null);
-  const [stageDimensions, setStageDimensions] = useState({ width: 640, height: 360 });
-
-  // Update overlay stage dimensions on resize
-  useEffect(() => {
-    if (!stageContainerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.contentRect) {
-          setStageDimensions({
-            width: entry.contentRect.width,
-            height: entry.contentRect.height
-          });
-        }
-      }
-    });
-    observer.observe(stageContainerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  // Find active line timestamp for top bar
-  const activeLine = lyricsLines.find(l => currentTime >= l.startTime && currentTime <= l.endTime);
-
   // Layout Styles Presets mapped to Mureka layout cards
-  const LAYOUT_PRESETS: Array<{ id: LyricTemplateId; name: string; tag: string }> = [
-    { id: 'full-screen', name: 'Full Cover', tag: 'Full Art' },
-    { id: 'classic', name: 'Square Card', tag: 'Square' },
-    { id: 'dreamy', name: 'Circle Card', tag: 'Circle' },
-    { id: 'vinyl', name: 'Vinyl Record', tag: 'Spinning' },
-    { id: 'kinetic', name: 'CD Disc', tag: 'CD Frame' },
-    { id: 'centered', name: 'Glassmorphism', tag: 'Frosted' },
-    { id: 'minimal', name: 'Minimal Focus', tag: 'Clean' },
+  const LAYOUT_PRESETS: Array<{ id: LyricTemplateId }> = [
+    { id: 'full' },
+    { id: 'square' },
+    { id: 'circle' },
+    { id: 'vinyl' },
+    { id: 'cd' },
+    { id: 'vinyl-needle' },
+    { id: 'cd-needle' },
   ];
 
   // Motion Background Preset Video Loops
   const BACKGROUND_LOOPS = [
     { id: 'cover', name: 'Song Cover', type: 'blurred-artwork', val: albumArt, isDefault: true },
-    { id: 'sunset', name: 'Sunset Glow', type: 'gradient', val: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)', duration: '00:05' },
+    { id: 'sunset', name: 'Sunset Glow', type: 'gradient', val: 'linear-gradient(135deg, #431407 0%, #9a3412 50%, #312e81 100%)', duration: '00:05' },
     { id: 'cyber', name: 'Cyber Neon', type: 'particles', val: '#083344', duration: '00:03' },
     { id: 'aurora', name: 'Cosmic Aurora', type: 'gradient', val: 'linear-gradient(135deg, #2e1065 0%, #701a75 50%, #1e1b4b 100%)', duration: '00:04' },
     { id: 'minimal', name: 'Deep Onyx', type: 'color', val: '#09090b', duration: '00:10' },
@@ -113,85 +90,124 @@ export function LyricsVideoLayout() {
   };
 
   const fontOptions = ['Outfit', 'Inter', 'Playfair Display', 'Space Grotesk', 'Plus Jakarta Sans', 'Cinzel'];
+  const colorSwatches = ['#00e676', '#38bdf8', '#06b6d4', '#c084fc', '#f472b6', '#fef08a', '#ffffff'];
+
+  // Waveform bars data for bottom timeline visualizer
+  const WAVEFORM_BARS = [
+    0.25, 0.40, 0.65, 0.85, 0.45, 0.30, 0.55, 0.75, 0.90, 0.60,
+    0.35, 0.50, 0.70, 0.95, 0.80, 0.40, 0.25, 0.60, 0.85, 0.50,
+    0.30, 0.45, 0.75, 0.90, 0.65, 0.35, 0.50, 0.80, 1.00, 0.70,
+    0.40, 0.25, 0.60, 0.85, 0.55, 0.35, 0.50, 0.75, 0.90, 0.60,
+    0.30, 0.45, 0.70, 0.95, 0.80, 0.40, 0.25, 0.55, 0.85, 0.50,
+    0.30, 0.50, 0.75, 0.90, 0.65, 0.35, 0.45, 0.80, 0.95, 0.70,
+    0.40, 0.25, 0.55, 0.85, 0.50, 0.30, 0.45, 0.75, 0.60, 0.35
+  ];
+
+  const handleWaveformScrub = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    setCurrentTime(ratio * audioDuration);
+  };
+
+  const playbackProgress = Math.max(0, Math.min(1, currentTime / (audioDuration || 1)));
 
   return (
     <div className="flex flex-col h-full bg-[#050508] text-slate-200 font-sans select-none overflow-hidden relative">
       
-      {/* 1. TOP HEADER */}
-      <div className="bg-[#09090e] border-b border-white/10 px-4 py-3 flex items-center justify-between shrink-0 z-30">
-        
-        {/* Track Title Pill */}
-        <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10 text-xs text-slate-300 max-w-[200px] sm:max-w-md truncate">
-          <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" style={{ backgroundColor: activeColor }} />
-          <span className="font-mono text-cyan-400 text-[11px] shrink-0" style={{ color: activeColor }}>
-            {formatTime(currentTime)}
-          </span>
-          <span className="truncate font-semibold italic text-slate-200">
-            {currentTrack?.name || 'Untitled Song'}
-          </span>
-        </div>
-
-        {/* Top Right Preview Title */}
-        <div className="text-xs font-semibold text-slate-400 flex items-center gap-2">
-          <span>Preview</span>
-          <span className="text-white font-bold max-w-[120px] sm:max-w-[200px] truncate">
-            {currentTrack?.name || 'Untitled Song'}
-          </span>
-        </div>
-      </div>
-
-      {/* 2. MAIN WORKSPACE: LEFT CONTROL SIDEBAR + RIGHT STAGE */}
+      {/* MAIN WORKSPACE: LEFT CONTROL SIDEBAR + RIGHT STAGE */}
       <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden relative">
         
         {/* LEFT CONTROL SIDEBAR */}
         <div className="w-full md:w-80 lg:w-96 bg-[#09090e] border-r border-white/10 flex flex-col shrink-0 overflow-y-auto no-scrollbar p-4 gap-5 z-20">
           
-          {/* LAYOUT SELECTOR SECTION */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                <Sparkles size={14} className="text-cyan-400" />
-                <span>Layout Style</span>
-              </label>
-              <span className="text-[10px] text-slate-400 font-mono">Select Design</span>
-            </div>
+          {/* 1. LAYOUT SELECTOR SECTION */}
+          <div className="space-y-3">
+            <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+              <Sparkles size={14} className="text-cyan-400" />
+              <span>Layout</span>
+            </label>
 
-            {/* Layout Cards Carousel/Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 gap-2.5">
+            {/* Layout Cards Scroll */}
+            <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
               {LAYOUT_PRESETS.map((layout) => {
                 const isSelected = selectedTemplateId === layout.id;
                 return (
                   <button
                     key={layout.id}
                     onClick={() => setSelectedTemplateId(layout.id)}
-                    className={`group relative rounded-xl p-2.5 border text-left transition-all cursor-pointer overflow-hidden flex flex-col items-center justify-center gap-2 ${
+                    className={`relative shrink-0 w-[72px] h-[96px] rounded-xl overflow-hidden border transition-all cursor-pointer group ${
                       isSelected
-                        ? 'bg-cyan-950/30 border-cyan-400 text-white ring-1 ring-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]'
-                        : 'bg-white/5 border-white/10 hover:border-white/25 text-slate-300 hover:bg-white/10'
+                        ? 'border-cyan-400 ring-1 ring-cyan-400'
+                        : 'border-transparent hover:border-white/20'
                     }`}
                   >
-                    {/* Thumbnail Artwork Preview */}
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-white/10 shadow-md group-hover:scale-105 transition-transform">
-                      <img src={albumArt} alt={layout.name} className="w-full h-full object-cover" />
-                      {layout.id === 'vinyl' && (
-                        <div className="absolute inset-0 rounded-full border-2 border-black/80 bg-black/40 flex items-center justify-center">
-                          <div className="w-3 h-3 rounded-full bg-cyan-400" />
+                    {/* Blurred Background Base for all except full */}
+                    {layout.id !== 'full' && (
+                      <div className="absolute inset-0 z-0">
+                        <img src={albumArt} alt="" className="w-full h-full object-cover blur-sm brightness-50" />
+                      </div>
+                    )}
+
+                    {/* Content Layers */}
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none p-1">
+                      
+                      {layout.id === 'full' && (
+                        <img src={albumArt} alt="" className="w-full h-full object-cover rounded-lg" />
+                      )}
+
+                      {layout.id === 'square' && (
+                        <div className="w-10 h-10 rounded-md overflow-hidden shadow-lg mb-2 relative">
+                           <img src={albumArt} alt="" className="w-full h-full object-cover" />
                         </div>
                       )}
-                      {layout.id === 'dreamy' && (
-                        <div className="absolute inset-0 rounded-full border-2 border-cyan-400/60" />
-                      )}
-                    </div>
 
-                    {/* Title & Badge */}
-                    <div className="text-center">
-                      <div className="text-[11px] font-bold truncate leading-tight">{layout.name}</div>
-                      <div className="text-[9px] text-slate-400 uppercase tracking-wider">{layout.tag}</div>
+                      {layout.id === 'circle' && (
+                        <div className="w-10 h-10 rounded-full overflow-hidden shadow-lg mb-2 relative">
+                           <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+
+                      {(layout.id === 'vinyl' || layout.id === 'vinyl-needle') && (
+                        <div className="w-12 h-12 rounded-full bg-[#111] shadow-xl mb-2 relative flex items-center justify-center border border-white/10">
+                           <div className="absolute inset-1 rounded-full border border-white/10"></div>
+                           <div className="absolute inset-2 rounded-full border border-white/10"></div>
+                           <div className="w-4 h-4 rounded-full overflow-hidden relative z-10">
+                              <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                           </div>
+                           {layout.id === 'vinyl-needle' && (
+                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#a3a3a3] rounded-tr-lg z-20 origin-top-right rotate-12">
+                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#404040] rounded-sm"></div>
+                              </div>
+                           )}
+                        </div>
+                      )}
+
+                      {(layout.id === 'cd' || layout.id === 'cd-needle') && (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-pink-500 via-cyan-400 to-emerald-400 shadow-[0_0_10px_rgba(255,255,255,0.4)] mb-2 relative flex items-center justify-center">
+                           <div className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center backdrop-blur-sm">
+                             <div className="w-10 h-10 rounded-full overflow-hidden relative z-10">
+                                <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                             </div>
+                           </div>
+                           {layout.id === 'cd-needle' && (
+                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#e5e5e5] rounded-tr-lg z-20 origin-top-right rotate-12 shadow">
+                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#525252] rounded-sm"></div>
+                              </div>
+                           )}
+                        </div>
+                      )}
+
+                      {/* Mock Text Lines */}
+                      <div className="flex flex-col gap-1 items-center w-full px-2 opacity-60">
+                        <div className="h-1 w-full max-w-[40px] bg-white rounded-full"></div>
+                        <div className="h-1 w-full max-w-[30px] bg-white rounded-full"></div>
+                      </div>
                     </div>
 
                     {/* Active Checkmark Badge */}
                     {isSelected && (
-                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center shadow">
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center shadow z-20">
                         <Check size={10} strokeWidth={3} />
                       </div>
                     )}
@@ -201,15 +217,12 @@ export function LyricsVideoLayout() {
             </div>
           </div>
 
-          {/* BACKGROUND SELECTOR SECTION */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                <Palette size={14} className="text-cyan-400" />
-                <span>Background</span>
-              </label>
-              <span className="text-[10px] text-slate-400">Media / Color</span>
-            </div>
+          {/* 2. BACKGROUND SELECTOR SECTION */}
+          <div className="space-y-3">
+            <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+              <ImageIcon size={14} className="text-cyan-400" />
+              <span>Background</span>
+            </label>
 
             <div className="grid grid-cols-3 gap-2">
               {/* Upload Custom File Card */}
@@ -252,7 +265,6 @@ export function LyricsVideoLayout() {
                       <img src={albumArt} alt="Song Cover" className="absolute inset-0 w-full h-full object-cover opacity-60" />
                     )}
 
-                    {/* Duration badge */}
                     {bg.duration && (
                       <span className="relative z-10 self-end text-[9px] font-mono bg-black/70 px-1.5 py-0.5 rounded text-slate-300">
                         {bg.duration}
@@ -274,7 +286,7 @@ export function LyricsVideoLayout() {
             </div>
           </div>
 
-          {/* ASPECT RATIO SECTION */}
+          {/* 3. ASPECT RATIO SECTION */}
           <div className="space-y-2.5">
             <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
               <Film size={14} className="text-cyan-400" />
@@ -282,12 +294,15 @@ export function LyricsVideoLayout() {
             </label>
 
             <div className="grid grid-cols-4 gap-1.5 bg-black/60 p-1.5 rounded-xl border border-white/10">
-              {(['16:9', '9:16', '3:4', '4:3'] as AspectRatio[]).map((ar) => {
+              {(['16:9', '9:16', '1:1', '4:3'] as AspectRatio[]).map((ar) => {
                 const isSelected = aspectRatio === ar;
                 return (
                   <button
                     key={ar}
-                    onClick={() => setAspectRatio(ar)}
+                    onClick={() => {
+                      setAspectRatio(ar);
+                      resetElementPositions(ar);
+                    }}
                     className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1 ${
                       isSelected
                         ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black shadow'
@@ -300,109 +315,136 @@ export function LyricsVideoLayout() {
               })}
             </div>
           </div>
-        </div>
 
-        {/* RIGHT CANVAS STAGE & DRAGGABLE OVERLAY */}
-        <div className="flex-1 min-w-0 bg-[#020204] flex flex-col relative overflow-hidden">
-          
-          {/* STAGE CONTAINER */}
-          <div
-            ref={stageContainerRef}
-            className="flex-1 min-h-[320px] relative flex items-center justify-center p-4 overflow-hidden"
-          >
-            {/* Live Canvas Renderer */}
-            <MVPreview />
+          {/* 4. STYLE & TYPOGRAPHY SECTION */}
+          <div className="space-y-3 pt-2 border-t border-white/10">
+            <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+              <Type size={14} className="text-cyan-400" />
+              <span>Style & Typography</span>
+            </label>
 
-            {/* Interactive Drag & Drop Overlay */}
-            <InteractiveStageOverlay
-              stageWidth={stageDimensions.width}
-              stageHeight={stageDimensions.height}
-            />
-          </div>
-
-          {/* BOTTOM STAGE CONTROLS TOOLBAR */}
-          <div className="bg-[#08080c] border-t border-white/10 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0 z-30">
-            
-            {/* Play/Pause & Time Scrubber */}
-            <div className="flex items-center gap-4 w-full md:w-auto flex-1">
-              <button
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer shrink-0"
-              >
-                {isPlaying ? <Pause size={24} fill="black" /> : <Play size={24} fill="black" className="ml-1" />}
-              </button>
-
-              <div className="flex items-center gap-3 text-sm font-mono text-slate-300 w-full max-w-md">
-                <span>{formatTime(currentTime)}</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={audioDuration || 100}
-                  value={currentTime}
-                  onChange={(e) => setCurrentTime(parseFloat(e.target.value))}
-                  className="flex-1 h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-                  style={{ accentColor: activeColor }}
-                />
-                <span>{formatTime(audioDuration)}</span>
-              </div>
-            </div>
-
-            {/* Color Dot Picker, Lines, Font & Download Button */}
-            <div className="flex items-center gap-3 flex-wrap shrink-0">
-              
-              {/* Color Accent Picker */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowColorPicker(!showColorPicker)}
-                  className="w-9 h-9 rounded-full hover:scale-110 transition-transform cursor-pointer shadow-md"
-                  style={{ backgroundColor: activeColor }}
-                  title="Accent Color"
-                />
-                {showColorPicker && (
-                  <div className="absolute bottom-12 right-0 md:left-0 md:right-auto bg-black/90 border border-white/20 p-2 rounded-xl flex gap-2 shadow-2xl z-50">
-                    {['#00e676', '#38bdf8', '#06b6d4', '#c084fc', '#f472b6', '#fef08a', '#ffffff'].map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => { setVisualizerColor(c); setShowColorPicker(false); }}
-                        className="w-7 h-7 rounded-full border border-white/20 hover:scale-110 transition-transform cursor-pointer"
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Visible Lines Count Selector */}
-              <select
-                value={visibleLineCount}
-                onChange={(e) => setVisibleLineCount(parseInt(e.target.value))}
-                className="bg-black border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-semibold cursor-pointer outline-none hover:bg-white/5"
-              >
-                <option value={1}>1 Line</option>
-                <option value={2}>2 Lines</option>
-                <option value={5}>5 Lines</option>
-              </select>
-
-              {/* Font Dropdown */}
+            {/* Font Family Selector */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold text-slate-400">Font Family</span>
               <select
                 value={typographyOverride.fontFamily}
                 onChange={(e) => updateTypographyOverride({ fontFamily: e.target.value })}
-                className="bg-black border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-semibold cursor-pointer outline-none hover:bg-white/5 max-w-[140px]"
+                className="w-full bg-black/70 border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-200 font-semibold cursor-pointer outline-none hover:border-cyan-400/50 transition-colors"
               >
                 {fontOptions.map(f => (
                   <option key={f} value={f}>{f}</option>
                 ))}
               </select>
-
-              {/* DOWNLOAD / EXPORT MP4 BUTTON */}
-              <button
-                onClick={() => setShowExportModal(true)}
-                className="px-5 py-2.5 rounded-full bg-white hover:bg-slate-200 text-black font-black text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer ml-2"
-              >
-                <Download size={18} strokeWidth={2.5} />
-                <span>Download</span>
-              </button>
             </div>
+
+            {/* Visible Lines Selector */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold text-slate-400">Lyrics Display Lines</span>
+              <div className="grid grid-cols-3 gap-1.5 bg-black/60 p-1.5 rounded-xl border border-white/10">
+                {[1, 2, 5].map((count) => (
+                  <button
+                    key={count}
+                    onClick={() => setVisibleLineCount(count)}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      visibleLineCount === count
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {count} {count === 1 ? 'Line' : 'Lines'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Accent Color Swatches */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold text-slate-400">Accent Color</span>
+              <div className="flex items-center gap-2 bg-black/60 p-2 rounded-xl border border-white/10 flex-wrap">
+                {colorSwatches.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setVisualizerColor(c)}
+                    className={`w-7 h-7 rounded-full border transition-transform cursor-pointer relative ${
+                      activeColor.toLowerCase() === c.toLowerCase()
+                        ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.6)]'
+                        : 'border-white/20 hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: c }}
+                  >
+                    {activeColor.toLowerCase() === c.toLowerCase() && (
+                      <Check size={12} className="text-black absolute inset-0 m-auto" strokeWidth={3} />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* RIGHT CANVAS STAGE */}
+        <div className="flex-1 min-w-0 bg-[#020204] flex flex-col relative overflow-hidden">
+          <div className="flex-1 min-h-[320px] relative flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+            <MVPreview />
+          </div>
+
+          {/* BOTTOM VISUALIZER RANGE DISPLAY PLAYER */}
+          <div className="bg-[#08080c] border-t border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between gap-3 sm:gap-4 shrink-0 z-30">
+            
+            {/* Circular Play / Pause Button */}
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer shrink-0"
+              title={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? <Pause size={20} fill="black" /> : <Play size={20} fill="black" className="ml-0.5" />}
+            </button>
+
+            {/* Visualizer Range Display Timeline Scrubber */}
+            <div 
+              onClick={handleWaveformScrub}
+              className="flex-1 h-12 bg-black/80 rounded-xl border border-white/10 px-3 flex items-center gap-3 cursor-pointer relative group overflow-hidden select-none"
+            >
+              {/* AUD Badge */}
+              <div className="flex items-center gap-1 font-mono text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded border border-emerald-500/40 shrink-0 shadow">
+                <Music size={11} className="text-emerald-400" />
+                <span>AUD</span>
+              </div>
+
+              {/* Waveform Bars Container */}
+              <div className="flex-1 h-8 flex items-center gap-[2px] relative">
+                {WAVEFORM_BARS.map((height, idx) => {
+                  const barRatio = idx / WAVEFORM_BARS.length;
+                  const isPlayed = barRatio <= playbackProgress;
+                  return (
+                    <div
+                      key={idx}
+                      className="flex-1 rounded-sm transition-colors duration-75"
+                      style={{
+                        height: `${height * 100}%`,
+                        backgroundColor: isPlayed ? activeColor : 'rgba(255, 255, 255, 0.15)',
+                        boxShadow: isPlayed ? `0 0 6px ${activeColor}80` : 'none'
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Time readout */}
+              <div className="text-[11px] font-mono font-bold text-slate-300 bg-black/60 px-2 py-0.5 rounded border border-white/10 shrink-0">
+                {formatTime(currentTime)} / {formatTime(audioDuration)}
+              </div>
+            </div>
+
+            {/* DOWNLOAD / EXPORT MP4 BUTTON */}
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="px-4 sm:px-5 py-2.5 rounded-full bg-white hover:bg-slate-200 text-black font-black text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0"
+            >
+              <Download size={16} strokeWidth={2.5} />
+              <span className="hidden sm:inline">Download</span>
+            </button>
           </div>
         </div>
       </div>

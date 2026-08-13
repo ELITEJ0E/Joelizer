@@ -214,7 +214,7 @@ function renderArtworkObject(
 
   ctx.translate(cx, cy + floatY);
 
-  if (artStyle === 'vinyl') {
+  if (artStyle === 'vinyl' || artStyle === 'vinyl-needle') {
     // --- HYPER-REALISTIC ROTATING VINYL RECORD ---
     const recordRadius = size / 2;
 
@@ -282,29 +282,164 @@ function renderArtworkObject(
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.lineWidth = 2;
     ctx.stroke();
+    
+    // Tonearm
+    if (artStyle === 'vinyl-needle') {
+      ctx.save();
+      // Pivot is top right of the record
+      const pivotX = recordRadius * 0.8;
+      const pivotY = -recordRadius * 0.8;
+      
+      // Gentle sway based on time
+      const sway = Math.sin(currentTime * 0.5) * 0.05;
+      
+      ctx.translate(pivotX, pivotY);
+      ctx.rotate(0.3 + sway); // Base angle + sway
+      
+      // Tonearm shadow
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 4;
+      
+      // The Arm
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-recordRadius * 0.8, recordRadius * 1.1);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#a3a3a3';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      
+      // Arm bend
+      ctx.beginPath();
+      ctx.moveTo(-recordRadius * 0.8, recordRadius * 1.1);
+      ctx.lineTo(-recordRadius * 0.9, recordRadius * 1.25);
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      
+      // Stylus/Cartridge
+      ctx.fillStyle = '#262626';
+      ctx.fillRect(-recordRadius * 0.95, recordRadius * 1.25, 12, 18);
+      ctx.fillStyle = '#525252';
+      ctx.fillRect(-recordRadius * 0.92, recordRadius * 1.25, 6, 10);
+      
+      // Pivot Base
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.fillStyle = '#262626';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#171717';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#a3a3a3';
+      ctx.fill();
+      
+      ctx.restore();
+    }
 
-  } else if (artStyle === 'cd') {
-    // Holographic CD Record
+  } else if (artStyle === 'cd' || artStyle === 'cd-needle') {
+    // CD glowing ring + center artwork
     const cdRadius = size / 2;
-    const cdGrad = ctx.createConicGradient(rotAngle, 0, 0);
-    cdGrad.addColorStop(0, '#f43f5e');
-    cdGrad.addColorStop(0.2, '#3b82f6');
-    cdGrad.addColorStop(0.4, '#10b981');
-    cdGrad.addColorStop(0.6, '#eab308');
-    cdGrad.addColorStop(0.8, '#a855f7');
-    cdGrad.addColorStop(1, '#f43f5e');
+    
+    // Outer glow ring
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+    ctx.beginPath();
+    ctx.arc(0, 0, cdRadius * 1.1, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = cdRadius * 0.2;
+    ctx.stroke();
 
-    ctx.fillStyle = cdGrad;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+    ctx.beginPath();
+    ctx.arc(0, 0, cdRadius * 1.05, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    ctx.shadowBlur = 0;
+
+    // Center Label Artwork Circle
+    ctx.save();
     ctx.beginPath();
     ctx.arc(0, 0, cdRadius, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.clip();
 
-    // Center hole & Artwork
-    const innerRadius = cdRadius * 0.35;
-    ctx.beginPath();
-    ctx.arc(0, 0, innerRadius, 0, Math.PI * 2);
-    ctx.fillStyle = '#09090b';
-    ctx.fill();
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, -cdRadius, -cdRadius, cdRadius * 2, cdRadius * 2);
+    } else {
+      ctx.fillStyle = '#1e1b4b';
+      ctx.fillRect(-cdRadius, -cdRadius, cdRadius * 2, cdRadius * 2);
+    }
+    ctx.restore();
+
+    // Tonearm
+    if (artStyle === 'cd-needle') {
+      ctx.save();
+      // Pivot is top right of the record
+      const pivotX = cdRadius * 0.8;
+      const pivotY = -cdRadius * 0.8;
+      
+      const sway = Math.sin(currentTime * 0.5) * 0.05;
+      
+      ctx.translate(pivotX, pivotY);
+      ctx.rotate(0.3 + sway); // Base angle + sway
+      
+      // Tonearm shadow
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 4;
+      
+      // The Arm
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-cdRadius * 0.8, cdRadius * 1.1);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#e5e5e5'; // Lighter silver tone
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      
+      // Arm bend
+      ctx.beginPath();
+      ctx.moveTo(-cdRadius * 0.8, cdRadius * 1.1);
+      ctx.lineTo(-cdRadius * 0.9, cdRadius * 1.25);
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      
+      // Stylus/Cartridge
+      ctx.fillStyle = '#404040';
+      ctx.fillRect(-cdRadius * 0.95, cdRadius * 1.25, 12, 18);
+      ctx.fillStyle = '#737373';
+      ctx.fillRect(-cdRadius * 0.92, cdRadius * 1.25, 6, 10);
+      
+      // Pivot Base
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.fillStyle = '#404040';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#262626';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#d4d4d4';
+      ctx.fill();
+      
+      ctx.restore();
+    }
   } else if (artStyle === 'circle' || artStyle === 'glowing-disc') {
     const r = size / 2;
     if (artStyle === 'glowing-disc') {

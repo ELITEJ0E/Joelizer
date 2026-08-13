@@ -4,6 +4,7 @@ import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { renderLyricsVideoFrame } from '../../lib/lyricsEngine';
+import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay';
 import { Play, Maximize2, Minimize2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 
@@ -16,11 +17,31 @@ export function MVPreview() {
   const aspectRatio = useStore(s => s.aspectRatio);
 
   const videoAssets = useMVStore(s => s.videoAssets);
+  const videoMode = useLyricsVideoStore(s => s.videoMode);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [stageDimensions, setStageDimensions] = useState({ width: 640, height: 360 });
+
+  // Sync canvas container dimensions for accurate interactive stage drag overlay
+  useEffect(() => {
+    if (!canvasContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect && entry.contentRect.width > 0) {
+          setStageDimensions({
+            width: entry.contentRect.width,
+            height: entry.contentRect.height
+          });
+        }
+      }
+    });
+    observer.observe(canvasContainerRef.current);
+    return () => observer.disconnect();
+  }, [aspectRatio]);
 
   // Sync fullscreen state with document
   useEffect(() => {
@@ -441,6 +462,7 @@ export function MVPreview() {
         className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-black/40 rounded-xl"
       >
         <div 
+          ref={canvasContainerRef}
           className="bg-black rounded-xl overflow-hidden relative shadow-2xl ring-1 ring-white/20 flex items-center justify-center transition-all duration-300"
           style={{
             aspectRatio: aspectRatioVal,
@@ -456,6 +478,14 @@ export function MVPreview() {
             ref={canvasRef}
             className="w-full h-full object-contain block"
           />
+
+          {/* Interactive Drag & Drop Overlay inside exact canvas boundaries */}
+          {videoMode === 'lyrics-video' && (
+            <InteractiveStageOverlay
+              stageWidth={stageDimensions.width}
+              stageHeight={stageDimensions.height}
+            />
+          )}
 
           {/* Play/Pause Overlay Toggle on Click */}
           <button

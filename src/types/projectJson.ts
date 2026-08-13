@@ -49,7 +49,7 @@ export interface CanonicalBackgroundConfig {
 }
 
 export interface CanonicalArtworkConfig {
-  style: 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'glowing-disc' | 'floating' | 'framed' | 'background-blur';
+  style: 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'floating' | 'framed' | 'background-blur';
   animation: 'none' | 'rotate' | 'scale-beat' | 'pulse' | 'float' | 'bounce';
   sizeScale: number;
 }

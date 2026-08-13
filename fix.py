@@ -1,98 +1,9 @@
-import { AspectRatio } from '../store/useStore';
+with open('src/lib/lyricsTemplates.ts', 'r') as f:
+    text = f.read()
 
-export type LyricTemplateId = 
-  | 'full'
-  | 'square'
-  | 'circle'
-  | 'vinyl'
-  | 'cd'
-  | 'vinyl-needle'
-  | 'cd-needle';
+prefix = text.split("export const LYRIC_VIDEO_TEMPLATES: Record<LyricTemplateId, LyricVideoTemplate> = {")[0]
 
-export type ArtworkStyle = 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'floating' | 'framed' | 'background-blur';
-export type ArtworkAnimation = 'none' | 'rotate' | 'scale-beat' | 'pulse' | 'float' | 'bounce';
-export type LyricPosition = 'center' | 'bottom' | 'top' | 'split';
-export type LyricAlignment = 'left' | 'center' | 'right';
-
-export type LineAnimation = 
-  | 'fade' 
-  | 'slide-up' 
-  | 'slide-down' 
-  | 'slide-left' 
-  | 'slide-right' 
-  | 'scale' 
-  | 'blur-in' 
-  | 'typewriter' 
-  | 'bounce' 
-  | 'wave' 
-  | 'stagger';
-
-export type WordAnimation = 
-  | 'karaoke' 
-  | 'word-pop' 
-  | 'word-scale' 
-  | 'word-glow' 
-  | 'word-bounce' 
-  | 'word-fade' 
-  | 'word-slide' 
-  | 'word-color' 
-  | 'word-underline' 
-  | 'word-blur' 
-  | 'word-stagger';
-
-export interface LyricVideoTemplate {
-  id: LyricTemplateId;
-  name: string;
-  description: string;
-  category: 'Modern' | 'Retro' | 'Minimal' | 'Cinematic' | 'Dynamic';
-  previewColor: string;
-  badge?: string;
-  
-  // Layout & Objects
-  layout: {
-    lyricPosition: LyricPosition;
-    lyricAlignment: LyricAlignment;
-    maxLines: number; // 1, 2, 3
-    showNextLine: boolean;
-    showPrevLine: boolean;
-    artworkType: ArtworkStyle;
-    artworkPosition: 'center' | 'top-center' | 'left' | 'background-blur';
-    artworkAnim: ArtworkAnimation;
-    showSongTitle: boolean;
-    showArtist: boolean;
-    titlePosition: 'top' | 'above-lyrics' | 'below-artwork' | 'corner';
-  };
-
-  // Typography & Styling Defaults
-  typography: {
-    fontFamily: string;
-    fontWeight: string;
-    fontSizeScale: number; // 0.8 to 1.5
-    textColor: string;
-    activeWordColor: string;
-    inactiveWordColor: string;
-    glowColor: string;
-    shadowColor: string;
-    showContainerPill: boolean;
-    pillBgColor: string;
-  };
-
-  // Animations
-  animations: {
-    lineAnimation: LineAnimation;
-    wordAnimation: WordAnimation;
-    intensity: number; // 0.5 to 2.0
-  };
-
-  // Default Background Preset
-  defaultBackground: {
-    type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
-    presetName: string;
-    value: string;
-  };
-}
-
-export const LYRIC_VIDEO_TEMPLATES: Record<LyricTemplateId, LyricVideoTemplate> = {
+new_templates = """export const LYRIC_VIDEO_TEMPLATES: Record<LyricTemplateId, LyricVideoTemplate> = {
   full: {
     id: 'full', name: 'Full Cover', description: '', category: 'Dynamic', previewColor: '#ec4899',
     layout: { lyricPosition: 'center', lyricAlignment: 'center', maxLines: 2, showNextLine: true, showPrevLine: false, artworkType: 'none', artworkPosition: 'background-blur', artworkAnim: 'none', showSongTitle: false, showArtist: false, titlePosition: 'corner' },
@@ -143,3 +54,8 @@ export const LYRIC_VIDEO_TEMPLATES: Record<LyricTemplateId, LyricVideoTemplate> 
     defaultBackground: { type: 'particles', presetName: 'Neon', value: '#083344' }
   }
 };
+"""
+
+with open('src/lib/lyricsTemplates.ts', 'w') as f:
+    f.write(prefix + new_templates)
+

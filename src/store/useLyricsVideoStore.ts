@@ -89,10 +89,18 @@ const DEFAULT_POSITIONS_16_9: CanvasElementPositions = {
 };
 
 const DEFAULT_POSITIONS_9_16: CanvasElementPositions = {
-  artwork: { x: 0.50, y: 0.28 },
   meta: { x: 0.50, y: 0.12 },
-  lyrics: { x: 0.50, y: 0.62 },
-  visualizer: { x: 0.50, y: 0.80 },
+  artwork: { x: 0.50, y: 0.40 },
+  lyrics: { x: 0.50, y: 0.74 },
+  visualizer: { x: 0.50, y: 0.85 },
+  watermark: { x: 0.50, y: 0.92 },
+};
+
+const DEFAULT_POSITIONS_1_1: CanvasElementPositions = {
+  meta: { x: 0.50, y: 0.10 },
+  artwork: { x: 0.50, y: 0.38 },
+  lyrics: { x: 0.50, y: 0.76 },
+  visualizer: { x: 0.50, y: 0.86 },
   watermark: { x: 0.50, y: 0.92 },
 };
 
@@ -210,8 +218,13 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
         elementPositions: { ...s.elementPositions, [key]: pos }
       })),
       resetElementPositions: (aspectRatio = '16:9') => {
-        const isVertical = aspectRatio === '9:16' || aspectRatio === '3:4' || aspectRatio === '4:5';
-        set({ elementPositions: isVertical ? DEFAULT_POSITIONS_9_16 : DEFAULT_POSITIONS_16_9 });
+        if (aspectRatio === '9:16' || aspectRatio === '3:4' || aspectRatio === '4:5') {
+          set({ elementPositions: DEFAULT_POSITIONS_9_16 });
+        } else if (aspectRatio === '1:1') {
+          set({ elementPositions: DEFAULT_POSITIONS_1_1 });
+        } else {
+          set({ elementPositions: DEFAULT_POSITIONS_16_9 });
+        }
       },
 
       generateLyricsVideo: () => {
@@ -228,13 +241,13 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
         let targetTemplate: LyricTemplateId = 'vinyl';
 
         if (bpm > 130) {
-          targetTemplate = 'kinetic'; // Upbeat / High energy
+          targetTemplate = 'vinyl-needle';
         } else if (bpm < 90) {
-          targetTemplate = 'dreamy'; // Slow / Ballad
+          targetTemplate = 'circle';
         } else if (language === 'ko' || language === 'ja') {
-          targetTemplate = 'neon'; // K-pop / J-pop vibe
+          targetTemplate = 'cd-needle';
         } else {
-          const templates: LyricTemplateId[] = ['vinyl', 'centered', 'full-screen', 'classic', 'orbital', 'neon', 'karaoke'];
+          const templates: LyricTemplateId[] = ['vinyl', 'cd', 'square', 'circle', 'full', 'vinyl-needle', 'cd-needle'];
           targetTemplate = templates[Math.floor(Math.random() * templates.length)];
         }
 
