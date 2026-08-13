@@ -4,7 +4,7 @@ import { LyricLine } from '../store/useStore';
 
 export interface LyricsRenderConfig {
   template: LyricVideoTemplate;
-  aspectRatio: '16:9' | '9:16' | '1:1' | '3:4' | '4:3';
+  aspectRatio: '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | '4:3';
   customBackground?: {
     type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
     value: string;
@@ -30,6 +30,14 @@ export interface LyricsRenderConfig {
     lineAnimation?: LineAnimation;
     wordAnimation?: WordAnimation;
   };
+  elementPositions?: {
+    artwork?: { x: number; y: number };
+    meta?: { x: number; y: number };
+    lyrics?: { x: number; y: number };
+    visualizer?: { x: number; y: number };
+    watermark?: { x: number; y: number };
+  };
+  watermarkText?: string;
   showSafeArea?: boolean;
 }
 
@@ -138,13 +146,14 @@ export function renderLyricsVideoFrame(
       artStyle,
       artAnim,
       artScale * beatPulse,
-      template
+      template,
+      config.elementPositions?.artwork
     );
   }
 
   // 3. Render Song Title & Artist Text if enabled
   if (template.layout.showSongTitle || template.layout.showArtist) {
-    renderSongMetaText(ctx, W, H, trackMeta, template);
+    renderSongMetaText(ctx, W, H, trackMeta, template, config.elementPositions?.meta);
   }
 
   // 4. Render Synchronized Lyrics
@@ -156,10 +165,14 @@ export function renderLyricsVideoFrame(
     lyricsLines,
     config,
     template,
-    beatPulse
+    beatPulse,
+    config.elementPositions?.lyrics
   );
 
-  // 5. Render Safe-Area overlay guide if toggled on
+  // 5. Render Watermark text
+  renderWatermarkText(ctx, W, H, config.watermarkText || 'Made with Joelizer', config.elementPositions?.watermark);
+
+  // 6. Render Safe-Area overlay guide if toggled on
   if (config.showSafeArea) {
     renderSafeAreaGuide(ctx, W, H);
   }
@@ -176,15 +189,16 @@ function renderArtworkObject(
   artStyle: ArtworkStyle,
   artAnim: ArtworkAnimation,
   beatScale: number,
-  template: LyricVideoTemplate
+  template: LyricVideoTemplate,
+  pos?: { x: number; y: number }
 ) {
   ctx.save();
 
   // Position calculation
   const isVertical = H > W;
   const size = Math.min(W, H) * (isVertical ? 0.38 : 0.32) * beatScale;
-  const cx = W / 2;
-  const cy = template.layout.artworkPosition === 'center' ? H / 2 : H * 0.32;
+  const cx = pos ? pos.x * W : W / 2;
+  const cy = pos ? pos.y * H : (template.layout.artworkPosition === 'center' ? H / 2 : H * 0.32);
 
   // Animation Offset / Transforms
   let rotAngle = 0;
@@ -339,7 +353,8 @@ function renderSongMetaText(
   W: number,
   H: number,
   trackMeta: TrackMeta,
-  template: LyricVideoTemplate
+  template: LyricVideoTemplate,
+  pos?: { x: number; y: number }
 ) {
   ctx.save();
   const fontSize = Math.round(H * 0.024);
@@ -349,15 +364,16 @@ function renderSongMetaText(
   ctx.shadowColor = 'rgba(0,0,0,0.8)';
   ctx.shadowBlur = 6;
 
-  const posY = template.layout.artworkType !== 'none' ? H * 0.53 : H * 0.15;
+  const posX = pos ? pos.x * W : W / 2;
+  const posY = pos ? pos.y * H : (template.layout.artworkType !== 'none' ? H * 0.53 : H * 0.15);
   
   if (trackMeta.title) {
-    ctx.fillText(trackMeta.title.toUpperCase(), W / 2, posY);
+    ctx.fillText(trackMeta.title, posX, posY);
   }
   if (trackMeta.artist) {
     ctx.font = `500 ${Math.round(fontSize * 0.8)}px sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.fillText(trackMeta.artist, W / 2, posY + fontSize * 1.3);
+    ctx.fillText(trackMeta.artist, posX, posY + fontSize * 1.3);
   }
 
   ctx.restore();
@@ -372,7 +388,8 @@ function renderSynchronizedLyrics(
   lyricsLines: LyricLine[],
   config: LyricsRenderConfig,
   template: LyricVideoTemplate,
-  beatPulse: number
+  beatPulse: number,
+  pos?: { x: number; y: number }
 ) {
   if (!lyricsLines || lyricsLines.length === 0) return;
 
@@ -408,8 +425,9 @@ function renderSynchronizedLyrics(
 
   const wordAnim = config.animationOverride?.wordAnimation || template.animations.wordAnimation;
 
-  // Y-Position calculation
-  const lyricY = template.layout.lyricPosition === 'center' ? H * 0.52 : H * 0.76;
+  // Position calculation
+  const lyricX = pos ? pos.x * W : W / 2;
+  const lyricY = pos ? pos.y * H : (template.layout.lyricPosition === 'center' ? H * 0.52 : H * 0.76);
 
   ctx.font = `${fontWeight} ${baseFontSize}px ${fontFamily}, sans-serif`;
 
@@ -426,7 +444,6 @@ function renderSynchronizedLyrics(
       end: w.end ?? w.endTime ?? activeLine.endTime
     }));
   } else {
-    // Synthesize smooth word timings across line duration if missing
     const tokens = activeLine.text.split(' ').filter(Boolean);
     const lineDur = Math.max(0.5, activeLine.endTime - activeLine.startTime);
     const tokenDur = lineDur / tokens.length;
@@ -449,7 +466,7 @@ function renderSynchronizedLyrics(
   const padX = 24;
   const boxW = Math.min(W * 0.92, totalLineW + padX * 2);
   const boxH = baseFontSize * 1.8;
-  const boxX = (W - boxW) / 2;
+  const boxX = lyricX - boxW / 2;
   const boxY = lyricY - boxH / 1.6;
 
   // Draw Container Pill
@@ -470,13 +487,12 @@ function renderSynchronizedLyrics(
   }
 
   // Render Words
-  let startX = (W - totalLineW) / 2;
+  let startX = lyricX - totalLineW / 2;
 
   wordsToRender.forEach((w, idx) => {
     const isWordActive = currentTime >= w.start && currentTime <= w.end;
     const isWordPast = currentTime > w.end;
 
-    // Word Progress 0.0 -> 1.0
     const wordDur = Math.max(0.1, w.end - w.start);
     const wordProgress = Math.max(0, Math.min(1, (currentTime - w.start) / wordDur));
 
@@ -497,7 +513,7 @@ function renderSynchronizedLyrics(
 
       ctx.font = `${fontWeight} ${Math.round(baseFontSize * scale)}px ${fontFamily}, sans-serif`;
     } else if (isWordPast) {
-      ctx.fillStyle = activeWordColor; // Keep past words highlighted in karaoke
+      ctx.fillStyle = activeWordColor;
     } else {
       ctx.fillStyle = inactiveWordColor;
       ctx.shadowBlur = 0;
@@ -519,10 +535,31 @@ function renderSynchronizedLyrics(
     ctx.font = `500 ${Math.round(baseFontSize * 0.65)}px ${fontFamily}, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.textAlign = 'center';
-    ctx.fillText(nextLine.text, W / 2, lyricY + baseFontSize * 1.3);
+    ctx.fillText(nextLine.text, lyricX, lyricY + baseFontSize * 1.3);
     ctx.restore();
   }
 
+  ctx.restore();
+}
+
+// Render Watermark credit text
+function renderWatermarkText(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  text: string,
+  pos?: { x: number; y: number }
+) {
+  ctx.save();
+  const fontSize = Math.max(10, Math.round(H * 0.018));
+  ctx.font = `500 ${fontSize}px sans-serif`;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.textAlign = 'center';
+  
+  const posX = pos ? pos.x * W : W / 2;
+  const posY = pos ? pos.y * H : H * 0.92;
+  
+  ctx.fillText(text, posX, posY);
   ctx.restore();
 }
 

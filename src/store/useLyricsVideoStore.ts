@@ -5,12 +5,29 @@ import { BACKGROUND_PRESETS, BackgroundPreset } from '../lib/lyricsBackgrounds';
 import { useMVStore } from './useMVStore';
 import { useStore } from './useStore';
 
+export interface ElementPos {
+  x: number; // Normalized 0..1 ratio
+  y: number; // Normalized 0..1 ratio
+}
+
+export interface CanvasElementPositions {
+  artwork: ElementPos;
+  meta: ElementPos;
+  lyrics: ElementPos;
+  visualizer: ElementPos;
+  watermark: ElementPos;
+}
+
 export type VideoCreationMode = 'music-video' | 'lyrics-video';
 
 export interface LyricsVideoState {
   videoMode: VideoCreationMode;
   selectedTemplateId: LyricTemplateId;
   selectedBackgroundPresetId: string;
+  selectedElement: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null;
+  visibleLineCount: number;
+
+  elementPositions: CanvasElementPositions;
   
   customBackground: {
     type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
@@ -54,10 +71,30 @@ export interface LyricsVideoState {
   updateArtworkOverride: (updates: Partial<LyricsVideoState['artworkOverride']>) => void;
   updateAnimationOverride: (updates: Partial<LyricsVideoState['animationOverride']>) => void;
   setShowSafeArea: (show: boolean) => void;
+  setSelectedElement: (el: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null) => void;
+  setVisibleLineCount: (count: number) => void;
+  setElementPosition: (key: keyof CanvasElementPositions, pos: ElementPos) => void;
+  resetElementPositions: (aspectRatio?: string) => void;
   
   // Magic Auto-Generator
   generateLyricsVideo: () => void;
 }
+
+const DEFAULT_POSITIONS_16_9: CanvasElementPositions = {
+  artwork: { x: 0.28, y: 0.45 },
+  meta: { x: 0.28, y: 0.82 },
+  lyrics: { x: 0.72, y: 0.42 },
+  visualizer: { x: 0.72, y: 0.70 },
+  watermark: { x: 0.72, y: 0.88 },
+};
+
+const DEFAULT_POSITIONS_9_16: CanvasElementPositions = {
+  artwork: { x: 0.50, y: 0.28 },
+  meta: { x: 0.50, y: 0.12 },
+  lyrics: { x: 0.50, y: 0.62 },
+  visualizer: { x: 0.50, y: 0.80 },
+  watermark: { x: 0.50, y: 0.92 },
+};
 
 export const useLyricsVideoStore = create<LyricsVideoState>()(
   persist(
@@ -65,6 +102,9 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       videoMode: 'lyrics-video',
       selectedTemplateId: 'vinyl',
       selectedBackgroundPresetId: 'sunset',
+      selectedElement: null,
+      visibleLineCount: 2,
+      elementPositions: DEFAULT_POSITIONS_16_9,
 
       customBackground: {
         type: 'blurred-artwork',
@@ -163,6 +203,16 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       })),
 
       setShowSafeArea: (showSafeArea) => set({ showSafeArea }),
+
+      setSelectedElement: (selectedElement) => set({ selectedElement }),
+      setVisibleLineCount: (visibleLineCount) => set({ visibleLineCount }),
+      setElementPosition: (key, pos) => set((s) => ({
+        elementPositions: { ...s.elementPositions, [key]: pos }
+      })),
+      resetElementPositions: (aspectRatio = '16:9') => {
+        const isVertical = aspectRatio === '9:16' || aspectRatio === '3:4' || aspectRatio === '4:5';
+        set({ elementPositions: isVertical ? DEFAULT_POSITIONS_9_16 : DEFAULT_POSITIONS_16_9 });
+      },
 
       generateLyricsVideo: () => {
         set({ isAutoGenerating: true });

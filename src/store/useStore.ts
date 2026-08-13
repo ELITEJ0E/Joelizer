@@ -7,7 +7,7 @@ import {
   loadLyricsFromStorage 
 } from '../lib/storage';
 
-export type AspectRatio = '16:9' | '9:16' | '1:1' | '3:4' | '4:3';
+export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | '4:3';
 
 export interface VisualizerSettings {
   style: 'bars' | 'waveform' | 'radial' | 'particles' | 'kaleidoscope' | 'orb';

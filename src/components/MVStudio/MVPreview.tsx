@@ -152,6 +152,8 @@ export function MVPreview() {
             typographyOverride: lyricsVideoState.typographyOverride,
             artworkOverride: lyricsVideoState.artworkOverride,
             animationOverride: lyricsVideoState.animationOverride,
+            elementPositions: lyricsVideoState.elementPositions,
+            watermarkText: 'Made with Joelizer',
             showSafeArea: lyricsVideoState.showSafeArea
           }
         );

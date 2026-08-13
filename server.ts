@@ -1,9 +1,11 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import { generateMusic } from './server/aceStep';
+import { startExportJob, getExportJob, runAutomatedRenderTest } from './server/renderEngine';
 
 dotenv.config();
 
@@ -66,6 +68,72 @@ async function startServer() {
   // 1. Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
+  // 1c. Server Video Export Endpoints
+  app.post('/api/export-video', async (req, res) => {
+    try {
+      const projectJson = req.body;
+      if (!projectJson || typeof projectJson !== 'object') {
+        return res.status(400).json({ error: 'Valid CanonicalProjectJson body is required' });
+      }
+
+      const jobId = await startExportJob(projectJson);
+      return res.json({ success: true, exportId: jobId });
+    } catch (err: any) {
+      console.error('Export Request Error:', err);
+      return res.status(500).json({ error: err.message || 'Failed to initialize export job' });
+    }
+  });
+
+  app.get('/api/export-progress/:jobId', (req, res) => {
+    const { jobId } = req.params;
+    const job = getExportJob(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Export job not found' });
+    }
+    return res.json({
+      id: job.id,
+      projectName: job.projectName,
+      stage: job.stage,
+      stageMessage: job.stageMessage,
+      progress: job.progress,
+      outputUrl: job.outputUrl,
+      fileSize: job.fileSize,
+      error: job.error
+    });
+  });
+
+  app.get('/api/download-export/:jobId', (req, res) => {
+    const { jobId } = req.params;
+    const job = getExportJob(jobId);
+    
+    const exportPath = path.resolve('./public/exports', `${jobId}.mp4`);
+    if (!fs.existsSync(exportPath)) {
+      return res.status(404).send('Export video file not found or still processing.');
+    }
+
+    const cleanFilename = (job?.projectName || 'Joelizer-Video')
+      .replace(/[^a-zA-Z0-9_-]/g, '_') + '.mp4';
+
+    return res.download(exportPath, cleanFilename, (err) => {
+      if (err) {
+        console.error('Error downloading export file:', err);
+      }
+    });
+  });
+
+  // Requirement 15: Automated 10s Render Test Endpoint
+  app.get('/api/render-test', async (req, res) => {
+    try {
+      const result = await runAutomatedRenderTest();
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        message: err.message || 'Render test failed'
+      });
+    }
   });
 
   // 1b. Media CORS proxy endpoint
