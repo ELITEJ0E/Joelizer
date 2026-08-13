@@ -145,7 +145,8 @@ export function renderLyricsVideoFrame(
       artStyle,
       artScale,
       template,
-      config.elementPositions?.artwork
+      config.elementPositions?.artwork,
+      audioFrequencyData
     );
   }
 
@@ -167,7 +168,7 @@ export function renderLyricsVideoFrame(
   );
 
   // 5. Render Horizontal Segment Dots Indicator Row below lyrics
-  renderSegmentDots(ctx, W, H, config.elementPositions?.visualizer);
+  renderSegmentDots(ctx, W, H, config.elementPositions?.visualizer, audioFrequencyData);
 
   // 6. Render Watermark text
   renderWatermarkText(ctx, W, H, config.watermarkText || 'Made with Joelizer', config.elementPositions?.watermark);
@@ -190,12 +191,26 @@ function renderArtworkObject(
   artStyle: ArtworkStyle,
   artScale: number,
   template: LyricVideoTemplate,
-  pos?: { x: number; y: number }
+  pos?: { x: number; y: number },
+  audioFrequencyData?: Uint8Array | null
 ) {
   ctx.save();
 
   const isVertical = H > W;
-  const size = Math.min(W, H) * (isVertical ? 0.42 : 0.35) * artScale;
+  
+  // Calculate real-time bass-frequency pulse scale
+  let pulseScale = 1.0;
+  if (isPlaying && audioFrequencyData && audioFrequencyData.length > 0) {
+    let bassSum = 0;
+    const bins = Math.min(10, audioFrequencyData.length);
+    for (let i = 0; i < bins; i++) {
+      bassSum += audioFrequencyData[i];
+    }
+    const bassAvg = bassSum / bins;
+    pulseScale = 1.0 + (bassAvg / 255) * 0.055; // Subtle elastic pulse matching kick/bass beats
+  }
+
+  const size = Math.min(W, H) * (isVertical ? 0.42 : 0.35) * artScale * pulseScale;
   const cx = pos ? pos.x * W : (isVertical ? W / 2 : W * 0.28);
   const cy = pos ? pos.y * H : (isVertical ? H * 0.40 : H * 0.40);
 
@@ -207,6 +222,40 @@ function renderArtworkObject(
   if (artStyle === 'vinyl' || artStyle === 'vinyl-needle' || artStyle === 'cd' || artStyle === 'cd-needle') {
     const recordRadius = size / 2;
     const isCD = artStyle === 'cd' || artStyle === 'cd-needle';
+
+    // Radial Visualizer Bars pulsing behind the Rotating Disc!
+    if (audioFrequencyData && audioFrequencyData.length > 0) {
+      ctx.save();
+      const barCount = 64;
+      const startRadius = recordRadius * 0.98;
+      const maxExtra = recordRadius * 0.32;
+      const activeColor = useStore.getState().visualizerSettings?.color || '#00e676';
+      
+      ctx.strokeStyle = activeColor;
+      ctx.lineWidth = Math.max(1.8, recordRadius * 0.015);
+      ctx.lineCap = 'round';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = activeColor;
+      
+      ctx.beginPath();
+      for (let i = 0; i < barCount; i++) {
+        const rawValue = audioFrequencyData[i % audioFrequencyData.length];
+        const valPercent = rawValue / 255;
+        const barHeight = maxExtra * Math.pow(valPercent, 1.2);
+        
+        // Distribute in a full circle, slightly rotating for extra magic
+        const angle = (i / barCount) * Math.PI * 2 + rotAngle * 0.25;
+        const x1 = Math.cos(angle) * startRadius;
+        const y1 = Math.sin(angle) * startRadius;
+        const x2 = Math.cos(angle) * (startRadius + barHeight);
+        const y2 = Math.sin(angle) * (startRadius + barHeight);
+        
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // 1. Outer Disc Base & Soft Drop Shadow
     ctx.shadowBlur = 35;
@@ -548,12 +597,13 @@ function renderSynchronizedLyrics(
   ctx.restore();
 }
 
-// Render Horizontal Segment Dots Indicator Row
+// Render Horizontal Segment Dots Indicator Row or real-time Audio Visualizer
 function renderSegmentDots(
   ctx: CanvasRenderingContext2D,
   W: number,
   H: number,
-  pos?: { x: number; y: number }
+  pos?: { x: number; y: number },
+  audioFrequencyData?: Uint8Array | null
 ) {
   ctx.save();
   const isVertical = H > W;
@@ -561,17 +611,54 @@ function renderSegmentDots(
   const posX = pos ? pos.x * W : (isVertical ? W / 2 : W * 0.72);
   const posY = pos ? pos.y * H : (isVertical ? H * 0.84 : H * 0.68);
 
-  const dotCount = 8;
-  const dotRadius = Math.max(1.5, Math.round(H * 0.0035));
-  const dotSpacing = Math.max(8, Math.round(H * 0.015));
-  const totalW = (dotCount - 1) * dotSpacing;
-  const startX = posX - totalW / 2;
+  const visSettings = useStore.getState().visualizerSettings;
+  const themeColor = visSettings?.color || '#00e676';
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-  for (let i = 0; i < dotCount; i++) {
-    ctx.beginPath();
-    ctx.arc(startX + i * dotSpacing, posY, dotRadius, 0, Math.PI * 2);
-    ctx.fill();
+  if (audioFrequencyData && audioFrequencyData.length > 0) {
+    // Render real audio-reactive compact spectrum bars centered at posX, posY!
+    const barCount = 16;
+    const barWidth = Math.max(3, Math.round(W * 0.008));
+    const barGap = Math.max(2, Math.round(W * 0.004));
+    const totalW = barCount * (barWidth + barGap) - barGap;
+    const startX = posX - totalW / 2;
+    const maxBarHeight = Math.max(15, H * 0.07);
+
+    ctx.save();
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = themeColor;
+    ctx.fillStyle = themeColor;
+
+    for (let i = 0; i < barCount; i++) {
+      const rawValue = audioFrequencyData[i % audioFrequencyData.length];
+      const percent = rawValue / 255;
+      const barHeight = Math.max(3, maxBarHeight * Math.pow(percent, 1.25));
+
+      const bx = startX + i * (barWidth + barGap);
+      const by = posY - barHeight / 2;
+
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(bx, by, barWidth, barHeight, barWidth / 2);
+      } else {
+        ctx.fillRect(bx, by, barWidth, barHeight);
+      }
+      ctx.fill();
+    }
+    ctx.restore();
+  } else {
+    // Fallback to elegant passive design segment dots
+    const dotCount = 8;
+    const dotRadius = Math.max(1.5, Math.round(H * 0.0035));
+    const dotSpacing = Math.max(8, Math.round(H * 0.015));
+    const totalW = (dotCount - 1) * dotSpacing;
+    const startX = posX - totalW / 2;
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    for (let i = 0; i < dotCount; i++) {
+      ctx.beginPath();
+      ctx.arc(startX + i * dotSpacing, posY, dotRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   ctx.restore();

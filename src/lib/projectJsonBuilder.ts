@@ -96,7 +96,7 @@ export async function buildCanonicalProjectJson(options?: {
       id: clip.id,
       assetId: clip.assetId,
       url: clipUrl,
-      mediaType: clip.mediaType || asset?.mediaType || 'video',
+      type: clip.type || asset?.type || 'video',
       startTime: Number(clip.startTime.toFixed(3)),
       endTime: Number(clip.endTime.toFixed(3)),
       duration: Number((clip.endTime - clip.startTime).toFixed(3)),

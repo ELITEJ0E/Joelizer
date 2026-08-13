@@ -78,7 +78,7 @@ async function runProductionAuditSuite() {
     const autoEditRes = generateAutoEdit({
       songDuration: 30,
       lyricsLines: [{ id: '1', text: 'Test song lyrics', startTime: 2, endTime: 8 }],
-      mediaAssets: [{ id: 'a1', url: 'https://example.com/clip1.mp4', name: 'clip1', mediaType: 'video', duration: 10, thumbnail: 't1', status: 'ready' }],
+      mediaAssets: [{ id: 'a1', url: 'https://example.com/clip1.mp4', name: 'clip1', type: 'video', duration: 10, thumbnail: 't1', status: 'ready' }],
       style: 'Cinematic',
       pacing: 'Balanced',
       beatSync: 'Strong',
@@ -136,12 +136,12 @@ async function runProductionAuditSuite() {
       id: 'a1',
       url: 'blob:test',
       name: 'local_clip.mp4',
-      mediaType: 'video' as const,
+      type: 'video' as const,
       duration: 12,
       thumbnail: 'data:image/jpeg;base64,123',
       status: 'ready' as const
     };
-    assert(asset.mediaType === 'video' && asset.status === 'ready', '10. MediaAsset structure');
+    assert(asset.type === 'video' && asset.status === 'ready', '10. MediaAsset structure');
   } catch (e: any) {
     assert(false, '10. MediaAsset structure', e.message);
   }

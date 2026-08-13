@@ -107,7 +107,7 @@ export interface StoredMVAsset {
   blob?: Blob;
   url: string;
   name: string;
-  mediaType: 'video' | 'image';
+  type: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
   duration: number;
   thumbnail: string;
   isStock?: boolean;

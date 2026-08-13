@@ -67,11 +67,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const setExportRange = useStore(s => s.setExportRange);
 
   useEffect(() => {
-    // Set initial mode from active tab or lyrics store
-    if (activeTab === 'mv-studio') {
+    // Set initial mode from active tab
+    if (activeTab === 'lyrics') {
+      setExportMode('lyrics-video');
+    } else if (activeTab === 'mv-studio') {
       setExportMode('music-video');
     } else {
-      setExportMode(lyricsVideoMode || 'lyrics-video');
+      setExportMode('lyrics-video');
     }
 
     animate('.export-modal-card', {

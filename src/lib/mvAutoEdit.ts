@@ -278,11 +278,11 @@ export function generateAutoEdit(options: AutoEditOptions): {
     prevAssetId = asset.id;
 
     // Calculate trim points for asset
-    const mediaType = asset.mediaType || 'video';
+    const type = asset.type || 'video';
     let trimStart = 0;
     let trimEnd = shotDur;
 
-    if (mediaType === 'video') {
+    if (type === 'video') {
       const assetDur = asset.duration || 10;
       if (assetDur > shotDur) {
         const maxTrimStart = assetDur - shotDur;
@@ -296,7 +296,7 @@ export function generateAutoEdit(options: AutoEditOptions): {
     }
 
     const motionEffectIdx = Math.floor(rand() * MOTION_EFFECTS.length);
-    const effect = mediaType === 'image' ? MOTION_EFFECTS[motionEffectIdx] : 'none';
+    const effect = type === 'image' ? MOTION_EFFECTS[motionEffectIdx] : 'none';
 
     timelineClips.push({
       id: `clip-gen-${Date.now()}-${clipIdCounter++}`,
@@ -305,7 +305,7 @@ export function generateAutoEdit(options: AutoEditOptions): {
       endTime: currentTime + shotDur,
       trimStart,
       trimEnd,
-      mediaType,
+      type,
       effect,
       transition: rand() > 0.7 ? 'dissolve' : 'cut'
     });

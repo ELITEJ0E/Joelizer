@@ -30,9 +30,31 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   // Find active video clip for timeline mode
   const activeClip = videoClips.find(c => currentTime >= c.startTime && currentTime < c.endTime);
 
-  const isVinylScene = activeClip?.mediaType === 'vinyl-lyrics' || activeClip?.assetId === 'vinyl-lyrics';
-  const isVisualizerScene = activeClip?.mediaType === 'visualizer' || activeClip?.assetId === 'visualizer';
-  const isMediaClip = activeClip && (activeClip.mediaType === 'video' || activeClip.mediaType === 'image');
+  const isVinylScene = activeClip?.type === 'vinyl-lyrics' || activeClip?.assetId === 'vinyl-lyrics';
+  const isVisualizerScene = activeClip?.type === 'visualizer' || activeClip?.assetId === 'visualizer';
+  const isMediaClip = activeClip && (activeClip.type === 'video' || activeClip.type === 'image');
+
+  // Calculate rotation angle for spinning artwork
+  const rotationDegrees = (currentTime * 40) % 360;
+
+  // Find current active lyric line
+  const activeLineIndex = lyrics.lines.findIndex(
+    l => currentTime >= l.startTime && currentTime <= l.endTime
+  );
+  const activeLine: CanonicalLyricLine | undefined = activeLineIndex !== -1 
+    ? lyrics.lines[activeLineIndex] 
+    : undefined;
+
+  // Calculate beat pulse intensity (120 bpm fallback or analyzed bpm)
+  const bpm = audio.bpm || 120;
+  const beatPeriod = 60 / bpm;
+  const beatPhase = (currentTime % beatPeriod) / beatPeriod;
+  const beatPulse = Math.pow(Math.sin(beatPhase * Math.PI), 4);
+  const artworkScale = artwork.animation === 'scale-beat' 
+    ? 1.0 + beatPulse * 0.08 
+    : artwork.animation === 'pulse' 
+    ? 1.0 + Math.sin(currentTime * 6) * 0.03 
+    : 1.0;
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#050508', overflow: 'hidden', fontFamily: lyrics.fontFamily }}>
@@ -62,14 +84,16 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* 4. ANIMATED LYRICS LAYER */}
-      <LyricsLayer 
-        lyrics={lyrics} 
-        activeLine={activeLine} 
-        currentTime={currentTime} 
-        width={width} 
-        height={height} 
-        mode={mode}
-      />
+      {(isVinylScene || (!activeClip && mode === 'lyrics-video') || (mode === 'lyrics-video' && !isMediaClip && !isVisualizerScene)) && (
+        <LyricsLayer 
+          lyrics={lyrics} 
+          activeLine={activeLine} 
+          currentTime={currentTime} 
+          width={width} 
+          height={height} 
+          mode={mode}
+        />
+      )}
 
       {/* 5. VIGNETTE & GRAIN EFFECTS */}
       {effects.vignette && (
@@ -122,7 +146,7 @@ function BackgroundClipLayer({ clip, currentTime, width, height }: { clip: Canon
     transform = `scale(1.1) translateX(${(clipProgress - 0.5) * 4}%)`;
   }
 
-  const isVideo = clip.mediaType === 'video' || clip.url.match(/\.(mp4|webm|mov|mkv)(\?.*)?$/i);
+  const isVideo = clip.type === 'video' || clip.url.match(/\.(mp4|webm|mov|mkv)(\?.*)?$/i);
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#000' }}>

@@ -113,20 +113,6 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           </button>
 
           <button
-            onClick={() => setActiveTab('lyrics')}
-            className={cn(
-              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer",
-              activeTab === 'lyrics' 
-                ? "bg-white/15 text-white shadow-sm font-black" 
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            )}
-            style={activeTab === 'lyrics' ? { color: activeColor } : {}}
-            title="Single-track canvas for custom lyric video styling & background effects"
-          >
-            Visualizer
-          </button>
-          
-          <button
             onClick={() => setActiveTab('studio')}
             className={cn(
               "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer relative overflow-hidden",
@@ -145,10 +131,29 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           </button>
 
           <button
+            onClick={() => setActiveTab('lyrics')}
+            className={cn(
+              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer relative overflow-hidden",
+              activeTab === 'lyrics'
+                ? "bg-white/15 text-white shadow-md" 
+                : "text-slate-300 hover:text-white hover:bg-white/5"
+            )}
+            style={activeTab === 'lyrics' ? { 
+              color: activeColor,
+              backgroundColor: `${activeColor}20`,
+              borderColor: `${activeColor}50` 
+            } : {}}
+            title="Lyrics video with visualizer & album-art spinning vinyl templates"
+          >
+            <Sparkles size={11} className={activeTab === 'lyrics' ? "text-white" : "text-[#00e676]"} />
+            <span>Lyrics Video</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('mv-studio')}
             className={cn(
               "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
-              activeTab === 'mv-studio' 
+              activeTab === 'mv-studio'
                 ? "bg-white/15 text-white shadow-md" 
                 : "text-slate-300 hover:text-white hover:bg-white/5"
             )}
@@ -157,7 +162,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
               backgroundColor: `${activeColor}20`,
               borderColor: `${activeColor}50` 
             } : {}}
-            title="Multitrack Music Video Editor with AI Auto-Cuts"
+            title="Music video timeline editing studio"
           >
             <Film size={12} />
             <span>MV Studio</span>

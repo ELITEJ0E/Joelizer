@@ -20,6 +20,10 @@ export function LyricsVideoLayout() {
   const videoMode = useLyricsVideoStore(s => s.videoMode);
   const setVideoMode = useLyricsVideoStore(s => s.setVideoMode);
 
+  useEffect(() => {
+    setVideoMode('lyrics-video');
+  }, [setVideoMode]);
+
   const selectedTemplateId = useLyricsVideoStore(s => s.selectedTemplateId);
   const setSelectedTemplateId = useLyricsVideoStore(s => s.setSelectedTemplateId);
 
@@ -44,8 +48,9 @@ export function LyricsVideoLayout() {
   const aspectRatio = useStore(s => s.aspectRatio);
   const setAspectRatio = useStore(s => s.setAspectRatio);
 
-  const currentTrack = useStore(s => s.tracks[s.currentTrackIndex]) || useStore(s => s.tracks[0]);
-  const albumArt = currentTrack?.albumArt || useStore(s => s.albumArt) || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=600&auto=format&fit=crop&q=80';
+  const currentTrack = useStore(s => s.tracks[s.currentTrackIndex] || s.tracks[0]);
+  const globalAlbumArt = useStore(s => s.albumArt);
+  const albumArt = currentTrack?.albumArt || globalAlbumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=600&auto=format&fit=crop&q=80';
   const lyricsLines = useStore(s => s.lyricsSettings?.lines) || [];
 
   const [showExportModal, setShowExportModal] = useState(false);

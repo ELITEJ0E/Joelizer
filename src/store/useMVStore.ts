@@ -8,7 +8,7 @@ export interface MediaAsset {
   file?: File;
   url: string; // Object URL or direct HTTP URL
   name: string;
-  mediaType: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
+  type: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
   duration: number; // in seconds (for images, default e.g. 10s)
   thumbnail: string; // data URL or thumbnail image URL
   isStock?: boolean;
@@ -27,7 +27,7 @@ export interface TimelineClip {
   trimStart: number; // Start trim within media asset
   trimEnd: number;   // End trim within media asset
   locked?: boolean;
-  mediaType?: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
+  type?: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
   effect?: 'ken-burns-in' | 'ken-burns-out' | 'pan-left' | 'pan-right' | 'pan-up' | 'pan-down' | 'none';
   transition?: 'cut' | 'fade' | 'dissolve' | 'glitch';
 }
@@ -261,7 +261,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       blob: asset.file,
       url: asset.url,
       name: asset.name,
-      mediaType: asset.mediaType,
+      type: asset.type,
       duration: asset.duration,
       thumbnail: asset.thumbnail,
       isStock: asset.isStock,
@@ -292,7 +292,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
           file: sa.blob instanceof File ? sa.blob : undefined,
           url: finalUrl,
           name: sa.name,
-          mediaType: sa.mediaType,
+          type: sa.type,
           duration: sa.duration,
           thumbnail: sa.thumbnail || finalUrl,
           isStock: sa.isStock,

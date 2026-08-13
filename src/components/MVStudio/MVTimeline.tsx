@@ -232,7 +232,7 @@ export function MVTimeline() {
       trimStart: 0,
       trimEnd: clipDur,
       locked: false,
-      mediaType: asset.mediaType
+      type: asset.type
     });
     commitTimeline();
   };
@@ -382,9 +382,9 @@ export function MVTimeline() {
                 const left = (clip.startTime / duration) * 100;
                 const width = Math.max(0.2, ((clip.endTime - clip.startTime) / duration) * 100);
                 const isSelected = clip.id === selectedClipId;
-                const isVinyl = clip.mediaType === 'vinyl-lyrics' || clip.assetId === 'vinyl-lyrics';
-                const isVisualizer = clip.mediaType === 'visualizer' || clip.assetId === 'visualizer';
-                const isImage = clip.mediaType === 'image';
+                const isVinyl = clip.type === 'vinyl-lyrics' || clip.assetId === 'vinyl-lyrics';
+                const isVisualizer = clip.type === 'visualizer' || clip.assetId === 'visualizer';
+                const isImage = clip.type === 'image';
 
                 let clipBg = 'bg-blue-600/40 border-blue-400/50 hover:bg-blue-600/60';
                 if (clip.locked) {

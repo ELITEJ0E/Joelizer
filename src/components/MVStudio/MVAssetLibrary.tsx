@@ -70,7 +70,7 @@ export function MVAssetLibrary() {
             file,
             url,
             name: file.name,
-            mediaType: 'video',
+            type: 'video',
             duration: videoEl.duration || 5,
             thumbnail: thumb,
             isStock,
@@ -95,7 +95,7 @@ export function MVAssetLibrary() {
             file,
             url,
             name: file.name,
-            mediaType: 'image',
+            type: 'image',
             duration: 8,
             thumbnail: thumb,
             isStock,
@@ -117,15 +117,15 @@ export function MVAssetLibrary() {
     if (folderInputRef.current) folderInputRef.current.value = '';
   };
 
-function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image'): string {
+function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): string {
   const cleanTitle = (title || 'Stock Media').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const badge = mediaType === 'video' ? 'VIDEO' : 'IMAGE';
-  const color = mediaType === 'video' ? '#a855f7' : '#3b82f6';
+  const badge = type === 'video' ? 'VIDEO' : 'IMAGE';
+  const color = type === 'video' ? '#a855f7' : '#3b82f6';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
     <rect width="320" height="180" fill="#0f0f18"/>
     <rect x="10" y="10" width="300" height="160" rx="12" fill="#181824" stroke="${color}" stroke-width="1.5" stroke-opacity="0.4"/>
     <circle cx="160" cy="75" r="26" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2"/>
-    ${mediaType === 'video' ? `<polygon points="154,65 174,75 154,85" fill="${color}"/>` : `<rect x="148" y="65" width="24" height="20" rx="3" fill="none" stroke="${color}" stroke-width="2"/>`}
+    ${type === 'video' ? `<polygon points="154,65 174,75 154,85" fill="${color}"/>` : `<rect x="148" y="65" width="24" height="20" rx="3" fill="none" stroke="${color}" stroke-width="2"/>`}
     <text x="160" y="125" font-family="sans-serif" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">${cleanTitle.slice(0, 24)}</text>
     <rect x="120" y="138" width="80" height="18" rx="9" fill="${color}" fill-opacity="0.3"/>
     <text x="160" y="151" font-family="sans-serif" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">${badge}</text>
@@ -148,8 +148,8 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
       return;
     }
 
-    const mediaType = validation.mediaType || 'image';
-    const filename = cleanUrl.split('/').pop()?.split('?')[0] || `stock-${mediaType}`;
+    const type = validation.type || 'image';
+    const filename = cleanUrl.split('/').pop()?.split('?')[0] || `stock-${type}`;
 
     const tryLoadVideo = (targetUrl: string, isProxyRetry = false) => {
       const videoEl = document.createElement('video');
@@ -163,7 +163,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
           id: `url-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           url: cleanUrl, // Preserve original or proxied URL
           name: filename,
-          mediaType: 'video',
+          type: 'video',
           duration: videoEl.duration && !isNaN(videoEl.duration) ? videoEl.duration : 10,
           thumbnail: thumbUrl,
           isStock: true,
@@ -205,7 +205,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
       };
     };
 
-    if (mediaType === 'video') {
+    if (type === 'video') {
       tryLoadVideo(cleanUrl, false);
     } else {
       const tryLoadImage = (targetUrl: string, isProxyRetry = false) => {
@@ -230,7 +230,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
             id: `url-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             url: cleanUrl,
             name: filename,
-            mediaType: 'image',
+            type: 'image',
             duration: 8,
             thumbnail: thumb,
             isStock: true,
@@ -261,7 +261,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
         id: 'stock-1',
         url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&auto=format&fit=crop&q=80',
         name: 'Concert Stage Lights.jpg',
-        mediaType: 'image',
+        type: 'image',
         duration: 8,
         thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=60',
         isStock: true,
@@ -272,7 +272,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
         id: 'stock-2',
         url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&auto=format&fit=crop&q=80',
         name: 'DJ Club Visuals.jpg',
-        mediaType: 'image',
+        type: 'image',
         duration: 8,
         thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=60',
         isStock: true,
@@ -283,7 +283,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
         id: 'stock-3',
         url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&auto=format&fit=crop&q=80',
         name: 'Retro Studio Mic.jpg',
-        mediaType: 'image',
+        type: 'image',
         duration: 8,
         thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=60',
         isStock: true,
@@ -294,7 +294,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
         id: 'stock-4',
         url: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&auto=format&fit=crop&q=80',
         name: 'Neon Laser Crowd.jpg',
-        mediaType: 'image',
+        type: 'image',
         duration: 8,
         thumbnail: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=300&auto=format&fit=crop&q=60',
         isStock: true,
@@ -305,7 +305,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
         id: 'stock-5',
         url: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=1200&auto=format&fit=crop&q=80',
         name: 'Cyberpunk Neon City.jpg',
-        mediaType: 'image',
+        type: 'image',
         duration: 8,
         thumbnail: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&auto=format&fit=crop&q=60',
         isStock: true,
@@ -316,7 +316,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
         id: 'stock-6',
         url: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=1200&auto=format&fit=crop&q=80',
         name: 'Synthwave Soundboard.jpg',
-        mediaType: 'image',
+        type: 'image',
         duration: 8,
         thumbnail: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=300&auto=format&fit=crop&q=60',
         isStock: true,
@@ -458,7 +458,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
                   endTime: (currentTime || 0) + 15,
                   trimStart: 0,
                   trimEnd: 15,
-                  mediaType: 'vinyl-lyrics'
+                  type: 'vinyl-lyrics'
                 });
               }}
               className="px-2 py-1.5 rounded bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 text-indigo-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
@@ -477,7 +477,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
                   endTime: (currentTime || 0) + 15,
                   trimStart: 0,
                   trimEnd: 15,
-                  mediaType: 'visualizer'
+                  type: 'visualizer'
                 });
               }}
               className="px-2 py-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
@@ -550,7 +550,7 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
                 trimStart: 0,
                 trimEnd: dur,
                 locked: false,
-                mediaType: asset.mediaType
+                type: asset.type
               });
             };
 
@@ -570,9 +570,9 @@ function generateFallbackSvgThumbnail(title: string, mediaType: 'video' | 'image
                 
                 {/* Type Badge */}
                 <div className="absolute top-1 left-1.5 flex items-center gap-1 pointer-events-none">
-                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${asset.mediaType === 'image' ? 'bg-amber-500 text-black' : 'bg-blue-600 text-white'}`}>
-                    {asset.mediaType === 'image' ? <ImageIcon size={9} className="inline mr-0.5" /> : <Film size={9} className="inline mr-0.5" />}
-                    {asset.mediaType}
+                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${asset.type === 'image' ? 'bg-amber-500 text-black' : 'bg-blue-600 text-white'}`}>
+                    {asset.type === 'image' ? <ImageIcon size={9} className="inline mr-0.5" /> : <Film size={9} className="inline mr-0.5" />}
+                    {asset.type}
                   </span>
                   {asset.isStock && (
                     <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase">

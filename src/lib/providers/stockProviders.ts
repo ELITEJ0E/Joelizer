@@ -1,6 +1,6 @@
 export interface StockSearchOptions {
   query: string;
-  mediaType?: 'video' | 'image';
+  type?: 'video' | 'image';
   pexelsKey?: string;
   pixabayKey?: string;
   unsplashKey?: string;
@@ -10,13 +10,13 @@ export interface StockSearchResult {
   id: string;
   url: string;
   name: string;
-  mediaType: 'video' | 'image';
+  type: 'video' | 'image';
   thumbnail: string;
   duration?: number;
   provider: string;
 }
 
-export function validateDirectMediaUrl(url: string): { valid: boolean; isWebpage: boolean; mediaType?: 'video' | 'image'; reason?: string } {
+export function validateDirectMediaUrl(url: string): { valid: boolean; isWebpage: boolean; type?: 'video' | 'image'; reason?: string } {
   if (!url || typeof url !== 'string') {
     return { valid: false, isWebpage: false, reason: 'Please enter a valid URL.' };
   }
@@ -53,13 +53,13 @@ export function validateDirectMediaUrl(url: string): { valid: boolean; isWebpage
   return {
     valid: true,
     isWebpage: false,
-    mediaType: isVideo && !isImage ? 'video' : 'image'
+    type: isVideo && !isImage ? 'video' : 'image'
   };
 }
 
-export async function searchPexels(query: string, apiKey: string, mediaType: 'video' | 'image' = 'video'): Promise<StockSearchResult[]> {
+export async function searchPexels(query: string, apiKey: string, type: 'video' | 'image' = 'video'): Promise<StockSearchResult[]> {
   try {
-    const endpoint = mediaType === 'video'
+    const endpoint = type === 'video'
       ? `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=12`
       : `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=12`;
 
@@ -70,14 +70,14 @@ export async function searchPexels(query: string, apiKey: string, mediaType: 'vi
     if (!res.ok) return [];
 
     const data = await res.json();
-    if (mediaType === 'video') {
+    if (type === 'video') {
       return (data.videos || []).map((v: any) => {
         const file = v.video_files?.find((f: any) => f.quality === 'hd') || v.video_files?.[0];
         return {
           id: `pexels-vid-${v.id}`,
           url: file?.link || '',
           name: `Pexels Video #${v.id}`,
-          mediaType: 'video',
+          type: 'video',
           thumbnail: v.image,
           duration: v.duration || 10,
           provider: 'Pexels'
@@ -88,7 +88,7 @@ export async function searchPexels(query: string, apiKey: string, mediaType: 'vi
         id: `pexels-img-${p.id}`,
         url: p.src?.large || p.src?.original,
         name: p.alt || `Pexels Photo #${p.id}`,
-        mediaType: 'image',
+        type: 'image',
         thumbnail: p.src?.tiny || p.src?.small,
         duration: 8,
         provider: 'Pexels'

@@ -131,7 +131,7 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
         {
           id: 'clip-1',
           assetId: 'asset-1',
-          mediaType: 'video',
+          type: 'video',
           startTime: 0,
           endTime: 5,
           trimStart: 0,
@@ -146,7 +146,7 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
           name: 'Video 1',
           url: 'https://example.com/video1.mp4',
           thumbnail: 'https://example.com/v1.jpg',
-          mediaType: 'video',
+          type: 'video',
           duration: 10,
           status: 'ready'
         }
@@ -166,12 +166,12 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
   try {
     useMVStore.setState({
       timelineClips: [
-        { id: 'c1', assetId: 'a1', mediaType: 'video', startTime: 0, endTime: 3, trimStart: 0, trimEnd: 3 },
-        { id: 'c2', assetId: 'a2', mediaType: 'image', startTime: 3, endTime: 7, trimStart: 0, trimEnd: 4 }
+        { id: 'c1', assetId: 'a1', type: 'video', startTime: 0, endTime: 3, trimStart: 0, trimEnd: 3 },
+        { id: 'c2', assetId: 'a2', type: 'image', startTime: 3, endTime: 7, trimStart: 0, trimEnd: 4 }
       ],
       videoAssets: [
-        { id: 'a1', name: 'v1', url: 'https://example.com/v1.mp4', thumbnail: '', mediaType: 'video', duration: 5, status: 'ready' },
-        { id: 'a2', name: 'i1', url: 'https://example.com/i1.jpg', thumbnail: '', mediaType: 'image', duration: 4, status: 'ready' }
+        { id: 'a1', name: 'v1', url: 'https://example.com/v1.mp4', thumbnail: '', type: 'video', duration: 5, status: 'ready' },
+        { id: 'a2', name: 'i1', url: 'https://example.com/i1.jpg', thumbnail: '', type: 'image', duration: 4, status: 'ready' }
       ]
     });
 
