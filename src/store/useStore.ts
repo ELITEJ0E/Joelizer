@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useMVStore } from './useMVStore';
 import { 
   saveAudioToStorage, 
   loadAudioFromStorage, 
@@ -110,6 +111,8 @@ interface ProjectState {
   setStudioScrollOffset: (offset: number | ((prev: number) => number)) => void;
   setExportResolutionOverride: (override: '1080p' | '720p' | '360p' | null) => void;
   setAudio: (file: File | Blob, url: string, duration: number, albumArt: string | null) => void;
+  setAlbumArt: (albumArt: string | null) => void;
+  updateCurrentTrackCover: (newCoverUrl: string) => void;
   setSelectedLayerId: (id: string | null) => void;
   
   updateVisualizerSettings: (settings: Partial<VisualizerSettings>) => void;
@@ -225,29 +228,46 @@ export const useStore = create<ProjectState>((set, get) => ({
   })),
   setExportResolutionOverride: (exportResolutionOverride) => set({ exportResolutionOverride }),
   setAudio: (file, url, duration, albumArt) => {
-    const fileName = (file as File).name || 'Uploaded Track';
-    saveAudioToStorage(file, fileName, duration);
+    const fileName = (file as File)?.name || 'Uploaded Track';
+    if (file) {
+      saveAudioToStorage(file, fileName, duration);
+    }
 
-    const newTrack: Track = {
-      id: `uploaded-${Date.now()}`,
-      name: fileName.replace(/\.[^/.]+$/, ""),
-      artist: 'Uploaded Audio',
-      url: url,
-      duration: duration,
-      albumArt: albumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop',
-      isUserUploaded: true
-    };
-    
     set((state) => {
-      const otherTracks = state.tracks.filter(t => t.id !== newTrack.id);
-      const updatedTracks = [newTrack, ...otherTracks];
+      // Check if track with same URL already exists
+      const existingIndex = state.tracks.findIndex(t => t.url === url);
+      let updatedTracks = [...state.tracks];
+      let activeIndex = 0;
+
+      if (existingIndex !== -1) {
+        activeIndex = existingIndex;
+        if (albumArt) {
+          updatedTracks[existingIndex] = { ...updatedTracks[existingIndex], albumArt };
+        }
+      } else {
+        const newTrack: Track = {
+          id: `track-${Date.now()}`,
+          name: fileName.replace(/\.[^/.]+$/, ""),
+          artist: file ? 'Uploaded Audio' : 'Suno AI Track',
+          url: url,
+          duration: duration,
+          albumArt: albumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop',
+          isUserUploaded: !!file
+        };
+        updatedTracks = [newTrack, ...state.tracks];
+        activeIndex = 0;
+      }
+
+      const activeTrack = updatedTracks[activeIndex];
+      const finalAlbumArt = albumArt || activeTrack?.albumArt || null;
+
       return {
         tracks: updatedTracks,
-        currentTrackIndex: 0,
+        currentTrackIndex: activeIndex,
         audioFile: file,
         audioUrl: url,
         audioDuration: duration,
-        albumArt: newTrack.albumArt || null,
+        albumArt: finalAlbumArt,
         currentTime: 0,
         isPlaying: false,
         exportRangeStart: 0,
@@ -256,6 +276,31 @@ export const useStore = create<ProjectState>((set, get) => ({
       };
     });
   },
+  setAlbumArt: (albumArt) => set({ albumArt }),
+  updateCurrentTrackCover: (newCoverUrl) => set((state) => {
+    const currentTrack = state.tracks[state.currentTrackIndex];
+    const updatedTracks = state.tracks.map((t, i) =>
+      i === state.currentTrackIndex ? { ...t, albumArt: newCoverUrl } : t
+    );
+
+    // Sync with Suno generated track if applicable
+    if (currentTrack) {
+      const mvStore = useMVStore.getState();
+      const genTrack = mvStore.generatedTracks.find(gt => gt.audioUrl === currentTrack.url || gt.id === currentTrack.id);
+      if (genTrack) {
+        useMVStore.setState((mvState) => ({
+          generatedTracks: mvState.generatedTracks.map(gt =>
+            gt.id === genTrack.id ? { ...gt, coverUrl: newCoverUrl } : gt
+          )
+        }));
+      }
+    }
+
+    return {
+      tracks: updatedTracks,
+      albumArt: newCoverUrl
+    };
+  }),
   setSelectedLayerId: (selectedLayerId) => set({ selectedLayerId }),
   
   updateVisualizerSettings: (updates) => set((state) => ({ visualizerSettings: { ...state.visualizerSettings, ...updates } })),

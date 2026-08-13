@@ -33,6 +33,7 @@ export function SunoStudioLayout() {
   const addGeneratedTrack = useMVStore(s => s.addGeneratedTrack);
   const toggleLikeTrack = useMVStore(s => s.toggleLikeGeneratedTrack);
   const deleteTrack = useMVStore(s => s.deleteGeneratedTrack);
+  const updateGeneratedTrackCover = useMVStore(s => s.updateGeneratedTrackCover);
   const timelineClips = useMVStore(s => s.timelineClips);
   const setTimelineClips = useMVStore(s => s.setTimelineClips);
 
@@ -519,7 +520,7 @@ export function SunoStudioLayout() {
                   >
                     {/* Main Row */}
                     <div className="flex items-center gap-3">
-                      {/* Cover Art with Play Overlay */}
+                      {/* Cover Art with Play & Change Cover Overlay */}
                       <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-white/10 group-hover:border-white/30">
                         <img
                           src={track.coverUrl}
@@ -536,6 +537,30 @@ export function SunoStudioLayout() {
                             <Play size={20} className="ml-0.5" style={{ color: activeColor }} />
                           )}
                         </button>
+                        <label
+                          className="absolute top-1 right-1 p-1 rounded-md bg-black/80 hover:bg-black text-slate-300 hover:text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          title="Change Track Cover"
+                        >
+                          <Disc size={11} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                  if (evt.target?.result) {
+                                    updateGeneratedTrackCover(track.id, evt.target.result as string);
+                                    showNotification(`Updated cover for "${track.title}"!`);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
                         <span className="absolute bottom-1 right-1 px-1 py-0.2 bg-black/80 rounded text-[9px] font-mono text-white">
                           0:{track.duration < 10 ? `0${track.duration}` : track.duration}
                         </span>

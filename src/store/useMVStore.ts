@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { saveMVAssetToStorage, removeMVAssetFromStorage, loadMVAssetsFromStorage } from '../lib/storage';
+import { useStore } from './useStore';
 
 export interface MediaAsset {
   id: string;
@@ -107,6 +108,7 @@ export interface MVProjectState {
   addGeneratedTrack: (track: GeneratedTrack) => void;
   toggleLikeGeneratedTrack: (id: string) => void;
   deleteGeneratedTrack: (id: string) => void;
+  updateGeneratedTrackCover: (id: string, coverUrl: string) => void;
   setStyle: (style: string) => void;
   setPacing: (pacing: string) => void;
   setBeatSync: (beatSync: string) => void;
@@ -208,6 +210,19 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   deleteGeneratedTrack: (id) => set((state) => ({
     generatedTracks: state.generatedTracks.filter(t => t.id !== id)
   })),
+  updateGeneratedTrackCover: (id, coverUrl) => set((state) => {
+    const updated = state.generatedTracks.map(t => t.id === id ? { ...t, coverUrl } : t);
+    
+    // Sync with active track in main store if matching
+    const mainState = useStore.getState();
+    const currentTrack = mainState.tracks[mainState.currentTrackIndex];
+    const targetTrack = state.generatedTracks.find(t => t.id === id);
+    if (currentTrack && targetTrack && (currentTrack.url === targetTrack.audioUrl || currentTrack.id === targetTrack.id)) {
+      mainState.updateCurrentTrackCover(coverUrl);
+    }
+
+    return { generatedTracks: updated };
+  }),
   setStyle: (style) => set({ style }),
   setPacing: (pacing) => set({ pacing }),
   setBeatSync: (beatSync) => set({ beatSync }),

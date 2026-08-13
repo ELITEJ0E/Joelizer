@@ -1,6 +1,6 @@
 import { LyricVideoTemplate, ArtworkStyle, ArtworkAnimation, LineAnimation, WordAnimation } from './lyricsTemplates';
 import { drawBackgroundCanvas } from './lyricsBackgrounds';
-import { LyricLine } from '../store/useStore';
+import { LyricLine, useStore } from '../store/useStore';
 
 export interface LyricsRenderConfig {
   template: LyricVideoTemplate;
@@ -79,6 +79,16 @@ function getCachedVideo(url: string | null | undefined): HTMLVideoElement | null
   return v;
 }
 
+// Helper to truncate text with ellipsis on 2D canvas
+function truncateCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let truncated = text;
+  while (truncated.length > 0 && ctx.measureText(truncated + '…').width > maxWidth) {
+    truncated = truncated.slice(0, -1);
+  }
+  return truncated + '…';
+}
+
 export function renderLyricsVideoFrame(
   ctx: CanvasRenderingContext2D,
   W: number,
@@ -90,8 +100,10 @@ export function renderLyricsVideoFrame(
   audioFrequencyData?: Uint8Array | null
 ) {
   const { template } = config;
+  const isPlaying = useStore.getState().isPlaying;
+  const isVertical = H > W;
   
-  // 1. Resolve Background Settings
+  // 1. Resolve Background Settings (Static Mureka Abstract Color Field)
   const bgType = config.customBackground?.type || template.defaultBackground.type;
   const bgVal = config.customBackground?.value || template.defaultBackground.value;
   const bgVidUrl = config.customBackground?.videoUrl;
@@ -99,7 +111,7 @@ export function renderLyricsVideoFrame(
   const albumArtImg = getCachedImage(trackMeta.albumArtUrl);
   const bgVideoEl = bgVidUrl ? getCachedVideo(bgVidUrl) : null;
 
-  // Draw Background Layer
+  // Draw Background Layer (No audio pulse, static heavily blurred aurora / lava-lamp field)
   drawBackgroundCanvas(
     ctx,
     W,
@@ -116,47 +128,33 @@ export function renderLyricsVideoFrame(
     audioFrequencyData
   );
 
-  // 2. Resolve Artwork & Visualizer Object Style
+  // 2. Resolve Artwork & Vinyl Object Style
   const artStyle = config.artworkOverride?.style || template.layout.artworkType;
-  const artAnim = config.artworkOverride?.animation || template.layout.artworkAnim;
   const artScale = config.artworkOverride?.sizeScale || 1.0;
 
-  // Calculate Beat Intensity for Beat Sync animations (Pulse, Scale, etc.)
-  let beatPulse = 1.0;
-  if (audioFrequencyData && audioFrequencyData.length > 0) {
-    let bassSum = 0;
-    const bassBands = Math.floor(audioFrequencyData.length * 0.08);
-    for (let i = 0; i < bassBands; i++) bassSum += audioFrequencyData[i];
-    const avgBass = bassSum / Math.max(1, bassBands);
-    beatPulse = 1.0 + (avgBass / 255) * 0.06; // subtle 1.00 -> 1.06 pulse
-  } else {
-    // Simulated smooth beat pulse if audio data not available
-    beatPulse = 1.0 + Math.sin(currentTime * 6.28) * 0.02;
-  }
-
-  // Render Visualizer / Album Art Object
+  // Render Visualizer / Album Art / Vinyl Object
   if (artStyle !== 'none' && artStyle !== 'background-blur') {
     renderArtworkObject(
       ctx,
       W,
       H,
       currentTime,
+      isPlaying,
       albumArtImg,
       trackMeta,
       artStyle,
-      artAnim,
-      artScale * beatPulse,
+      artScale,
       template,
       config.elementPositions?.artwork
     );
   }
 
-  // 3. Render Song Title & Artist Text if enabled
+  // 3. Render Song Title & Artist Text with Truncation (Ellipsis)
   if (template.layout.showSongTitle || template.layout.showArtist) {
     renderSongMetaText(ctx, W, H, trackMeta, template, config.elementPositions?.meta);
   }
 
-  // 4. Render Synchronized Lyrics
+  // 4. Render Synchronized Lyric Line (Single Active Line, Cross-Fade, Static Typography)
   renderSynchronizedLyrics(
     ctx,
     W,
@@ -165,14 +163,16 @@ export function renderLyricsVideoFrame(
     lyricsLines,
     config,
     template,
-    beatPulse,
     config.elementPositions?.lyrics
   );
 
-  // 5. Render Watermark text
+  // 5. Render Horizontal Segment Dots Indicator Row below lyrics
+  renderSegmentDots(ctx, W, H, config.elementPositions?.visualizer);
+
+  // 6. Render Watermark text
   renderWatermarkText(ctx, W, H, config.watermarkText || 'Made with Joelizer', config.elementPositions?.watermark);
 
-  // 6. Render Safe-Area overlay guide if toggled on
+  // 7. Render Safe-Area overlay guide if toggled on
   if (config.showSafeArea) {
     renderSafeAreaGuide(ctx, W, H);
   }
@@ -184,83 +184,106 @@ function renderArtworkObject(
   W: number,
   H: number,
   currentTime: number,
+  isPlaying: boolean,
   img: HTMLImageElement | null,
   trackMeta: TrackMeta,
   artStyle: ArtworkStyle,
-  artAnim: ArtworkAnimation,
-  beatScale: number,
+  artScale: number,
   template: LyricVideoTemplate,
   pos?: { x: number; y: number }
 ) {
   ctx.save();
 
-  // Position calculation
   const isVertical = H > W;
-  const size = Math.min(W, H) * (isVertical ? 0.38 : 0.32) * beatScale;
-  const cx = pos ? pos.x * W : W / 2;
-  const cy = pos ? pos.y * H : (template.layout.artworkPosition === 'center' ? H / 2 : H * 0.32);
+  const size = Math.min(W, H) * (isVertical ? 0.42 : 0.35) * artScale;
+  const cx = pos ? pos.x * W : (isVertical ? W / 2 : W * 0.28);
+  const cy = pos ? pos.y * H : (isVertical ? H * 0.40 : H * 0.40);
 
-  // Animation Offset / Transforms
-  let rotAngle = 0;
-  let floatY = 0;
+  // Constant Linear Rotation for Vinyl (33 1/3 RPM -> 1 rotation per 1.8s)
+  const rotAngle = (currentTime / 1.8) * Math.PI * 2;
 
-  if (artAnim === 'rotate') {
-    rotAngle = (currentTime * 0.6) % (Math.PI * 2); // Smooth Vinyl rotation
-  } else if (artAnim === 'float') {
-    floatY = Math.sin(currentTime * 2) * (H * 0.015);
-  } else if (artAnim === 'bounce') {
-    floatY = Math.abs(Math.sin(currentTime * 3.5)) * -(H * 0.02);
-  }
+  ctx.translate(cx, cy);
 
-  ctx.translate(cx, cy + floatY);
-
-  if (artStyle === 'vinyl' || artStyle === 'vinyl-needle') {
-    // --- HYPER-REALISTIC ROTATING VINYL RECORD ---
+  if (artStyle === 'vinyl' || artStyle === 'vinyl-needle' || artStyle === 'cd' || artStyle === 'cd-needle') {
     const recordRadius = size / 2;
+    const isCD = artStyle === 'cd' || artStyle === 'cd-needle';
 
-    // 1. Vinyl Record Outer Glow
-    ctx.shadowBlur = 25;
-    ctx.shadowColor = template.typography.glowColor || 'rgba(234, 179, 8, 0.4)';
-    ctx.fillStyle = '#0a0a0c';
+    // 1. Outer Disc Base & Soft Drop Shadow
+    ctx.shadowBlur = 35;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 12;
+
+    if (isCD) {
+      // CD / Frosted Holo Disc Outer Base
+      const cdGrad = ctx.createRadialGradient(0, 0, recordRadius * 0.4, 0, 0, recordRadius);
+      cdGrad.addColorStop(0, 'rgba(40, 40, 48, 0.85)');
+      cdGrad.addColorStop(0.7, 'rgba(20, 20, 26, 0.90)');
+      cdGrad.addColorStop(1, 'rgba(10, 10, 14, 0.95)');
+      ctx.fillStyle = cdGrad;
+    } else {
+      // Classic Black Vinyl Disc Outer Base
+      ctx.fillStyle = '#0c0c0e';
+    }
+
     ctx.beginPath();
     ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. Vinyl Record Grooves
+    // Reset shadow
+    ctx.shadowBlur = 0;
+
+    // Outer Silver / Metallic Bevel Rim
+    ctx.strokeStyle = isCD ? 'rgba(255, 255, 255, 0.40)' : 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = isCD ? 3.5 : 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, recordRadius - 1, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 2. Rotating Disc Content (Grooves + Artwork Label)
     ctx.save();
     ctx.rotate(rotAngle);
 
-    ctx.strokeStyle = '#18181b';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Concentric Groove Rings
-    const ringCount = 12;
-    for (let i = 1; i < ringCount; i++) {
-      const r = recordRadius * (0.42 + (i / ringCount) * 0.55);
+    if (isCD) {
+      // CD Iridescent / Holographic Sheen Ring
+      const holoGrad = ctx.createLinearGradient(-recordRadius, -recordRadius, recordRadius, recordRadius);
+      holoGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+      holoGrad.addColorStop(0.3, 'rgba(200, 220, 255, 0.08)');
+      holoGrad.addColorStop(0.5, 'rgba(255, 200, 220, 0.12)');
+      holoGrad.addColorStop(0.8, 'rgba(200, 255, 220, 0.08)');
+      holoGrad.addColorStop(1, 'rgba(255, 255, 255, 0.20)');
+      ctx.fillStyle = holoGrad;
       ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.strokeStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.6)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Fine Concentric Vinyl Groove Rings
+      const ringCount = 22;
+      for (let i = 1; i < ringCount; i++) {
+        const r = recordRadius * (0.54 + (i / ringCount) * 0.44);
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.strokeStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.60)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+
+      // Specular Glint Reflection Sweeps
+      const shineGrad = ctx.createLinearGradient(-recordRadius, -recordRadius, recordRadius, recordRadius);
+      shineGrad.addColorStop(0, 'rgba(255, 255, 255, 0.18)');
+      shineGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.02)');
+      shineGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.30)');
+      shineGrad.addColorStop(0.8, 'rgba(255, 255, 255, 0.02)');
+      shineGrad.addColorStop(1, 'rgba(255, 255, 255, 0.16)');
+      ctx.fillStyle = shineGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
+      ctx.fill();
     }
 
-    // Specular Shine Reflections on Vinyl Grooves
-    const shineGrad = ctx.createLinearGradient(-recordRadius, -recordRadius, recordRadius, recordRadius);
-    shineGrad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
-    shineGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.02)');
-    shineGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.2)');
-    shineGrad.addColorStop(0.8, 'rgba(255, 255, 255, 0.02)');
-    shineGrad.addColorStop(1, 'rgba(255, 255, 255, 0.12)');
-    ctx.fillStyle = shineGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 3. Center Label Artwork Circle
-    const labelRadius = recordRadius * 0.4;
+    // 3. Center Album Artwork Circular Label (~54% of disc diameter, as in Mureka ref)
+    const labelRadius = recordRadius * 0.54;
+    ctx.save();
     ctx.beginPath();
     ctx.arc(0, 0, labelRadius, 0, Math.PI * 2);
     ctx.clip();
@@ -271,205 +294,120 @@ function renderArtworkObject(
       ctx.fillStyle = '#1e1b4b';
       ctx.fillRect(-labelRadius, -labelRadius, labelRadius * 2, labelRadius * 2);
     }
+    ctx.restore(); // Restore clip
 
-    ctx.restore();
-
-    // Center Spindle Hole
+    // Metallic Inner Ring Framing the Artwork (Silver Bevel)
+    const bevelGrad = ctx.createLinearGradient(-labelRadius, -labelRadius, labelRadius, labelRadius);
+    bevelGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+    bevelGrad.addColorStop(0.5, 'rgba(160, 160, 175, 0.50)');
+    bevelGrad.addColorStop(1, 'rgba(255, 255, 255, 0.75)');
+    ctx.strokeStyle = bevelGrad;
+    ctx.lineWidth = 4.0;
     ctx.beginPath();
-    ctx.arc(0, 0, labelRadius * 0.15, 0, Math.PI * 2);
+    ctx.arc(0, 0, labelRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore(); // Restore disc rotation
+
+    // Center Spindle Hole (Tiny dark hole at dead center)
+    ctx.beginPath();
+    ctx.arc(0, 0, labelRadius * 0.08, 0, Math.PI * 2);
     ctx.fillStyle = '#050508';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    // Tonearm
-    if (artStyle === 'vinyl-needle') {
-      ctx.save();
-      // Pivot is top right of the record
-      const pivotX = recordRadius * 0.8;
-      const pivotY = -recordRadius * 0.8;
-      
-      // Gentle sway based on time
-      const sway = Math.sin(currentTime * 0.5) * 0.05;
-      
-      ctx.translate(pivotX, pivotY);
-      ctx.rotate(0.3 + sway); // Base angle + sway
-      
-      // Tonearm shadow
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowOffsetX = 4;
-      ctx.shadowOffsetY = 4;
-      
-      // The Arm
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-recordRadius * 0.8, recordRadius * 1.1);
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = '#a3a3a3';
-      ctx.lineCap = 'round';
-      ctx.stroke();
-      
-      // Arm bend
-      ctx.beginPath();
-      ctx.moveTo(-recordRadius * 0.8, recordRadius * 1.1);
-      ctx.lineTo(-recordRadius * 0.9, recordRadius * 1.25);
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      
-      // Stylus/Cartridge
-      ctx.fillStyle = '#262626';
-      ctx.fillRect(-recordRadius * 0.95, recordRadius * 1.25, 12, 18);
-      ctx.fillStyle = '#525252';
-      ctx.fillRect(-recordRadius * 0.92, recordRadius * 1.25, 6, 10);
-      
-      // Pivot Base
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.beginPath();
-      ctx.arc(0, 0, 16, 0, Math.PI * 2);
-      ctx.fillStyle = '#262626';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 0, 8, 0, Math.PI * 2);
-      ctx.fillStyle = '#171717';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 0, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#a3a3a3';
-      ctx.fill();
-      
-      ctx.restore();
-    }
-
-  } else if (artStyle === 'cd' || artStyle === 'cd-needle') {
-    // CD glowing ring + center artwork
-    const cdRadius = size / 2;
-    
-    // Outer glow ring
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
-    ctx.beginPath();
-    ctx.arc(0, 0, cdRadius * 1.1, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = cdRadius * 0.2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+    ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-    ctx.beginPath();
-    ctx.arc(0, 0, cdRadius * 1.05, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    ctx.shadowBlur = 0;
-
-    // Center Label Artwork Circle
+    // 4. Tonearm (Anchored top-right, smooth swing onto record)
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(0, 0, cdRadius, 0, Math.PI * 2);
-    ctx.clip();
+    const pivotX = recordRadius * 0.85;
+    const pivotY = -recordRadius * 0.85;
 
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, -cdRadius, -cdRadius, cdRadius * 2, cdRadius * 2);
-    } else {
-      ctx.fillStyle = '#1e1b4b';
-      ctx.fillRect(-cdRadius, -cdRadius, cdRadius * 2, cdRadius * 2);
-    }
+    // Target angle: 0.38 rad when playing, 0.05 rad when paused
+    const targetArmAngle = isPlaying ? 0.38 : 0.05;
+
+    ctx.translate(pivotX, pivotY);
+    ctx.rotate(targetArmAngle);
+
+    // Tonearm drop shadow
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = 'rgba(0,0,0,0.85)';
+    ctx.shadowOffsetX = 5;
+    ctx.shadowOffsetY = 5;
+
+    // Outer Pivot Halo Ring
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Arm Shaft (Metallic Chrome rod)
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-recordRadius * 0.85, recordRadius * 1.15);
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#e4e4e7';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Arm Elbow Bend
+    ctx.beginPath();
+    ctx.moveTo(-recordRadius * 0.85, recordRadius * 1.15);
+    ctx.lineTo(-recordRadius * 0.94, recordRadius * 1.28);
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
+
+    // Silver Cartridge Headshell
+    ctx.fillStyle = '#e4e4e7';
+    ctx.fillRect(-recordRadius * 1.02, recordRadius * 1.28, 13, 18);
+    ctx.fillStyle = '#27272a';
+    ctx.fillRect(-recordRadius * 0.99, recordRadius * 1.30, 7, 12);
+
+    // Two small pin holes on cartridge
+    ctx.fillStyle = '#18181b';
+    ctx.beginPath();
+    ctx.arc(-recordRadius * 0.97, recordRadius * 1.38, 1.2, 0, Math.PI * 2);
+    ctx.arc(-recordRadius * 0.93, recordRadius * 1.38, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pivot Base Cap
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#27272a';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#e4e4e7';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#18181b';
+    ctx.fill();
+
     ctx.restore();
-
-    // Tonearm
-    if (artStyle === 'cd-needle') {
-      ctx.save();
-      // Pivot is top right of the record
-      const pivotX = cdRadius * 0.8;
-      const pivotY = -cdRadius * 0.8;
-      
-      const sway = Math.sin(currentTime * 0.5) * 0.05;
-      
-      ctx.translate(pivotX, pivotY);
-      ctx.rotate(0.3 + sway); // Base angle + sway
-      
-      // Tonearm shadow
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowOffsetX = 4;
-      ctx.shadowOffsetY = 4;
-      
-      // The Arm
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-cdRadius * 0.8, cdRadius * 1.1);
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = '#e5e5e5'; // Lighter silver tone
-      ctx.lineCap = 'round';
-      ctx.stroke();
-      
-      // Arm bend
-      ctx.beginPath();
-      ctx.moveTo(-cdRadius * 0.8, cdRadius * 1.1);
-      ctx.lineTo(-cdRadius * 0.9, cdRadius * 1.25);
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      
-      // Stylus/Cartridge
-      ctx.fillStyle = '#404040';
-      ctx.fillRect(-cdRadius * 0.95, cdRadius * 1.25, 12, 18);
-      ctx.fillStyle = '#737373';
-      ctx.fillRect(-cdRadius * 0.92, cdRadius * 1.25, 6, 10);
-      
-      // Pivot Base
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.beginPath();
-      ctx.arc(0, 0, 16, 0, Math.PI * 2);
-      ctx.fillStyle = '#404040';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 0, 8, 0, Math.PI * 2);
-      ctx.fillStyle = '#262626';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 0, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#d4d4d4';
-      ctx.fill();
-      
-      ctx.restore();
-    }
-  } else if (artStyle === 'circle' || artStyle === 'glowing-disc') {
-    const r = size / 2;
-    if (artStyle === 'glowing-disc') {
-      ctx.shadowBlur = 30;
-      ctx.shadowColor = template.typography.glowColor || '#38bdf8';
-    }
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.clip();
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, -r, -r, size, size);
-    } else {
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(-r, -r, size, size);
-    }
   } else {
-    // Default Square / Framed Card
+    // --- SQUARE ALBUM ARTWORK CONTAINER (~22% CORNER RADIUS, NO BORDER, DROP SHADOW) ---
     const half = size / 2;
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    const cornerRadius = size * 0.22; // ~22% corner radius matching spec
+
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 10;
     ctx.fillStyle = '#18181b';
 
+    ctx.beginPath();
     if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(-half, -half, size, size, 16);
-      ctx.fill();
-      ctx.clip();
+      ctx.roundRect(-half, -half, size, size, cornerRadius);
     } else {
       ctx.fillRect(-half, -half, size, size);
     }
+    ctx.fill();
+    ctx.clip();
 
     if (img && img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, -half, -half, size, size);
@@ -482,7 +420,7 @@ function renderArtworkObject(
   ctx.restore();
 }
 
-// Render Song Title & Artist Text
+// Render Song Title & Artist Text (Single Line, Ellipsis Truncation)
 function renderSongMetaText(
   ctx: CanvasRenderingContext2D,
   W: number,
@@ -492,29 +430,41 @@ function renderSongMetaText(
   pos?: { x: number; y: number }
 ) {
   ctx.save();
-  const fontSize = Math.round(H * 0.024);
-  ctx.font = `700 ${fontSize}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#f1f5f9';
-  ctx.shadowColor = 'rgba(0,0,0,0.8)';
-  ctx.shadowBlur = 6;
+  const isVertical = H > W;
 
-  const posX = pos ? pos.x * W : W / 2;
-  const posY = pos ? pos.y * H : (template.layout.artworkType !== 'none' ? H * 0.53 : H * 0.15);
-  
+  const fontSize = Math.max(14, Math.round(H * (isVertical ? 0.026 : 0.028)));
+  const posX = pos ? pos.x * W : (isVertical ? W / 2 : W * 0.28);
+  const posY = pos ? pos.y * H : (isVertical ? H * 0.12 : H * 0.72);
+
+  const maxTextWidth = isVertical ? W * 0.85 : W * 0.40;
+
+  ctx.textAlign = isVertical ? 'center' : 'center';
+  ctx.textBaseline = 'top';
+
   if (trackMeta.title) {
-    ctx.fillText(trackMeta.title, posX, posY);
+    ctx.font = `700 ${fontSize}px sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+    ctx.shadowBlur = 8;
+
+    const truncatedTitle = truncateCanvasText(ctx, trackMeta.title, maxTextWidth);
+    ctx.fillText(truncatedTitle, posX, posY);
   }
+
   if (trackMeta.artist) {
-    ctx.font = `500 ${Math.round(fontSize * 0.8)}px sans-serif`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.fillText(trackMeta.artist, posX, posY + fontSize * 1.3);
+    const artistFontSize = Math.round(fontSize * 0.78);
+    ctx.font = `500 ${artistFontSize}px sans-serif`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.70)';
+    ctx.shadowBlur = 4;
+
+    const truncatedArtist = truncateCanvasText(ctx, trackMeta.artist, maxTextWidth);
+    ctx.fillText(truncatedArtist, posX, posY + fontSize * 1.35);
   }
 
   ctx.restore();
 }
 
-// Synchronized Lyric Engine
+// Synchronized Lyric Engine (Single Line, Cross-Fade, No Beat Pulse/Bounce)
 function renderSynchronizedLyrics(
   ctx: CanvasRenderingContext2D,
   W: number,
@@ -523,20 +473,19 @@ function renderSynchronizedLyrics(
   lyricsLines: LyricLine[],
   config: LyricsRenderConfig,
   template: LyricVideoTemplate,
-  beatPulse: number,
   pos?: { x: number; y: number }
 ) {
   if (!lyricsLines || lyricsLines.length === 0) return;
 
   ctx.save();
+  const isVertical = H > W;
 
-  // Find active line and context lines
+  // Find active line
   let activeIndex = lyricsLines.findIndex(l => currentTime >= l.startTime && currentTime <= l.endTime);
   if (activeIndex === -1) {
-    // Find next upcoming line if in gap
     activeIndex = lyricsLines.findIndex(l => l.startTime > currentTime);
     if (activeIndex !== -1 && activeIndex > 0 && currentTime < lyricsLines[activeIndex].startTime) {
-      activeIndex = activeIndex - 1; // Stay on previous line during short instrumental break
+      activeIndex = activeIndex - 1;
     }
   }
 
@@ -546,132 +495,83 @@ function renderSynchronizedLyrics(
     return;
   }
 
-  // Typography Settings & Overrides
-  const fontFamily = config.typographyOverride?.fontFamily || template.typography.fontFamily;
-  const fontWeight = config.typographyOverride?.fontWeight || template.typography.fontWeight;
-  const fontSizeScale = (config.typographyOverride?.fontSizeScale || template.typography.fontSizeScale) * (H * 0.042);
-  const baseFontSize = Math.round(fontSizeScale);
+  // Calculate 250ms smooth cross-fade opacity for lyric line entry & exit
+  const lineDuration = Math.max(0.4, activeLine.endTime - activeLine.startTime);
+  const elapsed = currentTime - activeLine.startTime;
+  const remaining = activeLine.endTime - currentTime;
 
-  const activeWordColor = config.typographyOverride?.activeWordColor || template.typography.activeWordColor;
-  const inactiveWordColor = config.typographyOverride?.inactiveWordColor || template.typography.inactiveWordColor;
-  const glowColor = config.typographyOverride?.glowColor || template.typography.glowColor;
-  const showPill = config.typographyOverride?.showContainerPill ?? template.typography.showContainerPill;
-  const pillBg = config.typographyOverride?.pillBgColor || template.typography.pillBgColor;
+  const fadeInOpacity = Math.max(0, Math.min(1, elapsed / 0.25));
+  const fadeOutOpacity = Math.max(0, Math.min(1, remaining / 0.25));
+  const lineOpacity = Math.min(fadeInOpacity, fadeOutOpacity);
 
-  const wordAnim = config.animationOverride?.wordAnimation || template.animations.wordAnimation;
+  ctx.globalAlpha = lineOpacity;
 
-  // Position calculation
-  const lyricX = pos ? pos.x * W : W / 2;
-  const lyricY = pos ? pos.y * H : (template.layout.lyricPosition === 'center' ? H * 0.52 : H * 0.76);
+  // Typography Settings
+  const fontFamily = config.typographyOverride?.fontFamily || template.typography.fontFamily || 'Inter';
+  const fontWeight = config.typographyOverride?.fontWeight || '600';
+  const baseFontSize = Math.max(16, Math.round(H * (isVertical ? 0.038 : 0.045) * (config.typographyOverride?.fontSizeScale || 1.0)));
 
-  ctx.font = `${fontWeight} ${baseFontSize}px ${fontFamily}, sans-serif`;
+  const lyricX = pos ? pos.x * W : (isVertical ? W / 2 : W * 0.72);
+  const lyricY = pos ? pos.y * H : (isVertical ? H * 0.72 : H * 0.45);
 
-  // Process Word-level timing if available
-  const rawWords = activeLine.words;
-  const hasWordTimings = rawWords && rawWords.length > 0;
+  ctx.font = `${fontWeight} ${baseFontSize}px ${fontFamily}, system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+  ctx.shadowBlur = 10;
 
-  let wordsToRender: Array<{ word: string; start: number; end: number }> = [];
+  const maxLineWidth = isVertical ? W * 0.88 : W * 0.48;
 
-  if (hasWordTimings) {
-    wordsToRender = rawWords!.map(w => ({
-      word: w.word,
-      start: w.start ?? w.startTime ?? activeLine.startTime,
-      end: w.end ?? w.endTime ?? activeLine.endTime
-    }));
+  // Check if text exceeds max width; wrap into 2 lines max if portrait
+  const measuredW = ctx.measureText(activeLine.text).width;
+
+  if (measuredW > maxLineWidth && isVertical) {
+    // Wrap to 2 lines max
+    const words = activeLine.text.split(' ');
+    let line1 = '';
+    let line2 = '';
+    const mid = Math.ceil(words.length / 2);
+
+    line1 = words.slice(0, mid).join(' ');
+    line2 = words.slice(mid).join(' ');
+
+    const lineGap = baseFontSize * 1.25;
+    ctx.fillText(line1, lyricX, lyricY - lineGap / 2);
+    ctx.fillText(line2, lyricX, lyricY + lineGap / 2);
   } else {
-    const tokens = activeLine.text.split(' ').filter(Boolean);
-    const lineDur = Math.max(0.5, activeLine.endTime - activeLine.startTime);
-    const tokenDur = lineDur / tokens.length;
-
-    wordsToRender = tokens.map((tok, idx) => ({
-      word: tok,
-      start: activeLine.startTime + idx * tokenDur,
-      end: activeLine.startTime + (idx + 1) * tokenDur
-    }));
+    // Single line centered
+    const truncatedText = truncateCanvasText(ctx, activeLine.text, maxLineWidth);
+    ctx.fillText(truncatedText, lyricX, lyricY);
   }
 
-  // Measure Total Width for Centered Container Box
-  let totalLineW = 0;
-  const wordWidths = wordsToRender.map(w => {
-    const measured = ctx.measureText(w.word + ' ').width;
-    totalLineW += measured;
-    return measured;
-  });
+  ctx.restore();
+}
 
-  const padX = 24;
-  const boxW = Math.min(W * 0.92, totalLineW + padX * 2);
-  const boxH = baseFontSize * 1.8;
-  const boxX = lyricX - boxW / 2;
-  const boxY = lyricY - boxH / 1.6;
+// Render Horizontal Segment Dots Indicator Row
+function renderSegmentDots(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  pos?: { x: number; y: number }
+) {
+  ctx.save();
+  const isVertical = H > W;
 
-  // Draw Container Pill
-  if (showPill) {
-    ctx.save();
-    ctx.fillStyle = pillBg;
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(boxX, boxY, boxW, boxH, 14);
-      ctx.fill();
-    } else {
-      ctx.fillRect(boxX, boxY, boxW, boxH);
-    }
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.restore();
-  }
+  const posX = pos ? pos.x * W : (isVertical ? W / 2 : W * 0.72);
+  const posY = pos ? pos.y * H : (isVertical ? H * 0.84 : H * 0.68);
 
-  // Render Words
-  let startX = lyricX - totalLineW / 2;
+  const dotCount = 8;
+  const dotRadius = Math.max(1.5, Math.round(H * 0.0035));
+  const dotSpacing = Math.max(8, Math.round(H * 0.015));
+  const totalW = (dotCount - 1) * dotSpacing;
+  const startX = posX - totalW / 2;
 
-  wordsToRender.forEach((w, idx) => {
-    const isWordActive = currentTime >= w.start && currentTime <= w.end;
-    const isWordPast = currentTime > w.end;
-
-    const wordDur = Math.max(0.1, w.end - w.start);
-    const wordProgress = Math.max(0, Math.min(1, (currentTime - w.start) / wordDur));
-
-    ctx.save();
-
-    if (isWordActive) {
-      ctx.fillStyle = activeWordColor;
-      
-      let scale = 1.0;
-      if (wordAnim === 'word-pop' || wordAnim === 'word-bounce') {
-        scale = 1.0 + Math.sin(wordProgress * Math.PI) * 0.25;
-      }
-
-      if (glowColor && glowColor !== 'transparent') {
-        ctx.shadowColor = glowColor;
-        ctx.shadowBlur = 16;
-      }
-
-      ctx.font = `${fontWeight} ${Math.round(baseFontSize * scale)}px ${fontFamily}, sans-serif`;
-    } else if (isWordPast) {
-      ctx.fillStyle = activeWordColor;
-    } else {
-      ctx.fillStyle = inactiveWordColor;
-      ctx.shadowBlur = 0;
-    }
-
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(w.word + ' ', startX, lyricY);
-
-    ctx.restore();
-
-    startX += wordWidths[idx];
-  });
-
-  // Next Line Preview below
-  if (template.layout.showNextLine && activeIndex < lyricsLines.length - 1) {
-    const nextLine = lyricsLines[activeIndex + 1];
-    ctx.save();
-    ctx.font = `500 ${Math.round(baseFontSize * 0.65)}px ${fontFamily}, sans-serif`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-    ctx.textAlign = 'center';
-    ctx.fillText(nextLine.text, lyricX, lyricY + baseFontSize * 1.3);
-    ctx.restore();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  for (let i = 0; i < dotCount; i++) {
+    ctx.beginPath();
+    ctx.arc(startX + i * dotSpacing, posY, dotRadius, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   ctx.restore();
@@ -686,14 +586,17 @@ function renderWatermarkText(
   pos?: { x: number; y: number }
 ) {
   ctx.save();
+  const isVertical = H > W;
+
   const fontSize = Math.max(10, Math.round(H * 0.018));
   ctx.font = `500 ${fontSize}px sans-serif`;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.40)';
   ctx.textAlign = 'center';
-  
-  const posX = pos ? pos.x * W : W / 2;
-  const posY = pos ? pos.y * H : H * 0.92;
-  
+  ctx.textBaseline = 'middle';
+
+  const posX = pos ? pos.x * W : (isVertical ? W / 2 : W * 0.72);
+  const posY = pos ? pos.y * H : (isVertical ? H * 0.92 : H * 0.88);
+
   ctx.fillText(text, posX, posY);
   ctx.restore();
 }
@@ -701,7 +604,7 @@ function renderWatermarkText(
 // Render Safe Area Margins Guide
 function renderSafeAreaGuide(ctx: CanvasRenderingContext2D, W: number, H: number) {
   ctx.save();
-  ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)'; // Soft red outline
+  ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
   ctx.lineWidth = 1.5;
   ctx.setLineDash([6, 6]);
 
@@ -712,7 +615,7 @@ function renderSafeAreaGuide(ctx: CanvasRenderingContext2D, W: number, H: number
 
   ctx.font = 'bold 10px sans-serif';
   ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
-  ctx.fillText('SAFE AREA (16:9 / 9:16 / 1:1)', marginX + 8, marginY + 14);
+  ctx.fillText('SAFE AREA GUIDE', marginX + 8, marginY + 14);
 
   ctx.restore();
 }

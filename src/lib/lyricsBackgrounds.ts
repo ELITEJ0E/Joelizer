@@ -139,19 +139,24 @@ export function drawBackgroundCanvas(
       ctx.fillStyle = grad;
     }
     ctx.fillRect(0, 0, W, H);
-  } else if (bgSettings.type === 'image' && bgSettings.imageElement && bgSettings.imageElement.complete && bgSettings.imageElement.naturalWidth > 0) {
-    const img = bgSettings.imageElement;
-    const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
-    const drawW = img.naturalWidth * scale;
-    const drawH = img.naturalHeight * scale;
-    ctx.drawImage(img, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
-    // Dark overlay for legibility
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(0, 0, W, H);
+  } else if (bgSettings.type === 'image') {
+    const img = bgSettings.imageElement || albumArtImage;
+    if (img && img.complete && img.naturalWidth > 0) {
+      const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const drawW = img.naturalWidth * scale;
+      const drawH = img.naturalHeight * scale;
+      ctx.drawImage(img, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
+      // Dark overlay for legibility
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      // Fallback dark canvas
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, W, H);
+    }
   } else if (bgSettings.type === 'video' && bgSettings.videoElement) {
     const video = bgSettings.videoElement;
     if (video.readyState >= 2) {
-      // Loop video seamlessly: videocurrentTime = currentTime % videoDuration
       const dur = video.duration || 10;
       const targetTime = currentTime % dur;
       if (Math.abs(video.currentTime - targetTime) > 0.3) {
@@ -165,30 +170,73 @@ export function drawBackgroundCanvas(
       const drawH = vH * scale;
       ctx.drawImage(video, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
 
-      // Dark tint for lyrics readability
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(0, 0, W, H);
     } else {
       ctx.fillStyle = '#09090b';
       ctx.fillRect(0, 0, W, H);
     }
-  } else if (bgSettings.type === 'blurred-artwork' && albumArtImage && albumArtImage.complete && albumArtImage.naturalWidth > 0) {
+  } else if (bgSettings.type === 'blurred-artwork') {
+    // Mureka-style Static Heavily Blurred Abstract Color Field (Aurora / Lava Lamp look)
     ctx.save();
-    // Scale up blurred artwork
-    const scale = Math.max(W / albumArtImage.naturalWidth, H / albumArtImage.naturalHeight) * 1.2;
-    const drawW = albumArtImage.naturalWidth * scale;
-    const drawH = albumArtImage.naturalHeight * scale;
-    ctx.filter = 'blur(45px) brightness(0.65) saturate(1.4)';
-    ctx.drawImage(albumArtImage, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
-    ctx.filter = 'none';
-    ctx.restore();
+    
+    // Base dark canvas fill
+    ctx.fillStyle = '#070810';
+    ctx.fillRect(0, 0, W, H);
 
-    // Subtle dark gradient vignette
-    const vignette = ctx.createRadialGradient(W / 2, H / 2, W * 0.2, W / 2, H / 2, W * 0.8);
-    vignette.addColorStop(0, 'rgba(0,0,0,0.3)');
+    const bgImg = albumArtImage || bgSettings.imageElement;
+
+    if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+      // 1. Draw zoomed, heavily blurred album art base
+      const scale = Math.max(W / bgImg.naturalWidth, H / bgImg.naturalHeight) * 1.5;
+      const drawW = bgImg.naturalWidth * scale;
+      const drawH = bgImg.naturalHeight * scale;
+      
+      ctx.filter = 'blur(75px) brightness(0.7) saturate(1.6)';
+      ctx.drawImage(bgImg, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
+      ctx.filter = 'none';
+    } else {
+      // Fallback static organic radial blobs
+      ctx.filter = 'blur(80px)';
+      
+      // Blob 1: Deep Violet / Indigo Top-Left
+      const grad1 = ctx.createRadialGradient(W * 0.25, H * 0.25, 10, W * 0.25, H * 0.25, Math.max(W, H) * 0.5);
+      grad1.addColorStop(0, 'rgba(112, 26, 117, 0.7)');
+      grad1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad1;
+      ctx.beginPath();
+      ctx.arc(W * 0.25, H * 0.25, Math.max(W, H) * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Blob 2: Warm Amber / Orange Center-Right
+      const grad2 = ctx.createRadialGradient(W * 0.8, H * 0.45, 10, W * 0.8, H * 0.45, Math.max(W, H) * 0.45);
+      grad2.addColorStop(0, 'rgba(194, 65, 12, 0.65)');
+      grad2.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad2;
+      ctx.beginPath();
+      ctx.arc(W * 0.8, H * 0.45, Math.max(W, H) * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Blob 3: Cyan / Emerald Bottom-Left
+      const grad3 = ctx.createRadialGradient(W * 0.15, H * 0.85, 10, W * 0.15, H * 0.85, Math.max(W, H) * 0.45);
+      grad3.addColorStop(0, 'rgba(13, 148, 136, 0.6)');
+      grad3.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad3;
+      ctx.beginPath();
+      ctx.arc(W * 0.15, H * 0.85, Math.max(W, H) * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.filter = 'none';
+    }
+
+    // Static subtle vignette for depth and legibility
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, W * 0.2, W / 2, H / 2, Math.max(W, H) * 0.75);
+    vignette.addColorStop(0, 'rgba(0,0,0,0.25)');
     vignette.addColorStop(1, 'rgba(0,0,0,0.85)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, W, H);
+
+    ctx.restore();
   } else if (bgSettings.type === 'particles') {
     // Cosmic Particle Canvas background
     ctx.fillStyle = bgSettings.value || '#030712';

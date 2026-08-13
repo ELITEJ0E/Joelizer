@@ -81,18 +81,18 @@ export interface LyricsVideoState {
 }
 
 const DEFAULT_POSITIONS_16_9: CanvasElementPositions = {
-  artwork: { x: 0.28, y: 0.45 },
-  meta: { x: 0.28, y: 0.82 },
-  lyrics: { x: 0.72, y: 0.42 },
-  visualizer: { x: 0.72, y: 0.70 },
+  artwork: { x: 0.28, y: 0.40 },
+  meta: { x: 0.28, y: 0.72 },
+  lyrics: { x: 0.72, y: 0.45 },
+  visualizer: { x: 0.72, y: 0.68 },
   watermark: { x: 0.72, y: 0.88 },
 };
 
 const DEFAULT_POSITIONS_9_16: CanvasElementPositions = {
   meta: { x: 0.50, y: 0.12 },
   artwork: { x: 0.50, y: 0.40 },
-  lyrics: { x: 0.50, y: 0.74 },
-  visualizer: { x: 0.50, y: 0.85 },
+  lyrics: { x: 0.50, y: 0.72 },
+  visualizer: { x: 0.50, y: 0.84 },
   watermark: { x: 0.50, y: 0.92 },
 };
 

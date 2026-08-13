@@ -65,24 +65,58 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight }: Props) {
     }
   };
 
-  // Element Bounding Box Sizes (Approximate for bounding handle visualization)
+  // Calculate exact Canva-like bounding box sizes matching component dimensions
   const getBoxSize = (key: ElementKey) => {
     const isVertical = stageHeight > stageWidth;
     const minDim = Math.min(stageWidth, stageHeight);
     
+    // Read state for dynamic sizing
+    const currentTrack = useStore.getState().tracks[useStore.getState().currentTrackIndex];
+    const lyricsLines = useStore.getState().lyricsSettings?.lines || [];
+    const currentTime = useStore.getState().currentTime;
+    const artworkOverride = useLyricsVideoStore.getState().artworkOverride;
+    const typographyOverride = useLyricsVideoStore.getState().typographyOverride;
+
     switch (key) {
       case 'artwork': {
-        const size = minDim * (isVertical ? 0.42 : 0.35); // slightly larger than actual to cover shadows/rotations
-        return { w: size, h: size };
+        if (artworkOverride.style === 'none') {
+          return { w: 90, h: 28 };
+        }
+        const artScale = artworkOverride.sizeScale || 1.0;
+        const size = minDim * (isVertical ? 0.38 : 0.32) * artScale;
+        return { w: Math.round(size + 12), h: Math.round(size + 12) };
       }
-      case 'meta':
-        return { w: stageWidth * 0.6, h: stageHeight * 0.08 };
-      case 'lyrics':
-        return { w: stageWidth * 0.85, h: stageHeight * 0.16 };
+      case 'meta': {
+        const title = currentTrack?.name || 'Untitled Track';
+        const artist = currentTrack?.artist || 'Joelizer Studio';
+        const fontSize = Math.max(12, Math.round(stageHeight * 0.024));
+        const titleW = title.length * fontSize * 0.55;
+        const artistW = artist.length * (fontSize * 0.8) * 0.55;
+        const w = Math.min(stageWidth * 0.88, Math.max(110, Math.max(titleW, artistW) + 28));
+        const h = Math.max(28, Math.round(fontSize * 2.5 + 8));
+        return { w, h };
+      }
+      case 'lyrics': {
+        let activeLine = lyricsLines.find(l => currentTime >= l.startTime && currentTime <= l.endTime);
+        if (!activeLine) activeLine = lyricsLines[0];
+        const lineText = activeLine?.text || 'Your synchronized lyrics line';
+        
+        const fontSizeScale = typographyOverride.fontSizeScale || 1.0;
+        const baseFontSize = Math.max(14, Math.round(fontSizeScale * (stageHeight * 0.042)));
+        const textW = lineText.length * baseFontSize * 0.55;
+        const w = Math.min(stageWidth * 0.9, Math.max(120, textW + 36));
+        const h = Math.max(34, Math.round(baseFontSize * 1.8 + 10));
+        return { w, h };
+      }
       case 'visualizer':
-        return { w: stageWidth * 0.8, h: stageHeight * 0.1 };
-      case 'watermark':
-        return { w: stageWidth * 0.3, h: Math.max(20, stageHeight * 0.05) };
+        return { w: Math.min(stageWidth * 0.7, 240), h: Math.max(24, Math.round(stageHeight * 0.06)) };
+      case 'watermark': {
+        const text = 'Made with Joelizer';
+        const fontSize = Math.max(10, Math.round(stageHeight * 0.018));
+        const w = Math.min(stageWidth * 0.7, Math.max(80, text.length * fontSize * 0.55 + 20));
+        const h = Math.max(20, Math.round(fontSize * 1.6 + 6));
+        return { w, h };
+      }
     }
   };
 
