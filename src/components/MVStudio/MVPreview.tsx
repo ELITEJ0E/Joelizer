@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
+import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
+import { LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
+import { renderLyricsVideoFrame } from '../../lib/lyricsEngine';
 import { Play, Maximize2, Minimize2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 
@@ -61,7 +64,11 @@ export function MVPreview() {
     });
   }, [videoAssets]);
 
-  const aspectRatioVal = aspectRatio === '9:16' ? '9/16' : aspectRatio === '1:1' ? '1/1' : '16/9';
+  const aspectRatioVal = 
+    aspectRatio === '9:16' ? '9/16' : 
+    aspectRatio === '1:1' ? '1/1' : 
+    aspectRatio === '3:4' ? '3/4' : 
+    aspectRatio === '4:3' ? '4/3' : '16/9';
 
   // Continuous Canvas Renderer Loop (Serves both live preview and high-quality ExportModal recording)
   useEffect(() => {
@@ -83,6 +90,7 @@ export function MVPreview() {
       // Read real-time state safely from stores
       const storeState = useStore.getState();
       const mvState = useMVStore.getState();
+      const lyricsVideoState = useLyricsVideoStore.getState();
 
       const curTime = storeState.currentTime;
       const playing = storeState.isPlaying;
@@ -101,6 +109,12 @@ export function MVPreview() {
       } else if (aspectRatio === '1:1') {
         targetW = baseRes;
         targetH = baseRes;
+      } else if (aspectRatio === '3:4') {
+        targetW = baseRes * (3 / 4);
+        targetH = baseRes;
+      } else if (aspectRatio === '4:3') {
+        targetW = baseRes * (4 / 3);
+        targetH = baseRes;
       }
 
       targetW = Math.round(targetW);
@@ -115,7 +129,38 @@ export function MVPreview() {
       const W = canvas.width;
       const H = canvas.height;
 
-      // Clear Canvas Background
+      // If in LYRICS VIDEO mode, delegate directly to the Lyrics Engine
+      if (lyricsVideoState.videoMode === 'lyrics-video') {
+        const currentTrack = storeState.tracks[storeState.currentTrackIndex];
+        const tmpl = LYRIC_VIDEO_TEMPLATES[lyricsVideoState.selectedTemplateId || 'vinyl'];
+
+        renderLyricsVideoFrame(
+          ctx,
+          W,
+          H,
+          curTime,
+          storeState.lyricsSettings?.lines || [],
+          {
+            title: currentTrack?.name || 'Untitled Track',
+            artist: currentTrack?.artist || 'Joelizer Studio',
+            albumArtUrl: currentTrack?.albumArt || storeState.albumArt
+          },
+          {
+            template: tmpl,
+            aspectRatio: storeState.aspectRatio,
+            customBackground: lyricsVideoState.customBackground,
+            typographyOverride: lyricsVideoState.typographyOverride,
+            artworkOverride: lyricsVideoState.artworkOverride,
+            animationOverride: lyricsVideoState.animationOverride,
+            showSafeArea: lyricsVideoState.showSafeArea
+          }
+        );
+
+        animFrameId = requestAnimationFrame(render);
+        return;
+      }
+
+      // Clear Canvas Background for MUSIC VIDEO Mode
       ctx.fillStyle = '#050508';
       ctx.fillRect(0, 0, W, H);
 

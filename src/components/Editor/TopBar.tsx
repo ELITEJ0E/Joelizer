@@ -20,7 +20,8 @@ export function TopBar({ onExport }: { onExport: () => void }) {
     { id: '16:9', icon: '▭', label: '16:9' },
     { id: '9:16', icon: '▯', label: '9:16' },
     { id: '1:1', icon: '□', label: '1:1' },
-    { id: '4:5', icon: '◧', label: '4:5' },
+    { id: '3:4', icon: '◧', label: '3:4' },
+    { id: '4:3', icon: '◨', label: '4:3' },
   ];
 
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
