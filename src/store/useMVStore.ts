@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { saveMVAssetToStorage, removeMVAssetFromStorage, loadMVAssetsFromStorage } from '../lib/storage';
 import { useStore } from './useStore';
+import { globalHistory } from '../lib/globalHistory';
 
 export interface MediaAsset {
   id: string;
@@ -132,6 +133,7 @@ export interface MVProjectState {
   updateTimelineClip: (id: string, updates: Partial<TimelineClip>) => void;
   toggleLockClip: (id: string) => void;
   removeTimelineClip: (id: string) => void;
+  duplicateTimelineClip: (id: string) => void;
   splitTimelineClip: (id: string, splitTime: number) => void;
   timelineHistory: TimelineClip[][];
   historyIndex: number;
@@ -233,26 +235,39 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   setMediaSourceFilter: (mediaSourceFilter) => set({ mediaSourceFilter }),
   timelineHistory: [[]],
   historyIndex: 0,
-  commitTimeline: () => set((state) => {
-    const newHistory = state.timelineHistory.slice(0, state.historyIndex + 1);
-    newHistory.push([...state.timelineClips]);
-    if (newHistory.length > 50) newHistory.shift();
-    return { timelineHistory: newHistory, historyIndex: newHistory.length - 1 };
-  }),
-  undo: () => set((state) => {
-    if (state.historyIndex > 0) {
-      const newIndex = state.historyIndex - 1;
-      return { historyIndex: newIndex, timelineClips: state.timelineHistory[newIndex] };
+  commitTimeline: () => {
+    globalHistory.recordSnapshot('Timeline Edit');
+    set((state) => {
+      const newHistory = state.timelineHistory.slice(0, state.historyIndex + 1);
+      newHistory.push([...state.timelineClips]);
+      if (newHistory.length > 50) newHistory.shift();
+      return { timelineHistory: newHistory, historyIndex: newHistory.length - 1 };
+    });
+  },
+  undo: () => {
+    const undone = globalHistory.undo();
+    if (!undone) {
+      set((state) => {
+        if (state.historyIndex > 0) {
+          const newIndex = state.historyIndex - 1;
+          return { historyIndex: newIndex, timelineClips: state.timelineHistory[newIndex] };
+        }
+        return state;
+      });
     }
-    return state;
-  }),
-  redo: () => set((state) => {
-    if (state.historyIndex < state.timelineHistory.length - 1) {
-      const newIndex = state.historyIndex + 1;
-      return { historyIndex: newIndex, timelineClips: state.timelineHistory[newIndex] };
+  },
+  redo: () => {
+    const redone = globalHistory.redo();
+    if (!redone) {
+      set((state) => {
+        if (state.historyIndex < state.timelineHistory.length - 1) {
+          const newIndex = state.historyIndex + 1;
+          return { historyIndex: newIndex, timelineClips: state.timelineHistory[newIndex] };
+        }
+        return state;
+      });
     }
-    return state;
-  }),
+  },
   setSelectedClipId: (selectedClipId) => set({ selectedClipId }),
 
   addVideoAsset: (asset) => {
@@ -346,6 +361,26 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     timelineClips: s.timelineClips.filter((c) => c.id !== id),
     selectedClipId: s.selectedClipId === id ? null : s.selectedClipId
   })),
+  duplicateTimelineClip: (id) => set((s) => {
+    const clip = s.timelineClips.find(c => c.id === id);
+    if (!clip) return s;
+    const dur = Math.max(0.5, clip.endTime - clip.startTime);
+    const newStart = clip.endTime + 0.1;
+    const newEnd = newStart + dur;
+
+    const clonedClip: TimelineClip = {
+      ...clip,
+      id: `clip-dup-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      startTime: Number(newStart.toFixed(2)),
+      endTime: Number(newEnd.toFixed(2)),
+      locked: false
+    };
+
+    return {
+      timelineClips: [...s.timelineClips, clonedClip],
+      selectedClipId: clonedClip.id
+    };
+  }),
   splitTimelineClip: (id, splitTime) => set((s) => {
     const clipIndex = s.timelineClips.findIndex(c => c.id === id);
     if (clipIndex === -1) return s;

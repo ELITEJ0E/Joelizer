@@ -70,19 +70,6 @@ export function LyricsVideoLayout() {
     { id: 'cd-needle' },
   ];
 
-  // Motion Background Preset Video Loops
-  const BACKGROUND_LOOPS = [
-    { id: 'cover', name: 'Song Cover', type: 'blurred-artwork', val: albumArt, isDefault: true },
-    { id: 'sunset', name: 'Sunset Glow', type: 'gradient', val: 'linear-gradient(135deg, #431407 0%, #9a3412 50%, #312e81 100%)', duration: '00:05' },
-    { id: 'cyber', name: 'Cyber Neon', type: 'particles', val: '#083344', duration: '00:03' },
-    { id: 'aurora', name: 'Cosmic Aurora', type: 'gradient', val: 'linear-gradient(135deg, #2e1065 0%, #701a75 50%, #1e1b4b 100%)', duration: '00:04' },
-    { id: 'minimal', name: 'Deep Onyx', type: 'color', val: '#09090b', duration: '00:10' },
-    { id: 'ocean', name: 'Ocean Depth', type: 'gradient', val: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)', duration: '00:06' },
-    { id: 'crimson', name: 'Crimson Fall', type: 'gradient', val: 'linear-gradient(135deg, #4c0519 0%, #2a0410 100%)', duration: '00:06' },
-    { id: 'gold', name: 'Liquid Gold', type: 'gradient', val: 'linear-gradient(135deg, #78350f 0%, #451a03 100%)', duration: '00:08' },
-    { id: 'waveform', name: 'Sound Wave', type: 'waveform', val: '#171717', duration: '00:03' },
-  ];
-
   const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -255,21 +242,28 @@ export function LyricsVideoLayout() {
             </div>
           </div>
 
-          {/* 2. BACKGROUND SELECTOR SECTION */}
+          {/* 2. BACKGROUND SELECTOR SECTION - 3 ROWS HORIZONTAL SCROLL */}
           <div className="space-y-3">
-            <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-              <ImageIcon size={14} className="text-cyan-400" />
-              <span>Background</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                <ImageIcon size={14} className="text-cyan-400" />
+                <span>Background</span>
+              </label>
+              <span className="text-[10px] font-mono text-slate-500 font-semibold">
+                {BACKGROUND_PRESETS.length + 1} styles · scroll left/right
+              </span>
+            </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            {/* 3-Row Horizontal Scrolling Carousel */}
+            <div className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-2 overflow-x-auto pb-2 no-scrollbar select-none h-[220px]">
               {/* Upload Custom File Card */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="rounded-xl border border-dashed border-white/20 hover:border-cyan-400 p-2 flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-cyan-300 bg-white/5 hover:bg-cyan-950/20 transition-all cursor-pointer h-20"
+                className="relative rounded-xl border border-dashed border-white/20 hover:border-cyan-400 p-2 flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-cyan-300 bg-white/5 hover:bg-cyan-950/20 transition-all cursor-pointer group shrink-0"
               >
-                <Upload size={16} />
-                <span className="text-[10px] font-bold">Upload</span>
+                <Upload size={14} className="group-hover:scale-110 transition-transform text-cyan-400" />
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-white">Upload</span>
+                <span className="text-[8px] text-slate-500 font-medium">Img / Video</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -279,42 +273,66 @@ export function LyricsVideoLayout() {
                 className="hidden"
               />
 
-              {/* Default Song Cover & Background Loop Options */}
-              {BACKGROUND_LOOPS.map((bg) => {
-                const isSelected = customBackground.value === bg.val || (bg.isDefault && customBackground.type === 'blurred-artwork');
+              {/* Background Preset Cards flowing into 3 rows */}
+              {BACKGROUND_PRESETS.map((bg) => {
+                const isSongCover = bg.id === 'cover';
+                const isSelected = isSongCover
+                  ? customBackground.type === 'blurred-artwork' || (selectedBackgroundPresetId === 'cover' && !customBackground.videoUrl)
+                  : (customBackground.value === bg.value && customBackground.type === bg.type) || selectedBackgroundPresetId === bg.id;
+
                 return (
                   <button
                     key={bg.id}
                     onClick={() => {
-                      if (bg.isDefault) {
-                        setCustomBackground({ type: 'blurred-artwork', value: bg.val });
+                      setSelectedBackgroundPresetId(bg.id);
+                      if (isSongCover) {
+                        setCustomBackground({ type: 'blurred-artwork', value: albumArt });
                       } else {
-                        setCustomBackground({ type: bg.type as any, value: bg.val });
+                        setCustomBackground({ type: bg.type as any, value: bg.value });
                       }
                     }}
-                    className={`relative rounded-xl overflow-hidden border p-1 text-left transition-all cursor-pointer h-20 flex flex-col justify-between ${
+                    className={`relative rounded-xl overflow-hidden border p-1.5 text-left transition-all cursor-pointer flex flex-col justify-between shrink-0 group ${
                       isSelected
-                        ? 'border-cyan-400 ring-1 ring-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.25)]'
-                        : 'border-white/10 hover:border-white/25'
+                        ? 'border-cyan-400 ring-1 ring-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.3)] scale-[1.02]'
+                        : 'border-white/10 hover:border-white/30 hover:scale-[1.01]'
                     }`}
-                    style={{ background: bg.type === 'color' ? bg.val : bg.type === 'gradient' ? bg.val : '#111' }}
+                    style={{
+                      background: bg.previewGradient || bg.value || '#0a0a0e'
+                    }}
                   >
-                    {bg.isDefault && (
-                      <img src={albumArt} alt="Song Cover" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                    {isSongCover && (
+                      <img 
+                        src={albumArt} 
+                        alt="Song Cover" 
+                        className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none group-hover:opacity-75 transition-opacity" 
+                      />
                     )}
 
-                    {bg.duration && (
-                      <span className="relative z-10 self-end text-[9px] font-mono bg-black/70 px-1.5 py-0.5 rounded text-slate-300">
-                        {bg.duration}
+                    {/* Top Row: Category/Duration Pill */}
+                    <div className="relative z-10 flex items-center justify-between w-full">
+                      <span className="text-[8px] font-bold text-white/80 bg-black/50 px-1 py-0.5 rounded backdrop-blur-xs uppercase tracking-wider">
+                        {bg.category || (bg.type === 'particles' ? 'Anim' : bg.type === 'waveform' ? 'Wave' : 'Grad')}
                       </span>
-                    )}
+                      {bg.duration && (
+                        <span className="text-[8px] font-mono font-bold text-slate-300 bg-black/60 px-1 py-0.5 rounded">
+                          {bg.duration}
+                        </span>
+                      )}
+                    </div>
 
-                    <span className="relative z-10 text-[10px] font-bold text-white drop-shadow truncate mt-auto">
-                      {bg.name}
-                    </span>
+                    {/* Bottom Title */}
+                    <div className="relative z-10 mt-auto flex items-center justify-between">
+                      <span className="text-[9px] font-extrabold text-white uppercase tracking-tight truncate drop-shadow-md bg-black/40 px-1 py-0.5 rounded backdrop-blur-xs max-w-[85%]">
+                        {bg.name}
+                      </span>
+                    </div>
 
+                    {/* Dark Vignette Overlay */}
+                    <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+
+                    {/* Active Checkmark Badge */}
                     {isSelected && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center shadow z-10">
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center shadow-lg z-20">
                         <Check size={10} strokeWidth={3} />
                       </div>
                     )}

@@ -106,7 +106,14 @@ export function BackgroundCarousel() {
             return (
               <div
                 key={preset.id}
-                onClick={() => setSelectedBackgroundPresetId(preset.id)}
+                onClick={() => {
+                  setSelectedBackgroundPresetId(preset.id);
+                  if (preset.id === 'cover') {
+                    setCustomBackground({ type: 'blurred-artwork', value: '' });
+                  } else {
+                    setCustomBackground({ type: preset.type as any, value: preset.value });
+                  }
+                }}
                 className={`relative rounded-xl p-2.5 border transition-all cursor-pointer flex flex-col justify-between h-20 overflow-hidden ${
                   isSelected
                     ? 'border-white shadow-xl ring-2 ring-white/30 scale-[1.02]'

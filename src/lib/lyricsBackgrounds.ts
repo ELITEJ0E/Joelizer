@@ -1,44 +1,23 @@
 export interface BackgroundPreset {
   id: string;
   name: string;
-  category: 'Gradient' | 'Animated' | 'Theme' | 'Abstract';
+  category: 'Gradient' | 'Animated' | 'Theme' | 'Abstract' | 'Cinematic';
   type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
   value: string;
   previewGradient: string;
+  duration?: string;
+  isDefault?: boolean;
 }
 
 export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   {
-    id: 'dreamy',
-    name: 'Dreamy',
-    category: 'Theme',
-    type: 'gradient',
-    value: 'linear-gradient(135deg, #2e1065 0%, #701a75 50%, #1e1b4b 100%)',
-    previewGradient: 'linear-gradient(135deg, #2e1065, #701a75, #1e1b4b)'
-  },
-  {
-    id: 'neon',
-    name: 'Neon Grid',
-    category: 'Theme',
-    type: 'particles',
-    value: '#083344',
-    previewGradient: 'linear-gradient(135deg, #083344, #155e75, #083344)'
-  },
-  {
-    id: 'y2k',
-    name: 'Y2K Cyber',
-    category: 'Theme',
-    type: 'gradient',
-    value: 'linear-gradient(135deg, #0f172a 0%, #0369a1 50%, #4c1d95 100%)',
-    previewGradient: 'linear-gradient(135deg, #0f172a, #0369a1, #4c1d95)'
-  },
-  {
-    id: 'cyberpunk',
-    name: 'Cyberpunk',
-    category: 'Theme',
-    type: 'waveform',
-    value: '#450a0a',
-    previewGradient: 'linear-gradient(135deg, #450a0a, #7f1d1d, #18181b)'
+    id: 'cover',
+    name: 'Song Cover',
+    category: 'Abstract',
+    type: 'blurred-artwork',
+    value: '',
+    previewGradient: 'linear-gradient(135deg, #3b0764 0%, #1e1b4b 50%, #030712 100%)',
+    isDefault: true
   },
   {
     id: 'sunset',
@@ -46,15 +25,170 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #431407 0%, #9a3412 50%, #312e81 100%)',
-    previewGradient: 'linear-gradient(135deg, #431407, #9a3412, #312e81)'
+    previewGradient: 'linear-gradient(135deg, #431407, #9a3412, #312e81)',
+    duration: '00:05'
+  },
+  {
+    id: 'cyber',
+    name: 'Cyber Neon',
+    category: 'Animated',
+    type: 'particles',
+    value: '#083344',
+    previewGradient: 'linear-gradient(135deg, #083344, #0e7490, #083344)',
+    duration: '00:03'
   },
   {
     id: 'aurora',
-    name: 'Aurora Borealis',
+    name: 'Cosmic Aurora',
+    category: 'Gradient',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #2e1065 0%, #701a75 50%, #1e1b4b 100%)',
+    previewGradient: 'linear-gradient(135deg, #2e1065, #701a75, #1e1b4b)',
+    duration: '00:04'
+  },
+  {
+    id: 'minimal',
+    name: 'Deep Onyx',
+    category: 'Cinematic',
+    type: 'color',
+    value: '#09090b',
+    previewGradient: 'linear-gradient(180deg, #18181b, #09090b)',
+    duration: '00:10'
+  },
+  {
+    id: 'ocean',
+    name: 'Ocean Depth',
+    category: 'Gradient',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
+    previewGradient: 'linear-gradient(135deg, #064e3b, #042f2e, #022c22)',
+    duration: '00:06'
+  },
+  {
+    id: 'crimson',
+    name: 'Crimson Fall',
+    category: 'Gradient',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #4c0519 0%, #2a0410 100%)',
+    previewGradient: 'linear-gradient(135deg, #4c0519, #881337, #18181b)',
+    duration: '00:06'
+  },
+  {
+    id: 'gold',
+    name: 'Liquid Gold',
+    category: 'Gradient',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #78350f 0%, #451a03 100%)',
+    previewGradient: 'linear-gradient(135deg, #78350f, #b45309, #451a03)',
+    duration: '00:08'
+  },
+  {
+    id: 'waveform',
+    name: 'Sound Wave',
+    category: 'Animated',
+    type: 'waveform',
+    value: '#171717',
+    previewGradient: 'linear-gradient(135deg, #171717, #262626, #0a0a0a)',
+    duration: '00:03'
+  },
+  {
+    id: 'synthwave',
+    name: 'Synthwave 80s',
+    category: 'Theme',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #831843 0%, #4c1d95 50%, #0f172a 100%)',
+    previewGradient: 'linear-gradient(135deg, #831843, #4c1d95, #0f172a)',
+    duration: '00:04'
+  },
+  {
+    id: 'tokyo',
+    name: 'Tokyo Night',
+    category: 'Theme',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #1e1b4b 0%, #831843 60%, #0f172a 100%)',
+    previewGradient: 'linear-gradient(135deg, #1e1b4b, #831843, #0f172a)',
+    duration: '00:05'
+  },
+  {
+    id: 'emerald',
+    name: 'Emerald Jade',
+    category: 'Gradient',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #022c22 0%, #065f46 50%, #042f2e 100%)',
+    previewGradient: 'linear-gradient(135deg, #022c22, #065f46, #042f2e)',
+    duration: '00:06'
+  },
+  {
+    id: 'electric',
+    name: 'Electric Violet',
+    category: 'Gradient',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #3b0764 0%, #6b21a8 50%, #1e1b4b 100%)',
+    previewGradient: 'linear-gradient(135deg, #3b0764, #6b21a8, #1e1b4b)',
+    duration: '00:05'
+  },
+  {
+    id: 'solar',
+    name: 'Solar Flare',
+    category: 'Gradient',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #7c2d12 0%, #ea580c 50%, #431407 100%)',
+    previewGradient: 'linear-gradient(135deg, #7c2d12, #ea580c, #431407)',
+    duration: '00:06'
+  },
+  {
+    id: 'diamond',
+    name: 'Ice Diamond',
+    category: 'Gradient',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #082f49 0%, #0284c7 50%, #0f172a 100%)',
+    previewGradient: 'linear-gradient(135deg, #082f49, #0284c7, #0f172a)',
+    duration: '00:05'
+  },
+  {
+    id: 'matrix',
+    name: 'Cyber Matrix',
     category: 'Animated',
     type: 'particles',
     value: '#022c22',
-    previewGradient: 'linear-gradient(135deg, #022c22, #065f46, #022c22)'
+    previewGradient: 'linear-gradient(135deg, #022c22, #059669, #022c22)',
+    duration: '00:04'
+  },
+  {
+    id: 'velvet',
+    name: 'Royal Velvet',
+    category: 'Theme',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #3b0764 0%, #1e1b4b 50%, #09090b 100%)',
+    previewGradient: 'linear-gradient(135deg, #3b0764, #1e1b4b, #09090b)',
+    duration: '00:07'
+  },
+  {
+    id: 'champagne',
+    name: 'Rose Gold',
+    category: 'Theme',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #4c0519 0%, #831843 50%, #1c1917 100%)',
+    previewGradient: 'linear-gradient(135deg, #4c0519, #831843, #1c1917)',
+    duration: '00:05'
+  },
+  {
+    id: 'starfield',
+    name: 'Cosmic Nebula',
+    category: 'Animated',
+    type: 'particles',
+    value: '#030712',
+    previewGradient: 'radial-gradient(circle, #1e1b4b, #030712)',
+    duration: '00:04'
+  },
+  {
+    id: 'cinematic',
+    name: 'Cinematic Noir',
+    category: 'Cinematic',
+    type: 'gradient',
+    value: 'linear-gradient(180deg, #090d16 0%, #030712 100%)',
+    previewGradient: 'linear-gradient(180deg, #090d16, #030712)',
+    duration: '00:10'
   },
   {
     id: 'vhs',
@@ -62,7 +196,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(180deg, #18181b 0%, #27272a 50%, #09090b 100%)',
-    previewGradient: 'linear-gradient(180deg, #18181b, #27272a, #09090b)'
+    previewGradient: 'linear-gradient(180deg, #18181b, #27272a, #09090b)',
+    duration: '00:04'
   },
   {
     id: 'glass',
@@ -70,31 +205,26 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Abstract',
     type: 'blurred-artwork',
     value: '#0f172a',
-    previewGradient: 'linear-gradient(135deg, #1e293b, #0f172a)'
+    previewGradient: 'linear-gradient(135deg, #1e293b, #0f172a)',
+    duration: '00:06'
   },
   {
-    id: 'cosmic',
-    name: 'Cosmic Nebula',
-    category: 'Animated',
-    type: 'particles',
-    value: '#030712',
-    previewGradient: 'radial-gradient(circle, #1e1b4b, #030712)'
-  },
-  {
-    id: 'minimal',
-    name: 'Minimal Dark',
-    category: 'Gradient',
-    type: 'color',
-    value: '#09090b',
-    previewGradient: '#09090b'
-  },
-  {
-    id: 'cinematic',
-    name: 'Cinematic Noir',
-    category: 'Gradient',
+    id: 'y2k',
+    name: 'Y2K Cyber',
+    category: 'Theme',
     type: 'gradient',
-    value: 'linear-gradient(180deg, #090d16 0%, #030712 100%)',
-    previewGradient: 'linear-gradient(180deg, #090d16, #030712)'
+    value: 'linear-gradient(135deg, #0f172a 0%, #0369a1 50%, #4c1d95 100%)',
+    previewGradient: 'linear-gradient(135deg, #0f172a, #0369a1, #4c1d95)',
+    duration: '00:04'
+  },
+  {
+    id: 'cyberpunk',
+    name: 'Cyberpunk Blood',
+    category: 'Animated',
+    type: 'waveform',
+    value: '#450a0a',
+    previewGradient: 'linear-gradient(135deg, #450a0a, #7f1d1d, #18181b)',
+    duration: '00:03'
   }
 ];
 

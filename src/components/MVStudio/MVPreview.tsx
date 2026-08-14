@@ -19,12 +19,14 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const aspectRatio = useStore(s => s.aspectRatio);
 
   const videoAssets = useMVStore(s => s.videoAssets);
+  const timelineClips = useMVStore(s => s.timelineClips);
   const storeVideoMode = useLyricsVideoStore(s => s.videoMode);
   const videoMode = mode || storeVideoMode;
   
-  const activeClip = useMVStore(s => s.timelineClips).find(c => currentTime >= c.startTime && currentTime <= c.endTime);
+  const activeClip = timelineClips.find(c => currentTime >= c.startTime && currentTime <= c.endTime);
   const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
-  const showOverlay = isVinylScene || useMVStore(s => s.timelineClips).length === 0;
+  // Interactive drag & arrange of components is dedicated to lyrics-video mode only, not MV studio
+  const showOverlay = videoMode === 'lyrics-video';
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
