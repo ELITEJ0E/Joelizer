@@ -271,8 +271,12 @@ function renderArtworkObject(
       cdGrad.addColorStop(1, 'rgba(10, 10, 14, 0.95)');
       ctx.fillStyle = cdGrad;
     } else {
-      // Classic Black Vinyl Disc Outer Base
-      ctx.fillStyle = '#0c0c0e';
+      // Classic Deep Black Vinyl Disc Base (#111 to #292929)
+      const vinylGrad = ctx.createRadialGradient(0, 0, recordRadius * 0.1, 0, 0, recordRadius);
+      vinylGrad.addColorStop(0, '#111111');
+      vinylGrad.addColorStop(0.5, '#292929');
+      vinylGrad.addColorStop(1, '#050505');
+      ctx.fillStyle = vinylGrad;
     }
 
     ctx.beginPath();
@@ -282,9 +286,9 @@ function renderArtworkObject(
     // Reset shadow
     ctx.shadowBlur = 0;
 
-    // Outer Silver / Metallic Bevel Rim
-    ctx.strokeStyle = isCD ? 'rgba(255, 255, 255, 0.40)' : 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = isCD ? 3.5 : 1.5;
+    // Outer Rim Light Bevel Frame
+    ctx.strokeStyle = isCD ? 'rgba(255, 255, 255, 0.40)' : 'rgba(0, 0, 0, 0.90)';
+    ctx.lineWidth = isCD ? 3.5 : 2.5;
     ctx.beginPath();
     ctx.arc(0, 0, recordRadius - 1, 0, Math.PI * 2);
     ctx.stroke();
@@ -306,32 +310,32 @@ function renderArtworkObject(
       ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // Fine Concentric Vinyl Groove Rings
-      const ringCount = 22;
+      // Realistic Concentric Micro Grooves
+      const ringCount = 36;
       for (let i = 1; i < ringCount; i++) {
-        const r = recordRadius * (0.54 + (i / ringCount) * 0.44);
+        const r = recordRadius * (0.42 + (i / ringCount) * 0.56);
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.strokeStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.60)';
-        ctx.lineWidth = 0.8;
+        ctx.strokeStyle = i % 2 === 0 ? 'rgba(0, 0, 0, 0.65)' : 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 0.9;
         ctx.stroke();
       }
 
-      // Specular Glint Reflection Sweeps
-      const shineGrad = ctx.createLinearGradient(-recordRadius, -recordRadius, recordRadius, recordRadius);
-      shineGrad.addColorStop(0, 'rgba(255, 255, 255, 0.18)');
-      shineGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.02)');
-      shineGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.30)');
-      shineGrad.addColorStop(0.8, 'rgba(255, 255, 255, 0.02)');
-      shineGrad.addColorStop(1, 'rgba(255, 255, 255, 0.16)');
-      ctx.fillStyle = shineGrad;
+      // Specular Conic Reflection Glare
+      const conicCon = ctx.createLinearGradient(-recordRadius, -recordRadius, recordRadius, recordRadius);
+      conicCon.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
+      conicCon.addColorStop(0.2, 'rgba(255, 255, 255, 0.03)');
+      conicCon.addColorStop(0.5, 'rgba(0, 0, 0, 0.40)');
+      conicCon.addColorStop(0.8, 'rgba(255, 255, 255, 0.03)');
+      conicCon.addColorStop(1, 'rgba(255, 255, 255, 0.20)');
+      ctx.fillStyle = conicCon;
       ctx.beginPath();
       ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // 3. Center Album Artwork Circular Label (~54% of disc diameter, as in Mureka ref)
-    const labelRadius = recordRadius * 0.54;
+    // 3. Center Album Artwork Circular Label (~40% of disc diameter)
+    const labelRadius = recordRadius * 0.40;
     ctx.save();
     ctx.beginPath();
     ctx.arc(0, 0, labelRadius, 0, Math.PI * 2);
@@ -340,78 +344,137 @@ function renderArtworkObject(
     if (img && img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, -labelRadius, -labelRadius, labelRadius * 2, labelRadius * 2);
     } else {
-      ctx.fillStyle = '#1e1b4b';
+      ctx.fillStyle = '#18181b';
       ctx.fillRect(-labelRadius, -labelRadius, labelRadius * 2, labelRadius * 2);
+      // Fallback emerald indicator
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
+      ctx.beginPath();
+      ctx.arc(0, 0, labelRadius * 0.35, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore(); // Restore clip
 
-    // Metallic Inner Ring Framing the Artwork (Silver Bevel)
+    // Metallic Inner Ring Framing the Artwork (Border & Bevel)
     const bevelGrad = ctx.createLinearGradient(-labelRadius, -labelRadius, labelRadius, labelRadius);
-    bevelGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
-    bevelGrad.addColorStop(0.5, 'rgba(160, 160, 175, 0.50)');
-    bevelGrad.addColorStop(1, 'rgba(255, 255, 255, 0.75)');
+    bevelGrad.addColorStop(0, 'rgba(255, 255, 255, 0.60)');
+    bevelGrad.addColorStop(0.5, 'rgba(39, 39, 42, 0.80)');
+    bevelGrad.addColorStop(1, 'rgba(255, 255, 255, 0.40)');
     ctx.strokeStyle = bevelGrad;
-    ctx.lineWidth = 4.0;
+    ctx.lineWidth = 3.5;
     ctx.beginPath();
     ctx.arc(0, 0, labelRadius, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.restore(); // Restore disc rotation
 
-    // Center Spindle Hole (Tiny dark hole at dead center)
+    // Center Spindle Hole with metallic silver pin
     ctx.beginPath();
-    ctx.arc(0, 0, labelRadius * 0.08, 0, Math.PI * 2);
-    ctx.fillStyle = '#050508';
+    ctx.arc(0, 0, labelRadius * 0.14, 0, Math.PI * 2);
+    ctx.fillStyle = '#09090b';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.20)';
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    // 4. Tonearm (Anchored top-right, smooth swing onto record)
-    ctx.save();
-    const pivotX = recordRadius * 0.85;
-    const pivotY = -recordRadius * 0.85;
+    ctx.beginPath();
+    ctx.arc(0, 0, labelRadius * 0.05, 0, Math.PI * 2);
+    ctx.fillStyle = '#444444';
+    ctx.fill();
 
-    // Target angle: 0.38 rad when playing, 0.05 rad when paused
-    const targetArmAngle = isPlaying ? 0.38 : 0.05;
+    // Static Soft Studio Spotlight Reflection Overlay
+    const spotGrad = ctx.createLinearGradient(-recordRadius, -recordRadius, recordRadius, recordRadius);
+    spotGrad.addColorStop(0.3, 'rgba(255, 255, 255, 0)');
+    spotGrad.addColorStop(0.45, 'rgba(255, 255, 255, 0.22)');
+    spotGrad.addColorStop(0.6, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = spotGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. Detailed Tonearm & Cartridge (Anchored top-right, smooth pivot onto record)
+    ctx.save();
+    const pivotX = recordRadius * 0.82;
+    const pivotY = -recordRadius * 0.82;
+
+    // Pivot angle: 0.03 rad (2deg) when playing, -0.31 rad (-18deg) when resting
+    const targetArmAngle = isPlaying ? 0.03 : -0.31;
 
     ctx.translate(pivotX, pivotY);
     ctx.rotate(targetArmAngle);
 
     // Tonearm drop shadow
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = 'rgba(0,0,0,0.85)';
-    ctx.shadowOffsetX = 5;
-    ctx.shadowOffsetY = 5;
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 8;
 
-    // Outer Pivot Halo Ring
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = 1.5;
+    // Heavy Metallic Pivot Base with Realistic Ring Layers
+    const pivotGrad = ctx.createLinearGradient(-16, -16, 16, 16);
+    pivotGrad.addColorStop(0, '#71717a');
+    pivotGrad.addColorStop(0.5, '#3f3f46');
+    pivotGrad.addColorStop(1, '#18181b');
+    ctx.fillStyle = pivotGrad;
     ctx.beginPath();
     ctx.arc(0, 0, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#27272a';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Arm Shaft (Metallic Chrome rod)
+    // Inner Ring
+    ctx.fillStyle = '#18181b';
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111111';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Aluminum Curved Tube Arm
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(-recordRadius * 0.85, recordRadius * 1.15);
-    ctx.lineWidth = 3.5;
-    ctx.strokeStyle = '#e4e4e7';
+    ctx.bezierCurveTo(0, recordRadius * 0.45, -recordRadius * 0.45, recordRadius * 0.65, -recordRadius * 0.60, recordRadius * 1.10);
+    ctx.lineWidth = 4.5;
+    ctx.strokeStyle = '#d4d4d8';
     ctx.lineCap = 'round';
     ctx.stroke();
 
-    // Arm Elbow Bend
+    // Tube Highlight
     ctx.beginPath();
-    ctx.moveTo(-recordRadius * 0.85, recordRadius * 1.15);
-    ctx.lineTo(-recordRadius * 0.94, recordRadius * 1.28);
-    ctx.lineWidth = 3.5;
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(0, recordRadius * 0.45, -recordRadius * 0.45, recordRadius * 0.65, -recordRadius * 0.60, recordRadius * 1.10);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#ffffff';
     ctx.stroke();
 
-    // Silver Cartridge Headshell
-    ctx.fillStyle = '#e4e4e7';
-    ctx.fillRect(-recordRadius * 1.02, recordRadius * 1.28, 13, 18);
-    ctx.fillStyle = '#27272a';
-    ctx.fillRect(-recordRadius * 0.99, recordRadius * 1.30, 7, 12);
+    // Headshell Joint
+    ctx.fillStyle = '#52525b';
+    ctx.beginPath();
+    ctx.arc(-recordRadius * 0.60, recordRadius * 1.10, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark Matte Headshell
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.rect(-recordRadius * 0.65, recordRadius * 1.12, 12, 18);
+    ctx.fill();
+    ctx.strokeStyle = '#3f3f46';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Red Cartridge Accent (#ef4444)
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(-recordRadius * 0.63, recordRadius * 1.20, 8, 10);
+
+    // Micro Stylus / Needle Point
+    ctx.fillStyle = '#d4d4d8';
+    ctx.beginPath();
+    ctx.moveTo(-recordRadius * 0.61, recordRadius * 1.30);
+    ctx.lineTo(-recordRadius * 0.57, recordRadius * 1.30);
+    ctx.lineTo(-recordRadius * 0.59, recordRadius * 1.36);
+    ctx.closePath();
+    ctx.fill();
 
     // Two small pin holes on cartridge
     ctx.fillStyle = '#18181b';
