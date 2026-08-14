@@ -35,34 +35,44 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           onClick={() => setActiveTab('lyrics')}
           className="flex items-center gap-1.5 sm:gap-3 group cursor-pointer transition-all duration-300 active:scale-95 shrink-0"
         >
-          {/* Emblem Icon */}
+          {/* Emblem Icon matching the official favicon and app icon */}
           <div 
-            className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-black/80 border flex items-center justify-center transition-all duration-300 overflow-hidden shadow-lg group-hover:scale-105 shrink-0"
+            className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-black/90 border flex items-center justify-center transition-all duration-300 overflow-hidden shadow-lg group-hover:scale-105 shrink-0 p-1.5"
             style={{
-              borderColor: `${activeColor}60`,
-              boxShadow: `0 0 15px ${activeColor}30, inset 0 0 10px ${activeColor}20`
+              borderColor: `${activeColor}80`,
+              boxShadow: `0 0 15px ${activeColor}40, inset 0 0 10px ${activeColor}30`
             }}
           >
             {/* Ambient background glow */}
             <div 
-              className="absolute inset-0 opacity-25 group-hover:opacity-40 transition-opacity blur-sm"
+              className="absolute inset-0 opacity-20 group-hover:opacity-35 transition-opacity blur-xs"
               style={{ background: `radial-gradient(circle at center, ${activeColor}, transparent 70%)` }}
             />
             
             {/* Shimmer overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
 
-            {/* Equalizer Soundwave Bars SVG + J Logo */}
-            <div className="relative z-10 flex items-center justify-center gap-0.5">
-              <span className="font-black italic text-sm sm:text-lg select-none tracking-tighter" style={{ color: activeColor, textShadow: `0 0 8px ${activeColor}` }}>
-                J
-              </span>
-              <div className="flex items-end gap-0.5 h-3.5 sm:h-4 ml-0.5 opacity-90 group-hover:opacity-100">
-                <span className="w-[1.5px] sm:w-[2px] h-2 bg-white rounded-full animate-[pulse_1s_infinite_100ms]" style={{ backgroundColor: activeColor }} />
-                <span className="w-[1.5px] sm:w-[2px] h-3 sm:h-3.5 bg-white rounded-full animate-[pulse_1s_infinite_300ms]" style={{ backgroundColor: activeColor }} />
-                <span className="w-[1.5px] sm:w-[2px] h-2 bg-white rounded-full animate-[pulse_1s_infinite_200ms]" style={{ backgroundColor: activeColor }} />
-              </div>
-            </div>
+            {/* Faithful Miniature of Favicon SVG */}
+            <svg viewBox="0 0 512 512" className="w-full h-full relative z-10 select-none pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+              <g filter="drop-shadow(0px 0px 12px #00ff87)">
+                <rect x="72" y="240" width="26" height="32" rx="13" fill="#00e676" opacity="0.75"/>
+                <rect x="112" y="190" width="26" height="132" rx="13" fill="#00e676"/>
+                <rect x="152" y="140" width="26" height="232" rx="13" fill="#00ff87"/>
+                <rect x="192" y="96" width="26" height="320" rx="13" fill="#00ff87"/>
+                <rect x="232" y="160" width="26" height="192" rx="13" fill="#00ff87"/>
+                <rect x="272" y="120" width="26" height="272" rx="13" fill="#00e5ff"/>
+                <rect x="312" y="72" width="26" height="368" rx="13" fill="#00e5ff"/>
+                <rect x="352" y="150" width="26" height="212" rx="13" fill="#00e5ff"/>
+                <rect x="392" y="210" width="26" height="92" rx="13" fill="#00e5ff"/>
+                <rect x="432" y="246" width="26" height="20" rx="10" fill="#00e5ff" opacity="0.6"/>
+              </g>
+              <path d="M 50 256 Q 112 160, 172 256 T 292 256 T 412 256 T 462 256" 
+                    fill="none" 
+                    stroke="#ffffff" 
+                    strokeWidth="16" 
+                    strokeLinecap="round" 
+                    opacity="0.9" />
+            </svg>
           </div>
 
           <div className="flex items-center gap-2">

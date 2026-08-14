@@ -310,19 +310,19 @@ export function LyricsVideoLayout() {
 
                     {/* Top Row: Category/Duration Pill */}
                     <div className="relative z-10 flex items-center justify-between w-full">
-                      <span className="text-[8px] font-bold text-white/80 bg-black/50 px-1 py-0.5 rounded backdrop-blur-xs uppercase tracking-wider">
+                      <span className="text-[6.5px] font-black text-white/95 bg-black/60 px-1 py-0.5 rounded backdrop-blur-xs uppercase tracking-widest scale-90 origin-left">
                         {bg.category || (bg.type === 'particles' ? 'Anim' : bg.type === 'waveform' ? 'Wave' : 'Grad')}
                       </span>
                       {bg.duration && (
-                        <span className="text-[8px] font-mono font-bold text-slate-300 bg-black/60 px-1 py-0.5 rounded">
+                        <span className="text-[6.5px] font-mono font-bold text-slate-400 bg-black/70 px-1 py-0.5 rounded scale-90 origin-right">
                           {bg.duration}
                         </span>
                       )}
                     </div>
 
                     {/* Bottom Title */}
-                    <div className="relative z-10 mt-auto flex items-center justify-between">
-                      <span className="text-[9px] font-extrabold text-white uppercase tracking-tight truncate drop-shadow-md bg-black/40 px-1 py-0.5 rounded backdrop-blur-xs max-w-[85%]">
+                    <div className="relative z-10 mt-auto flex items-center justify-between w-full">
+                      <span className="text-[7.5px] font-extrabold text-white uppercase tracking-wider truncate drop-shadow-md bg-black/50 px-1.5 py-0.5 rounded backdrop-blur-xs max-w-full">
                         {bg.name}
                       </span>
                     </div>

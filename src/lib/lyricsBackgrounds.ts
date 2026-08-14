@@ -16,7 +16,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Abstract',
     type: 'blurred-artwork',
     value: '',
-    previewGradient: 'linear-gradient(135deg, #3b0764 0%, #1e1b4b 50%, #030712 100%)',
+    previewGradient: 'linear-gradient(135deg, #4c1d95 0%, #06b6d4 100%)',
     isDefault: true
   },
   {
@@ -25,7 +25,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #431407 0%, #9a3412 50%, #312e81 100%)',
-    previewGradient: 'linear-gradient(135deg, #431407, #9a3412, #312e81)',
+    previewGradient: 'linear-gradient(135deg, #f97316 0%, #b91c1c 50%, #4c1d95 100%)',
     duration: '00:05'
   },
   {
@@ -34,7 +34,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Animated',
     type: 'particles',
     value: '#083344',
-    previewGradient: 'linear-gradient(135deg, #083344, #0e7490, #083344)',
+    previewGradient: 'linear-gradient(135deg, #06b6d4 0%, #083344 50%, #ec4899 100%)',
     duration: '00:03'
   },
   {
@@ -43,7 +43,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #2e1065 0%, #701a75 50%, #1e1b4b 100%)',
-    previewGradient: 'linear-gradient(135deg, #2e1065, #701a75, #1e1b4b)',
+    previewGradient: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #3b82f6 100%)',
     duration: '00:04'
   },
   {
@@ -51,8 +51,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Deep Onyx',
     category: 'Cinematic',
     type: 'color',
-    value: '#09090b',
-    previewGradient: 'linear-gradient(180deg, #18181b, #09090b)',
+    value: '#050508',
+    previewGradient: 'linear-gradient(180deg, #27272a 0%, #09090b 100%)',
     duration: '00:10'
   },
   {
@@ -60,8 +60,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Ocean Depth',
     category: 'Gradient',
     type: 'gradient',
-    value: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
-    previewGradient: 'linear-gradient(135deg, #064e3b, #042f2e, #022c22)',
+    value: 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #022c22 100%)',
+    previewGradient: 'linear-gradient(135deg, #0d9488 0%, #115e59 50%, #022c22 100%)',
     duration: '00:06'
   },
   {
@@ -69,8 +69,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Crimson Fall',
     category: 'Gradient',
     type: 'gradient',
-    value: 'linear-gradient(135deg, #4c0519 0%, #2a0410 100%)',
-    previewGradient: 'linear-gradient(135deg, #4c0519, #881337, #18181b)',
+    value: 'linear-gradient(135deg, #4c0519 0%, #881337 50%, #110105 100%)',
+    previewGradient: 'linear-gradient(135deg, #dc2626 0%, #7f1d1d 50%, #450a0a 100%)',
     duration: '00:06'
   },
   {
@@ -78,8 +78,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Liquid Gold',
     category: 'Gradient',
     type: 'gradient',
-    value: 'linear-gradient(135deg, #78350f 0%, #451a03 100%)',
-    previewGradient: 'linear-gradient(135deg, #78350f, #b45309, #451a03)',
+    value: 'linear-gradient(135deg, #451a03 0%, #78350f 50%, #170701 100%)',
+    previewGradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 50%, #78350f 100%)',
     duration: '00:08'
   },
   {
@@ -87,8 +87,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Sound Wave',
     category: 'Animated',
     type: 'waveform',
-    value: '#171717',
-    previewGradient: 'linear-gradient(135deg, #171717, #262626, #0a0a0a)',
+    value: '#111317',
+    previewGradient: 'linear-gradient(135deg, #3b82f6 0%, #1e293b 50%, #111827 100%)',
     duration: '00:03'
   },
   {
@@ -97,7 +97,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(135deg, #831843 0%, #4c1d95 50%, #0f172a 100%)',
-    previewGradient: 'linear-gradient(135deg, #831843, #4c1d95, #0f172a)',
+    previewGradient: 'linear-gradient(135deg, #ff007f 0%, #701a75 50%, #0f172a 100%)',
     duration: '00:04'
   },
   {
@@ -106,7 +106,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(135deg, #1e1b4b 0%, #831843 60%, #0f172a 100%)',
-    previewGradient: 'linear-gradient(135deg, #1e1b4b, #831843, #0f172a)',
+    previewGradient: 'linear-gradient(135deg, #2e1065 0%, #be185d 60%, #030712 100%)',
     duration: '00:05'
   },
   {
@@ -115,7 +115,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #022c22 0%, #065f46 50%, #042f2e 100%)',
-    previewGradient: 'linear-gradient(135deg, #022c22, #065f46, #042f2e)',
+    previewGradient: 'linear-gradient(135deg, #10b981 0%, #047857 50%, #064e3b 100%)',
     duration: '00:06'
   },
   {
@@ -124,7 +124,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #3b0764 0%, #6b21a8 50%, #1e1b4b 100%)',
-    previewGradient: 'linear-gradient(135deg, #3b0764, #6b21a8, #1e1b4b)',
+    previewGradient: 'linear-gradient(135deg, #c084fc 0%, #7e22ce 50%, #3b0764 100%)',
     duration: '00:05'
   },
   {
@@ -133,7 +133,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #7c2d12 0%, #ea580c 50%, #431407 100%)',
-    previewGradient: 'linear-gradient(135deg, #7c2d12, #ea580c, #431407)',
+    previewGradient: 'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #7c2d12 100%)',
     duration: '00:06'
   },
   {
@@ -142,7 +142,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #082f49 0%, #0284c7 50%, #0f172a 100%)',
-    previewGradient: 'linear-gradient(135deg, #082f49, #0284c7, #0f172a)',
+    previewGradient: 'linear-gradient(135deg, #38bdf8 0%, #0284c7 50%, #0369a1 100%)',
     duration: '00:05'
   },
   {
@@ -150,8 +150,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Cyber Matrix',
     category: 'Animated',
     type: 'particles',
-    value: '#022c22',
-    previewGradient: 'linear-gradient(135deg, #022c22, #059669, #022c22)',
+    value: '#011c10',
+    previewGradient: 'linear-gradient(135deg, #22c55e 0%, #052e16 60%, #022c22 100%)',
     duration: '00:04'
   },
   {
@@ -159,8 +159,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Royal Velvet',
     category: 'Theme',
     type: 'gradient',
-    value: 'linear-gradient(135deg, #3b0764 0%, #1e1b4b 50%, #09090b 100%)',
-    previewGradient: 'linear-gradient(135deg, #3b0764, #1e1b4b, #09090b)',
+    value: 'linear-gradient(135deg, #2e0854 0%, #11053b 50%, #03020c 100%)',
+    previewGradient: 'linear-gradient(135deg, #8b5cf6 0%, #4c1d95 60%, #1e1b4b 100%)',
     duration: '00:07'
   },
   {
@@ -168,8 +168,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Rose Gold',
     category: 'Theme',
     type: 'gradient',
-    value: 'linear-gradient(135deg, #4c0519 0%, #831843 50%, #1c1917 100%)',
-    previewGradient: 'linear-gradient(135deg, #4c0519, #831843, #1c1917)',
+    value: 'linear-gradient(135deg, #5c182c 0%, #881337 50%, #1f050e 100%)',
+    previewGradient: 'linear-gradient(135deg, #f43f5e 0%, #9f1239 50%, #4c0519 100%)',
     duration: '00:05'
   },
   {
@@ -177,8 +177,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Cosmic Nebula',
     category: 'Animated',
     type: 'particles',
-    value: '#030712',
-    previewGradient: 'radial-gradient(circle, #1e1b4b, #030712)',
+    value: '#050510',
+    previewGradient: 'linear-gradient(135deg, #c084fc 0%, #1e1b4b 60%, #030712 100%)',
     duration: '00:04'
   },
   {
@@ -186,8 +186,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Cinematic Noir',
     category: 'Cinematic',
     type: 'gradient',
-    value: 'linear-gradient(180deg, #090d16 0%, #030712 100%)',
-    previewGradient: 'linear-gradient(180deg, #090d16, #030712)',
+    value: 'linear-gradient(180deg, #07090e 0%, #010204 100%)',
+    previewGradient: 'linear-gradient(180deg, #334155 0%, #0f172a 60%, #020617 100%)',
     duration: '00:10'
   },
   {
@@ -195,8 +195,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'VHS Retro',
     category: 'Theme',
     type: 'gradient',
-    value: 'linear-gradient(180deg, #18181b 0%, #27272a 50%, #09090b 100%)',
-    previewGradient: 'linear-gradient(180deg, #18181b, #27272a, #09090b)',
+    value: 'linear-gradient(180deg, #151518 0%, #202024 50%, #07070a 100%)',
+    previewGradient: 'linear-gradient(180deg, #4b5563 0%, #1f2937 50%, #111827 100%)',
     duration: '00:04'
   },
   {
@@ -204,8 +204,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     name: 'Frosted Glass',
     category: 'Abstract',
     type: 'blurred-artwork',
-    value: '#0f172a',
-    previewGradient: 'linear-gradient(135deg, #1e293b, #0f172a)',
+    value: 'glass',
+    previewGradient: 'linear-gradient(135deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 100%), linear-gradient(135deg, #6366f1 0%, #312e81 100%)',
     duration: '00:06'
   },
   {
@@ -214,7 +214,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(135deg, #0f172a 0%, #0369a1 50%, #4c1d95 100%)',
-    previewGradient: 'linear-gradient(135deg, #0f172a, #0369a1, #4c1d95)',
+    previewGradient: 'linear-gradient(135deg, #06b6d4 0%, #4f46e5 50%, #312e81 100%)',
     duration: '00:04'
   },
   {
@@ -223,7 +223,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Animated',
     type: 'waveform',
     value: '#450a0a',
-    previewGradient: 'linear-gradient(135deg, #450a0a, #7f1d1d, #18181b)',
+    previewGradient: 'linear-gradient(135deg, #ef4444 0%, #7f1d1d 60%, #450a0a 100%)',
     duration: '00:03'
   }
 ];
@@ -359,6 +359,18 @@ export function drawBackgroundCanvas(
       ctx.filter = 'none';
     }
 
+    // Special Glassmorphism overlay for Frosted Glass
+    if (bgSettings.value === 'glass') {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.fillRect(0, 0, W, H);
+      
+      // Frosted milky white horizontal guidelines
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      for (let i = 0; i < 40; i++) {
+        ctx.fillRect(0, (i / 40) * H, W, 1);
+      }
+    }
+
     // Static subtle vignette for depth and legibility
     const vignette = ctx.createRadialGradient(W / 2, H / 2, W * 0.2, W / 2, H / 2, Math.max(W, H) * 0.75);
     vignette.addColorStop(0, 'rgba(0,0,0,0.25)');
@@ -373,7 +385,34 @@ export function drawBackgroundCanvas(
     ctx.fillRect(0, 0, W, H);
 
     ctx.save();
-    const count = 40;
+    
+    // Gradient backgrounds for particles to make them deeply rich
+    if (bgSettings.value === '#083344') {
+      // Cyber Neon: cyan to deep indigo gradient base
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, '#02151c');
+      grad.addColorStop(0.5, '#042838');
+      grad.addColorStop(1, '#0c071a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    } else if (bgSettings.value === '#011c10') {
+      // Cyber Matrix: dark green gradient base
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, '#000402');
+      grad.addColorStop(0.5, '#01160a');
+      grad.addColorStop(1, '#000402');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    } else if (bgSettings.value === '#050510') {
+      // Cosmic Nebula: dark indigo/purple base
+      const grad = ctx.createRadialGradient(W/2, H/2, 10, W/2, H/2, Math.max(W,H)*0.6);
+      grad.addColorStop(0, '#0e0b25');
+      grad.addColorStop(1, '#020205');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const count = 45;
     for (let i = 0; i < count; i++) {
       const x = (Math.sin(i * 127.1 + currentTime * 0.3) * 0.5 + 0.5) * W;
       const y = (Math.cos(i * 311.7 + currentTime * 0.2) * 0.5 + 0.5) * H;
@@ -382,9 +421,23 @@ export function drawBackgroundCanvas(
 
       ctx.beginPath();
       ctx.arc(x, y, Math.max(1, radius), 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(2)})`;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = '#ffffff';
+
+      // Unique colored particles matching category
+      if (bgSettings.value === '#083344') {
+        // Alternate neon pink and bright cyan
+        ctx.fillStyle = i % 2 === 0 ? `rgba(0, 229, 255, ${alpha})` : `rgba(236, 72, 153, ${alpha})`;
+        ctx.shadowColor = i % 2 === 0 ? '#00e5ff' : '#ec4899';
+      } else if (bgSettings.value === '#011c10') {
+        // Bright Matrix code green
+        ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`;
+        ctx.shadowColor = '#22c55e';
+      } else {
+        // White-blue nebula star dust
+        ctx.fillStyle = i % 2 === 0 ? `rgba(192, 132, 252, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+        ctx.shadowColor = i % 2 === 0 ? '#c084fc' : '#ffffff';
+      }
+
+      ctx.shadowBlur = 12;
       ctx.fill();
     }
     ctx.restore();
@@ -394,18 +447,52 @@ export function drawBackgroundCanvas(
     ctx.fillRect(0, 0, W, H);
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = 2;
+    
+    const isBlood = bgSettings.value === '#450a0a';
+    
+    if (isBlood) {
+      // Cyberpunk Blood: dark crimson radial base
+      const grad = ctx.createRadialGradient(W/2, H/2, 10, W/2, H/2, Math.max(W, H) * 0.6);
+      grad.addColorStop(0, '#2b0202');
+      grad.addColorStop(1, '#070000');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    ctx.strokeStyle = isBlood ? 'rgba(239, 68, 68, 0.75)' : 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = isBlood ? 4 : 2;
+    if (isBlood) {
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#ef4444';
+    }
+
+    // Main Waveform
     ctx.beginPath();
     const waveCount = 60;
     const step = W / waveCount;
     for (let i = 0; i < waveCount; i++) {
       const amp = audioFrequencyData ? (audioFrequencyData[i % audioFrequencyData.length] / 255) : Math.sin(i * 0.2 + currentTime * 3) * 0.5 + 0.5;
-      const y = H / 2 + Math.sin(i * 0.3 + currentTime * 2) * amp * (H * 0.15);
+      const y = H / 2 + Math.sin(i * 0.3 + currentTime * 2) * amp * (H * 0.2);
       if (i === 0) ctx.moveTo(0, y);
       else ctx.lineTo(i * step, y);
     }
     ctx.stroke();
+
+    // Secondary Gold Echo Wave for Cyberpunk Blood
+    if (isBlood) {
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      for (let i = 0; i < waveCount; i++) {
+        const amp = audioFrequencyData ? (audioFrequencyData[(i + 15) % audioFrequencyData.length] / 255) : Math.cos(i * 0.2 + currentTime * 2) * 0.5 + 0.5;
+        const y = H / 2 + Math.cos(i * 0.25 + currentTime * 1.5) * amp * (H * 0.15);
+        if (i === 0) ctx.moveTo(0, y);
+        else ctx.lineTo(i * step, y);
+      }
+      ctx.stroke();
+    }
     ctx.restore();
   } else {
     // Default gradient fallback

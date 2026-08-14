@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { generateAutoEdit } from '../../lib/mvAutoEdit';
-import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2, Image as ImageIcon } from 'lucide-react';
+import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { pollinationsProvider } from '../../lib/providers/PollinationsImageProvider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
@@ -32,12 +32,12 @@ export function MVWorkflow() {
   // 1. Core Browser-Based Basic Auto Edit (Works 100% Offline)
   const handleRunBasicAutoEdit = (newSeed?: number) => {
     setIsProcessing(true);
-    setProgress(20);
-    setStatusText('Analyzing Song & Lyrics Structure...');
+    setProgress(30);
+    setStatusText('Analyzing...');
 
     setTimeout(() => {
-      setProgress(50);
-      setStatusText('Selecting Media Clips & Applying Pacing Rules...');
+      setProgress(65);
+      setStatusText('Generating...');
 
       setTimeout(() => {
         const targetSeed = newSeed ?? editSeed;
@@ -195,8 +195,17 @@ export function MVWorkflow() {
             className="w-full py-2.5 rounded-md text-black text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] relative z-10"
             style={{ backgroundColor: activeColor, boxShadow: `0 0 15px ${activeColor}40` }}
           >
-            <Wand2 size={15} />
-            {isProcessing ? statusText : (hasTimeline ? 'Re-Run Auto Edit' : '✦ AUTO EDIT')}
+            {isProcessing ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                <span>Auto-Editing...</span>
+              </>
+            ) : (
+              <>
+                <Wand2 size={15} />
+                <span>{hasTimeline ? 'Re-Run Auto Edit' : '✦ AUTO EDIT'}</span>
+              </>
+            )}
           </button>
 
           {hasTimeline && (
@@ -206,29 +215,40 @@ export function MVWorkflow() {
                 disabled={isProcessing}
                 className="w-full py-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 relative z-10"
               >
-                <RefreshCw size={12} />
-                Regenerate (New Seed)
+                {isProcessing ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={12} />
+                )}
+                <span>Regenerate (New Seed)</span>
               </button>
               <button
                 onClick={handleAutoFillVisuals}
                 disabled={isProcessing}
                 className="w-full py-1.5 rounded bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 text-purple-200 text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 relative z-10 shadow"
               >
-                <ImageIcon size={12} />
-                Auto Fill Missing Visuals (AI)
+                {isProcessing ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <ImageIcon size={12} />
+                )}
+                <span>Auto Fill Missing Visuals (AI)</span>
               </button>
             </>
           )}
 
           {isProcessing && (
-            <div className="w-full flex flex-col gap-1 mt-1 relative z-10">
+            <div className="w-full flex flex-col gap-1.5 mt-1 relative z-10 items-center">
               <div className="w-full bg-black/60 h-1.5 rounded-full overflow-hidden">
                 <div 
-                  className="h-full transition-all duration-300" 
+                  className="h-full transition-all duration-300 rounded-full" 
                   style={{ width: `${progress}%`, backgroundColor: activeColor }} 
                 />
               </div>
-              <span className="text-[10px] font-mono text-center" style={{ color: activeColor }}>{statusText}</span>
+              <div className="flex items-center gap-1.5 justify-center">
+                <Loader2 size={11} className="animate-spin" style={{ color: activeColor }} />
+                <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: activeColor }}>{statusText}</span>
+              </div>
             </div>
           )}
         </div>
