@@ -566,32 +566,86 @@ function renderSynchronizedLyrics(
   ctx.font = `${fontWeight} ${baseFontSize}px ${fontFamily}, system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffffff';
+
+  const lyricsSettings = useStore.getState().lyricsSettings;
+  const isKaraoke = lyricsSettings?.animationStyle === 'karaoke';
+  const accentColor = config.typographyOverride?.activeWordColor || lyricsSettings?.color || template.typography.activeWordColor || '#00e676';
+  const inactiveColor = config.typographyOverride?.inactiveWordColor || template.typography.inactiveWordColor || 'rgba(255, 255, 255, 0.45)';
+  const textColor = config.typographyOverride?.textColor || template.typography.textColor || '#ffffff';
+
   ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
   ctx.shadowBlur = 10;
 
   const maxLineWidth = isVertical ? W * 0.88 : W * 0.48;
 
-  // Check if text exceeds max width; wrap into 2 lines max if portrait
+  // Measure text and break if needed
   const measuredW = ctx.measureText(activeLine.text).width;
+  const linesToDraw: string[] = [];
 
   if (measuredW > maxLineWidth && isVertical) {
-    // Wrap to 2 lines max
     const words = activeLine.text.split(' ');
-    let line1 = '';
-    let line2 = '';
     const mid = Math.ceil(words.length / 2);
-
-    line1 = words.slice(0, mid).join(' ');
-    line2 = words.slice(mid).join(' ');
-
-    const lineGap = baseFontSize * 1.25;
-    ctx.fillText(line1, lyricX, lyricY - lineGap / 2);
-    ctx.fillText(line2, lyricX, lyricY + lineGap / 2);
+    linesToDraw.push(words.slice(0, mid).join(' '));
+    linesToDraw.push(words.slice(mid).join(' '));
   } else {
-    // Single line centered
-    const truncatedText = truncateCanvasText(ctx, activeLine.text, maxLineWidth);
-    ctx.fillText(truncatedText, lyricX, lyricY);
+    linesToDraw.push(truncateCanvasText(ctx, activeLine.text, maxLineWidth));
+  }
+
+  const lineGap = baseFontSize * 1.25;
+  const totalHeight = (linesToDraw.length - 1) * lineGap;
+  const startY = lyricY - totalHeight / 2;
+
+  if (isKaraoke) {
+    // Smooth Karaoke Highlight rendering
+    const progress = Math.max(0, Math.min(1, elapsed / lineDuration));
+    const fullText = activeLine.text;
+    const totalChars = fullText.length;
+    const targetCharIdx = totalChars * progress;
+
+    let charAccumulator = 0;
+
+    linesToDraw.forEach((lineText, index) => {
+      const lineY = startY + (index * lineGap);
+      const lineW = ctx.measureText(lineText).width;
+
+      // Draw unhighlighted line (semi-transparent)
+      ctx.fillStyle = inactiveColor;
+      ctx.fillText(lineText, lyricX, lineY);
+
+      // Calculate highlighting progress for this sub-line
+      const lineLength = lineText.length;
+      const lineStartIdx = charAccumulator;
+      const lineEndIdx = lineStartIdx + lineLength;
+
+      let lineProgress = 0;
+      if (targetCharIdx >= lineEndIdx) {
+        lineProgress = 1;
+      } else if (targetCharIdx <= lineStartIdx) {
+        lineProgress = 0;
+      } else {
+        lineProgress = (targetCharIdx - lineStartIdx) / lineLength;
+      }
+
+      if (lineProgress > 0) {
+        ctx.save();
+        const startX = lyricX - (lineW / 2);
+        ctx.beginPath();
+        ctx.rect(startX, lineY - baseFontSize * 0.7, lineW * lineProgress, baseFontSize * 1.4);
+        ctx.clip();
+        ctx.fillStyle = accentColor;
+        ctx.fillText(lineText, lyricX, lineY);
+        ctx.restore();
+      }
+
+      charAccumulator += lineLength + 1; // plus space
+    });
+  } else {
+    // Classic Fade In/Out or other styles (Solid text)
+    ctx.fillStyle = textColor;
+    linesToDraw.forEach((lineText, index) => {
+      const lineY = startY + (index * lineGap);
+      ctx.fillText(lineText, lyricX, lineY);
+    });
   }
 
   ctx.restore();

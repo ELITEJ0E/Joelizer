@@ -10,7 +10,7 @@ import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay
 import { Play, Maximize2, Minimize2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 
-export function MVPreview() {
+export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const currentTime = useStore(s => s.currentTime);
   const isPlaying = useStore(s => s.isPlaying);
@@ -19,7 +19,8 @@ export function MVPreview() {
   const aspectRatio = useStore(s => s.aspectRatio);
 
   const videoAssets = useMVStore(s => s.videoAssets);
-  const videoMode = useLyricsVideoStore(s => s.videoMode);
+  const storeVideoMode = useLyricsVideoStore(s => s.videoMode);
+  const videoMode = mode || storeVideoMode;
   
   const activeClip = useMVStore(s => s.timelineClips).find(c => currentTime >= c.startTime && currentTime <= c.endTime);
   const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
@@ -120,6 +121,9 @@ export function MVPreview() {
         const mvState = useMVStore.getState();
         const lyricsVideoState = useLyricsVideoStore.getState();
 
+        // Determine active video mode: prop takes priority over store
+        const activeVideoMode = mode || lyricsVideoState.videoMode;
+
         const curTime = storeState.currentTime;
         const playing = storeState.isPlaying;
         const resOverride = storeState.exportResolutionOverride;
@@ -169,7 +173,7 @@ export function MVPreview() {
         const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
         const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
 
-        if (videoMode === 'lyrics-video' || (videoMode === 'music-video' && isVinylScene)) {
+        if (activeVideoMode === 'lyrics-video' || (activeVideoMode === 'music-video' && isVinylScene)) {
           // Render Vinyl Lyrics Scene
           const currentTrack = storeState.tracks[storeState.currentTrackIndex];
           const templateId = lyricsVideoState.selectedTemplateId || 'vinyl';

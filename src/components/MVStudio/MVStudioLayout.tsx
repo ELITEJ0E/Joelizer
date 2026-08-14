@@ -6,7 +6,7 @@ import { MVTimeline } from './MVTimeline';
 import { MVPreview } from './MVPreview';
 import { MVWorkflow } from './MVWorkflow';
 import { MVAssetLibrary } from './MVAssetLibrary';
-import { GlobalSettingsPanel } from './GlobalSettingsPanel';
+import { MVSettingsPanel } from './MVSettingsPanel';
 import { Layers, Sliders, Play, Film, X, Sparkles, Music, Settings2 } from 'lucide-react';
 
 export function MVStudioLayout() {
@@ -97,7 +97,7 @@ export function MVStudioLayout() {
               style={activePanel === 'settings' ? { borderBottom: `2px solid ${activeColor}` } : {}}
             >
               <Settings2 size={12} />
-              <span>Visualizer</span>
+              <span>Settings</span>
             </button>
           </div>
         </div>
@@ -138,7 +138,7 @@ export function MVStudioLayout() {
               activePanel === 'settings' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
             }`}
             style={activePanel === 'settings' ? { borderRight: `2px solid ${activeColor}` } : {}}
-            title="Visualizer & Global Settings"
+            title="Music Video settings"
           >
             <Settings2 size={14} />
             <span className="text-[9px] font-black uppercase tracking-widest" style={{ writingMode: 'vertical-rl' }}>
@@ -164,7 +164,7 @@ export function MVStudioLayout() {
                    activePanel === 'controls' ? <Sliders size={14} style={{ color: activeColor }} /> : 
                    <Settings2 size={14} style={{ color: activeColor }} />}
                   {activePanel === 'media' ? 'Media Library' : 
-                   activePanel === 'controls' ? 'Auto Editor Controls' : 'Visualizer Settings'}
+                   activePanel === 'controls' ? 'Auto Editor Controls' : 'Music Video Settings'}
                 </span>
                 <button
                   onClick={() => setActivePanel('none')}
@@ -177,7 +177,7 @@ export function MVStudioLayout() {
               <div className="flex-1 min-h-0 overflow-y-auto">
                 {activePanel === 'media' && <MVAssetLibrary />}
                 {activePanel === 'controls' && <MVWorkflow />}
-                {activePanel === 'settings' && <GlobalSettingsPanel />}
+                {activePanel === 'settings' && <MVSettingsPanel />}
               </div>
             </div>
           </>
@@ -188,7 +188,7 @@ export function MVStudioLayout() {
           
           {/* Video Preview Canvas Stage */}
           <div className="flex-1 min-h-[200px] relative flex items-center justify-center p-2 overflow-hidden">
-            <MVPreview />
+            <MVPreview mode="music-video" />
           </div>
 
           {/* Timeline Viewport */}

@@ -3,6 +3,7 @@ import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useStore, AspectRatio } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { MVPreview } from '../MVStudio/MVPreview';
+import { GlobalSettingsPanel } from '../MVStudio/GlobalSettingsPanel';
 import { InteractiveStageOverlay } from './InteractiveStageOverlay';
 import { ExportModal } from '../Editor/ExportModal';
 import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
@@ -16,6 +17,8 @@ import {
 export function LyricsVideoLayout() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const setVisualizerColor = (color: string) => useStore.getState().updateVisualizerSettings({ color });
+
+  const [sidebarTab, setSidebarTab] = useState<'design' | 'settings'>('design');
 
   const videoMode = useLyricsVideoStore(s => s.videoMode);
   const setVideoMode = useLyricsVideoStore(s => s.setVideoMode);
@@ -126,7 +129,37 @@ export function LyricsVideoLayout() {
         {/* LEFT CONTROL SIDEBAR */}
         <div className="w-full md:w-80 lg:w-96 bg-[#09090e] border-r border-white/10 flex flex-col shrink-0 overflow-y-auto no-scrollbar p-4 gap-5 z-20">
           
-          {/* 1. LAYOUT SELECTOR SECTION */}
+          {/* Sidebar Tab Toggle */}
+          <div className="flex gap-1.5 p-1 bg-black/40 rounded-xl border border-white/5 shrink-0">
+            <button
+              onClick={() => setSidebarTab('design')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer text-center ${
+                sidebarTab === 'design'
+                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-black shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Quick Design
+            </button>
+            <button
+              onClick={() => setSidebarTab('settings')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer text-center ${
+                sidebarTab === 'settings'
+                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-black shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Advanced Settings
+            </button>
+          </div>
+
+          {sidebarTab === 'settings' ? (
+            <div className="flex-1 -mx-4 -my-4 h-full">
+              <GlobalSettingsPanel />
+            </div>
+          ) : (
+            <>
+              {/* 1. LAYOUT SELECTOR SECTION */}
           <div className="space-y-3">
             <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
               <Sparkles size={14} className="text-cyan-400" />
@@ -385,13 +418,15 @@ export function LyricsVideoLayout() {
               </div>
             </div>
           </div>
+          </>
+          )}
 
         </div>
 
         {/* RIGHT CANVAS STAGE */}
         <div className="flex-1 min-w-0 bg-[#020204] flex flex-col relative overflow-hidden">
           <div className="flex-1 min-h-[320px] relative flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-            <MVPreview />
+            <MVPreview mode="lyrics-video" />
           </div>
 
           {/* BOTTOM VISUALIZER RANGE DISPLAY PLAYER */}
