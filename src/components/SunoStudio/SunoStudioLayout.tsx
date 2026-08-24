@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { useMVStore, GeneratedTrack } from '../../store/useMVStore';
+import { useMVStore, GeneratedTrack, ACEEngine } from '../../store/useMVStore';
 import { useDAWStore } from '../../store/useDAWStore';
 import { 
   Sparkles, Music, Wand2, Sliders, Play, Pause, Download, Heart, Trash2, 
   Search, Filter, List, Grid, RotateCcw, Volume2, Plus, Disc, Share2, 
   Layers, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, ShieldCheck, 
-  Clock, ArrowUpRight, Zap
+  Clock, ArrowUpRight, Zap, Server, Cloud, Cpu, RefreshCw
 } from 'lucide-react';
 
 export function SunoStudioLayout() {
@@ -14,7 +14,6 @@ export function SunoStudioLayout() {
   const setAudio = useStore(s => s.setAudio);
   const isPlaying = useStore(s => s.isPlaying);
   const activeAudioUrl = useStore(s => s.audioUrl);
-  const setActiveTab = useStore(s => s.setActiveTab);
 
   const prompt = useMVStore(s => s.aiMusicPrompt);
   const setPrompt = useMVStore(s => s.setAiMusicPrompt);
@@ -29,6 +28,9 @@ export function SunoStudioLayout() {
   const setResultUrl = useMVStore(s => s.setAiMusicResultUrl);
   const errorMsg = useMVStore(s => s.aiMusicError);
   const setErrorMsg = useMVStore(s => s.setAiMusicError);
+
+  const selectedAiEngine = useMVStore(s => s.selectedAiEngine);
+  const setSelectedAiEngine = useMVStore(s => s.setSelectedAiEngine);
 
   const generatedTracks = useMVStore(s => s.generatedTracks);
   const addGeneratedTrack = useMVStore(s => s.addGeneratedTrack);
@@ -49,6 +51,33 @@ export function SunoStudioLayout() {
   const [progress, setProgress] = useState(0);
   const [showLyricsMap, setShowLyricsMap] = useState<Record<string, boolean>>({});
   const [loadedNotice, setLoadedNotice] = useState<string | null>(null);
+
+  // Engine health status
+  const [localConnected, setLocalConnected] = useState<boolean>(false);
+  const [localEndpoint, setLocalEndpoint] = useState<string>('http://127.0.0.1:8001');
+  const [isCheckingEngine, setIsCheckingEngine] = useState<boolean>(false);
+
+  const checkEngines = async () => {
+    setIsCheckingEngine(true);
+    try {
+      const res = await fetch('/api/ai/engine-status');
+      if (res.ok) {
+        const data = await res.json();
+        setLocalConnected(!!data.local?.connected);
+        if (data.local?.endpoint) {
+          setLocalEndpoint(data.local.endpoint);
+        }
+      }
+    } catch {
+      setLocalConnected(false);
+    } finally {
+      setIsCheckingEngine(false);
+    }
+  };
+
+  useEffect(() => {
+    checkEngines();
+  }, []);
 
   const sampleCovers = [
     'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
@@ -86,12 +115,13 @@ export function SunoStudioLayout() {
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
-    setStatus('generating', 'CONNECTING TO ACE-STEP AI ENGINE...');
+    const engineName = selectedAiEngine === 'ace-step-local' ? 'ACE-STEP LOCAL' : 'ACE-STEP CLOUD (HF)';
+    setStatus('generating', `CONNECTING TO ${engineName}...`);
     setErrorMsg(null);
     setProgress(5);
 
     try {
-      // 1. Submit job to asynchronous generation queue
+      // 1. Submit job with explicit engine selection - NO AUTO-FALLBACK
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -100,7 +130,8 @@ export function SunoStudioLayout() {
           lyrics: isInstrumental ? '' : lyrics.trim(),
           duration,
           isInstrumental,
-          model
+          model,
+          engine: selectedAiEngine
         })
       });
 
@@ -118,7 +149,7 @@ export function SunoStudioLayout() {
       const pollJob = async () => {
         let isDone = false;
         let attempts = 0;
-        const maxAttempts = 150; // 150 * 1.5s = 225s max timeout
+        const maxAttempts = 180; // 180 * 1.5s = 270s max timeout
 
         while (!isDone && attempts < maxAttempts) {
           await new Promise(r => setTimeout(r, 1500));
@@ -139,7 +170,10 @@ export function SunoStudioLayout() {
             } else if (job.status === 'completed') {
               isDone = true;
               setProgress(100);
-              setStatus('ready', 'SONG READY!');
+              const completionMessage = job.engine === 'ace-step-local' 
+                ? 'GENERATED WITH: ACE-STEP LOCAL' 
+                : 'GENERATED WITH: ACE-STEP CLOUD';
+              setStatus('ready', completionMessage);
               setResultUrl(job.audioUrl);
               setActiveJobId(null);
 
@@ -157,7 +191,7 @@ export function SunoStudioLayout() {
 
               const newTrack: GeneratedTrack = {
                 id: `track-${Date.now()}`,
-                title: prompt.slice(0, 32).trim() || 'ACE-Step AI Track',
+                title: prompt.slice(0, 32).trim() || (job.engine === 'ace-step-local' ? 'ACE-Step Local Track' : 'ACE-Step Cloud Track'),
                 prompt: prompt.trim(),
                 lyrics: isInstrumental ? undefined : lyrics.trim(),
                 duration: job.duration || duration,
@@ -166,7 +200,12 @@ export function SunoStudioLayout() {
                 tags: tags.length ? tags : ['AI Track'],
                 model: job.model || model,
                 coverUrl: randomCover,
-                isLiked: false
+                isLiked: false,
+                engine: job.engine || selectedAiEngine,
+                provider: job.provider || (selectedAiEngine === 'ace-step-local' ? 'local' : 'huggingface'),
+                sourceUrl: job.sourceUrl || job.audioUrl,
+                format: job.format || (job.audioUrl.endsWith('.wav') ? 'wav' : 'mp3'),
+                generationId: job.id
               };
 
               addGeneratedTrack(newTrack);
@@ -185,12 +224,15 @@ export function SunoStudioLayout() {
             }
           } catch (pollErr: any) {
             if (isDone) return;
-            console.warn('Polling error:', pollErr);
+            if (pollErr.message && (pollErr.message.includes('ACE_STEP') || pollErr.message.includes('failed') || pollErr.message.includes('offline'))) {
+              throw pollErr;
+            }
+            console.warn('Polling status warning:', pollErr);
           }
         }
 
         if (!isDone) {
-          throw new Error('Generation timed out. The model worker may be overloaded. Please retry.');
+          throw new Error('Generation timed out. The selected engine may be busy. Please retry.');
         }
       };
 
@@ -199,7 +241,7 @@ export function SunoStudioLayout() {
     } catch (err: any) {
       console.error('Music Generation Failed:', err);
       setStatus('error', 'GENERATION FAILED');
-      setErrorMsg(err?.message || 'Failed to connect to ACE-Step model Space. Please retry.');
+      setErrorMsg(err?.message || 'Generation failed with selected provider.');
       setProgress(0);
       setActiveJobId(null);
     }
@@ -306,7 +348,7 @@ export function SunoStudioLayout() {
       <div className="w-full md:w-[380px] lg:w-[420px] shrink-0 border-r border-white/10 flex flex-col bg-[#0b0c10] overflow-y-auto">
         {/* Top Header & Mode Toggle */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/40">
-          {/* Simple vs Custom (Advanced) Switcher */}
+          {/* Simple vs Custom Switcher */}
           <div className="flex bg-white/5 p-1 rounded-lg border border-white/10 gap-1">
             <button
               onClick={() => setMode('simple')}
@@ -337,6 +379,83 @@ export function SunoStudioLayout() {
 
         {/* Panel Form Inputs */}
         <div className="p-4 space-y-4 flex-1">
+          {/* EXPLICIT AI ENGINE SELECTOR (No Auto-Fallback) */}
+          <div className="space-y-2 p-3 rounded-xl bg-black/60 border border-white/10">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <Cpu size={13} style={{ color: activeColor }} />
+                AI Music Engine
+              </span>
+              <span className="text-[9px] font-mono text-emerald-400/80 uppercase font-semibold">Strict Provider</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {/* Cloud Provider Option */}
+              <button
+                type="button"
+                onClick={() => setSelectedAiEngine('ace-step-cloud')}
+                className={`p-2.5 rounded-lg border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                  selectedAiEngine === 'ace-step-cloud'
+                    ? 'bg-violet-500/20 border-violet-500/60 text-white shadow-sm ring-1 ring-violet-500/30'
+                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black flex items-center gap-1.5">
+                    <Cloud size={13} className={selectedAiEngine === 'ace-step-cloud' ? 'text-violet-400' : 'text-slate-500'} />
+                    Cloud
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" title="Connected to Hugging Face" />
+                </div>
+                <span className="text-[9px] text-slate-400 font-mono truncate">Hugging Face Space</span>
+              </button>
+
+              {/* Local Provider Option */}
+              <button
+                type="button"
+                onClick={() => setSelectedAiEngine('ace-step-local')}
+                className={`p-2.5 rounded-lg border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                  selectedAiEngine === 'ace-step-local'
+                    ? 'bg-emerald-500/20 border-emerald-500/60 text-white shadow-sm ring-1 ring-emerald-500/30'
+                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black flex items-center gap-1.5">
+                    <Server size={13} className={selectedAiEngine === 'ace-step-local' ? 'text-emerald-400' : 'text-slate-500'} />
+                    Local
+                  </span>
+                  <span className={`w-2 h-2 rounded-full ${localConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                </div>
+                <span className="text-[9px] text-slate-400 font-mono truncate">
+                  {localConnected ? 'PyTorch Active' : '127.0.0.1:8001'}
+                </span>
+              </button>
+            </div>
+
+            {/* Provider Details Bar */}
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-400">
+              {selectedAiEngine === 'ace-step-cloud' ? (
+                <span className="flex items-center gap-1.5 text-violet-300">
+                  <Cloud size={11} /> ACE-Step/Ace-Step-v1.5
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-emerald-300 truncate max-w-[220px]">
+                  <Server size={11} /> {localEndpoint}
+                </span>
+              )}
+              <button
+                onClick={checkEngines}
+                disabled={isCheckingEngine}
+                className="px-2 py-0.5 rounded text-[9px] font-bold bg-white/10 hover:bg-white/20 text-slate-300 transition-colors flex items-center gap-1 cursor-pointer"
+                title="Ping engine status"
+              >
+                <RefreshCw size={10} className={isCheckingEngine ? 'animate-spin' : ''} />
+                Ping
+              </button>
+            </div>
+          </div>
+
           {/* Quick Preset Chips */}
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
@@ -347,7 +466,7 @@ export function SunoStudioLayout() {
                 <button
                   key={tag.label}
                   onClick={() => setPrompt(tag.text)}
-                  className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold text-slate-300 transition-colors hover:text-white"
+                  className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold text-slate-300 transition-colors hover:text-white cursor-pointer"
                 >
                   {tag.label}
                 </button>
@@ -382,7 +501,7 @@ export function SunoStudioLayout() {
                   </label>
                   <button
                     onClick={generateRandomLyrics}
-                    className="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30"
+                    className="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30 cursor-pointer"
                   >
                     <Sparkles size={11} /> Auto-Generate
                   </button>
@@ -415,8 +534,9 @@ export function SunoStudioLayout() {
               <div className="flex items-center justify-between bg-black/40 p-2.5 rounded-lg border border-white/10">
                 <span className="text-xs font-bold text-slate-300">Instrumental Only</span>
                 <button
+                  type="button"
                   onClick={() => setIsInstrumental(!isInstrumental)}
-                  className={`w-11 h-6 rounded-full transition-colors relative p-1 ${
+                  className={`w-11 h-6 rounded-full transition-colors relative p-1 cursor-pointer ${
                     isInstrumental ? 'bg-emerald-500' : 'bg-slate-700'
                   }`}
                 >
@@ -440,7 +560,7 @@ export function SunoStudioLayout() {
                 <button
                   key={d}
                   onClick={() => setDuration(d)}
-                  className="py-1.5 rounded-md border text-xs font-bold transition-all text-center"
+                  className="py-1.5 rounded-md border text-xs font-bold transition-all text-center cursor-pointer"
                   style={
                     duration === d
                       ? { backgroundColor: activeColor, borderColor: activeColor, color: '#000' }
@@ -465,20 +585,23 @@ export function SunoStudioLayout() {
                   style={{ width: `${progress}%`, backgroundColor: activeColor }}
                 />
               </div>
-              <p className="text-[10px] font-mono text-center text-emerald-400 font-bold">
+              <p className="text-[10px] font-mono text-center text-emerald-400 font-bold truncate">
                 {statusText} ({progress}%)
               </p>
             </div>
           )}
 
           {errorMsg && (
-            <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[10px] flex items-start gap-1.5">
-              <AlertCircle size={14} className="shrink-0 mt-0.5 text-rose-400" />
-              <span>{errorMsg}</span>
+            <div className="p-2.5 rounded-lg bg-rose-500/15 border border-rose-500/35 text-rose-200 text-xs flex flex-col gap-1">
+              <div className="flex items-center gap-1.5 font-bold text-rose-400 uppercase text-[10px] tracking-wider">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>Generation Failed</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-rose-200/90 break-words">{errorMsg}</p>
             </div>
           )}
 
-          {/* Suno-Style Large Create & Cancel Button */}
+          {/* Large Create & Cancel Button */}
           {isGenerating ? (
             <div className="flex gap-2">
               <div 
@@ -507,13 +630,13 @@ export function SunoStudioLayout() {
               }}
             >
               <Sparkles size={18} />
-              <span>✨ CREATE SONG</span>
+              <span>✨ CREATE SONG ({selectedAiEngine === 'ace-step-local' ? 'LOCAL' : 'CLOUD'})</span>
             </button>
           )}
 
           <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 px-1">
             <span>⚡ ACE-Step v1.5 DiT Engine</span>
-            <span>Unlimited Generations</span>
+            <span>{selectedAiEngine === 'ace-step-local' ? 'Local Runtime' : 'Cloud Hugging Face'}</span>
           </div>
         </div>
       </div>
@@ -554,7 +677,7 @@ export function SunoStudioLayout() {
                 <button
                   key={f}
                   onClick={() => setActiveFilter(f)}
-                  className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                  className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-all cursor-pointer ${
                     activeFilter === f ? 'bg-white/20 text-white font-black' : 'text-slate-400 hover:text-white'
                   }`}
                   style={activeFilter === f ? { color: activeColor } : {}}
@@ -568,13 +691,13 @@ export function SunoStudioLayout() {
             <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-1 rounded ${viewMode === 'list' ? 'bg-white/20 text-white' : 'text-slate-500'}`}
+                className={`p-1 rounded cursor-pointer ${viewMode === 'list' ? 'bg-white/20 text-white' : 'text-slate-500'}`}
               >
                 <List size={14} />
               </button>
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-1 rounded ${viewMode === 'grid' ? 'bg-white/20 text-white' : 'text-slate-500'}`}
+                className={`p-1 rounded cursor-pointer ${viewMode === 'grid' ? 'bg-white/20 text-white' : 'text-slate-500'}`}
               >
                 <Grid size={14} />
               </button>
@@ -601,7 +724,7 @@ export function SunoStudioLayout() {
               </p>
               <button
                 onClick={() => setPrompt('Upbeat electronic synthwave pop track with heavy bass drop')}
-                className="px-5 py-2.5 rounded-xl text-black font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl text-black font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-2 cursor-pointer"
                 style={{ backgroundColor: activeColor }}
               >
                 <Sparkles size={14} />
@@ -614,6 +737,7 @@ export function SunoStudioLayout() {
               {filteredTracks.map(track => {
                 const isCurrentlyPlaying = activeAudioUrl === track.audioUrl && isPlaying;
                 const isLyricsExpanded = !!showLyricsMap[track.id];
+                const isLocal = track.engine === 'ace-step-local' || track.provider === 'local';
 
                 return (
                   <div
@@ -672,6 +796,18 @@ export function SunoStudioLayout() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm font-black text-white truncate">{track.title}</h4>
+                          
+                          {/* Engine Provider Badge */}
+                          {isLocal ? (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                              <Server size={10} /> ACE-Step Local
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30 flex items-center gap-1">
+                              <Cloud size={10} /> ACE-Step Cloud
+                            </span>
+                          )}
+
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-white/10 text-slate-300">
                             {track.model}
                           </span>
@@ -690,7 +826,7 @@ export function SunoStudioLayout() {
                         {track.lyrics && (
                           <button
                             onClick={() => setShowLyricsMap(prev => ({ ...prev, [track.id]: !prev[track.id] }))}
-                            className="text-[10px] font-mono text-slate-400 hover:text-white flex items-center gap-1 mt-1"
+                            className="text-[10px] font-mono text-slate-400 hover:text-white flex items-center gap-1 mt-1 cursor-pointer"
                           >
                             <span>Lyrics</span>
                             {isLyricsExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -732,7 +868,7 @@ export function SunoStudioLayout() {
                         {/* Like Toggle */}
                         <button
                           onClick={() => toggleLikeTrack(track.id)}
-                          className={`p-2 rounded-lg border transition-colors ${
+                          className={`p-2 rounded-lg border transition-colors cursor-pointer ${
                             track.isLiked
                               ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
                               : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
@@ -741,14 +877,14 @@ export function SunoStudioLayout() {
                           <Heart size={14} className={track.isLiked ? 'fill-current' : ''} />
                         </button>
 
-                        {/* Download MP3 */}
+                        {/* Download Audio */}
                         <a
                           href={track.audioUrl}
-                          download={`${track.title}.mp3`}
+                          download={`${track.title}.${track.format || 'mp3'}`}
                           target="_blank"
                           rel="noreferrer"
                           className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                          title="Download MP3"
+                          title={`Download ${track.format ? track.format.toUpperCase() : 'Audio'}`}
                         >
                           <Download size={14} />
                         </a>
@@ -756,7 +892,7 @@ export function SunoStudioLayout() {
                         {/* Delete Track */}
                         <button
                           onClick={() => deleteTrack(track.id)}
-                          className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                           title="Delete Track"
                         >
                           <Trash2 size={14} />
@@ -779,6 +915,7 @@ export function SunoStudioLayout() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredTracks.map(track => {
                 const isCurrentlyPlaying = activeAudioUrl === track.audioUrl && isPlaying;
+                const isLocal = track.engine === 'ace-step-local' || track.provider === 'local';
 
                 return (
                   <div
@@ -795,7 +932,7 @@ export function SunoStudioLayout() {
                         />
                         <button
                           onClick={() => handleSetMainAudio(track)}
-                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
                         >
                           {isCurrentlyPlaying ? (
                             <Pause size={28} style={{ color: activeColor }} />
@@ -808,23 +945,42 @@ export function SunoStudioLayout() {
                         </span>
                       </div>
 
-                      <h4 className="text-sm font-black text-white truncate">{track.title}</h4>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <h4 className="text-sm font-black text-white truncate">{track.title}</h4>
+                        {isLocal ? (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 shrink-0">
+                            <Server size={9} /> Local
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30 flex items-center gap-1 shrink-0">
+                            <Cloud size={9} /> Cloud
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-400 line-clamp-2 mt-1">{track.prompt}</p>
                     </div>
 
                     {/* Card Footer Actions */}
                     <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
-                      <button
-                        onClick={() => handleAddToTimeline(track)}
-                        className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1"
-                      >
-                        <Layers size={11} /> + Timeline
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleAddToDAW(track)}
+                          className="px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer hover:bg-emerald-500/25"
+                        >
+                          <Music size={11} /> + DAW
+                        </button>
+                        <button
+                          onClick={() => handleAddToTimeline(track)}
+                          className="px-2.5 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer hover:bg-cyan-500/20"
+                        >
+                          <Layers size={11} /> + MV
+                        </button>
+                      </div>
 
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => toggleLikeTrack(track.id)}
-                          className={`p-1.5 rounded border ${
+                          className={`p-1.5 rounded border cursor-pointer ${
                             track.isLiked ? 'bg-rose-500/20 border-rose-500/40 text-rose-400' : 'bg-white/5 border-white/10 text-slate-400'
                           }`}
                         >
@@ -832,10 +988,10 @@ export function SunoStudioLayout() {
                         </button>
                         <a
                           href={track.audioUrl}
-                          download={`${track.title}.mp3`}
+                          download={`${track.title}.${track.format || 'mp3'}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 rounded bg-white/5 border border-white/10 text-slate-400"
+                          className="p-1.5 rounded bg-white/5 border border-white/10 text-slate-400 hover:text-white"
                         >
                           <Download size={13} />
                         </a>

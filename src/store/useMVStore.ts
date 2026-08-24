@@ -49,6 +49,9 @@ export interface SongAnalysis {
   sections: { title: string; startTime: number; endTime: number }[];
 }
 
+export type ACEEngine = 'ace-step-local' | 'ace-step-cloud';
+export type ACEProvider = 'local' | 'huggingface';
+
 export interface GeneratedTrack {
   id: string;
   title: string;
@@ -61,11 +64,18 @@ export interface GeneratedTrack {
   model: string;
   coverUrl: string;
   isLiked?: boolean;
+  engine?: ACEEngine;
+  provider?: ACEProvider;
+  sourceUrl?: string;
+  format?: string;
+  generationId?: string;
 }
 
 export interface MVProjectState {
-  // Engine Connection
+  // Engine Connection & Selection
   localEngineConnected: boolean;
+  selectedAiEngine: ACEEngine;
+  setSelectedAiEngine: (engine: ACEEngine) => void;
   
   // Settings & Edit Parameters
   style: string;
@@ -144,6 +154,8 @@ export interface MVProjectState {
 
 export const useMVStore = create<MVProjectState>()(persist((set) => ({
   localEngineConnected: false,
+  selectedAiEngine: 'ace-step-cloud',
+  setSelectedAiEngine: (selectedAiEngine) => set({ selectedAiEngine }),
   style: 'Cinematic',
   pacing: 'Balanced',
   beatSync: 'Strong',
@@ -424,6 +436,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     mediaSourceFilter: state.mediaSourceFilter,
     songAnalysis: state.songAnalysis,
     wordTimings: state.wordTimings,
-    aiMusicPrompt: state.aiMusicPrompt
+    aiMusicPrompt: state.aiMusicPrompt,
+    selectedAiEngine: state.selectedAiEngine
   })
 }));

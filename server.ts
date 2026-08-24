@@ -7,8 +7,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import { generateMusic } from './server/aceStep';
 import { startExportJob, getExportJob, runAutomatedRenderTest } from './server/renderEngine';
-import { createGenerationJob, getGenerationJob, cancelGenerationJob, getAllGenerationJobs } from './server/engines/aceStep/queue';
-import { checkEngineHealth, setLocalAceStepUrl, getLocalAceStepUrl } from './server/engines/aceStep/client';
+import { createGenerationJob, getGenerationJob, cancelGenerationJob, getAllGenerationJobs, localProviderInstance, cloudProviderInstance } from './server/engines/aceStep';
 
 dotenv.config();
 
@@ -421,10 +420,10 @@ async function startServer() {
     }
   });
 
-  // ACE-Step AI Engine Routes (New Workstation Generation API)
+  // ACE-Step AI Engine Routes (Workstation Generation API)
   app.post('/api/ai/generate', (req, res) => {
     try {
-      const { prompt, lyrics, duration, bpm, key, timeSignature, vocalLanguage, isInstrumental, model } = req.body;
+      const { prompt, lyrics, duration, bpm, key, timeSignature, vocalLanguage, isInstrumental, model, engine } = req.body;
       if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
         return res.status(400).json({ error: 'Song prompt is required' });
       }
@@ -438,7 +437,8 @@ async function startServer() {
         timeSignature: timeSignature || '',
         vocalLanguage: vocalLanguage || 'unknown',
         isInstrumental: !!isInstrumental,
-        model: model || 'ACE-Step v1.5'
+        model: model || 'ACE-Step v1.5',
+        engine: engine === 'ace-step-local' ? 'ace-step-local' : 'ace-step-cloud'
       });
 
       return res.json({ success: true, job });
@@ -467,10 +467,25 @@ async function startServer() {
     return res.json({ jobs: getAllGenerationJobs() });
   });
 
-  app.get('/api/ai/engine-status', async (_req, res) => {
+  app.get('/api/ai/engine-status', async (req, res) => {
     try {
-      const status = await checkEngineHealth();
-      return res.json(status);
+      const { engine } = req.query;
+      if (engine === 'ace-step-local') {
+        const status = await localProviderInstance.checkHealth();
+        return res.json(status);
+      } else if (engine === 'ace-step-cloud') {
+        const status = await cloudProviderInstance.checkHealth();
+        return res.json(status);
+      }
+      const [localStatus, cloudStatus] = await Promise.all([
+        localProviderInstance.checkHealth(),
+        cloudProviderInstance.checkHealth()
+      ]);
+      return res.json({
+        local: localStatus,
+        cloud: cloudStatus,
+        connected: localStatus.connected || cloudStatus.connected
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Failed to check engine status' });
     }
@@ -479,9 +494,9 @@ async function startServer() {
   app.post('/api/ai/engine-config', (req, res) => {
     const { endpoint } = req.body;
     if (typeof endpoint === 'string' && endpoint.trim()) {
-      setLocalAceStepUrl(endpoint.trim());
+      localProviderInstance.setEndpoint(endpoint.trim());
     }
-    return res.json({ success: true, endpoint: getLocalAceStepUrl() });
+    return res.json({ success: true, endpoint: localProviderInstance.getEndpoint() });
   });
 
   // ACE-Step AI Music Generation endpoint (Legacy compatibility)

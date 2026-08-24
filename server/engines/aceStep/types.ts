@@ -13,6 +13,9 @@ export type VocalLanguage =
   | 'pt'
   | 'ru';
 
+export type ACEEngineId = 'ace-step-local' | 'ace-step-cloud';
+export type ACEProviderName = 'local' | 'huggingface';
+
 export interface ACEStepGenerateOptions {
   prompt: string;
   lyrics?: string;
@@ -28,7 +31,19 @@ export interface ACEStepGenerateOptions {
   cfgScale?: number;
   referenceAudioPath?: string;
   isInstrumental?: boolean;
+  engine?: ACEEngineId;
   onProgress?: (stage: string, percentage: number) => void;
+}
+
+export interface ACEStepGenerationResult {
+  audioUrl: string;
+  duration: number;
+  title: string;
+  engine: ACEEngineId;
+  provider: ACEProviderName;
+  sourceUrl: string;
+  format: string;
+  generationId: string;
 }
 
 export type JobStatus = 'queued' | 'preparing' | 'generating' | 'processing' | 'completed' | 'failed' | 'cancelled';
@@ -46,19 +61,25 @@ export interface GenerationJob {
   audioUrl?: string;
   coverUrl?: string;
   error?: string;
+  errorCode?: string;
   createdAt: number;
   completedAt?: number;
   model: string;
-  engine: 'local' | 'hf_space' | 'mock';
+  engine: ACEEngineId;
+  provider: ACEProviderName;
+  format?: string;
+  sourceUrl?: string;
 }
 
 export interface EngineStatus {
   connected: boolean;
   endpoint: string;
-  engineType: 'local' | 'hf_space';
+  engineType: ACEEngineId;
   modelLoaded: boolean;
   gpuAvailable: boolean;
   gpuDeviceName?: string;
-  activeJobs: number;
-  version: string;
+  activeJobs?: number;
+  version?: string;
+  error?: string;
+  models?: string[];
 }

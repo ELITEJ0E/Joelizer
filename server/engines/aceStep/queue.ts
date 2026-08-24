@@ -1,5 +1,6 @@
-import { GenerationJob, ACEStepGenerateOptions } from './types';
-import { executeAceStepGeneration } from './client';
+import { GenerationJob, ACEStepGenerateOptions, ACEEngineId, ACEProviderName } from './types';
+import { localProviderInstance } from './localProvider';
+import { cloudProviderInstance } from './cloudProvider';
 
 const jobs: Map<string, GenerationJob> = new Map();
 const abortControllers: Map<string, AbortController> = new Map();
@@ -9,10 +10,13 @@ export function createGenerationJob(options: ACEStepGenerateOptions): Generation
   const controller = new AbortController();
   abortControllers.set(jobId, controller);
 
+  const selectedEngine: ACEEngineId = options.engine === 'ace-step-local' ? 'ace-step-local' : 'ace-step-cloud';
+  const providerName: ACEProviderName = selectedEngine === 'ace-step-local' ? 'local' : 'huggingface';
+
   const job: GenerationJob = {
     id: jobId,
     status: 'queued',
-    stageMessage: 'Job queued in generation pipeline...',
+    stageMessage: `Queued for ${selectedEngine === 'ace-step-local' ? 'ACE-Step Local' : 'ACE-Step Cloud (Hugging Face)'}...`,
     progress: 0,
     prompt: options.prompt,
     lyrics: options.lyrics,
@@ -21,14 +25,15 @@ export function createGenerationJob(options: ACEStepGenerateOptions): Generation
     key: options.keySignature,
     createdAt: Date.now(),
     model: options.model || 'ACE-Step v1.5',
-    engine: 'hf_space'
+    engine: selectedEngine,
+    provider: providerName
   };
 
   jobs.set(jobId, job);
 
-  // Kick off background job execution
+  // Process asynchronously without blocking HTTP response
   processJob(jobId, options, controller.signal).catch(err => {
-    console.error(`Background generation error in job ${jobId}:`, err);
+    console.error(`Generation job ${jobId} failed:`, err);
   });
 
   return job;
@@ -39,25 +44,30 @@ async function processJob(jobId: string, options: ACEStepGenerateOptions, abortS
   if (!job) return;
 
   job.status = 'generating';
-  job.stageMessage = 'Starting ACE-Step neural synthesis...';
-  job.progress = 10;
+  const engineName = job.engine === 'ace-step-local' ? 'ACE-Step Local' : 'ACE-Step Cloud (Hugging Face)';
+  job.stageMessage = `Connecting to ${engineName}...`;
+  job.progress = 5;
+
+  const onProgress = (stage: string, percentage: number) => {
+    if (jobs.has(jobId)) {
+      const current = jobs.get(jobId)!;
+      if (current.status !== 'cancelled' && current.status !== 'failed') {
+        current.stageMessage = stage;
+        current.progress = percentage;
+      }
+    }
+  };
 
   try {
-    const result = await executeAceStepGeneration(
-      {
-        ...options,
-        onProgress: (stage, pct) => {
-          if (jobs.has(jobId)) {
-            const j = jobs.get(jobId)!;
-            if (j.status !== 'cancelled') {
-              j.stageMessage = stage;
-              j.progress = pct;
-            }
-          }
-        }
-      },
-      abortSignal
-    );
+    let result;
+
+    if (job.engine === 'ace-step-local') {
+      // EXPLICIT LOCAL ONLY - NO FALLBACK TO CLOUD OR SYNTH
+      result = await localProviderInstance.generate({ ...options, onProgress }, abortSignal);
+    } else {
+      // EXPLICIT CLOUD ONLY - NO FALLBACK TO LOCAL OR SYNTH
+      result = await cloudProviderInstance.generate({ ...options, onProgress }, abortSignal);
+    }
 
     if (abortSignal.aborted) {
       job.status = 'cancelled';
@@ -65,12 +75,20 @@ async function processJob(jobId: string, options: ACEStepGenerateOptions, abortS
       return;
     }
 
+    // Strict validation of returned asset
+    if (!result.audioUrl || typeof result.audioUrl !== 'string') {
+      throw new Error('Generation returned no valid audio URL.');
+    }
+
     job.status = 'completed';
-    job.stageMessage = 'Generation completed successfully!';
+    job.stageMessage = `Generated with: ${job.engine === 'ace-step-local' ? 'ACE-Step Local' : 'ACE-Step Cloud'}`;
     job.progress = 100;
     job.audioUrl = result.audioUrl;
+    job.sourceUrl = result.sourceUrl;
     job.duration = result.duration;
     job.engine = result.engine;
+    job.provider = result.provider;
+    job.format = result.format;
     job.completedAt = Date.now();
   } catch (err: any) {
     if (abortSignal.aborted) {
@@ -80,8 +98,16 @@ async function processJob(jobId: string, options: ACEStepGenerateOptions, abortS
     }
 
     job.status = 'failed';
+    const rawMsg = err?.message || String(err);
     job.stageMessage = 'Generation failed';
-    job.error = err.message || 'Unknown error occurred during AI generation';
+    job.error = rawMsg;
+    
+    // Extract error code if present
+    if (rawMsg.startsWith('ACE_STEP_')) {
+      const parts = rawMsg.split(':');
+      job.errorCode = parts[0].trim();
+      job.error = parts.slice(1).join(':').trim() || rawMsg;
+    }
   } finally {
     abortControllers.delete(jobId);
   }
