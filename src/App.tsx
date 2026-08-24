@@ -13,6 +13,7 @@ import { GlobalAudioPlayer } from './components/Audio/GlobalAudioPlayer';
 import { MVStudioLayout } from './components/MVStudio/MVStudioLayout';
 import { SunoStudioLayout } from './components/SunoStudio/SunoStudioLayout';
 import { LyricsVideoLayout } from './components/LyricsStudio/LyricsVideoLayout';
+import { DAWLayout } from './components/DAW/DAWLayout';
 
 export default function App() {
   const [showExportModal, setShowExportModal] = useState(false);
@@ -40,6 +41,14 @@ export default function App() {
         <div className="flex-1 overflow-hidden relative">
           <SunoStudioLayout />
         </div>
+      ) : activeTab === 'studio' ? (
+        <div className="flex-1 overflow-hidden relative">
+          <DAWLayout />
+        </div>
+      ) : activeTab === 'lrc' ? (
+        <div className="flex-1 overflow-hidden relative">
+          <StudioLayout />
+        </div>
       ) : activeTab === 'lyrics' ? (
         <div className="flex-1 overflow-hidden relative">
           <LyricsVideoLayout />
@@ -47,10 +56,6 @@ export default function App() {
       ) : activeTab === 'mv-studio' ? (
         <div className="flex-1 overflow-hidden relative">
           <MVStudioLayout />
-        </div>
-      ) : activeTab === 'studio' ? (
-        <div className="flex-1 overflow-hidden relative">
-          <StudioLayout />
         </div>
       ) : null}
       

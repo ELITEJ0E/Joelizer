@@ -1,6 +1,6 @@
 {
   "name": "Joelizer",
-  "description": "Visualize your musics",
-  "requestFramePermissions": [],
+  "description": "Local AI Music Workstation, multitrack DAW, lyric synchronizer, and music video studio powered by ACE-Step AI and Web Audio.",
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -102,7 +102,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         </div>
 
         {/* Top Navigation Links */}
-        <nav className="flex items-center bg-white/[0.03] border border-white/10 rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1 shrink-0 overflow-x-auto no-scrollbar max-w-[180px] min-[400px]:max-w-[240px] sm:max-w-none">
+        <nav className="flex items-center bg-white/[0.03] border border-white/10 rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1 shrink-0 overflow-x-auto no-scrollbar max-w-[200px] min-[400px]:max-w-[280px] sm:max-w-none">
           <button
             onClick={() => setActiveTab('create')}
             className={cn(
@@ -125,12 +125,31 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           <button
             onClick={() => setActiveTab('studio')}
             className={cn(
-              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer relative overflow-hidden",
+              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
               activeTab === 'studio' 
                 ? "bg-white/15 text-white shadow-md" 
                 : "text-slate-300 hover:text-white hover:bg-white/5"
             )}
             style={activeTab === 'studio' ? { 
+              color: activeColor,
+              backgroundColor: `${activeColor}20`,
+              borderColor: `${activeColor}50` 
+            } : {}}
+            title="Multitrack DAW Workstation for recording, mixing, and stem arrangement"
+          >
+            <Music size={12} />
+            <span>DAW Studio</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('lrc')}
+            className={cn(
+              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer relative overflow-hidden",
+              activeTab === 'lrc' 
+                ? "bg-white/15 text-white shadow-md" 
+                : "text-slate-300 hover:text-white hover:bg-white/5"
+            )}
+            style={activeTab === 'lrc' ? { 
               color: activeColor,
               backgroundColor: `${activeColor}20`,
               borderColor: `${activeColor}50` 

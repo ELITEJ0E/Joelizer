@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore, GeneratedTrack } from '../../store/useMVStore';
+import { useDAWStore } from '../../store/useDAWStore';
 import { 
   Sparkles, Music, Wand2, Sliders, Play, Pause, Download, Heart, Trash2, 
   Search, Filter, List, Grid, RotateCcw, Volume2, Plus, Disc, Share2, 
@@ -64,79 +65,143 @@ export function SunoStudioLayout() {
     { label: '+ Ambient Vox', text: 'Atmospheric ambient chillout soundscape with soaring vocal pads and soothing reverb' }
   ];
 
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+
+  const handleCancelGeneration = async () => {
+    if (!activeJobId) {
+      setStatus('idle', '');
+      return;
+    }
+    try {
+      await fetch(`/api/ai/jobs/${activeJobId}/cancel`, { method: 'POST' });
+    } catch (e) {
+      console.warn('Cancel request error:', e);
+    }
+    setStatus('idle', '');
+    setActiveJobId(null);
+    setProgress(0);
+    showNotification('Generation cancelled.');
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
-    setStatus('generating', 'CONNECTING TO ACE-STEP AI SPACE (30-60S COLD START)...');
+    setStatus('generating', 'CONNECTING TO ACE-STEP AI ENGINE...');
     setErrorMsg(null);
-    setProgress(15);
-
-    const interval = setInterval(() => {
-      setProgress(prev => (prev >= 90 ? 90 : prev + 4));
-    }, 1200);
+    setProgress(5);
 
     try {
-      const res = await fetch('/api/generate-music', {
+      // 1. Submit job to asynchronous generation queue
+      const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: prompt.trim(),
           lyrics: isInstrumental ? '' : lyrics.trim(),
-          duration
+          duration,
+          isInstrumental,
+          model
         })
       });
 
       const data = await res.json();
-      clearInterval(interval);
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'Failed to generate music');
+      if (!res.ok || data.error || !data.job) {
+        throw new Error(data.error || 'Failed to submit generation job');
       }
 
-      const generatedUrl = data.audioUrl;
-      const trackDuration = data.duration || duration;
+      const jobId = data.job.id;
+      setActiveJobId(jobId);
+      setStatus('generating', data.job.stageMessage || 'JOB QUEUED...');
 
-      setProgress(100);
-      setStatus('ready', 'SONG READY!');
-      setResultUrl(generatedUrl);
+      // 2. Poll job status until complete or failed
+      const pollJob = async () => {
+        let isDone = false;
+        let attempts = 0;
+        const maxAttempts = 150; // 150 * 1.5s = 225s max timeout
 
-      // Extract tags
-      const promptLower = prompt.toLowerCase();
-      const tags: string[] = [];
-      if (promptLower.includes('synth') || promptLower.includes('electronic')) tags.push('Synthwave');
-      if (promptLower.includes('lo-fi') || promptLower.includes('chill')) tags.push('Lo-Fi');
-      if (promptLower.includes('pop') || promptLower.includes('k-pop')) tags.push('Pop');
-      if (promptLower.includes('cinematic') || promptLower.includes('epic')) tags.push('Cinematic');
-      if (isInstrumental) tags.push('Instrumental');
-      else tags.push('Vocal');
+        while (!isDone && attempts < maxAttempts) {
+          await new Promise(r => setTimeout(r, 1500));
+          attempts++;
 
-      const randomCover = sampleCovers[Math.floor(Math.random() * sampleCovers.length)];
+          try {
+            const pollRes = await fetch(`/api/ai/jobs/${jobId}`);
+            if (!pollRes.ok) continue;
 
-      const newTrack: GeneratedTrack = {
-        id: `track-${Date.now()}`,
-        title: prompt.slice(0, 32).trim() || 'AI Generated Track',
-        prompt: prompt.trim(),
-        lyrics: isInstrumental ? undefined : lyrics.trim(),
-        duration: trackDuration,
-        audioUrl: generatedUrl,
-        createdAt: Date.now(),
-        tags: tags.length ? tags : ['AI Track'],
-        model,
-        coverUrl: randomCover,
-        isLiked: false
+            const pollData = await pollRes.json();
+            const job = pollData.job;
+
+            if (!job) continue;
+
+            if (job.status === 'generating' || job.status === 'queued' || job.status === 'preparing') {
+              setStatus('generating', (job.stageMessage || 'GENERATING AUDIO...').toUpperCase());
+              setProgress(job.progress || Math.min(95, 10 + attempts * 2));
+            } else if (job.status === 'completed') {
+              isDone = true;
+              setProgress(100);
+              setStatus('ready', 'SONG READY!');
+              setResultUrl(job.audioUrl);
+              setActiveJobId(null);
+
+              // Extract genre tags
+              const promptLower = prompt.toLowerCase();
+              const tags: string[] = [];
+              if (promptLower.includes('synth') || promptLower.includes('electronic')) tags.push('Synthwave');
+              if (promptLower.includes('lo-fi') || promptLower.includes('chill')) tags.push('Lo-Fi');
+              if (promptLower.includes('pop') || promptLower.includes('k-pop')) tags.push('Pop');
+              if (promptLower.includes('cinematic') || promptLower.includes('epic')) tags.push('Cinematic');
+              if (isInstrumental) tags.push('Instrumental');
+              else tags.push('Vocal');
+
+              const randomCover = sampleCovers[Math.floor(Math.random() * sampleCovers.length)];
+
+              const newTrack: GeneratedTrack = {
+                id: `track-${Date.now()}`,
+                title: prompt.slice(0, 32).trim() || 'ACE-Step AI Track',
+                prompt: prompt.trim(),
+                lyrics: isInstrumental ? undefined : lyrics.trim(),
+                duration: job.duration || duration,
+                audioUrl: job.audioUrl,
+                createdAt: Date.now(),
+                tags: tags.length ? tags : ['AI Track'],
+                model: job.model || model,
+                coverUrl: randomCover,
+                isLiked: false
+              };
+
+              addGeneratedTrack(newTrack);
+              handleSetMainAudio(newTrack);
+              return;
+            } else if (job.status === 'cancelled') {
+              isDone = true;
+              setStatus('idle', '');
+              setActiveJobId(null);
+              setProgress(0);
+              return;
+            } else if (job.status === 'failed') {
+              isDone = true;
+              setActiveJobId(null);
+              throw new Error(job.error || 'ACE-Step generation failed.');
+            }
+          } catch (pollErr: any) {
+            if (isDone) return;
+            console.warn('Polling error:', pollErr);
+          }
+        }
+
+        if (!isDone) {
+          throw new Error('Generation timed out. The model worker may be overloaded. Please retry.');
+        }
       };
 
-      addGeneratedTrack(newTrack);
-
-      // Auto load as active song
-      handleSetMainAudio(newTrack);
+      await pollJob();
 
     } catch (err: any) {
-      clearInterval(interval);
       console.error('Music Generation Failed:', err);
       setStatus('error', 'GENERATION FAILED');
       setErrorMsg(err?.message || 'Failed to connect to ACE-Step model Space. Please retry.');
       setProgress(0);
+      setActiveJobId(null);
     }
   };
 
@@ -165,6 +230,24 @@ export function SunoStudioLayout() {
     setTimelineClips([...timelineClips, newClip]);
     handleSetMainAudio(track);
     showNotification(`Added "${track.title}" to MV Studio Timeline!`);
+  };
+
+  const handleAddToDAW = async (track: GeneratedTrack) => {
+    try {
+      showNotification(`Importing "${track.title}" to DAW Multitrack...`);
+      await useDAWStore.getState().importGeneratedSongToDAW({
+        id: track.id,
+        title: track.title,
+        audioUrl: track.audioUrl,
+        duration: track.duration,
+        lyrics: track.lyrics,
+        coverUrl: track.coverUrl
+      });
+      showNotification(`Loaded "${track.title}" into DAW Studio!`);
+    } catch (err: any) {
+      console.error('DAW Import Error:', err);
+      showNotification(`Failed to load into DAW: ${err?.message || err}`);
+    }
   };
 
   const showNotification = (msg: string) => {
@@ -395,19 +478,38 @@ export function SunoStudioLayout() {
             </div>
           )}
 
-          {/* Suno-Style Large Create Button */}
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating || !prompt.trim()}
-            className="w-full py-3.5 rounded-xl text-black font-black text-sm uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-[0.98]"
-            style={{ 
-              backgroundColor: activeColor,
-              boxShadow: `0 0 25px ${activeColor}50` 
-            }}
-          >
-            <Sparkles size={18} />
-            {isGenerating ? statusText : '✨ CREATE SONG'}
-          </button>
+          {/* Suno-Style Large Create & Cancel Button */}
+          {isGenerating ? (
+            <div className="flex gap-2">
+              <div 
+                className="flex-1 py-3 rounded-xl text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 opacity-90"
+                style={{ backgroundColor: activeColor }}
+              >
+                <Sparkles size={16} className="animate-spin" />
+                <span className="truncate">{statusText}</span>
+              </div>
+              <button
+                onClick={handleCancelGeneration}
+                className="px-4 py-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                title="Cancel ongoing generation"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleGenerate}
+              disabled={!prompt.trim()}
+              className="w-full py-3.5 rounded-xl text-black font-black text-sm uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-[0.98]"
+              style={{ 
+                backgroundColor: activeColor,
+                boxShadow: `0 0 25px ${activeColor}50` 
+              }}
+            >
+              <Sparkles size={18} />
+              <span>✨ CREATE SONG</span>
+            </button>
+          )}
 
           <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 px-1">
             <span>⚡ ACE-Step v1.5 DiT Engine</span>
@@ -608,13 +710,23 @@ export function SunoStudioLayout() {
                           <span>{isCurrentlyPlaying ? 'Playing' : 'Play'}</span>
                         </button>
 
-                        {/* Load to Timeline AUD Track Button */}
+                        {/* Load to DAW Multitrack Button */}
+                        <button
+                          onClick={() => handleAddToDAW(track)}
+                          className="px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25 shadow-sm"
+                          title="Add song directly to DAW Multitrack timeline"
+                        >
+                          <Music size={13} />
+                          <span>+ DAW</span>
+                        </button>
+
+                        {/* Load to MV Timeline Button */}
                         <button
                           onClick={() => handleAddToTimeline(track)}
-                          className="px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                          className="px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20"
                         >
                           <Layers size={13} />
-                          <span>+ Timeline</span>
+                          <span>+ MV</span>
                         </button>
 
                         {/* Like Toggle */}

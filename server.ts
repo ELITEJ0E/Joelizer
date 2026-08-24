@@ -7,6 +7,8 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import { generateMusic } from './server/aceStep';
 import { startExportJob, getExportJob, runAutomatedRenderTest } from './server/renderEngine';
+import { createGenerationJob, getGenerationJob, cancelGenerationJob, getAllGenerationJobs } from './server/engines/aceStep/queue';
+import { checkEngineHealth, setLocalAceStepUrl, getLocalAceStepUrl } from './server/engines/aceStep/client';
 
 dotenv.config();
 
@@ -419,7 +421,70 @@ async function startServer() {
     }
   });
 
-  // ACE-Step AI Music Generation endpoint
+  // ACE-Step AI Engine Routes (New Workstation Generation API)
+  app.post('/api/ai/generate', (req, res) => {
+    try {
+      const { prompt, lyrics, duration, bpm, key, timeSignature, vocalLanguage, isInstrumental, model } = req.body;
+      if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+        return res.status(400).json({ error: 'Song prompt is required' });
+      }
+
+      const job = createGenerationJob({
+        prompt: prompt.trim(),
+        lyrics: typeof lyrics === 'string' ? lyrics.trim() : '',
+        duration: Number(duration) || 30,
+        bpm: Number(bpm) || 0,
+        keySignature: key || '',
+        timeSignature: timeSignature || '',
+        vocalLanguage: vocalLanguage || 'unknown',
+        isInstrumental: !!isInstrumental,
+        model: model || 'ACE-Step v1.5'
+      });
+
+      return res.json({ success: true, job });
+    } catch (err: any) {
+      console.error('Job Creation Error:', err);
+      return res.status(500).json({ error: err.message || 'Failed to queue generation job' });
+    }
+  });
+
+  app.get('/api/ai/jobs/:jobId', (req, res) => {
+    const { jobId } = req.params;
+    const job = getGenerationJob(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Generation job not found' });
+    }
+    return res.json({ job });
+  });
+
+  app.post('/api/ai/jobs/:jobId/cancel', (req, res) => {
+    const { jobId } = req.params;
+    const cancelled = cancelGenerationJob(jobId);
+    return res.json({ success: cancelled });
+  });
+
+  app.get('/api/ai/jobs', (_req, res) => {
+    return res.json({ jobs: getAllGenerationJobs() });
+  });
+
+  app.get('/api/ai/engine-status', async (_req, res) => {
+    try {
+      const status = await checkEngineHealth();
+      return res.json(status);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Failed to check engine status' });
+    }
+  });
+
+  app.post('/api/ai/engine-config', (req, res) => {
+    const { endpoint } = req.body;
+    if (typeof endpoint === 'string' && endpoint.trim()) {
+      setLocalAceStepUrl(endpoint.trim());
+    }
+    return res.json({ success: true, endpoint: getLocalAceStepUrl() });
+  });
+
+  // ACE-Step AI Music Generation endpoint (Legacy compatibility)
   app.post('/api/generate-music', async (req, res) => {
     try {
       const { prompt, lyrics, duration } = req.body;
@@ -813,6 +878,11 @@ Return strictly valid JSON:
       });
     }
   });
+
+  // Serve static generated audio files
+  const publicDir = path.join(process.cwd(), 'public');
+  app.use(express.static(publicDir));
+  app.use('/generated', express.static(path.join(publicDir, 'generated')));
 
   // --- VITE MIDDLEWARE SETUP ---
   if (process.env.NODE_ENV !== 'production') {
