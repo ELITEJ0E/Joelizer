@@ -77,7 +77,7 @@ export interface Track {
 export const DEFAULT_SUNO_TRACK: Track = {
   id: 'suno-neon-skies',
   name: 'Neon Skies',
-  artist: 'Suno AI',
+  artist: 'Studio Demo',
   url: '/api/suno-audio/7ee8da7e-0310-4dec-ab00-f8d45f1b2156.m4a',
   duration: 133.6,
   albumArt: 'https://cdn2.suno.ai/image_large_7ee8da7e-0310-4dec-ab00-f8d45f1b2156.jpeg',
@@ -253,7 +253,7 @@ export const useStore = create<ProjectState>((set, get) => ({
   setAudio: (file, url, duration, albumArt, meta) => {
     const streamableUrl = getStreamableAudioUrl(url);
     const fileName = meta?.name || (file as File)?.name || 'Audio Track';
-    const artist = meta?.artist || (file ? 'Uploaded Audio' : 'Suno AI Track');
+    const artist = meta?.artist || (file ? 'Uploaded Audio' : 'Online Track');
     if (file) {
       saveAudioToStorage(file, typeof fileName === 'string' ? fileName : 'Saved Track', duration);
     }

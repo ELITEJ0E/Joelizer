@@ -65,6 +65,20 @@ export async function buildCanonicalProjectJson(options?: {
           endTime: Number(wEnd.toFixed(3))
         };
       });
+    } else if (line.text && line.text.trim().length > 0) {
+      // Auto-distribute word karaoke timing across line duration
+      const tokens = line.text.trim().split(/\s+/);
+      const lineDur = Math.max(0.6, lineEnd - lineStart);
+      const wordDur = lineDur / tokens.length;
+      canonicalWords = tokens.map((word, wIdx) => {
+        const wStart = lineStart + (wIdx * wordDur);
+        const wEnd = wStart + (wordDur * 0.95);
+        return {
+          word,
+          startTime: Number(wStart.toFixed(3)),
+          endTime: Number(wEnd.toFixed(3))
+        };
+      });
     }
 
     return {

@@ -119,10 +119,10 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
         />
       )}
 
-      {/* 6. AUDIO ELEMENT */}
-      {(audio.audioDataUri || audio.url) && (
+      {/* 6. AUDIO ELEMENT (Only rendered if audioDataUri is present) */}
+      {audio.audioDataUri && (
         <Audio 
-          src={audio.audioDataUri || audio.url!} 
+          src={audio.audioDataUri} 
           startFrom={Math.round((projectJson.exportRange?.start || 0) * fps)}
         />
       )}
@@ -180,24 +180,35 @@ function BackgroundClipLayer({ clip, currentTime, width, height }: { clip: Canon
 
 /* Background Layer for Lyrics Video Mode */
 function BackgroundLayer({ bg, albumArt, width, height, currentTime }: { bg: any; albumArt: string | null; width: number; height: number; currentTime: number }) {
-  if (bg.type === 'blurred-artwork' && albumArt) {
+  if (bg.type === 'blurred-artwork') {
+    if (albumArt) {
+      return (
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+          <Img 
+            src={albumArt} 
+            style={{ 
+              width: '110%', 
+              height: '110%', 
+              objectFit: 'cover', 
+              filter: 'blur(45px) brightness(0.4)',
+              transform: 'scale(1.15)',
+              position: 'absolute',
+              top: '-5%',
+              left: '-5%'
+            }} 
+          />
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
+        </div>
+      );
+    }
     return (
-      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-        <Img 
-          src={albumArt} 
-          style={{ 
-            width: '110%', 
-            height: '110%', 
-            objectFit: 'cover', 
-            filter: 'blur(45px) brightness(0.4)',
-            transform: 'scale(1.15)',
-            position: 'absolute',
-            top: '-5%',
-            left: '-5%'
-          }} 
-        />
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
-      </div>
+      <div 
+        style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          background: 'radial-gradient(circle at 50% 40%, #1e1b4b 0%, #0f172a 60%, #020617 100%)' 
+        }} 
+      />
     );
   }
 
@@ -293,7 +304,11 @@ function ArtworkLayer({ artwork, albumArt, rotation, scale, width, height }: { a
             boxShadow: '0 0 15px rgba(0,0,0,0.9)'
           }}
         >
-          <Img src={albumArt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {albumArt ? (
+            <Img src={albumArt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #4f46e5, #06b6d4)' }} />
+          )}
           <div 
             style={{
               position: 'absolute',
@@ -328,7 +343,11 @@ function ArtworkLayer({ artwork, albumArt, rotation, scale, width, height }: { a
         border: '2px solid rgba(255,255,255,0.15)'
       }}
     >
-      <Img src={albumArt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      {albumArt ? (
+        <Img src={albumArt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1e1b4b, #0f172a)' }} />
+      )}
     </div>
   );
 }

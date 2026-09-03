@@ -31,6 +31,213 @@ if (!fs.existsSync(EXPORT_DIR)) {
   fs.mkdirSync(EXPORT_DIR, { recursive: true });
 }
 
+const STAGED_DIR = path.resolve('./public/staged');
+if (!fs.existsSync(STAGED_DIR)) {
+  fs.mkdirSync(STAGED_DIR, { recursive: true });
+}
+
+const FALLBACK_ALBUM_ART_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <defs>
+    <radialGradient id="discGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#312e81" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </radialGradient>
+    <linearGradient id="neonGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00e676" />
+      <stop offset="50%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#discGrad)" />
+  <circle cx="300" cy="300" r="230" fill="none" stroke="url(#neonGlow)" stroke-width="6" opacity="0.6" />
+  <circle cx="300" cy="300" r="160" fill="#111827" stroke="#1f2937" stroke-width="4" />
+  <circle cx="300" cy="300" r="60" fill="url(#neonGlow)" opacity="0.85" />
+  <circle cx="300" cy="300" r="18" fill="#030712" />
+</svg>
+`)}`;
+
+// Helper: Resolve audio track to local file for FFmpeg muxing
+async function prepareAudioForMuxing(
+  audioSource: string | null | undefined, 
+  jobId: string
+): Promise<{ audioPath: string; hasAudio: boolean }> {
+  if (!audioSource) {
+    return { audioPath: '', hasAudio: false };
+  }
+
+  try {
+    // 1. Data URI
+    if (audioSource.startsWith('data:audio/') || audioSource.startsWith('data:application/')) {
+      let ext = '.mp3';
+      if (audioSource.includes('audio/mp4') || audioSource.includes('audio/m4a') || audioSource.includes('audio/x-m4a')) ext = '.m4a';
+      else if (audioSource.includes('audio/wav')) ext = '.wav';
+      else if (audioSource.includes('audio/ogg')) ext = '.ogg';
+      const base64 = audioSource.split(',')[1];
+      if (base64) {
+        const p = path.join(EXPORT_DIR, `temp-audio-${jobId}${ext}`);
+        fs.writeFileSync(p, Buffer.from(base64, 'base64'));
+        return { audioPath: p, hasAudio: true };
+      }
+    }
+
+    // 2. Staged local file
+    if (audioSource.startsWith('/staged/')) {
+      const filename = path.basename(audioSource);
+      const stagedDiskPath = path.join(STAGED_DIR, filename);
+      if (fs.existsSync(stagedDiskPath)) {
+        const ext = path.extname(stagedDiskPath) || '.mp3';
+        const p = path.join(EXPORT_DIR, `temp-audio-${jobId}${ext}`);
+        fs.copyFileSync(stagedDiskPath, p);
+        return { audioPath: p, hasAudio: true };
+      }
+    }
+
+    // 3. Local API (e.g. /api/suno-audio/...)
+    if (audioSource.startsWith('/api/')) {
+      const localUrl = `http://localhost:3000${audioSource}`;
+      console.log('[RenderEngine] Fetching audio track from local endpoint:', localUrl);
+      const res = await fetch(localUrl);
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        let ext = '.m4a';
+        if (contentType.includes('mpeg') || audioSource.endsWith('.mp3')) ext = '.mp3';
+        else if (contentType.includes('wav') || audioSource.endsWith('.wav')) ext = '.wav';
+        else if (contentType.includes('ogg') || audioSource.endsWith('.ogg')) ext = '.ogg';
+        const buf = Buffer.from(await res.arrayBuffer());
+        const p = path.join(EXPORT_DIR, `temp-audio-${jobId}${ext}`);
+        fs.writeFileSync(p, buf);
+        return { audioPath: p, hasAudio: true };
+      }
+    }
+
+    // 4. Other relative path on disk
+    if (audioSource.startsWith('/')) {
+      const pubPath = path.resolve('./public', '.' + audioSource);
+      if (fs.existsSync(pubPath)) {
+        const ext = path.extname(pubPath) || '.mp3';
+        const p = path.join(EXPORT_DIR, `temp-audio-${jobId}${ext}`);
+        fs.copyFileSync(pubPath, p);
+        return { audioPath: p, hasAudio: true };
+      }
+      // Try local HTTP fetch
+      const localRes = await fetch(`http://localhost:3000${audioSource}`).catch(() => null);
+      if (localRes && localRes.ok) {
+        const buf = Buffer.from(await localRes.arrayBuffer());
+        const p = path.join(EXPORT_DIR, `temp-audio-${jobId}.mp3`);
+        fs.writeFileSync(p, buf);
+        return { audioPath: p, hasAudio: true };
+      }
+    }
+
+    // 5. Remote HTTP/HTTPS
+    if (audioSource.startsWith('http://') || audioSource.startsWith('https://')) {
+      const headers: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      };
+      if (audioSource.includes('suno') || audioSource.includes('cloudfront')) {
+        headers['Referer'] = 'https://suno.com/';
+      }
+      const res = await fetch(audioSource, { headers });
+      if (res.ok) {
+        let ext = '.mp3';
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('mp4') || audioSource.includes('.m4a')) ext = '.m4a';
+        else if (ct.includes('wav') || audioSource.includes('.wav')) ext = '.wav';
+        const buf = Buffer.from(await res.arrayBuffer());
+        const p = path.join(EXPORT_DIR, `temp-audio-${jobId}${ext}`);
+        fs.writeFileSync(p, buf);
+        return { audioPath: p, hasAudio: true };
+      }
+    }
+  } catch (err) {
+    console.warn('[RenderEngine] Warning: Audio extraction failed:', err);
+  }
+
+  return { audioPath: '', hasAudio: false };
+}
+
+// Helper: Resolve album artwork to reliable data URI so Chrome never gets 403/404
+async function resolveAlbumArtDataUri(albumArt: string | null | undefined): Promise<string> {
+  if (!albumArt) {
+    return FALLBACK_ALBUM_ART_SVG;
+  }
+
+  if (albumArt.startsWith('data:image')) {
+    return albumArt;
+  }
+
+  if (albumArt.startsWith('/staged/')) {
+    const filename = path.basename(albumArt);
+    const stagedDiskPath = path.join(STAGED_DIR, filename);
+    if (fs.existsSync(stagedDiskPath)) {
+      const mime = albumArt.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      return `data:${mime};base64,${fs.readFileSync(stagedDiskPath).toString('base64')}`;
+    }
+  }
+
+  if (albumArt.startsWith('/')) {
+    const pubPath = path.resolve('./public', '.' + albumArt);
+    if (fs.existsSync(pubPath)) {
+      const mime = albumArt.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      return `data:${mime};base64,${fs.readFileSync(pubPath).toString('base64')}`;
+    }
+  }
+
+  if (albumArt.startsWith('http://') || albumArt.startsWith('https://')) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3500);
+      const headers: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      };
+      if (albumArt.includes('suno')) {
+        headers['Referer'] = 'https://suno.com/';
+      }
+      const res = await fetch(albumArt, { headers, signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const mime = res.headers.get('content-type') || 'image/jpeg';
+        const buf = Buffer.from(await res.arrayBuffer());
+        return `data:${mime};base64,${buf.toString('base64')}`;
+      }
+    } catch (e) {
+      console.warn('[RenderEngine] Remote albumArt fetch failed, falling back:', e);
+    }
+  }
+
+  return FALLBACK_ALBUM_ART_SVG;
+}
+
+// Helper: Sanitize background images
+async function resolveBackgroundImageDataUri(bg: CanonicalProjectJson['background']) {
+  if (!bg) return;
+
+  if (bg.type === 'image' && bg.value) {
+    if (bg.value.startsWith('data:image')) return;
+    if (bg.value.startsWith('/staged/')) {
+      const p = path.join(STAGED_DIR, path.basename(bg.value));
+      if (fs.existsSync(p)) {
+        const mime = bg.value.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        bg.value = `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
+        return;
+      }
+    }
+    if (bg.value.startsWith('/')) {
+      const p = path.resolve('./public', '.' + bg.value);
+      if (fs.existsSync(p)) {
+        const mime = bg.value.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        bg.value = `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
+      }
+    }
+  }
+
+  if (bg.type === 'video' && bg.videoUrl && bg.videoUrl.startsWith('/')) {
+    bg.videoUrl = `http://localhost:3000${bg.videoUrl}`;
+  }
+}
+
 export async function getRemotionBundle(): Promise<string> {
   if (cachedBundleLocation && fs.existsSync(cachedBundleLocation)) {
     return cachedBundleLocation;
@@ -112,29 +319,52 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
   };
 
   try {
-    // STAGE 1: PREPARING
-    updateProgress('preparing', 'Bundling rendering components...', 10);
+    // STAGE 1: PREPARING ASSETS & COMPOSITION
+    updateProgress('preparing', 'Resolving media assets and bundling components...', 10);
     const bundleLocation = await getRemotionBundle();
+
+    // 1a. Extract audio to disk for FFmpeg muxing
+    const audioSource = projectJson.audio?.audioDataUri || projectJson.audio?.url;
+    const { audioPath, hasAudio } = await prepareAudioForMuxing(audioSource, jobId);
+
+    // 1b. Sanitize album artwork to base64 data URI (bypasses 403s & cross-origin network errors)
+    const sanitizedAlbumArt = await resolveAlbumArtDataUri(projectJson.audio?.albumArt);
+
+    // 1c. Sanitize background images
+    await resolveBackgroundImageDataUri(projectJson.background);
+
+    // 1d. Create Remotion-safe project payload (removes remote audio so Chrome renders frames with zero network lag)
+    const remotionProjectJson: CanonicalProjectJson = {
+      ...projectJson,
+      audio: {
+        ...projectJson.audio,
+        albumArt: sanitizedAlbumArt,
+        url: null,
+        audioDataUri: null
+      }
+    };
 
     updateProgress('preparing', 'Configuring composition dimensions and frames...', 20);
     const composition = await selectComposition({
       serveUrl: bundleLocation,
       id: 'JoelizerVideo',
-      inputProps: { projectJson }
+      inputProps: { projectJson: remotionProjectJson }
     });
 
     const tempRawVideoPath = path.join(EXPORT_DIR, `temp-${jobId}.mp4`);
     const finalMp4Path = path.join(EXPORT_DIR, `${jobId}.mp4`);
 
-    // STAGE 2: RENDERING
+    // STAGE 2: RENDERING VIDEO FRAMES (Muted in Remotion; audio is muxed in Stage 3)
     updateProgress('rendering', 'Rendering video frames with Remotion renderer...', 25);
 
     await renderMedia({
       composition,
       serveUrl: bundleLocation,
       outputLocation: tempRawVideoPath,
-      inputProps: { projectJson },
+      inputProps: { projectJson: remotionProjectJson },
       codec: 'h264',
+      muted: true,
+      concurrency: 2,
       onProgress: ({ progress }) => {
         // Map Remotion render progress from 25% to 75%
         const currentPct = 25 + progress * 50;
@@ -142,59 +372,33 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       }
     });
 
-    // STAGE 3: ENCODING & AUDIO MUXING
-    updateProgress('encoding', 'Muxing audio track and encoding H.264/AAC with FFmpeg...', 80);
+    // STAGE 3: ENCODING & AUDIO MUXING WITH FFMPEG
+    updateProgress('encoding', 'Muxing pristine audio track and encoding H.264/AAC with FFmpeg...', 80);
 
-    const audioUrlOrUri = projectJson.audio.audioDataUri || projectJson.audio.url;
-    let hasAudioToMux = false;
-    let tempAudioPath = '';
-
-    if (audioUrlOrUri) {
-      try {
-        if (audioUrlOrUri.startsWith('data:audio/') || audioUrlOrUri.startsWith('data:application/')) {
-          tempAudioPath = path.join(EXPORT_DIR, `temp-audio-${jobId}.mp3`);
-          const base64Data = audioUrlOrUri.split(',')[1];
-          if (base64Data) {
-            fs.writeFileSync(tempAudioPath, Buffer.from(base64Data, 'base64'));
-            hasAudioToMux = true;
-          }
-        } else if (audioUrlOrUri.startsWith('http')) {
-          tempAudioPath = path.join(EXPORT_DIR, `temp-audio-${jobId}.mp3`);
-          const res = await fetch(audioUrlOrUri);
-          if (res.ok) {
-            const arrayBuf = await res.arrayBuffer();
-            fs.writeFileSync(tempAudioPath, Buffer.from(arrayBuf));
-            hasAudioToMux = true;
-          }
-        }
-      } catch (audioErr) {
-        console.warn('[RenderEngine] Warning: Audio fetch/parse for FFmpeg muxing failed:', audioErr);
-      }
-    }
-
-    // Execute FFmpeg for final production pass
-    if (hasAudioToMux && fs.existsSync(tempAudioPath)) {
-      updateProgress('encoding', 'Encoding final MP4 with libx264 + AAC audio...', 88);
+    if (hasAudio && fs.existsSync(audioPath)) {
       const startTime = projectJson.exportRange?.start || 0;
-      const duration = projectJson.exportRange?.duration || composition.durationInFrames / composition.fps;
+      const duration = projectJson.exportRange?.duration || (composition.durationInFrames / composition.fps);
 
-      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${tempAudioPath}" -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
+      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
       
       try {
         await execAsync(ffmpegCmd);
-      } catch (ffmpegErr) {
-        console.warn('[RenderEngine] FFmpeg copy/mux fallback, trying re-encode:', ffmpegErr);
-        const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -c:v copy "${finalMp4Path}"`;
+      } catch (muxErr) {
+        console.warn('[RenderEngine] Stream copy mux failed, trying re-encode pass:', muxErr);
+        const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -preset fast -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
         await execAsync(fallbackCmd);
       }
 
       // Cleanup temp audio file
-      if (fs.existsSync(tempAudioPath)) {
-        fs.unlinkSync(tempAudioPath);
-      }
+      try { if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath); } catch (_) {}
     } else {
-      // No extra audio file needed (or already rendered inside remotion)
-      fs.renameSync(tempRawVideoPath, finalMp4Path);
+      // Faststart pass for video without audio
+      const copyCmd = `ffmpeg -y -i "${tempRawVideoPath}" -c:v copy -movflags +faststart "${finalMp4Path}"`;
+      try {
+        await execAsync(copyCmd);
+      } catch (_) {
+        fs.renameSync(tempRawVideoPath, finalMp4Path);
+      }
     }
 
     // Clean up temp raw video if it still exists
@@ -203,9 +407,17 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
     }
 
     // STAGE 4: FINALIZING
-    updateProgress('finalizing', 'Finalizing export file...', 95);
+    updateProgress('finalizing', 'Finalizing production MP4 video...', 95);
+
+    if (!fs.existsSync(finalMp4Path)) {
+      throw new Error('Exported video file was not generated');
+    }
 
     const stats = fs.statSync(finalMp4Path);
+    if (stats.size === 0) {
+      throw new Error('Exported video file is empty (0 bytes)');
+    }
+
     job.fileSize = stats.size;
     job.outputFile = finalMp4Path;
     job.outputUrl = `/api/download-export/${jobId}`;

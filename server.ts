@@ -158,6 +158,12 @@ async function startServer() {
     const cleanFilename = (job?.projectName || 'Joelizer-Video')
       .replace(/[^a-zA-Z0-9_-]/g, '_') + '.mp4';
 
+    if (req.query.stream === '1' || req.query.inline === '1') {
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Accept-Ranges', 'bytes');
+      return res.sendFile(exportPath);
+    }
+
     return res.download(exportPath, cleanFilename, (err) => {
       if (err) {
         console.error('Error downloading export file:', err);

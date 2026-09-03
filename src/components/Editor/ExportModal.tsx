@@ -248,8 +248,19 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   </p>
                 </div>
 
+                {downloadUrl && (
+                  <div className="w-full rounded-xl overflow-hidden border border-emerald-500/30 bg-black/60 shadow-lg my-1">
+                    <video 
+                      src={`${downloadUrl}?stream=1`} 
+                      controls 
+                      className="w-full max-h-[220px] object-contain rounded-xl bg-black"
+                      preload="metadata"
+                    />
+                  </div>
+                )}
+
                 <a
-                  href={downloadUrl}
+                  href={downloadUrl || '#'}
                   download={`${(projectName || 'Joelizer-Video').replace(/[^a-zA-Z0-9_-]/g, '_')}.mp4`}
                   className="w-full py-3.5 px-6 rounded-xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 text-black transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl cursor-pointer mt-2"
                   style={{

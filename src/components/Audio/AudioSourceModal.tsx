@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
-import { X, Upload, Link2, Sparkles, Music, Check, Loader2, FileText, HardDrive, Disc3, Tag, Bot } from 'lucide-react';
+import { X, Upload, Link2, Sparkles, Music, Check, Loader2, FileText, Disc3, Tag, Bot } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 
@@ -11,6 +11,59 @@ interface AudioSourceModalProps {
   onClose: () => void;
   onLyricsExtracted?: (lyrics: string) => void;
   onAutoTranscribe?: () => void;
+}
+
+// Client-side direct audio probe fallback for static hosting / Vercel
+function probeDirectAudioUrl(inputUrl: string): Promise<{
+  id: string;
+  title: string;
+  artist: string;
+  audioUrl: string;
+  proxiedAudioUrl?: string;
+  imageUrl: string | null;
+  lyrics: string;
+  tags: string;
+  duration?: number;
+  source: string;
+} | null> {
+  return new Promise((resolve) => {
+    try {
+      const audio = new Audio();
+      const timer = setTimeout(() => {
+        audio.src = '';
+        resolve(null);
+      }, 3500);
+
+      audio.onloadedmetadata = () => {
+        clearTimeout(timer);
+        const urlParts = inputUrl.split('/');
+        const rawFileName = urlParts[urlParts.length - 1].split('?')[0] || 'Audio Track';
+        const cleanName = decodeURIComponent(rawFileName).replace(/[-_]/g, ' ').replace(/\.[^/.]+$/, '');
+        resolve({
+          id: `url-${Date.now()}`,
+          title: cleanName || 'Audio Stream',
+          artist: 'Web Audio',
+          audioUrl: inputUrl,
+          proxiedAudioUrl: inputUrl,
+          imageUrl: null,
+          lyrics: '',
+          tags: 'Direct Audio Stream',
+          duration: audio.duration && !isNaN(audio.duration) && audio.duration > 0 ? audio.duration : 180,
+          source: 'direct'
+        });
+      };
+
+      audio.onerror = () => {
+        clearTimeout(timer);
+        resolve(null);
+      };
+
+      audio.preload = 'metadata';
+      audio.src = inputUrl;
+    } catch {
+      resolve(null);
+    }
+  });
 }
 
 export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTranscribe }: AudioSourceModalProps) {
@@ -27,7 +80,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleClose]);
 
-  const [activeTab, setActiveTab] = useState<'suno' | 'upload'>('suno');
+  const [activeTab, setActiveTab] = useState<'url' | 'upload'>('url');
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -53,7 +106,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
 
   if (!isOpen) return null;
 
-  const SAMPLE_SUNO_TRACKS = [
+  const SAMPLE_TRACKS = [
     {
       name: 'Neon Skies',
       genre: 'Synthwave / Pop',
@@ -110,21 +163,49 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
     setSongInfo(null);
 
     try {
-      const res = await fetch('/api/suno-info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: inputUrl.trim() })
-      });
+      let data: any = null;
+      let serverError = '';
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'Unable to fetch Suno track');
+      try {
+        const res = await fetch('/api/suno-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: inputUrl.trim() })
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          data = await res.json().catch(() => null);
+        } else if (!res.ok) {
+          const rawText = await res.text().catch(() => '');
+          serverError = rawText.slice(0, 100);
+        }
+
+        if (res.ok && data && !data.error && data.audioUrl) {
+          setSongInfo({
+            ...data,
+            artist: (data.artist && data.artist !== 'Suno AI') ? data.artist : 'Online Artist',
+            source: 'online'
+          });
+          return;
+        }
+      } catch (fetchErr: any) {
+        console.warn('API route fetch error, trying client-side audio probe:', fetchErr);
       }
 
-      setSongInfo(data);
+      // Fallback: If server route failed (e.g. on Vercel deployment or network issue),
+      // probe direct audio in browser
+      const directProbe = await probeDirectAudioUrl(inputUrl.trim());
+      if (directProbe) {
+        setSongInfo(directProbe);
+        return;
+      }
+
+      const message = data?.error || (serverError ? `Server response: ${serverError}` : null) || 'Unable to load audio from link. Make sure the URL is accessible.';
+      throw new Error(message);
     } catch (err: any) {
       console.error('URL fetch error:', err);
-      setError(err.message || 'Unable to load audio from link. Make sure the Suno URL or MP3 link is valid.');
+      setError(err.message || 'Unable to load audio from link. Please ensure the URL is accessible.');
     } finally {
       setIsLoading(false);
     }
@@ -160,7 +241,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
       const blobUrl = audioBlob ? URL.createObjectURL(audioBlob) : null;
       const audioStreamUrl = blobUrl || songInfo.proxiedAudioUrl || songInfo.audioUrl;
       const fileObj = audioBlob
-        ? new File([audioBlob], `${songInfo.title || 'Suno Song'}.m4a`, { type: audioBlob.type || 'audio/mp4' })
+        ? new File([audioBlob], `${songInfo.title || 'Audio Track'}.m4a`, { type: audioBlob.type || 'audio/mp4' })
         : null;
 
       let finalized = false;
@@ -174,8 +255,8 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
 
         audioManager.resume().catch(() => {});
         setAudio(fileObj as any, audioStreamUrl, finalDuration, songInfo.imageUrl, {
-          name: songInfo.title || 'Suno Song',
-          artist: songInfo.artist || 'Suno AI',
+          name: songInfo.title || 'Audio Track',
+          artist: songInfo.artist || 'Online Artist',
           lyrics: songInfo.lyrics,
           tags: songInfo.tags,
           sunoId: songInfo.id
@@ -214,8 +295,8 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
       const fallbackDuration = songInfo.duration && songInfo.duration > 0 ? songInfo.duration : 180;
       audioManager.resume().catch(() => {});
       setAudio(null as any, audioStreamUrl, fallbackDuration, songInfo.imageUrl, {
-        name: songInfo.title || 'Suno Song',
-        artist: songInfo.artist || 'Suno AI',
+        name: songInfo.title || 'Audio Track',
+        artist: songInfo.artist || 'Online Artist',
         lyrics: songInfo.lyrics,
         tags: songInfo.tags,
         sunoId: songInfo.id
@@ -254,7 +335,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-bold uppercase tracking-wider text-white truncate">Import Audio</h3>
-              <p className="text-[11px] text-slate-400 font-mono truncate">Import Suno AI song or local file for lyric transcription</p>
+              <p className="text-[11px] text-slate-400 font-mono truncate">Import audio from URL or local file for lyric transcription</p>
             </div>
           </div>
           <button 
@@ -268,17 +349,17 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
         {/* Tab Selector */}
         <div className="flex items-center gap-1 px-5 pt-3 border-b border-white/10 bg-black/40">
           <button
-            onClick={() => setActiveTab('suno')}
+            onClick={() => setActiveTab('url')}
             className={cn(
               "px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 cursor-pointer",
-              activeTab === 'suno'
+              activeTab === 'url'
                 ? "text-white border-emerald-400 bg-white/[0.04]"
                 : "text-slate-400 border-transparent hover:text-slate-200"
             )}
-            style={{ borderBottomColor: activeTab === 'suno' ? activeColor : 'transparent' }}
+            style={{ borderBottomColor: activeTab === 'url' ? activeColor : 'transparent' }}
           >
             <Link2 size={13} style={{ color: activeColor }} />
-            <span>Suno AI & URL Import</span>
+            <span>URL Import</span>
           </button>
           <button
             onClick={() => setActiveTab('upload')}
@@ -297,13 +378,13 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
 
         {/* Modal Body */}
         <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar">
-          {activeTab === 'suno' && (
+          {activeTab === 'url' && (
             <div className="space-y-4">
               {/* URL Input Box */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-mono font-bold uppercase text-slate-300 flex items-center justify-between">
-                  <span>Suno Song Link or Audio URL</span>
-                  <span className="text-[9px] text-slate-500 lowercase font-normal">e.g. suno.com/song/[uuid]</span>
+                  <span>Audio Stream or Song URL</span>
+                  <span className="text-[9px] text-slate-500 lowercase font-normal">e.g. direct audio URL or web song link</span>
                 </label>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1 min-w-0">
@@ -312,7 +393,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleFetchUrl(); }}
-                      placeholder="Paste Suno song URL (https://suno.com/song/...)"
+                      placeholder="Paste audio link or song URL (https://...)"
                       className="w-full bg-black/60 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-400/80 font-mono truncate transition-colors"
                     />
                     {url && (
@@ -337,13 +418,13 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                 </div>
               </div>
 
-              {/* Sample Suno Songs */}
+              {/* Sample Songs */}
               <div className="space-y-1.5">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block">
-                  Quick Sample Suno Tracks:
+                  Quick Sample Audio Links:
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {SAMPLE_SUNO_TRACKS.map((sample, idx) => (
+                  {SAMPLE_TRACKS.map((sample, idx) => (
                     <button
                       key={idx}
                       onClick={() => {
@@ -389,7 +470,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-bold text-white truncate">{songInfo.title}</h4>
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
-                          Suno Track
+                          Online Audio
                         </span>
                       </div>
                       
@@ -411,7 +492,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                     <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs font-mono text-emerald-300">
                       <div className="flex items-center gap-1.5">
                         <FileText size={13} className="text-emerald-400" />
-                        <span>Lyrics text extracted from Suno prompt</span>
+                        <span>Lyrics text extracted from audio source</span>
                       </div>
                       <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 font-bold">
                         Ready
@@ -451,42 +532,34 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
           )}
 
           {activeTab === 'upload' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-white/20 hover:border-emerald-500/50 bg-white/[0.03] hover:bg-white/[0.06] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all group active:scale-[0.99] relative"
+                className="border-2 border-dashed border-white/20 hover:border-emerald-400/60 bg-white/[0.02] hover:bg-white/[0.05] rounded-2xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all group"
               >
                 <div 
-                  className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 transition-transform"
-                  style={{ color: activeColor }}
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center border bg-black/60 group-hover:scale-110 transition-all shadow-lg"
+                  style={{ borderColor: `${activeColor}40`, color: activeColor }}
                 >
-                  <Upload size={22} />
+                  <Upload size={24} />
                 </div>
-                
                 <div className="text-center space-y-1">
-                  <span className="text-sm font-bold text-white block">Upload Local Audio File</span>
-                  <span className="text-xs text-slate-400 font-mono block">Supports MP3, WAV, FLAC, M4A, AAC, OGG</span>
+                  <p className="text-sm font-bold text-white uppercase tracking-wider">Choose Audio File</p>
+                  <p className="text-xs text-slate-400 font-mono">Supports MP3, WAV, M4A, FLAC, AAC, OGG</p>
                 </div>
-
-                <button
+                <button 
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  className="px-5 py-2.5 text-black font-bold uppercase text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md hover:brightness-110 active:scale-95 mt-1"
+                  className="mt-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-black transition-all"
                   style={{ backgroundColor: activeColor }}
                 >
-                  <HardDrive size={15} />
-                  <span>Choose Local File</span>
+                  Browse Files
                 </button>
-
                 <input 
                   ref={fileInputRef}
                   type="file" 
-                  accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" 
-                  className="hidden" 
+                  accept="audio/*" 
                   onChange={handleFileUpload} 
+                  className="hidden" 
                 />
               </div>
             </div>

@@ -127,9 +127,21 @@ export class GeminiServerProvider implements TranscriptionProvider {
       })
     });
 
+    const contentType = response.headers.get('content-type') || '';
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || `Server transcription error: ${response.statusText}`);
+      let errorMessage = `Server transcription error (${response.status})`;
+      if (contentType.includes('application/json')) {
+        const errData = await response.json().catch(() => ({}));
+        if (errData?.error) errorMessage = errData.error;
+      } else {
+        const rawText = await response.text().catch(() => '');
+        if (rawText) errorMessage = rawText.slice(0, 100);
+      }
+      throw new Error(errorMessage);
+    }
+
+    if (!contentType.includes('application/json')) {
+      throw new Error('Server returned non-JSON response during transcription.');
     }
 
     const data = await response.json();
@@ -152,9 +164,21 @@ export class GeminiServerProvider implements TranscriptionProvider {
       })
     });
 
+    const contentType = response.headers.get('content-type') || '';
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || `Server forced alignment error: ${response.statusText}`);
+      let errorMessage = `Server forced alignment error (${response.status})`;
+      if (contentType.includes('application/json')) {
+        const errData = await response.json().catch(() => ({}));
+        if (errData?.error) errorMessage = errData.error;
+      } else {
+        const rawText = await response.text().catch(() => '');
+        if (rawText) errorMessage = rawText.slice(0, 100);
+      }
+      throw new Error(errorMessage);
+    }
+
+    if (!contentType.includes('application/json')) {
+      throw new Error('Server returned non-JSON response during alignment.');
     }
 
     const data = await response.json();
@@ -162,19 +186,28 @@ export class GeminiServerProvider implements TranscriptionProvider {
   }
 
   async detectBpmAndKey(audioFile: File | Blob, signal?: AbortSignal): Promise<{ bpm: number; key: string }> {
-    const base64Audio = await fileToBase64(audioFile);
-    const response = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal,
-      body: JSON.stringify({ audioBase64: base64Audio, mimeType: audioFile.type || 'audio/mp3' })
-    });
+    try {
+      const base64Audio = await fileToBase64(audioFile);
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+        body: JSON.stringify({ audioBase64: base64Audio, mimeType: audioFile.type || 'audio/mp3' })
+      });
 
-    if (!response.ok) {
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok || !contentType.includes('application/json')) {
+        return { bpm: 120, key: 'C Major' };
+      }
+
+      const data = await response.json().catch(() => null);
+      return {
+        bpm: Number(data?.bpm) || 120,
+        key: data?.key || 'C Major'
+      };
+    } catch {
       return { bpm: 120, key: 'C Major' };
     }
-
-    return await response.json();
   }
 }
 

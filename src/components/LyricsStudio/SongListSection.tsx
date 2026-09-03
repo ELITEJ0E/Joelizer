@@ -12,7 +12,7 @@ import {
 const PRESET_SUNO_SONGS = [
   {
     name: 'Neon Skies',
-    artist: 'Suno AI',
+    artist: 'Studio Demo',
     genre: 'Synth-Pop',
     url: '/api/suno-audio/7ee8da7e-0310-4dec-ab00-f8d45f1b2156.m4a',
     duration: 133.6,
@@ -23,7 +23,7 @@ const PRESET_SUNO_SONGS = [
   },
   {
     name: 'Midnight Echoes',
-    artist: 'Suno AI',
+    artist: 'Studio Demo',
     genre: 'Lo-Fi Chill',
     url: '/api/suno-audio/b4e6d24f-96a9-4b67-9c98-1e0f06f7df20.m4a',
     duration: 154.2,
@@ -34,7 +34,7 @@ const PRESET_SUNO_SONGS = [
   },
   {
     name: 'Cyber Horizon',
-    artist: 'Suno AI',
+    artist: 'Studio Demo',
     genre: 'Cyberpunk EDM',
     url: '/api/suno-audio/f3c83407-7d9a-4712-8e10-6cbb607673c2.m4a',
     duration: 142.8,
@@ -191,11 +191,11 @@ export function SongListSection() {
         </div>
       </div>
 
-      {/* Preset Suno Quick Audition Pills */}
+      {/* Preset Quick Audition Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         <span className="text-[10px] uppercase font-bold text-slate-500 shrink-0 flex items-center gap-1">
           <Sparkles size={11} className="text-amber-400" />
-          Suno:
+          Presets:
         </span>
         {PRESET_SUNO_SONGS.map((preset) => {
           const isCurrent = tracks[currentTrackIndex]?.sunoId === preset.sunoId || tracks[currentTrackIndex]?.name === preset.name;
@@ -282,17 +282,12 @@ export function SongListSection() {
 
                 <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
                   <span className="truncate max-w-[120px] font-medium">
-                    {track.artist || (track.isUserUploaded ? 'Uploaded' : 'Suno AI')}
+                    {track.artist || (track.isUserUploaded ? 'Uploaded' : 'Studio Track')}
                   </span>
                   <span>•</span>
                   <span className="font-mono text-[9.5px]">
                     {formatSecs(track.duration)}
                   </span>
-                  {track.sunoId && (
-                    <span className="px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 font-mono text-[8.5px] uppercase tracking-wide border border-purple-500/30">
-                      Suno
-                    </span>
-                  )}
                 </div>
               </div>
 
