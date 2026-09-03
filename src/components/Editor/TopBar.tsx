@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
-import { Download, Music, Film, Sparkles } from 'lucide-react';
+import { Download, Music, Film, Sparkles, Disc3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -102,51 +102,13 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         </div>
 
         {/* Top Navigation Links */}
-        <nav className="flex items-center bg-white/[0.03] border border-white/10 rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1 shrink-0 overflow-x-auto no-scrollbar max-w-[200px] min-[400px]:max-w-[280px] sm:max-w-none">
-          <button
-            onClick={() => setActiveTab('create')}
-            className={cn(
-              "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
-              activeTab === 'create' 
-                ? "bg-white/15 text-white shadow-md font-black" 
-                : "text-slate-300 hover:text-white hover:bg-white/5"
-            )}
-            style={activeTab === 'create' ? { 
-              color: activeColor,
-              backgroundColor: `${activeColor}20`,
-              borderColor: `${activeColor}50` 
-            } : {}}
-            title="AI Song & Music Generation Studio (ACE-Step v1.5)"
-          >
-            <Sparkles size={12} style={{ color: activeColor }} />
-            <span>Generate Music</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('studio')}
-            className={cn(
-              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
-              activeTab === 'studio' 
-                ? "bg-white/15 text-white shadow-md" 
-                : "text-slate-300 hover:text-white hover:bg-white/5"
-            )}
-            style={activeTab === 'studio' ? { 
-              color: activeColor,
-              backgroundColor: `${activeColor}20`,
-              borderColor: `${activeColor}50` 
-            } : {}}
-            title="Multitrack DAW Workstation for recording, mixing, and stem arrangement"
-          >
-            <Music size={12} />
-            <span>DAW Studio</span>
-          </button>
-
+        <nav className="flex items-center bg-white/[0.03] border border-white/10 rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1 shrink-0 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('lrc')}
             className={cn(
-              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer relative overflow-hidden",
+              "px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
               activeTab === 'lrc' 
-                ? "bg-white/15 text-white shadow-md" 
+                ? "bg-white/15 text-white shadow-md font-black" 
                 : "text-slate-300 hover:text-white hover:bg-white/5"
             )}
             style={activeTab === 'lrc' ? { 
@@ -154,17 +116,18 @@ export function TopBar({ onExport }: { onExport: () => void }) {
               backgroundColor: `${activeColor}20`,
               borderColor: `${activeColor}50` 
             } : {}}
-            title="AI word-by-word timestamp alignment studio"
+            title="Interactive LRC timestamp synchronization studio"
           >
+            <Music size={11} className={activeTab === 'lrc' ? "text-white" : "text-[#00e676]"} />
             <span>LRC Studio</span>
           </button>
 
           <button
             onClick={() => setActiveTab('lyrics')}
             className={cn(
-              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer relative overflow-hidden",
+              "px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
               activeTab === 'lyrics'
-                ? "bg-white/15 text-white shadow-md" 
+                ? "bg-white/15 text-white shadow-md font-black" 
                 : "text-slate-300 hover:text-white hover:bg-white/5"
             )}
             style={activeTab === 'lyrics' ? { 
@@ -174,16 +137,16 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             } : {}}
             title="Lyrics video with visualizer & album-art spinning vinyl templates"
           >
-            <Sparkles size={11} className={activeTab === 'lyrics' ? "text-white" : "text-[#00e676]"} />
+            <Disc3 size={12} />
             <span>Lyrics Video</span>
           </button>
 
           <button
             onClick={() => setActiveTab('mv-studio')}
             className={cn(
-              "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
+              "px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer relative overflow-hidden",
               activeTab === 'mv-studio'
-                ? "bg-white/15 text-white shadow-md" 
+                ? "bg-white/15 text-white shadow-md font-black" 
                 : "text-slate-300 hover:text-white hover:bg-white/5"
             )}
             style={activeTab === 'mv-studio' ? { 
@@ -191,7 +154,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
               backgroundColor: `${activeColor}20`,
               borderColor: `${activeColor}50` 
             } : {}}
-            title="Music video timeline editing studio"
+            title="AI Music video storyboard & timeline editing studio"
           >
             <Film size={12} />
             <span>MV Studio</span>

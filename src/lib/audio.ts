@@ -18,18 +18,34 @@ export class AudioContextManager {
     
     if (this.audioEl !== audioEl) {
       if (this.source) {
-        this.source.disconnect();
+        try {
+          this.source.disconnect();
+        } catch (e) {}
       }
       this.audioEl = audioEl;
-      this.source = this.ctx.createMediaElementSource(audioEl);
-      this.source.connect(this.analyser);
-      this.analyser.connect(this.ctx.destination);
+      try {
+        this.source = this.ctx.createMediaElementSource(audioEl);
+        this.source.connect(this.analyser);
+        this.analyser.connect(this.ctx.destination);
+      } catch (err) {
+        console.warn('createMediaElementSource notice:', err);
+      }
     }
     
     // Ensure context is resumed (browser policy)
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
+  }
+
+  resume(): Promise<void> {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      return this.ctx.resume().catch(() => {});
+    }
+    return Promise.resolve();
   }
   
   setSmoothing(smoothing: number) {

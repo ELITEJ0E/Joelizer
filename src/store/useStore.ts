@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useMVStore } from './useMVStore';
+import { getStreamableAudioUrl } from '../lib/utils';
 import { 
   saveAudioToStorage, 
   loadAudioFromStorage, 
@@ -68,7 +69,23 @@ export interface Track {
   duration: number; // in seconds
   albumArt?: string;
   isUserUploaded?: boolean;
+  lyrics?: string;
+  tags?: string;
+  sunoId?: string;
 }
+
+export const DEFAULT_SUNO_TRACK: Track = {
+  id: 'suno-neon-skies',
+  name: 'Neon Skies',
+  artist: 'Suno AI',
+  url: '/api/suno-audio/7ee8da7e-0310-4dec-ab00-f8d45f1b2156.m4a',
+  duration: 133.6,
+  albumArt: 'https://cdn2.suno.ai/image_large_7ee8da7e-0310-4dec-ab00-f8d45f1b2156.jpeg',
+  isUserUploaded: false,
+  sunoId: '7ee8da7e-0310-4dec-ab00-f8d45f1b2156',
+  tags: 'Late-2000s synth-pop, bright electronic plucks, 90 BPM',
+  lyrics: `[Verse 1]\nEvery light\nStarts to glow\nWhen the world\nMoves too slow\nLittle sparks\nIn the air\nLike somebody\nLeft them there\n\n[Chorus]\nNeon skies\nTake me home\nWhere the stars\nNever know\nHow to fall\nHow to fade\nThey just shine\nAnyway`
+};
 
 interface ProjectState {
   name: string;
@@ -92,7 +109,7 @@ interface ProjectState {
   isLooping: boolean;
   
   exportResolutionOverride: '1080p' | '720p' | '360p' | null;
-  activeTab: 'lyrics' | 'studio' | 'lrc' | 'mv-studio' | 'create';
+  activeTab: 'lrc' | 'lyrics' | 'mv-studio';
 
   selectedStudioLineId: string | null;
   studioZoom: number;
@@ -105,12 +122,18 @@ interface ProjectState {
   // Actions
   setName: (name: string) => void;
   setAspectRatio: (ratio: AspectRatio) => void;
-  setActiveTab: (tab: 'lyrics' | 'studio' | 'lrc' | 'mv-studio' | 'create') => void;
+  setActiveTab: (tab: 'lrc' | 'lyrics' | 'mv-studio') => void;
   setSelectedStudioLineId: (id: string | null | ((prev: string | null) => string | null)) => void;
   setStudioZoom: (zoom: number | ((prev: number) => number)) => void;
   setStudioScrollOffset: (offset: number | ((prev: number) => number)) => void;
   setExportResolutionOverride: (override: '1080p' | '720p' | '360p' | null) => void;
-  setAudio: (file: File | Blob, url: string, duration: number, albumArt: string | null) => void;
+  setAudio: (
+    file: File | Blob | null,
+    url: string,
+    duration: number,
+    albumArt: string | null,
+    meta?: { name?: string; artist?: string; lyrics?: string; tags?: string; sunoId?: string }
+  ) => void;
   setAlbumArt: (albumArt: string | null) => void;
   updateCurrentTrackCover: (newCoverUrl: string) => void;
   setSelectedLayerId: (id: string | null) => void;
@@ -193,18 +216,18 @@ export const useStore = create<ProjectState>((set, get) => ({
     size: 0.15,
   },
   
-  tracks: [],
+  tracks: [DEFAULT_SUNO_TRACK],
   currentTrackIndex: 0,
   audioFile: null,
-  audioDuration: 0,
-  audioUrl: null,
-  albumArt: null,
+  audioDuration: DEFAULT_SUNO_TRACK.duration,
+  audioUrl: DEFAULT_SUNO_TRACK.url,
+  albumArt: DEFAULT_SUNO_TRACK.albumArt || null,
   
   currentTime: 0,
   isPlaying: false,
   isLooping: false,
   exportResolutionOverride: null,
-  activeTab: 'lyrics',
+  activeTab: 'lrc',
 
   selectedStudioLineId: null,
   studioZoom: 1.0,
@@ -227,32 +250,47 @@ export const useStore = create<ProjectState>((set, get) => ({
     studioScrollOffset: typeof studioScrollOffset === 'function' ? (studioScrollOffset as Function)(state.studioScrollOffset) : studioScrollOffset
   })),
   setExportResolutionOverride: (exportResolutionOverride) => set({ exportResolutionOverride }),
-  setAudio: (file, url, duration, albumArt) => {
-    const fileName = (file as File)?.name || 'Uploaded Track';
+  setAudio: (file, url, duration, albumArt, meta) => {
+    const streamableUrl = getStreamableAudioUrl(url);
+    const fileName = meta?.name || (file as File)?.name || 'Audio Track';
+    const artist = meta?.artist || (file ? 'Uploaded Audio' : 'Suno AI Track');
     if (file) {
-      saveAudioToStorage(file, fileName, duration);
+      saveAudioToStorage(file, typeof fileName === 'string' ? fileName : 'Saved Track', duration);
     }
 
     set((state) => {
-      // Check if track with same URL already exists
-      const existingIndex = state.tracks.findIndex(t => t.url === url);
+      // Check if track with same URL or Suno ID already exists
+      const existingIndex = state.tracks.findIndex(t => 
+        t.url === streamableUrl || 
+        t.url === url || 
+        (meta?.sunoId && t.sunoId === meta.sunoId)
+      );
       let updatedTracks = [...state.tracks];
       let activeIndex = 0;
 
       if (existingIndex !== -1) {
         activeIndex = existingIndex;
-        if (albumArt) {
-          updatedTracks[existingIndex] = { ...updatedTracks[existingIndex], albumArt };
-        }
+        updatedTracks[existingIndex] = {
+          ...updatedTracks[existingIndex],
+          name: meta?.name || updatedTracks[existingIndex].name,
+          artist: meta?.artist || updatedTracks[existingIndex].artist,
+          url: streamableUrl,
+          albumArt: albumArt || updatedTracks[existingIndex].albumArt,
+          lyrics: meta?.lyrics || updatedTracks[existingIndex].lyrics,
+          tags: meta?.tags || updatedTracks[existingIndex].tags,
+        };
       } else {
         const newTrack: Track = {
-          id: `track-${Date.now()}`,
-          name: fileName.replace(/\.[^/.]+$/, ""),
-          artist: file ? 'Uploaded Audio' : 'Suno AI Track',
-          url: url,
+          id: meta?.sunoId ? `suno-${meta.sunoId}` : `track-${Date.now()}`,
+          name: typeof fileName === 'string' ? fileName.replace(/\.[^/.]+$/, "") : 'Audio Track',
+          artist: artist,
+          url: streamableUrl,
           duration: duration,
           albumArt: albumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop',
-          isUserUploaded: !!file
+          isUserUploaded: !!file,
+          lyrics: meta?.lyrics,
+          tags: meta?.tags,
+          sunoId: meta?.sunoId
         };
         updatedTracks = [newTrack, ...state.tracks];
         activeIndex = 0;
@@ -265,7 +303,7 @@ export const useStore = create<ProjectState>((set, get) => ({
         tracks: updatedTracks,
         currentTrackIndex: activeIndex,
         audioFile: file,
-        audioUrl: url,
+        audioUrl: streamableUrl,
         audioDuration: duration,
         albumArt: finalAlbumArt,
         currentTime: 0,
@@ -389,9 +427,10 @@ export const useStore = create<ProjectState>((set, get) => ({
   selectTrack: (index) => set((state) => {
     if (index < 0 || index >= state.tracks.length) return {};
     const track = state.tracks[index];
+    const streamableUrl = getStreamableAudioUrl(track.url);
     return {
       currentTrackIndex: index,
-      audioUrl: track.url,
+      audioUrl: streamableUrl,
       audioDuration: track.duration,
       albumArt: track.albumArt || null,
       currentTime: 0,
@@ -468,16 +507,19 @@ export const useStore = create<ProjectState>((set, get) => ({
         albumArt: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop',
         isUserUploaded: true
       };
-      set({
-        audioFile: savedAudio.blob,
-        audioUrl: url,
-        audioDuration: savedAudio.duration,
-        tracks: [track],
-        currentTrackIndex: 0,
-        albumArt: track.albumArt || null,
-        exportRangeStart: 0,
-        exportRangeEnd: savedAudio.duration,
-        waveformPeaks: []
+      set((state) => {
+        const otherTracks = state.tracks.filter(t => t.id !== 'stored-track');
+        return {
+          audioFile: savedAudio.blob,
+          audioUrl: url,
+          audioDuration: savedAudio.duration,
+          tracks: [track, ...otherTracks],
+          currentTrackIndex: 0,
+          albumArt: track.albumArt || null,
+          exportRangeStart: 0,
+          exportRangeEnd: savedAudio.duration,
+          waveformPeaks: []
+        };
       });
     }
 

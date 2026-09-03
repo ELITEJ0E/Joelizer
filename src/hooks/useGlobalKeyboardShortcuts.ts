@@ -75,22 +75,19 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
-      // 4. Seek Left/Right when in Visualizer tab
-      const activeTab = useStore.getState().activeTab;
-      if (activeTab !== 'studio') {
-        if (e.code === 'ArrowLeft' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
-          e.preventDefault();
-          const state = useStore.getState();
-          const newTime = Math.max(0, state.currentTime - 5);
-          audioManager.seek(newTime);
-          state.setCurrentTime(newTime);
-        } else if (e.code === 'ArrowRight' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
-          e.preventDefault();
-          const state = useStore.getState();
-          const newTime = Math.min(state.audioDuration || 1000, state.currentTime + 5);
-          audioManager.seek(newTime);
-          state.setCurrentTime(newTime);
-        }
+      // 4. Seek Left/Right
+      if (e.code === 'ArrowLeft' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const state = useStore.getState();
+        const newTime = Math.max(0, state.currentTime - 5);
+        audioManager.seek(newTime);
+        state.setCurrentTime(newTime);
+      } else if (e.code === 'ArrowRight' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const state = useStore.getState();
+        const newTime = Math.min(state.audioDuration || 1000, state.currentTime + 5);
+        audioManager.seek(newTime);
+        state.setCurrentTime(newTime);
       }
     };
 

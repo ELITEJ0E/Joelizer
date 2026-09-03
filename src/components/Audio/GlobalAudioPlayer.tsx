@@ -2,12 +2,14 @@ import React, { useEffect, useRef } from 'react';
 import { useStore } from '../../store/useStore';
 import { audioManager } from '../../lib/audio';
 import { useGlobalKeyboardShortcuts } from '../../hooks/useGlobalKeyboardShortcuts';
+import { getStreamableAudioUrl } from '../../lib/utils';
 
 export function GlobalAudioPlayer() {
   useGlobalKeyboardShortcuts();
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioUrl = useStore(s => s.audioUrl);
+  const streamUrl = getStreamableAudioUrl(audioUrl);
   const audioFile = useStore(s => s.audioFile);
   const setWaveformPeaks = useStore(s => s.setWaveformPeaks);
   const isPlaying = useStore(s => s.isPlaying);
@@ -77,39 +79,67 @@ export function GlobalAudioPlayer() {
     const el = audioRef.current;
     if (!el) return;
 
-    const trackChanged = prevTrackIndexRef.current !== currentTrackIndex || prevAudioUrlRef.current !== audioUrl;
+    const trackChanged = prevTrackIndexRef.current !== currentTrackIndex || prevAudioUrlRef.current !== streamUrl;
     if (trackChanged) {
       prevTrackIndexRef.current = currentTrackIndex;
-      prevAudioUrlRef.current = audioUrl;
+      prevAudioUrlRef.current = streamUrl;
       el.currentTime = 0;
-    } else if (currentTime === 0 && el.currentTime > 0.5) {
-      el.currentTime = 0;
+      el.load();
+    } else if (Math.abs(el.currentTime - currentTime) > 0.35) {
+      el.currentTime = currentTime;
     }
-  }, [currentTrackIndex, audioUrl, currentTime]);
+  }, [currentTrackIndex, streamUrl, currentTime]);
 
   // Sync play/pause state safely
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
 
-    if (isPlaying) {
-      if ((audioManager as any).ctx?.state === 'suspended') {
-        (audioManager as any).ctx.resume().catch(() => {});
-      }
-      const promise = el.play();
-      if (promise !== undefined) {
-        promise.catch(err => {
-          // Ignore AbortError caused by rapid track changes or re-loads
-          if (err.name !== 'AbortError') {
-            console.warn('Playback prevented or interrupted:', err);
-            setIsPlaying(false);
+    let isSubscribed = true;
+
+    if (isPlaying && streamUrl) {
+      audioManager.resume().catch(() => {});
+
+      const executePlay = () => {
+        if (!isSubscribed) return;
+        const promise = el.play();
+        if (promise !== undefined) {
+          promise.catch(err => {
+            if (!isSubscribed) return;
+            if (err.name === 'NotAllowedError') {
+              console.warn('Playback prevented by browser policy, awaiting user gesture:', err);
+              setIsPlaying(false);
+            } else if (err.name !== 'AbortError') {
+              console.warn('Playback notice:', err);
+            }
+          });
+        }
+      };
+
+      if (el.readyState >= 2) {
+        executePlay();
+      } else {
+        const handleCanPlay = () => {
+          el.removeEventListener('canplay', handleCanPlay);
+          executePlay();
+        };
+        el.addEventListener('canplay', handleCanPlay, { once: true });
+        const handleLoadedData = () => {
+          el.removeEventListener('loadeddata', handleLoadedData);
+          if (el.readyState >= 2) {
+            executePlay();
           }
-        });
+        };
+        el.addEventListener('loadeddata', handleLoadedData, { once: true });
       }
     } else {
       el.pause();
     }
-  }, [isPlaying, audioUrl, setIsPlaying]);
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [isPlaying, streamUrl, setIsPlaying]);
 
   // Sync loop state
   useEffect(() => {
@@ -155,8 +185,8 @@ export function GlobalAudioPlayer() {
   return (
     <audio
       ref={audioRef}
-      src={audioUrl || undefined}
-      crossOrigin="anonymous"
+      src={streamUrl || undefined}
+      crossOrigin={(!streamUrl || streamUrl.startsWith('blob:') || streamUrl.startsWith('/')) ? undefined : "anonymous"}
       preload="auto"
       onPlay={() => setIsPlaying(true)}
       onPause={() => setIsPlaying(false)}

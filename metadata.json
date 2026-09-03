@@ -1,6 +1,6 @@
 {
   "name": "Joelizer",
-  "description": "Local AI Music Workstation, multitrack DAW, lyric synchronizer, and music video studio powered by ACE-Step AI and Web Audio.",
+  "description": "AI Music & Lyric Studio: Gemini AI Music Composer, interactive LRC word timestamping, customizable lyric video templates, and cinematic AI music video creator.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

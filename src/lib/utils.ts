@@ -60,3 +60,25 @@ export function parseLRC(text: string): LyricLine[] {
   
   return result;
 }
+
+export function getStreamableAudioUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) return trimmed;
+  if (trimmed.startsWith('/api/suno-audio/')) return trimmed;
+
+  // Extract Suno clip UUID if present in URL
+  const sunoMatch = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (sunoMatch && (trimmed.includes('suno') || trimmed.includes('cloudfront') || trimmed.includes('/song/') || trimmed.includes('cdn1.suno.ai') || trimmed.includes('cdn2.suno.ai'))) {
+    return `/api/suno-audio/${sunoMatch[0].toLowerCase()}.m4a`;
+  }
+
+  // If it is another remote HTTP URL, proxy it to avoid CORS issues
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (!trimmed.includes('/api/proxy-media') && !trimmed.includes('/api/suno-audio')) {
+      return `/api/proxy-media?url=${encodeURIComponent(trimmed)}`;
+    }
+  }
+
+  return trimmed;
+}

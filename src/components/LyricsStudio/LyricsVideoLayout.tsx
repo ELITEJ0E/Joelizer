@@ -9,6 +9,7 @@ import { ExportModal } from '../Editor/ExportModal';
 import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { BACKGROUND_PRESETS } from '../../lib/lyricsBackgrounds';
 import { formatTime } from '../../lib/utils';
+import { SongListSection } from './SongListSection';
 import {
   Play, Pause, Download, Check, Upload, RotateCcw, RotateCw, Maximize2,
   Sparkles, Type, Film, Image as ImageIcon, Music, Sliders, Palette
@@ -146,6 +147,11 @@ export function LyricsVideoLayout() {
             </div>
           ) : (
             <>
+              {/* 0. SONG LIST SECTION */}
+              <div className="pb-3 border-b border-white/10">
+                <SongListSection />
+              </div>
+
               {/* 1. LAYOUT SELECTOR SECTION */}
           <div className="space-y-3">
             <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">

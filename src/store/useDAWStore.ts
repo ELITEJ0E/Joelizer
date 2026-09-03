@@ -793,8 +793,8 @@ export const useDAWStore = create<DAWState>()(
             primaryStore.updateLyricsSettings({ lines: importedLines });
           }
 
-          // 7. Auto-navigate to STUDIO tab
-          primaryStore.setActiveTab('studio');
+          // 7. Auto-navigate to LRC tab
+          primaryStore.setActiveTab('lrc');
         },
 
         newProject: () => {

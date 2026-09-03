@@ -178,7 +178,7 @@ async function startServer() {
     }
   });
 
-  // 1b. Media CORS proxy endpoint
+  // 1b. Media CORS proxy endpoint with audio streaming & Range support
   app.get('/api/proxy-media', async (req, res) => {
     try {
       const targetUrl = req.query.url as string;
@@ -186,26 +186,318 @@ async function startServer() {
         return res.status(400).json({ error: 'Valid http/https target URL parameter required' });
       }
 
+      const reqHeaders: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*'
+      };
+
+      if (targetUrl.includes('suno') || targetUrl.includes('cloudfront')) {
+        reqHeaders['Referer'] = 'https://suno.com/';
+        reqHeaders['Origin'] = 'https://suno.com';
+      }
+
+      if (req.headers.range) {
+        reqHeaders['Range'] = req.headers.range as string;
+      }
+
       const mediaRes = await fetch(targetUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+        headers: reqHeaders
       });
 
-      if (!mediaRes.ok) {
+      if (!mediaRes.ok && mediaRes.status !== 206) {
         return res.status(mediaRes.status).json({ error: `Remote media returned status ${mediaRes.status}` });
       }
 
-      const contentType = mediaRes.headers.get('content-type') || 'application/octet-stream';
+      let deducedContentType = mediaRes.headers.get('content-type') || '';
+      if (!deducedContentType || deducedContentType === 'application/octet-stream' || deducedContentType.startsWith('text/')) {
+        const cleanUrl = targetUrl.split('?')[0].toLowerCase();
+        if (cleanUrl.endsWith('.m4a') || cleanUrl.endsWith('.mp4')) {
+          deducedContentType = 'audio/mp4';
+        } else if (cleanUrl.endsWith('.mp3')) {
+          deducedContentType = 'audio/mpeg';
+        } else if (cleanUrl.endsWith('.wav')) {
+          deducedContentType = 'audio/wav';
+        } else if (cleanUrl.endsWith('.ogg')) {
+          deducedContentType = 'audio/ogg';
+        } else if (cleanUrl.endsWith('.webm')) {
+          deducedContentType = 'audio/webm';
+        } else {
+          deducedContentType = 'audio/mp4';
+        }
+      }
+
+      res.status(mediaRes.status);
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', contentType);
+      res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Accept, Origin, User-Agent');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Type', deducedContentType);
       res.setHeader('Cache-Control', 'public, max-age=86400');
+
+      const contentRange = mediaRes.headers.get('content-range');
+      if (contentRange) {
+        res.setHeader('Content-Range', contentRange);
+      }
+      const contentLength = mediaRes.headers.get('content-length');
+      if (contentLength) {
+        res.setHeader('Content-Length', contentLength);
+      }
 
       const arrayBuffer = await mediaRes.arrayBuffer();
       return res.send(Buffer.from(arrayBuffer));
     } catch (err: any) {
       console.error('Proxy Media Error:', err);
       return res.status(500).json({ error: 'Failed to proxy remote media asset' });
+    }
+  });
+
+  // =========================================================================
+  // SUNO AUDIO STREAM RESOLVER & STREAMING PROXY (MANGO DRM)
+  // =========================================================================
+  interface CachedAudio {
+    buffer: Buffer;
+    mimeType: string;
+    timestamp: number;
+  }
+
+  const audioBufferCache = new Map<string, CachedAudio>();
+  const pendingFetches = new Map<string, Promise<CachedAudio | null>>();
+
+  async function resolveSunoAudioStream(rawClipId: string): Promise<CachedAudio | null> {
+    if (!rawClipId) return null;
+    const uuidMatch = rawClipId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    const clipId = uuidMatch ? uuidMatch[0].toLowerCase() : rawClipId.trim();
+
+    const cached = audioBufferCache.get(clipId);
+    if (cached && Date.now() - cached.timestamp < 4 * 3600 * 1000) {
+      return cached;
+    }
+
+    if (pendingFetches.has(clipId)) {
+      return pendingFetches.get(clipId)!;
+    }
+
+    const fetchPromise = (async (): Promise<CachedAudio | null> => {
+      try {
+        const subtle = globalThis.crypto?.subtle || (await import('crypto')).webcrypto?.subtle;
+        if (!subtle) {
+          throw new Error('WebCrypto subtle is not available in current runtime');
+        }
+
+        // 1. Download encrypted audio stream
+        const mediaUrls = [
+          `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${clipId}.m4a`,
+          `https://cdn1.suno.ai/${clipId}.mp3`
+        ];
+
+        let rawBuffer: Buffer | null = null;
+        for (const url of mediaUrls) {
+          try {
+            const mediaRes = await fetch(url, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Referer': 'https://suno.com/',
+                'Origin': 'https://suno.com'
+              },
+              signal: AbortSignal.timeout(10000)
+            });
+            if (mediaRes.ok) {
+              rawBuffer = Buffer.from(await mediaRes.arrayBuffer());
+              if (rawBuffer.length > 0) break;
+            }
+          } catch (mediaErr) {
+            console.warn(`[Suno Audio] Download attempt failed for ${url}:`, mediaErr);
+          }
+        }
+
+        if (!rawBuffer || rawBuffer.length === 0) {
+          console.error(`[Suno Audio] Failed to fetch media buffer for clip ${clipId}`);
+          return null;
+        }
+
+        // Check if audio is already unencrypted (ISO ftyp, ID3, MP3 syncword, WebM, or OGG)
+        const isFtyp = rawBuffer.length >= 8 && rawBuffer.subarray(4, 8).toString('ascii') === 'ftyp';
+        const isWebM = rawBuffer.length >= 4 && rawBuffer[0] === 0x1A && rawBuffer[1] === 0x45 && rawBuffer[2] === 0xDF && rawBuffer[3] === 0xA3;
+        const isID3 = rawBuffer.length >= 3 && rawBuffer.subarray(0, 3).toString('ascii') === 'ID3';
+        const isMP3Sync = rawBuffer.length >= 2 && rawBuffer[0] === 0xFF && (rawBuffer[1] & 0xE0) === 0xE0;
+        const isOgg = rawBuffer.length >= 4 && rawBuffer.subarray(0, 4).toString('ascii') === 'OggS';
+
+        if (isFtyp || isWebM || isID3 || isMP3Sync || isOgg) {
+          let mimeType = 'audio/mp4';
+          if (isWebM) mimeType = 'audio/webm';
+          else if (isID3 || isMP3Sync) mimeType = 'audio/mpeg';
+          else if (isOgg) mimeType = 'audio/ogg';
+
+          const result: CachedAudio = { buffer: rawBuffer, mimeType, timestamp: Date.now() };
+          if (audioBufferCache.size > 100) {
+            const firstKey = audioBufferCache.keys().next().value;
+            if (firstKey) audioBufferCache.delete(firstKey);
+          }
+          audioBufferCache.set(clipId, result);
+          return result;
+        }
+
+        // 2. Fetch rights metadata for encrypted stream
+        const rightsRes = await fetch('https://studio-api-prod.suno.com/api/mango/rights', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Origin': 'https://suno.com',
+            'Referer': `https://suno.com/song/${clipId}`
+          },
+          body: JSON.stringify({
+            content_params: { content_id: clipId, content_type: 'clip' }
+          }),
+          signal: AbortSignal.timeout(8000)
+        });
+
+        if (!rightsRes.ok) {
+          console.error(`[Suno Audio] Mango rights endpoint returned status ${rightsRes.status}`);
+          return null;
+        }
+
+        const { key: encKeyB64, iv: encIvB64, glt } = await rightsRes.json();
+        if (!encKeyB64 || !encIvB64 || !glt) {
+          console.error('[Suno Audio] Incomplete rights payload received');
+          return null;
+        }
+
+        // 3. Unpack key parameters
+        const userKeyHash = await subtle.digest('SHA-256', new TextEncoder().encode(glt));
+        const userKey = await subtle.importKey('raw', userKeyHash, { name: 'AES-GCM' }, false, ['decrypt']);
+
+        const wrappedKey = Uint8Array.from(Buffer.from(encKeyB64, 'base64'));
+        const wrappedIv = Uint8Array.from(Buffer.from(encIvB64, 'base64'));
+        const additionalData = new TextEncoder().encode(clipId);
+
+        const rawKey = await subtle.decrypt(
+          { name: 'AES-GCM', iv: wrappedKey.slice(0, 12), additionalData },
+          userKey,
+          wrappedKey.slice(12)
+        );
+        const contentKey = await subtle.importKey('raw', rawKey, { name: 'AES-CTR' }, false, ['decrypt']);
+
+        const rawIv = await subtle.decrypt(
+          { name: 'AES-GCM', iv: wrappedIv.slice(0, 12), additionalData },
+          userKey,
+          wrappedIv.slice(12)
+        );
+        const contentIv = new Uint8Array(rawIv);
+
+        // 4. Decrypt audio stream
+        const decBuf = await subtle.decrypt(
+          { name: 'AES-CTR', counter: contentIv, length: 128 },
+          contentKey,
+          rawBuffer
+        );
+
+        const decryptedBuffer = Buffer.from(decBuf);
+        let mimeType = 'audio/mp4';
+        if (
+          decryptedBuffer.length >= 4 &&
+          decryptedBuffer[0] === 0x1A &&
+          decryptedBuffer[1] === 0x45 &&
+          decryptedBuffer[2] === 0xDF &&
+          decryptedBuffer[3] === 0xA3
+        ) {
+          mimeType = 'audio/webm';
+        } else if (
+          (decryptedBuffer.length >= 3 && decryptedBuffer.subarray(0, 3).toString('ascii') === 'ID3') ||
+          (decryptedBuffer.length >= 2 && decryptedBuffer[0] === 0xFF && (decryptedBuffer[1] & 0xE0) === 0xE0)
+        ) {
+          mimeType = 'audio/mpeg';
+        }
+
+        const result: CachedAudio = { buffer: decryptedBuffer, mimeType, timestamp: Date.now() };
+
+        if (audioBufferCache.size > 100) {
+          const firstKey = audioBufferCache.keys().next().value;
+          if (firstKey) audioBufferCache.delete(firstKey);
+        }
+        audioBufferCache.set(clipId, result);
+        return result;
+      } catch (err) {
+        console.error('[Suno Audio Engine] Error resolving stream:', err);
+        return null;
+      } finally {
+        pendingFetches.delete(clipId);
+      }
+    })();
+
+    pendingFetches.set(clipId, fetchPromise);
+    return fetchPromise;
+  }
+
+  // HTTP 206 Partial Content route
+  app.get('/api/suno-audio/:clipId', async (req, res) => {
+    try {
+      const rawClipId = req.params.clipId?.trim();
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Accept, Origin');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      if (!rawClipId) {
+        return res.status(400).json({ error: 'Clip ID is required' });
+      }
+
+      const audioData = await resolveSunoAudioStream(rawClipId);
+      if (!audioData) {
+        return res.status(404).json({ error: 'Track not available or could not be decrypted' });
+      }
+
+      const { buffer, mimeType } = audioData;
+      const totalLength = buffer.length;
+      const rangeHeader = req.headers.range;
+
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+
+      if (rangeHeader && rangeHeader.startsWith('bytes=')) {
+        const parts = rangeHeader.replace(/^bytes=/, '').trim().split('-');
+        let start = 0;
+        let end = totalLength - 1;
+
+        if (!parts[0] && parts[1]) {
+          const suffix = parseInt(parts[1], 10);
+          if (isNaN(suffix) || suffix <= 0) {
+            res.setHeader('Content-Range', `bytes */${totalLength}`);
+            return res.status(416).end();
+          }
+          start = Math.max(0, totalLength - suffix);
+          end = totalLength - 1;
+        } else {
+          start = parseInt(parts[0], 10);
+          if (isNaN(start)) {
+            res.setHeader('Content-Range', `bytes */${totalLength}`);
+            return res.status(416).end();
+          }
+          if (parts[1]) {
+            end = parseInt(parts[1], 10);
+            if (isNaN(end)) {
+              end = totalLength - 1;
+            }
+          }
+        }
+
+        if (start >= totalLength || end >= totalLength || start > end) {
+          res.setHeader('Content-Range', `bytes */${totalLength}`);
+          return res.status(416).end();
+        }
+
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${totalLength}`);
+        res.setHeader('Content-Length', (end - start + 1).toString());
+        return res.end(buffer.subarray(start, end + 1));
+      }
+
+      res.status(200);
+      res.setHeader('Content-Length', totalLength.toString());
+      return res.end(buffer);
+    } catch (err: any) {
+      console.error('[Suno Audio Route] Error:', err);
+      return res.status(500).json({ error: 'Internal streaming error' });
     }
   });
 
@@ -225,30 +517,78 @@ async function startServer() {
       if (uuidMatch) {
         const songId = uuidMatch[0].toLowerCase();
         const pageUrl = `https://suno.com/song/${songId}`;
-        const audioUrl = `https://cdn1.suno.ai/${songId}.mp3`;
+        let audioUrl = `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${songId}.m4a`;
         let imageUrl = `https://cdn2.suno.ai/image_large_${songId}.jpeg`;
-        let title = 'Online Song';
-        let artist = 'Online Track';
+        let title = 'Suno Track';
+        let artist = 'Suno AI';
         let lyrics = '';
         let tags = '';
+        let duration = 180;
 
+        // 1. Try public Suno JSON feed first for fast & accurate metadata
+        try {
+          const apiRes = await fetch(`https://studio-api.prod.suno.com/api/feed/?ids=${songId}`, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            signal: AbortSignal.timeout(3500)
+          });
+          if (apiRes.ok) {
+            const apiData: any = await apiRes.json();
+            const clip = Array.isArray(apiData) ? apiData[0] : (apiData?.clips ? apiData.clips[0] : null);
+            if (clip) {
+              if (clip.title) title = clip.title;
+              if (clip.display_name || clip.handle) artist = clip.display_name || clip.handle;
+              if (clip.image_large_url || clip.image_url) imageUrl = clip.image_large_url || clip.image_url;
+              if (clip.audio_url && !clip.audio_url.includes('forbidden')) audioUrl = clip.audio_url;
+              if (clip.metadata?.duration) duration = clip.metadata.duration;
+              else if (clip.duration) duration = clip.duration;
+              if (clip.metadata?.prompt) lyrics = clip.metadata.prompt;
+              if (clip.metadata?.tags) tags = clip.metadata.tags;
+            }
+          }
+        } catch (apiErr) {
+          console.warn('Suno API feed probe warning:', apiErr);
+        }
+
+        // 2. Scrape page for accurate HTML metadata, clip media URLs, and current CDN audio link
         try {
           const fetchRes = await fetch(pageUrl, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
+            },
+            signal: AbortSignal.timeout(6000)
           });
 
           if (fetchRes.ok) {
             const html = await fetchRes.text();
 
+            // Extract audio link from Suno clip CDN or cloudfront
+            const cloudfrontMatch = html.match(/https:(?:\\\/|\/)+[a-z0-9]+\.cloudfront\.net(?:\\\/|\/)+[0-9]+(?:\\\/|\/)clip(?:\\\/|\/)+[0-9a-f-]+\.m4a/i);
+            const mediaUrlMatch = html.match(/\\?"media_urls\\?":\s*\[\s*\{[^}]*?\\?"url\\?":\s*\\?"(https:[^"\\]+)/i);
+            const genericMatch = html.match(new RegExp(`https:(?:\\\\\\/|\\/)+[^"'\\s]*${songId}[^"'\\s]*\\.(?:m4a|mp3)`, 'i'));
+            
+            if (cloudfrontMatch && cloudfrontMatch[0]) {
+              audioUrl = cloudfrontMatch[0].replace(/\\/g, '');
+            } else if (mediaUrlMatch && mediaUrlMatch[1]) {
+              audioUrl = mediaUrlMatch[1].replace(/\\/g, '');
+            } else if (genericMatch && genericMatch[0] && !genericMatch[0].includes('forbidden')) {
+              audioUrl = genericMatch[0].replace(/\\/g, '');
+            }
+
+            // Extract duration
+            const durMatch = html.match(/\\?"duration\\?":\s*([0-9]+(?:\.[0-9]+)?)/);
+            if (durMatch && durMatch[1]) {
+              duration = Math.round(parseFloat(durMatch[1]) * 10) / 10;
+            }
+
             // Extract title
-            const titleMatch = html.match(/"title":"([^"]+)"/);
             const ogTitleMatch = html.match(/property="og:title"\s+content="([^"]+)"/i) || html.match(/content="([^"]+)"\s+property="og:title"/i);
-            if (titleMatch && titleMatch[1] && titleMatch[1] !== 'Suno') {
+            const titleMatch = html.match(/"title":"([^"]+)"/);
+            if (ogTitleMatch && ogTitleMatch[1]) {
+              title = ogTitleMatch[1].replace(/ \| Suno$/i, '').trim();
+            } else if (titleMatch && titleMatch[1] && titleMatch[1] !== 'Suno') {
               title = titleMatch[1];
-            } else if (ogTitleMatch && ogTitleMatch[1]) {
-              title = ogTitleMatch[1];
             }
 
             // Extract artist
@@ -267,22 +607,26 @@ async function startServer() {
             }
 
             // Extract prompt / lyrics from JSON stream
-            const promptMatch = html.match(/\\?"prompt\\?":\s*\\?"((?:\\\\"|[^"])*)\\?"/);
-            if (promptMatch && promptMatch[1]) {
-              lyrics = promptMatch[1]
-                .replace(/\\\\n/g, '\n')
-                .replace(/\\n/g, '\n')
-                .replace(/\\"/g, '"')
-                .trim();
+            if (!lyrics) {
+              const promptMatch = html.match(/\\?"prompt\\?":\s*\\?"((?:\\\\"|[^"])*)\\?"/);
+              if (promptMatch && promptMatch[1]) {
+                lyrics = promptMatch[1]
+                  .replace(/\\\\n/g, '\n')
+                  .replace(/\\n/g, '\n')
+                  .replace(/\\"/g, '"')
+                  .trim();
+              }
             }
 
             // Extract tags
-            const tagsMatch = html.match(/\\?"tags\\?":\s*\\?"((?:\\\\"|[^"])*)\\?"/);
-            if (tagsMatch && tagsMatch[1]) {
-              tags = tagsMatch[1]
-                .replace(/\\"/g, '"')
-                .replace(/\\\\/g, '\\')
-                .trim();
+            if (!tags) {
+              const tagsMatch = html.match(/\\?"tags\\?":\s*\\?"((?:\\\\"|[^"])*)\\?"/);
+              if (tagsMatch && tagsMatch[1]) {
+                tags = tagsMatch[1]
+                  .replace(/\\"/g, '"')
+                  .replace(/\\\\/g, '\\')
+                  .trim();
+              }
             }
           }
         } catch (e) {
@@ -294,9 +638,11 @@ async function startServer() {
           title,
           artist,
           audioUrl,
+          proxiedAudioUrl: `/api/suno-audio/${songId}.m4a`,
           imageUrl,
           lyrics,
           tags,
+          duration,
           source: 'suno'
         });
       }
@@ -540,7 +886,7 @@ async function startServer() {
       }
 
       const ai = getGeminiClient(req);
-      const model = 'gemini-2.5-flash';
+      const candidateModels = ['gemini-2.5-flash', 'gemini-3.7-flash'];
 
       const systemPrompt = `You are an elite, highly accurate multilingual music transcription and subtitle synchronization system.
 You specialize in English, Korean (한국어 / Hangul, K-Pop, melisma), Chinese (中文 / Mandarin, Cantonese, Traditional & Simplified Hanzi characters), Japanese, and mixed multilingual lyrics.
@@ -573,47 +919,64 @@ Schema required:
   ]
 }`;
 
-      const aiResponse = await ai.models.generateContent({
-        model,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { inlineData: { data: audioBase64, mimeType } },
-              { text: systemPrompt }
-            ]
-          }
-        ],
-        config: {
-          maxOutputTokens: 8192,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              text: { type: 'STRING' },
-              language: { type: 'STRING' },
-              bpm: { type: 'NUMBER' },
-              key: { type: 'STRING' },
-              lines: {
-                type: 'ARRAY',
-                items: {
-                  type: 'OBJECT',
-                  properties: {
-                    id: { type: 'STRING' },
-                    startTime: { type: 'NUMBER' },
-                    endTime: { type: 'NUMBER' },
-                    text: { type: 'STRING' }
-                  },
-                  required: ['startTime', 'endTime', 'text']
-                }
-              }
-            },
-            required: ['lines']
-          }
-        }
-      });
+      let aiResponse: any = null;
+      let lastError: any = null;
 
-      const responseText = aiResponse.text || '';
+      for (const model of candidateModels) {
+        try {
+          aiResponse = await ai.models.generateContent({
+            model,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { inlineData: { data: audioBase64, mimeType } },
+                  { text: systemPrompt }
+                ]
+              }
+            ],
+            config: {
+              maxOutputTokens: 8192,
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: 'OBJECT',
+                properties: {
+                  text: { type: 'STRING' },
+                  language: { type: 'STRING' },
+                  bpm: { type: 'NUMBER' },
+                  key: { type: 'STRING' },
+                  lines: {
+                    type: 'ARRAY',
+                    items: {
+                      type: 'OBJECT',
+                      properties: {
+                        id: { type: 'STRING' },
+                        startTime: { type: 'NUMBER' },
+                        endTime: { type: 'NUMBER' },
+                        text: { type: 'STRING' }
+                      },
+                      required: ['startTime', 'endTime', 'text']
+                    }
+                  }
+                },
+                required: ['lines']
+              }
+            }
+          });
+          if (aiResponse && aiResponse.text) {
+            break;
+          }
+        } catch (err: any) {
+          console.warn(`[Transcription] Model ${model} failed, trying next fallback:`, err.message || err);
+          lastError = err;
+        }
+      }
+
+      if (!aiResponse && lastError) {
+        throw lastError;
+      }
+
+      const responseText = aiResponse?.text || '';
       const parsedData = safeExtractJson(responseText);
 
       if (parsedData && Array.isArray(parsedData.lines) && parsedData.lines.length > 0) {
@@ -677,7 +1040,7 @@ Schema required:
       }
 
       const ai = getGeminiClient(req);
-      const model = 'gemini-2.5-flash';
+      const candidateModels = ['gemini-2.5-flash', 'gemini-3.7-flash'];
 
       const systemPrompt = `You are a high-precision multilingual forced audio alignment engine specialized in Korean (한국어), Chinese (中文 - Mandarin/Cantonese), English, Japanese, and mixed language lyrics.
 You are given an audio file and the exact raw lyric text provided by the user.
@@ -711,47 +1074,64 @@ Schema required:
   ]
 }`;
 
-      const aiResponse = await ai.models.generateContent({
-        model,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { inlineData: { data: audioBase64, mimeType } },
-              { text: systemPrompt }
-            ]
-          }
-        ],
-        config: {
-          maxOutputTokens: 8192,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              text: { type: 'STRING' },
-              language: { type: 'STRING' },
-              bpm: { type: 'NUMBER' },
-              key: { type: 'STRING' },
-              lines: {
-                type: 'ARRAY',
-                items: {
-                  type: 'OBJECT',
-                  properties: {
-                    id: { type: 'STRING' },
-                    startTime: { type: 'NUMBER' },
-                    endTime: { type: 'NUMBER' },
-                    text: { type: 'STRING' }
-                  },
-                  required: ['startTime', 'endTime', 'text']
-                }
-              }
-            },
-            required: ['lines']
-          }
-        }
-      });
+      let aiResponse: any = null;
+      let lastError: any = null;
 
-      const responseText = aiResponse.text || '';
+      for (const model of candidateModels) {
+        try {
+          aiResponse = await ai.models.generateContent({
+            model,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { inlineData: { data: audioBase64, mimeType } },
+                  { text: systemPrompt }
+                ]
+              }
+            ],
+            config: {
+              maxOutputTokens: 8192,
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: 'OBJECT',
+                properties: {
+                  text: { type: 'STRING' },
+                  language: { type: 'STRING' },
+                  bpm: { type: 'NUMBER' },
+                  key: { type: 'STRING' },
+                  lines: {
+                    type: 'ARRAY',
+                    items: {
+                      type: 'OBJECT',
+                      properties: {
+                        id: { type: 'STRING' },
+                        startTime: { type: 'NUMBER' },
+                        endTime: { type: 'NUMBER' },
+                        text: { type: 'STRING' }
+                      },
+                      required: ['startTime', 'endTime', 'text']
+                    }
+                  }
+                },
+                required: ['lines']
+              }
+            }
+          });
+          if (aiResponse && aiResponse.text) {
+            break;
+          }
+        } catch (err: any) {
+          console.warn(`[Alignment] Model ${model} failed, trying next fallback:`, err.message || err);
+          lastError = err;
+        }
+      }
+
+      if (!aiResponse && lastError) {
+        throw lastError;
+      }
+
+      const responseText = aiResponse?.text || '';
       const parsedData = safeExtractJson(responseText);
 
       if (parsedData && Array.isArray(parsedData.lines) && parsedData.lines.length > 0) {

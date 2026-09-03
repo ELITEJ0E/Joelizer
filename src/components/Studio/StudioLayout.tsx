@@ -176,11 +176,12 @@ export function StudioLayout() {
     }
   };
 
-  // Analyze audio when audioFile changes
+  // Analyze audio when audioFile or audioUrl changes
   useEffect(() => {
-    if (audioFile) {
+    const source = (audioFile && (audioFile.size > 0 || (audioFile as any).byteLength > 0)) ? audioFile : audioUrl;
+    if (source) {
       setIsAnalyzingAudio(true);
-      analyzeAudioBuffer(audioFile)
+      analyzeAudioBuffer(source, 800, audioDuration || 180)
         .then(data => {
           setWaveformData(data);
           const detectedBpm = calculateBpmFromBeats(data.beats, data.duration);
@@ -188,11 +189,13 @@ export function StudioLayout() {
           setIsAnalyzingAudio(false);
         })
         .catch(err => {
-          console.error("Failed to analyze audio waveform:", err);
+          console.warn("Audio waveform analysis warning:", err);
           setIsAnalyzingAudio(false);
         });
+    } else {
+      setWaveformData(null);
     }
-  }, [audioFile]);
+  }, [audioFile, audioUrl, audioDuration]);
 
   // Canvas render loop
   useEffect(() => {
@@ -1643,6 +1646,7 @@ export function StudioLayout() {
         isOpen={isAudioModalOpen}
         onClose={handleCloseAudioModal}
         onLyricsExtracted={(lyrics) => setRawUploadedLyrics(lyrics)}
+        onAutoTranscribe={() => runAITranscription()}
       />
     </div>
   );
