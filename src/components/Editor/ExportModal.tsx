@@ -271,7 +271,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 {downloadUrl && (
                   <div className="w-full rounded-xl overflow-hidden border border-emerald-500/30 bg-black/60 shadow-lg my-1">
                     <video 
-                      src={`${downloadUrl}?stream=1`} 
+                      src={downloadUrl.startsWith('blob:') ? downloadUrl : `${downloadUrl}?stream=1`} 
                       controls 
                       className="w-full max-h-[220px] object-contain rounded-xl bg-black"
                       preload="metadata"

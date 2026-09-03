@@ -1,9 +1,11 @@
 import { VideoRenderer, RenderProgress, RendererType } from './types';
 import { CanonicalProjectJson } from '../../types/projectJson';
+import { useStore } from '../../store/useStore';
+import { audioManager } from '../audio';
 import fixWebmDuration from 'fix-webm-duration';
 
 export class BrowserFallbackRenderer implements VideoRenderer {
-  name = 'Browser Fallback Recorder';
+  name = 'Client Browser Video Engine';
   type: RendererType = 'browser';
 
   async isAvailable(): Promise<boolean> {
@@ -16,61 +18,128 @@ export class BrowserFallbackRenderer implements VideoRenderer {
   ): Promise<{ outputUrl: string; fileSize?: number }> {
     onProgress({
       stage: 'preparing',
-      stageMessage: 'Preparing Browser Fallback Recorder...',
-      progress: 10
+      stageMessage: 'Preparing Client Video Recorder...',
+      progress: 5
     });
 
     // Locate preview canvas element
-    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    const canvas = (document.getElementById('visualizer-canvas') || document.querySelector('canvas')) as HTMLCanvasElement;
     if (!canvas) {
-      throw new Error('Preview canvas not found for browser fallback recording.');
+      throw new Error('Preview canvas element not found. Please ensure the visualizer or lyrics video preview is loaded.');
     }
 
     onProgress({
-      stage: 'rendering',
-      stageMessage: 'Capturing canvas stream in browser...',
-      progress: 30
+      stage: 'preparing',
+      stageMessage: 'Setting up video & audio stream pipeline...',
+      progress: 15
     });
 
-    const stream = canvas.captureStream(project.fps || 30);
-    
-    // Choose supported MIME type
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-      ? 'video/webm;codecs=vp9,opus'
-      : MediaRecorder.isTypeSupported('video/webm')
-      ? 'video/webm'
-      : 'video/mp4';
+    const fps = project.fps || 30;
+    const canvasStream = canvas.captureStream ? canvas.captureStream(fps) : (canvas as any).mozCaptureStream?.(fps);
+    if (!canvasStream) {
+      throw new Error('Browser does not support canvas video stream capture.');
+    }
 
-    const mediaRecorder = new MediaRecorder(stream, { mimeType });
-    const chunks: Blob[] = [];
+    // Merge audio stream if available
+    const combinedStream = new MediaStream();
+    canvasStream.getVideoTracks().forEach((track: MediaStreamTrack) => combinedStream.addTrack(track));
 
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
+    try {
+      const audioStream = audioManager.getMediaStream();
+      if (audioStream && audioStream.getAudioTracks().length > 0) {
+        audioStream.getAudioTracks().forEach((track: MediaStreamTrack) => combinedStream.addTrack(track));
+      }
+    } catch (audioErr) {
+      console.warn('[BrowserFallbackRenderer] Audio stream mix warning:', audioErr);
+    }
+
+    // Determine highest quality supported MIME type
+    const supportedTypes = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=h264,opus',
+      'video/webm',
+      'video/mp4'
+    ];
+
+    let chosenMime = 'video/webm';
+    for (const t of supportedTypes) {
+      if (MediaRecorder.isTypeSupported(t)) {
+        chosenMime = t;
+        break;
+      }
+    }
 
     const duration = project.exportRange?.duration || 10;
+    const startTimeOffset = project.exportRange?.start || 0;
     const durationMs = duration * 1000;
-    const startTime = Date.now();
+
+    // Position timeline to start of export range and ensure playback is active
+    const originalTime = useStore.getState().currentTime;
+    const wasPlaying = useStore.getState().isPlaying;
+    
+    useStore.getState().setCurrentTime(startTimeOffset);
+    audioManager.seek(startTimeOffset);
+    useStore.getState().setIsPlaying(true);
 
     return new Promise((resolve, reject) => {
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(combinedStream, {
+          mimeType: chosenMime,
+          videoBitsPerSecond: 8_000_000 // 8 Mbps high quality
+        });
+      } catch (err: any) {
+        mediaRecorder = new MediaRecorder(combinedStream);
+      }
+
+      const chunks: Blob[] = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onerror = (err: any) => {
+        useStore.getState().setIsPlaying(false);
+        useStore.getState().setCurrentTime(originalTime);
+        reject(new Error(`MediaRecorder error: ${err.message || 'Recording stream failed'}`));
+      };
+
+      const startTime = Date.now();
+      let timer: any = null;
+
       mediaRecorder.onstop = async () => {
+        if (timer) clearInterval(timer);
+        useStore.getState().setIsPlaying(false);
+        useStore.getState().setCurrentTime(originalTime);
+
         try {
-          const rawBlob = new Blob(chunks, { type: mimeType });
-          
+          if (chunks.length === 0) {
+            throw new Error('Recorded 0 video frames. Please ensure audio and canvas playback are running.');
+          }
+
+          const rawBlob = new Blob(chunks, { type: chosenMime });
+          if (rawBlob.size === 0) {
+            throw new Error('Exported video file size is 0 bytes. Media stream was empty.');
+          }
+
           onProgress({
             stage: 'encoding',
-            stageMessage: 'Fixing video duration container metadata...',
-            progress: 85
+            stageMessage: 'Packaging video container & finalizing metadata...',
+            progress: 88
           });
 
           let finalBlob = rawBlob;
-          if (mimeType.includes('webm')) {
+          if (chosenMime.includes('webm')) {
             try {
               finalBlob = await new Promise<Blob>((res) => {
                 fixWebmDuration(rawBlob, durationMs, (fixed) => res(fixed));
               });
-            } catch (err) {
-              console.warn('fixWebmDuration fallback warning:', err);
+            } catch (fixErr) {
+              console.warn('[BrowserFallbackRenderer] fixWebmDuration notice:', fixErr);
+              finalBlob = rawBlob;
             }
           }
 
@@ -78,38 +147,49 @@ export class BrowserFallbackRenderer implements VideoRenderer {
 
           onProgress({
             stage: 'ready',
-            stageMessage: 'Browser recording complete!',
+            stageMessage: 'Video export complete and ready for download!',
             progress: 100,
             outputUrl: url,
             fileSize: finalBlob.size
           });
 
-          resolve({ outputUrl: url, fileSize: finalBlob.size });
-        } catch (err: any) {
-          reject(err);
+          resolve({
+            outputUrl: url,
+            fileSize: finalBlob.size
+          });
+        } catch (postErr: any) {
+          reject(postErr);
         }
       };
 
-      mediaRecorder.onerror = (err: any) => reject(new Error(`MediaRecorder error: ${err.message}`));
+      // Request data chunks every 250ms so data is continuously buffered
+      mediaRecorder.start(250);
 
-      mediaRecorder.start(100);
+      onProgress({
+        stage: 'rendering',
+        stageMessage: `Capturing canvas video frames: 0s / ${Math.round(duration)}s`,
+        progress: 20
+      });
 
-      // Track progress over recording duration
-      const timer = setInterval(() => {
+      timer = setInterval(() => {
         const elapsed = Date.now() - startTime;
-        const pct = Math.min(80, 30 + Math.round((elapsed / durationMs) * 50));
-        
+        const progressPct = Math.min(85, 20 + Math.round((elapsed / durationMs) * 65));
+
         onProgress({
           stage: 'rendering',
-          stageMessage: `Recording canvas frame pass: ${Math.round(elapsed / 1000)}s / ${Math.round(duration)}s`,
-          progress: pct
+          stageMessage: `Rendering frame pass: ${Math.min(duration, Math.round(elapsed / 1000))}s / ${Math.round(duration)}s`,
+          progress: progressPct
         });
 
         if (elapsed >= durationMs) {
           clearInterval(timer);
-          mediaRecorder.stop();
+          timer = null;
+          if (mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+          }
         }
-      }, 500);
+      }, 300);
     });
   }
 }
+
