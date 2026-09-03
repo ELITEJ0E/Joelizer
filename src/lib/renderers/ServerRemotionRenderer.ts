@@ -8,7 +8,12 @@ export class ServerRemotionRenderer implements VideoRenderer {
   async isAvailable(): Promise<boolean> {
     try {
       const res = await fetch('/api/health');
-      return res.ok;
+      if (!res.ok) return false;
+      const data = await res.json().catch(() => ({}));
+      if (data.hasRemotion === false || data.platform === 'vercel-serverless') {
+        return false;
+      }
+      return true;
     } catch {
       return false;
     }

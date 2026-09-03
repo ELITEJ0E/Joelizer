@@ -106,24 +106,6 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
 
   if (!isOpen) return null;
 
-  const SAMPLE_TRACKS = [
-    {
-      name: 'Neon Skies',
-      genre: 'Synthwave / Pop',
-      url: 'https://suno.com/song/7ee8da7e-0310-4dec-ab00-f8d45f1b2156'
-    },
-    {
-      name: 'Midnight Echoes',
-      genre: 'Lo-Fi Chill',
-      url: 'https://suno.com/song/b4e6d24f-96a9-4b67-9c98-1e0f06f7df20'
-    },
-    {
-      name: 'Cyber Horizon',
-      genre: 'Cyberpunk EDM',
-      url: 'https://suno.com/song/f3c83407-7d9a-4712-8e10-6cbb607673c2'
-    }
-  ];
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -415,31 +397,6 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                     {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                     <span>Fetch</span>
                   </button>
-                </div>
-              </div>
-
-              {/* Sample Songs */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block">
-                  Quick Sample Audio Links:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {SAMPLE_TRACKS.map((sample, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setUrl(sample.url);
-                        handleFetchUrl(sample.url);
-                      }}
-                      className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-xl text-left transition-all cursor-pointer group flex flex-col gap-0.5"
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Music size={11} className="shrink-0 text-emerald-400 group-hover:scale-110 transition-transform" />
-                        <span className="text-xs font-semibold text-white truncate">{sample.name}</span>
-                      </div>
-                      <span className="text-[9px] text-slate-400 font-mono truncate">{sample.genre}</span>
-                    </button>
-                  ))}
                 </div>
               </div>
 

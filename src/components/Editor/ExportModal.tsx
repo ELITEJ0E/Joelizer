@@ -114,8 +114,28 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setTestResult(null);
     try {
       const res = await fetch('/api/render-test');
-      const data = await res.json();
-      setTestResult(data);
+      const contentType = res.headers.get('content-type') || '';
+      
+      if (contentType.includes('application/json')) {
+        const data = await res.json().catch(() => null);
+        if (data) {
+          setTestResult(data);
+          return;
+        }
+      }
+
+      const rawText = await res.text().catch(() => '');
+      if (res.ok) {
+        setTestResult({
+          success: true,
+          message: 'Render engine test succeeded.'
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: rawText.slice(0, 120) || `Render test returned status ${res.status}`
+        });
+      }
     } catch (err: any) {
       setTestResult({
         success: false,

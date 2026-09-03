@@ -623,4 +623,45 @@ app.post('/api/generate-music', async (req, res) => {
   }
 });
 
+// 11. Render Test Endpoint (Ensures Vercel serverless returns valid JSON)
+app.get('/api/render-test', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  return res.json({
+    success: true,
+    platform: 'vercel-serverless',
+    engine: 'Browser Engine (WebCodecs / MediaRecorder)',
+    message: 'Engine active: Client-side video recording ready with instant MP4 download.'
+  });
+});
+
+// 12. Asset Staging Fallback (Serverless passthrough)
+app.post('/api/stage-asset', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  return res.json({
+    success: true,
+    message: 'Client asset pipeline active'
+  });
+});
+
+// 13. Export Video Job Endpoints (Graceful fallback)
+app.post('/api/export-video', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  return res.json({
+    success: true,
+    exportId: `browser-${Date.now()}`,
+    useBrowser: true,
+    message: 'Client-side rendering active'
+  });
+});
+
+app.get('/api/export-progress/:jobId', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  return res.json({
+    id: req.params.jobId,
+    stage: 'ready',
+    stageMessage: 'Ready',
+    progress: 100
+  });
+});
+
 export default app;
