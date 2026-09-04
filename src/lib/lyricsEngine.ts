@@ -206,6 +206,10 @@ function renderArtworkObject(
   pos?: { x: number; y: number },
   audioFrequencyData?: Uint8Array | null
 ) {
+  if (artStyle === 'none' || artStyle === 'background-blur') {
+    return;
+  }
+
   ctx.save();
 
   const isVertical = H > W;
@@ -234,6 +238,7 @@ function renderArtworkObject(
   if (artStyle === 'vinyl' || artStyle === 'vinyl-needle' || artStyle === 'cd' || artStyle === 'cd-needle') {
     const recordRadius = size / 2;
     const isCD = artStyle === 'cd' || artStyle === 'cd-needle';
+    const hasNeedle = artStyle === 'vinyl-needle' || artStyle === 'cd-needle';
 
     // Radial Visualizer Bars pulsing behind the Rotating Disc!
     if (audioFrequencyData && audioFrequencyData.length > 0) {
@@ -403,120 +408,156 @@ function renderArtworkObject(
     ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // 4. Detailed Tonearm & Cartridge (Anchored top-right, smooth pivot onto record)
-    ctx.save();
-    const pivotX = recordRadius * 0.82;
-    const pivotY = -recordRadius * 0.82;
+    // 4. Detailed Tonearm & Cartridge (Rendered ONLY when needle style is active)
+    if (hasNeedle) {
+      ctx.save();
+      const pivotX = recordRadius * 0.82;
+      const pivotY = -recordRadius * 0.82;
 
-    // Pivot angle: 0.03 rad (2deg) when playing, -0.31 rad (-18deg) when resting
-    const targetArmAngle = isPlaying ? 0.03 : -0.31;
+      // Pivot angle: 0.03 rad (2deg) when playing, -0.31 rad (-18deg) when resting
+      const targetArmAngle = isPlaying ? 0.03 : -0.31;
 
-    ctx.translate(pivotX, pivotY);
-    ctx.rotate(targetArmAngle);
+      ctx.translate(pivotX, pivotY);
+      ctx.rotate(targetArmAngle);
 
-    // Tonearm drop shadow
-    ctx.shadowBlur = 14;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-    ctx.shadowOffsetX = 4;
-    ctx.shadowOffsetY = 8;
+      // Tonearm drop shadow
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 8;
 
-    // Heavy Metallic Pivot Base with Realistic Ring Layers
-    const pivotGrad = ctx.createLinearGradient(-16, -16, 16, 16);
-    pivotGrad.addColorStop(0, '#71717a');
-    pivotGrad.addColorStop(0.5, '#3f3f46');
-    pivotGrad.addColorStop(1, '#18181b');
-    ctx.fillStyle = pivotGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, 18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#27272a';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+      // Heavy Metallic Pivot Base with Realistic Ring Layers
+      const pivotGrad = ctx.createLinearGradient(-16, -16, 16, 16);
+      pivotGrad.addColorStop(0, '#71717a');
+      pivotGrad.addColorStop(0.5, '#3f3f46');
+      pivotGrad.addColorStop(1, '#18181b');
+      ctx.fillStyle = pivotGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#27272a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-    // Inner Ring
-    ctx.fillStyle = '#18181b';
-    ctx.beginPath();
-    ctx.arc(0, 0, 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#111111';
-    ctx.beginPath();
-    ctx.arc(0, 0, 4, 0, Math.PI * 2);
-    ctx.fill();
+      // Inner Ring
+      ctx.fillStyle = '#18181b';
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#111111';
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Aluminum Curved Tube Arm
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.bezierCurveTo(0, recordRadius * 0.45, -recordRadius * 0.45, recordRadius * 0.65, -recordRadius * 0.60, recordRadius * 1.10);
-    ctx.lineWidth = 4.5;
-    ctx.strokeStyle = '#d4d4d8';
-    ctx.lineCap = 'round';
-    ctx.stroke();
+      // Aluminum Curved Tube Arm
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(0, recordRadius * 0.45, -recordRadius * 0.45, recordRadius * 0.65, -recordRadius * 0.60, recordRadius * 1.10);
+      ctx.lineWidth = 4.5;
+      ctx.strokeStyle = '#d4d4d8';
+      ctx.lineCap = 'round';
+      ctx.stroke();
 
-    // Tube Highlight
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.bezierCurveTo(0, recordRadius * 0.45, -recordRadius * 0.45, recordRadius * 0.65, -recordRadius * 0.60, recordRadius * 1.10);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = '#ffffff';
-    ctx.stroke();
+      // Tube Highlight
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(0, recordRadius * 0.45, -recordRadius * 0.45, recordRadius * 0.65, -recordRadius * 0.60, recordRadius * 1.10);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
 
-    // Headshell Joint
-    ctx.fillStyle = '#52525b';
-    ctx.beginPath();
-    ctx.arc(-recordRadius * 0.60, recordRadius * 1.10, 3.5, 0, Math.PI * 2);
-    ctx.fill();
+      // Headshell Joint
+      ctx.fillStyle = '#52525b';
+      ctx.beginPath();
+      ctx.arc(-recordRadius * 0.60, recordRadius * 1.10, 3.5, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Dark Matte Headshell
-    ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath();
-    ctx.rect(-recordRadius * 0.65, recordRadius * 1.12, 12, 18);
-    ctx.fill();
-    ctx.strokeStyle = '#3f3f46';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+      // Dark Matte Headshell
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath();
+      ctx.rect(-recordRadius * 0.65, recordRadius * 1.12, 12, 18);
+      ctx.fill();
+      ctx.strokeStyle = '#3f3f46';
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
-    // Red Cartridge Accent (#ef4444)
-    ctx.fillStyle = '#ef4444';
-    ctx.fillRect(-recordRadius * 0.63, recordRadius * 1.20, 8, 10);
+      // Red Cartridge Accent (#ef4444)
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(-recordRadius * 0.63, recordRadius * 1.20, 8, 10);
 
-    // Micro Stylus / Needle Point
-    ctx.fillStyle = '#d4d4d8';
-    ctx.beginPath();
-    ctx.moveTo(-recordRadius * 0.61, recordRadius * 1.30);
-    ctx.lineTo(-recordRadius * 0.57, recordRadius * 1.30);
-    ctx.lineTo(-recordRadius * 0.59, recordRadius * 1.36);
-    ctx.closePath();
-    ctx.fill();
+      // Micro Stylus / Needle Point
+      ctx.fillStyle = '#d4d4d8';
+      ctx.beginPath();
+      ctx.moveTo(-recordRadius * 0.61, recordRadius * 1.30);
+      ctx.lineTo(-recordRadius * 0.57, recordRadius * 1.30);
+      ctx.lineTo(-recordRadius * 0.59, recordRadius * 1.36);
+      ctx.closePath();
+      ctx.fill();
 
-    // Two small pin holes on cartridge
-    ctx.fillStyle = '#18181b';
-    ctx.beginPath();
-    ctx.arc(-recordRadius * 0.97, recordRadius * 1.38, 1.2, 0, Math.PI * 2);
-    ctx.arc(-recordRadius * 0.93, recordRadius * 1.38, 1.2, 0, Math.PI * 2);
-    ctx.fill();
+      // Two small pin holes on cartridge
+      ctx.fillStyle = '#18181b';
+      ctx.beginPath();
+      ctx.arc(-recordRadius * 0.97, recordRadius * 1.38, 1.2, 0, Math.PI * 2);
+      ctx.arc(-recordRadius * 0.93, recordRadius * 1.38, 1.2, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Pivot Base Cap
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.beginPath();
-    ctx.arc(0, 0, 12, 0, Math.PI * 2);
-    ctx.fillStyle = '#27272a';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, 0, 6, 0, Math.PI * 2);
-    ctx.fillStyle = '#e4e4e7';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#18181b';
-    ctx.fill();
+      // Pivot Base Cap
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, Math.PI * 2);
+      ctx.fillStyle = '#27272a';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#e4e4e7';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#18181b';
+      ctx.fill();
 
-    ctx.restore();
-  } else {
-    // --- SQUARE ALBUM ARTWORK CONTAINER (~22% CORNER RADIUS, NO BORDER, DROP SHADOW) ---
+      ctx.restore();
+    }
+  } else if (artStyle === 'circle') {
+    // --- CIRCULAR ALBUM ARTWORK CONTAINER ---
     const half = size / 2;
-    const cornerRadius = size * 0.22; // ~22% corner radius matching spec
+
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 10;
+
+    ctx.beginPath();
+    ctx.arc(0, 0, half, 0, Math.PI * 2);
+    ctx.fillStyle = '#18181b';
+    ctx.fill();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, half, 0, Math.PI * 2);
+    ctx.clip();
+
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, -half, -half, size, size);
+    } else {
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-half, -half, size, size);
+    }
+    ctx.restore();
+
+    // Subtle Rim Border
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.20)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, half, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    // --- SQUARE ALBUM ARTWORK CONTAINER (~20% CORNER RADIUS, DROP SHADOW) ---
+    const half = size / 2;
+    const cornerRadius = size * 0.20;
 
     ctx.shadowBlur = 30;
     ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
@@ -531,6 +572,14 @@ function renderArtworkObject(
       ctx.fillRect(-half, -half, size, size);
     }
     ctx.fill();
+
+    ctx.save();
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(-half, -half, size, size, cornerRadius);
+    } else {
+      ctx.fillRect(-half, -half, size, size);
+    }
     ctx.clip();
 
     if (img && img.complete && img.naturalWidth > 0) {
@@ -539,6 +588,19 @@ function renderArtworkObject(
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(-half, -half, size, size);
     }
+    ctx.restore();
+
+    // Subtle Rim Border
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(-half, -half, size, size, cornerRadius);
+    } else {
+      ctx.strokeRect(-half, -half, size, size);
+    }
+    ctx.stroke();
   }
 
   ctx.restore();

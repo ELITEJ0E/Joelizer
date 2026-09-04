@@ -296,10 +296,16 @@ function ArtworkLayer({
   height: number;
   pos: { x: number; y: number };
 }) {
+  if (artwork.style === 'none' || artwork.style === 'background-blur') {
+    return null;
+  }
+
   const isPortrait = height > width;
   const baseSize = Math.min(width, height) * (isPortrait ? 0.42 : 0.35) * scale;
+  const isCD = artwork.style === 'cd' || artwork.style === 'cd-needle';
+  const hasNeedle = artwork.style === 'vinyl-needle' || artwork.style === 'cd-needle';
 
-  if (artwork.style === 'vinyl' || artwork.style === 'vinyl-needle') {
+  if (artwork.style === 'vinyl' || artwork.style === 'vinyl-needle' || artwork.style === 'cd' || artwork.style === 'cd-needle') {
     return (
       <div 
         style={{
@@ -310,42 +316,57 @@ function ArtworkLayer({
           width: baseSize,
           height: baseSize,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, #18181b 0%, #09090b 70%, #000000 100%)',
+          background: isCD 
+            ? 'radial-gradient(circle, rgba(40,40,48,0.9) 0%, rgba(20,20,26,0.95) 70%, rgba(10,10,14,0.98) 100%)'
+            : 'radial-gradient(circle, #18181b 0%, #09090b 70%, #000000 100%)',
           boxShadow: '0 25px 60px rgba(0,0,0,0.85), 0 0 30px rgba(255,255,255,0.06)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          border: '4px solid #1c1917'
+          border: isCD ? '3px solid rgba(255,255,255,0.35)' : '4px solid #1c1917'
         }}
       >
-        {/* Vinyl Grooves */}
-        <div 
-          style={{
-            position: 'absolute',
-            inset: '8%',
-            borderRadius: '50%',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: 'inset 0 0 20px rgba(255,255,255,0.04)'
-          }}
-        />
-        <div 
-          style={{
-            position: 'absolute',
-            inset: '18%',
-            borderRadius: '50%',
-            border: '1px solid rgba(255,255,255,0.06)'
-          }}
-        />
-        <div 
-          style={{
-            position: 'absolute',
-            inset: '28%',
-            borderRadius: '50%',
-            border: '1px solid rgba(255,255,255,0.05)'
-          }}
-        />
+        {/* Iridescent / Grooves Overlay */}
+        {isCD ? (
+          <div 
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(200,220,255,0.08) 30%, rgba(255,200,220,0.12) 50%, rgba(200,255,220,0.08) 80%, rgba(255,255,255,0.18) 100%)'
+            }}
+          />
+        ) : (
+          <>
+            <div 
+              style={{
+                position: 'absolute',
+                inset: '8%',
+                borderRadius: '50%',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: 'inset 0 0 20px rgba(255,255,255,0.04)'
+              }}
+            />
+            <div 
+              style={{
+                position: 'absolute',
+                inset: '18%',
+                borderRadius: '50%',
+                border: '1px solid rgba(255,255,255,0.06)'
+              }}
+            />
+            <div 
+              style={{
+                position: 'absolute',
+                inset: '28%',
+                borderRadius: '50%',
+                border: '1px solid rgba(255,255,255,0.05)'
+              }}
+            />
+          </>
+        )}
 
-        {/* Center Album Cover Label - Rotates synchronously with the record disc */}
+        {/* Center Album Cover Label */}
         <div 
           style={{
             width: '42%',

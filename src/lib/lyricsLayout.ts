@@ -1,4 +1,5 @@
 import { AspectRatio } from '../store/useStore';
+import { LyricTemplateId } from './lyricsTemplates';
 
 export interface ElementPos {
   x: number; // Normalized 0..1 ratio
@@ -20,6 +21,15 @@ export const DEFAULT_POSITIONS_16_9: CanvasElementPositions = {
   lyrics: { x: 0.72, y: 0.44 },
   visualizer: { x: 0.72, y: 0.68 },
   watermark: { x: 0.72, y: 0.88 },
+};
+
+// 16:9 Full Screen Cover - Centered Lyrics
+export const DEFAULT_POSITIONS_16_9_FULL: CanvasElementPositions = {
+  artwork: { x: 0.50, y: 0.50 },
+  meta: { x: 0.50, y: 0.22 },
+  lyrics: { x: 0.50, y: 0.50 },
+  visualizer: { x: 0.50, y: 0.76 },
+  watermark: { x: 0.50, y: 0.90 },
 };
 
 // 4:3 Landscape - Classic landscape with slightly wider margins
@@ -49,6 +59,15 @@ export const DEFAULT_POSITIONS_9_16: CanvasElementPositions = {
   watermark: { x: 0.50, y: 0.93 },
 };
 
+// Portrait Full Cover - Centered Lyrics
+export const DEFAULT_POSITIONS_PORTRAIT_FULL: CanvasElementPositions = {
+  artwork: { x: 0.50, y: 0.50 },
+  meta: { x: 0.50, y: 0.18 },
+  lyrics: { x: 0.50, y: 0.50 },
+  visualizer: { x: 0.50, y: 0.80 },
+  watermark: { x: 0.50, y: 0.93 },
+};
+
 // 4:5 Portrait - Instagram portrait feed
 export const DEFAULT_POSITIONS_4_5: CanvasElementPositions = {
   meta: { x: 0.50, y: 0.11 },
@@ -68,9 +87,19 @@ export const DEFAULT_POSITIONS_3_4: CanvasElementPositions = {
 };
 
 /**
- * Returns the default normalized layout positions for a given aspect ratio
+ * Returns the default normalized layout positions for a given aspect ratio and layout template
  */
-export function getDefaultPositions(aspectRatio: AspectRatio | string = '16:9'): CanvasElementPositions {
+export function getDefaultPositions(
+  aspectRatio: AspectRatio | string = '16:9',
+  templateId?: LyricTemplateId | string
+): CanvasElementPositions {
+  if (templateId === 'full') {
+    if (aspectRatio === '16:9' || aspectRatio === '4:3') {
+      return { ...DEFAULT_POSITIONS_16_9_FULL };
+    }
+    return { ...DEFAULT_POSITIONS_PORTRAIT_FULL };
+  }
+
   switch (aspectRatio) {
     case '9:16':
       return { ...DEFAULT_POSITIONS_9_16 };

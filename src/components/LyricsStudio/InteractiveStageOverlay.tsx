@@ -120,7 +120,10 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight }: Props) {
     }
   };
 
-  const keys: ElementKey[] = ['artwork', 'meta', 'lyrics', 'visualizer', 'watermark'];
+  const artworkStyle = useLyricsVideoStore(s => s.artworkOverride.style);
+  const keys: ElementKey[] = (['artwork', 'meta', 'lyrics', 'visualizer', 'watermark'] as ElementKey[]).filter(
+    k => k !== 'artwork' || (artworkStyle !== 'none' && artworkStyle !== 'background-blur')
+  );
 
   return (
     <div

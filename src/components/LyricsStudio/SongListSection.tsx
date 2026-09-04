@@ -5,45 +5,9 @@ import { getStreamableAudioUrl } from '../../lib/utils';
 import { syncAllLyrics } from '../../lib/timelineLyricsSync';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
 import { 
-  Play, Pause, Plus, Music2, Trash2, Sparkles, Upload, 
-  Disc3, Radio, Check, ExternalLink, Volume2
+  Play, Pause, Plus, Music2, Trash2, Upload, 
+  Disc3, Check, ExternalLink, Volume2
 } from 'lucide-react';
-
-const PRESET_SUNO_SONGS = [
-  {
-    name: 'Neon Skies',
-    artist: 'Studio Demo',
-    genre: 'Synth-Pop',
-    url: '/api/suno-audio/7ee8da7e-0310-4dec-ab00-f8d45f1b2156.m4a',
-    duration: 133.6,
-    albumArt: 'https://cdn2.suno.ai/image_large_7ee8da7e-0310-4dec-ab00-f8d45f1b2156.jpeg',
-    sunoId: '7ee8da7e-0310-4dec-ab00-f8d45f1b2156',
-    tags: 'Late-2000s synth-pop, bright electronic plucks, 90 BPM',
-    lyrics: `[Verse 1]\nEvery light\nStarts to glow\nWhen the world\nMoves too slow\nLittle sparks\nIn the air\nLike somebody\nLeft them there\n\n[Chorus]\nNeon skies\nTake me home\nWhere the stars\nNever know\nHow to fall\nHow to fade\nThey just shine\nAnyway`
-  },
-  {
-    name: 'Midnight Echoes',
-    artist: 'Studio Demo',
-    genre: 'Lo-Fi Chill',
-    url: '/api/suno-audio/b4e6d24f-96a9-4b67-9c98-1e0f06f7df20.m4a',
-    duration: 154.2,
-    albumArt: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
-    sunoId: 'b4e6d24f-96a9-4b67-9c98-1e0f06f7df20',
-    tags: 'Lo-fi chill beats, warm Rhodes piano, gentle vinyl crackle',
-    lyrics: `[Verse 1]\nRain outside the window pane\nQuiet shadows drift away\nMidnight rhythms ease the strain\nUntil the light of day\n\n[Chorus]\nEchoes in the quiet night\nSoft whispers in the sound\nEverything will be alright\nWhen morning comes around`
-  },
-  {
-    name: 'Cyber Horizon',
-    artist: 'Studio Demo',
-    genre: 'Cyberpunk EDM',
-    url: '/api/suno-audio/f3c83407-7d9a-4712-8e10-6cbb607673c2.m4a',
-    duration: 142.8,
-    albumArt: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=600&auto=format&fit=crop&q=80',
-    sunoId: 'f3c83407-7d9a-4712-8e10-6cbb607673c2',
-    tags: 'Cyberpunk EDM, aggressive basslines, arpeggiated synths',
-    lyrics: `[Intro]\nSystem online\nScanning frequency\n\n[Verse 1]\nNeon cables in the rain\nElectricity and pain\nRacing down the digital line\nRunning out of time\n\n[Drop]\nBreak the grid\nFeel the sound\nShake the ground`
-  }
-];
 
 export function SongListSection() {
   const tracks = useStore(s => s.tracks);
@@ -116,31 +80,6 @@ export function SongListSection() {
     e.target.value = '';
   };
 
-  const handleLoadPreset = (preset: typeof PRESET_SUNO_SONGS[0]) => {
-    audioManager.resume().catch(() => {});
-
-    // Check if preset is already in tracks
-    const existingIndex = tracks.findIndex(t => 
-      t.sunoId === preset.sunoId || 
-      t.url === preset.url ||
-      t.name.toLowerCase() === preset.name.toLowerCase()
-    );
-
-    if (existingIndex !== -1) {
-      selectTrack(existingIndex);
-      setIsPlaying(true);
-    } else {
-      setAudio(null, preset.url, preset.duration, preset.albumArt, {
-        name: preset.name,
-        artist: preset.artist,
-        lyrics: preset.lyrics,
-        tags: preset.tags,
-        sunoId: preset.sunoId
-      });
-      setIsPlaying(true);
-    }
-  };
-
   const formatSecs = (sec?: number) => {
     if (!sec || isNaN(sec)) return '0:00';
     const m = Math.floor(sec / 60);
@@ -189,31 +128,6 @@ export function SongListSection() {
             <span>Import</span>
           </button>
         </div>
-      </div>
-
-      {/* Preset Quick Audition Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        <span className="text-[10px] uppercase font-bold text-slate-500 shrink-0 flex items-center gap-1">
-          <Sparkles size={11} className="text-amber-400" />
-          Presets:
-        </span>
-        {PRESET_SUNO_SONGS.map((preset) => {
-          const isCurrent = tracks[currentTrackIndex]?.sunoId === preset.sunoId || tracks[currentTrackIndex]?.name === preset.name;
-          return (
-            <button
-              key={preset.sunoId}
-              onClick={() => handleLoadPreset(preset)}
-              className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all cursor-pointer flex items-center gap-1 border ${
-                isCurrent 
-                  ? 'bg-cyan-500/20 text-cyan-200 border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.25)]' 
-                  : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10 hover:border-white/20'
-              }`}
-            >
-              {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />}
-              <span>{preset.name}</span>
-            </button>
-          );
-        })}
       </div>
 
       {/* Main Track List */}

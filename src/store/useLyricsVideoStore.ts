@@ -122,37 +122,23 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
         const tmpl = LYRIC_VIDEO_TEMPLATES[templateId];
         if (!tmpl) return;
 
-        const animStyle: 'karaoke' | 'fade' = tmpl.animations.wordAnimation === 'karaoke' ? 'karaoke' : 'fade';
+        const currentAspectRatio = useStore.getState().aspectRatio;
 
-        set({
+        set((s) => ({
           selectedTemplateId: templateId,
-          animationStyle: animStyle,
-          customBackground: {
-            type: tmpl.defaultBackground.type,
-            value: tmpl.defaultBackground.value
-          },
-          typographyOverride: {
-            fontFamily: tmpl.typography.fontFamily,
-            fontWeight: tmpl.typography.fontWeight,
-            fontSizeScale: tmpl.typography.fontSizeScale,
-            textColor: tmpl.typography.textColor,
-            activeWordColor: tmpl.typography.activeWordColor,
-            inactiveWordColor: tmpl.typography.inactiveWordColor,
-            glowColor: tmpl.typography.glowColor,
-            showContainerPill: tmpl.typography.showContainerPill,
-            pillBgColor: tmpl.typography.pillBgColor
-          },
+          visibleLineCount: tmpl.layout.maxLines || s.visibleLineCount || 2,
           artworkOverride: {
             style: tmpl.layout.artworkType,
             animation: tmpl.layout.artworkAnim,
-            sizeScale: 1.0
+            sizeScale: s.artworkOverride?.sizeScale ?? 1.0
           },
           animationOverride: {
             lineAnimation: tmpl.animations.lineAnimation,
             wordAnimation: tmpl.animations.wordAnimation,
             intensity: tmpl.animations.intensity
-          }
-        });
+          },
+          elementPositions: getDefaultPositions(currentAspectRatio, templateId)
+        }));
       },
 
       setSelectedBackgroundPresetId: (presetId) => {
@@ -200,7 +186,8 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
         elementPositions: { ...s.elementPositions, [key]: pos }
       })),
       resetElementPositions: (aspectRatio = '16:9') => {
-        set({ elementPositions: getDefaultPositions(aspectRatio) });
+        const currentTemplate = get().selectedTemplateId;
+        set({ elementPositions: getDefaultPositions(aspectRatio, currentTemplate) });
       },
 
       generateLyricsVideo: () => {
