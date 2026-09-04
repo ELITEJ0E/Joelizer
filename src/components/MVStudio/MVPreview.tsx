@@ -97,6 +97,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const aspectRatioVal = 
     aspectRatio === '9:16' ? '9/16' : 
     aspectRatio === '1:1' ? '1/1' : 
+    aspectRatio === '4:5' ? '4/5' :
     aspectRatio === '3:4' ? '3/4' : 
     aspectRatio === '4:3' ? '4/3' : '16/9';
 
@@ -126,8 +127,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         // Determine active video mode: prop takes priority over store
         const activeVideoMode = mode || lyricsVideoState.videoMode;
 
-        const curTime = storeState.currentTime;
         const playing = storeState.isPlaying;
+        const curTime = playing ? audioManager.getPreciseCurrentTime() : storeState.currentTime;
         const resOverride = storeState.exportResolutionOverride;
 
         // 1. Calculate Target Canvas Resolution
@@ -142,6 +143,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           targetH = baseRes;
         } else if (aspectRatio === '1:1') {
           targetW = baseRes;
+          targetH = baseRes;
+        } else if (aspectRatio === '4:5') {
+          targetW = baseRes * (4 / 5);
           targetH = baseRes;
         } else if (aspectRatio === '3:4') {
           targetW = baseRes * (3 / 4);
@@ -198,6 +202,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             {
               template: tmpl,
               aspectRatio: storeState.aspectRatio,
+              animationStyle: lyricsVideoState.animationStyle,
+              visibleLineCount: lyricsVideoState.visibleLineCount,
               customBackground: lyricsVideoState.customBackground,
               typographyOverride: lyricsVideoState.typographyOverride,
               artworkOverride: lyricsVideoState.artworkOverride,
@@ -527,10 +533,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           {/* Play/Pause Overlay Toggle on Click */}
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className="absolute inset-0 bg-transparent flex items-center justify-center group cursor-pointer"
+            className={`absolute inset-0 bg-transparent flex items-center justify-center group cursor-pointer z-10 ${showOverlay ? 'pointer-events-none [&>*]:pointer-events-auto' : ''}`}
           >
             {!isPlaying && (
-              <div className="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white backdrop-blur-sm group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white backdrop-blur-sm group-hover:scale-110 transition-transform cursor-pointer shadow-lg">
                 <Play size={20} className="ml-1" />
               </div>
             )}

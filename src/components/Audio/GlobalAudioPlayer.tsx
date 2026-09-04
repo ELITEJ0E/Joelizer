@@ -148,6 +148,27 @@ export function GlobalAudioPlayer() {
     }
   }, [isLooping]);
 
+  // High-frequency continuous clock sync during active playback (eliminates 250ms ontimeupdate stutter)
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    let animId: number;
+    let lastDispatchedTime = -1;
+
+    const tick = () => {
+      const preciseTime = audioManager.getPreciseCurrentTime();
+      // Only dispatch if time progressed by at least 15ms to keep UI performant
+      if (Math.abs(preciseTime - lastDispatchedTime) >= 0.015) {
+        lastDispatchedTime = preciseTime;
+        useStore.getState().setCurrentTime(preciseTime);
+      }
+      animId = requestAnimationFrame(tick);
+    };
+
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying]);
+
   // Sync MediaSession metadata and action handlers for browser/keyboard/bluetooth controls
   useEffect(() => {
     if ('mediaSession' in navigator) {

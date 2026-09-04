@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
+import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { Download, Music, Film, Sparkles, Disc3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
@@ -20,6 +21,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
     { id: '16:9', icon: '▭', label: '16:9' },
     { id: '9:16', icon: '▯', label: '9:16' },
     { id: '1:1', icon: '□', label: '1:1' },
+    { id: '4:5', icon: '▯', label: '4:5' },
     { id: '3:4', icon: '◧', label: '3:4' },
     { id: '4:3', icon: '◨', label: '4:3' },
   ];
@@ -168,7 +170,10 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           {ratios.map(ratio => (
             <button
               key={ratio.id}
-              onClick={() => setAspectRatio(ratio.id)}
+              onClick={() => {
+                setAspectRatio(ratio.id);
+                useLyricsVideoStore.getState().resetElementPositions(ratio.id);
+              }}
               title={`Switch aspect ratio to ${ratio.label}`}
               className={cn(
                 "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-bold uppercase transition-glass",
@@ -185,7 +190,14 @@ export function TopBar({ onExport }: { onExport: () => void }) {
 
         {/* Aspect Ratio Selector (Mobile - Shadcn Select) */}
         <div className="flex md:hidden shrink-0">
-          <Select value={aspectRatio} onValueChange={(val) => setAspectRatio(val as AspectRatio)}>
+          <Select 
+            value={aspectRatio} 
+            onValueChange={(val) => {
+              const ar = val as AspectRatio;
+              setAspectRatio(ar);
+              useLyricsVideoStore.getState().resetElementPositions(ar);
+            }}
+          >
             <SelectTrigger className="h-7 w-[72px] px-2 bg-white/[0.03] border-white/10 text-[9px] font-bold tracking-wider">
               <SelectValue />
             </SelectTrigger>

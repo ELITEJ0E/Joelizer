@@ -102,6 +102,50 @@ export class AudioContextManager {
     return this.audioEl ? this.audioEl.currentTime : 0;
   }
 
+  get element(): HTMLAudioElement | null {
+    return this.audioEl;
+  }
+
+  private lastAudioTime = 0;
+  private lastPerfTime = 0;
+
+  /**
+   * Returns a continuous, jitter-free audio playback timestamp.
+   * Interpolates smoothly between audio element updates using high-resolution performance.now()
+   * to provide 60/120Hz continuous time without 250ms stepping.
+   */
+  getPreciseCurrentTime(): number {
+    if (!this.audioEl) return 0;
+    if (this.audioEl.paused) {
+      this.lastAudioTime = this.audioEl.currentTime;
+      this.lastPerfTime = performance.now();
+      return this.audioEl.currentTime;
+    }
+
+    const curAudioTime = this.audioEl.currentTime;
+    const now = performance.now();
+
+    if (curAudioTime !== this.lastAudioTime) {
+      this.lastAudioTime = curAudioTime;
+      this.lastPerfTime = now;
+      return curAudioTime;
+    }
+
+    // Extrapolate between discrete audio hardware clock ticks
+    const dt = (now - this.lastPerfTime) / 1000;
+    const rate = this.audioEl.playbackRate || 1;
+    const extrapolated = this.lastAudioTime + dt * rate;
+
+    // Safety guard: clamp if drift exceeds 120ms
+    if (Math.abs(extrapolated - curAudioTime) > 0.12) {
+      this.lastAudioTime = curAudioTime;
+      this.lastPerfTime = now;
+      return curAudioTime;
+    }
+
+    return extrapolated;
+  }
+
   getMediaStream(): MediaStream | null {
     if (!this.ctx || !this.analyser) return null;
     if (!this.dest) {

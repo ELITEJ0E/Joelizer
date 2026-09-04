@@ -120,7 +120,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight }: Props) {
     }
   };
 
-  const keys: ElementKey[] = ['artwork', 'meta', 'lyrics', 'watermark'];
+  const keys: ElementKey[] = ['artwork', 'meta', 'lyrics', 'visualizer', 'watermark'];
 
   return (
     <div

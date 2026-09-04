@@ -1,42 +1,242 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES, ArtworkStyle, ArtworkAnimation, LineAnimation, WordAnimation } from '../lib/lyricsTemplates';
-import { BACKGROUND_PRESETS } from '../lib/lyricsBackgrounds';
-import { getDefaultLyricsElementPositions, clampNormalizedPosition, LyricsElementPositions } from '../lib/lyricsLayout';
+import { BACKGROUND_PRESETS, BackgroundPreset } from '../lib/lyricsBackgrounds';
+import { CanvasElementPositions, ElementPos, getDefaultPositions, DEFAULT_POSITIONS_16_9 } from '../lib/lyricsLayout';
 import { useMVStore } from './useMVStore';
+import { useStore } from './useStore';
 
-export interface ElementPos { x: number; y: number; }
-export type CanvasElementPositions = LyricsElementPositions;
+export type { ElementPos, CanvasElementPositions };
+
 export type VideoCreationMode = 'music-video' | 'lyrics-video';
+
 export interface LyricsVideoState {
-  videoMode: VideoCreationMode; selectedTemplateId: LyricTemplateId; selectedBackgroundPresetId: string;
-  selectedElement: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null; visibleLineCount: number;
+  videoMode: VideoCreationMode;
+  selectedTemplateId: LyricTemplateId;
+  selectedBackgroundPresetId: string;
+  selectedElement: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null;
+  visibleLineCount: number;
+
   elementPositions: CanvasElementPositions;
-  customBackground: { type: 'color'|'gradient'|'image'|'video'|'particles'|'blurred-artwork'|'waveform'; value: string; videoUrl?: string };
-  typographyOverride: { fontFamily:string; fontWeight:string; fontSizeScale:number; textColor:string; activeWordColor:string; inactiveWordColor:string; glowColor:string; showContainerPill:boolean; pillBgColor:string };
-  artworkOverride: { style:ArtworkStyle; animation:ArtworkAnimation; sizeScale:number };
-  animationOverride: { lineAnimation:LineAnimation; wordAnimation:WordAnimation; intensity:number };
-  showSafeArea:boolean; isAutoGenerating:boolean;
-  setVideoMode:(mode:VideoCreationMode)=>void; setSelectedTemplateId:(id:LyricTemplateId)=>void; setSelectedBackgroundPresetId:(id:string)=>void;
-  setCustomBackground:(bg:Partial<LyricsVideoState['customBackground']>)=>void; updateTypographyOverride:(u:Partial<LyricsVideoState['typographyOverride']>)=>void;
-  updateArtworkOverride:(u:Partial<LyricsVideoState['artworkOverride']>)=>void; updateAnimationOverride:(u:Partial<LyricsVideoState['animationOverride']>)=>void;
-  setShowSafeArea:(show:boolean)=>void; setSelectedElement:(el:LyricsVideoState['selectedElement'])=>void; setVisibleLineCount:(n:number)=>void;
-  setElementPosition:(key:keyof CanvasElementPositions,pos:ElementPos)=>void; resetElementPositions:(aspectRatio?:string)=>void; generateLyricsVideo:()=>void;
+  animationStyle: 'karaoke' | 'fade';
+  
+  customBackground: {
+    type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
+    value: string;
+    videoUrl?: string;
+  };
+
+  typographyOverride: {
+    fontFamily: string;
+    fontWeight: string;
+    fontSizeScale: number;
+    textColor: string;
+    activeWordColor: string;
+    inactiveWordColor: string;
+    glowColor: string;
+    showContainerPill: boolean;
+    pillBgColor: string;
+  };
+
+  artworkOverride: {
+    style: ArtworkStyle;
+    animation: ArtworkAnimation;
+    sizeScale: number;
+  };
+
+  animationOverride: {
+    lineAnimation: LineAnimation;
+    wordAnimation: WordAnimation;
+    intensity: number;
+  };
+
+  showSafeArea: boolean;
+  isAutoGenerating: boolean;
+
+  // Actions
+  setVideoMode: (mode: VideoCreationMode) => void;
+  setSelectedTemplateId: (templateId: LyricTemplateId) => void;
+  setSelectedBackgroundPresetId: (presetId: string) => void;
+  setCustomBackground: (bg: Partial<LyricsVideoState['customBackground']>) => void;
+  updateTypographyOverride: (updates: Partial<LyricsVideoState['typographyOverride']>) => void;
+  updateArtworkOverride: (updates: Partial<LyricsVideoState['artworkOverride']>) => void;
+  updateAnimationOverride: (updates: Partial<LyricsVideoState['animationOverride']>) => void;
+  setAnimationStyle: (style: 'karaoke' | 'fade') => void;
+  setShowSafeArea: (show: boolean) => void;
+  setSelectedElement: (el: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null) => void;
+  setVisibleLineCount: (count: number) => void;
+  setElementPosition: (key: keyof CanvasElementPositions, pos: ElementPos) => void;
+  resetElementPositions: (aspectRatio?: string) => void;
+  
+  // Magic Auto-Generator
+  generateLyricsVideo: () => void;
 }
 
-export const useLyricsVideoStore = create<LyricsVideoState>()(persist((set,get)=>({
-  videoMode:'lyrics-video', selectedTemplateId:'vinyl', selectedBackgroundPresetId:'sunset', selectedElement:null, visibleLineCount:2,
-  elementPositions:getDefaultLyricsElementPositions('16:9'),
-  customBackground:{type:'blurred-artwork',value:'#18181b'},
-  typographyOverride:{fontFamily:'Outfit',fontWeight:'700',fontSizeScale:1.05,textColor:'#fff',activeWordColor:'#fef08a',inactiveWordColor:'rgba(255,255,255,.7)',glowColor:'#eab308',showContainerPill:true,pillBgColor:'rgba(10,10,12,.85)'},
-  artworkOverride:{style:'vinyl',animation:'rotate',sizeScale:1}, animationOverride:{lineAnimation:'slide-up',wordAnimation:'karaoke',intensity:1}, showSafeArea:false,isAutoGenerating:false,
-  setVideoMode:(videoMode)=>set({videoMode}),
-  setSelectedTemplateId:(id)=>{const t=LYRIC_VIDEO_TEMPLATES[id];if(!t)return;set({selectedTemplateId:id,customBackground:{type:t.defaultBackground.type,value:t.defaultBackground.value},typographyOverride:{...t.typography},artworkOverride:{style:t.layout.artworkType,animation:t.layout.artworkAnim,sizeScale:1},animationOverride:{lineAnimation:t.animations.lineAnimation,wordAnimation:t.animations.wordAnimation,intensity:t.animations.intensity}})},
-  setSelectedBackgroundPresetId:(id)=>{const p=BACKGROUND_PRESETS.find(x=>x.id===id);if(p)set({selectedBackgroundPresetId:id,customBackground:{type:p.type,value:p.value}})},
-  setCustomBackground:(bg)=>set(s=>({customBackground:{...s.customBackground,...bg}})),
-  updateTypographyOverride:(u)=>set(s=>({typographyOverride:{...s.typographyOverride,...u}})), updateArtworkOverride:(u)=>set(s=>({artworkOverride:{...s.artworkOverride,...u}})), updateAnimationOverride:(u)=>set(s=>({animationOverride:{...s.animationOverride,...u}})),
-  setShowSafeArea:(showSafeArea)=>set({showSafeArea}), setSelectedElement:(selectedElement)=>set({selectedElement}), setVisibleLineCount:(visibleLineCount)=>set({visibleLineCount}),
-  setElementPosition:(key,pos)=>set(s=>({elementPositions:{...s.elementPositions,[key]:clampNormalizedPosition(pos)}})),
-  resetElementPositions:(aspectRatio='16:9')=>set({elementPositions:getDefaultLyricsElementPositions(aspectRatio)}),
-  generateLyricsVideo:()=>{set({isAutoGenerating:true});const a=useMVStore.getState().songAnalysis;const bpm=a?.bpm||120;const language=a?.language||'en';let id:LyricTemplateId='vinyl';if(bpm>130)id='vinyl-needle';else if(bpm<90)id='circle';else if(language==='ko'||language==='ja')id='cd-needle';else id=['vinyl','cd','square','circle','full','vinyl-needle','cd-needle'][Math.floor(Math.random()*7)] as LyricTemplateId;get().setSelectedTemplateId(id);setTimeout(()=>set({isAutoGenerating:false}),600)}
-}),{name:'lyrics-video-storage',storage:createJSONStorage(()=>sessionStorage)}));
+export const useLyricsVideoStore = create<LyricsVideoState>()(
+  persist(
+    (set, get) => ({
+      videoMode: 'lyrics-video',
+      selectedTemplateId: 'vinyl',
+      selectedBackgroundPresetId: 'sunset',
+      selectedElement: null,
+      visibleLineCount: 2,
+      elementPositions: DEFAULT_POSITIONS_16_9,
+      animationStyle: 'karaoke',
+
+      customBackground: {
+        type: 'blurred-artwork',
+        value: '#18181b',
+        videoUrl: undefined
+      },
+
+      typographyOverride: {
+        fontFamily: 'Outfit',
+        fontWeight: '700',
+        fontSizeScale: 1.05,
+        textColor: '#ffffff',
+        activeWordColor: '#fef08a',
+        inactiveWordColor: 'rgba(255, 255, 255, 0.7)',
+        glowColor: '#eab308',
+        showContainerPill: true,
+        pillBgColor: 'rgba(10, 10, 12, 0.85)'
+      },
+
+      artworkOverride: {
+        style: 'vinyl',
+        animation: 'rotate',
+        sizeScale: 1.0
+      },
+
+      animationOverride: {
+        lineAnimation: 'slide-up',
+        wordAnimation: 'karaoke',
+        intensity: 1.0
+      },
+
+      showSafeArea: false,
+      isAutoGenerating: false,
+
+      setVideoMode: (videoMode) => set({ videoMode }),
+
+      setSelectedTemplateId: (templateId) => {
+        const tmpl = LYRIC_VIDEO_TEMPLATES[templateId];
+        if (!tmpl) return;
+
+        const animStyle: 'karaoke' | 'fade' = tmpl.animations.wordAnimation === 'karaoke' ? 'karaoke' : 'fade';
+
+        set({
+          selectedTemplateId: templateId,
+          animationStyle: animStyle,
+          customBackground: {
+            type: tmpl.defaultBackground.type,
+            value: tmpl.defaultBackground.value
+          },
+          typographyOverride: {
+            fontFamily: tmpl.typography.fontFamily,
+            fontWeight: tmpl.typography.fontWeight,
+            fontSizeScale: tmpl.typography.fontSizeScale,
+            textColor: tmpl.typography.textColor,
+            activeWordColor: tmpl.typography.activeWordColor,
+            inactiveWordColor: tmpl.typography.inactiveWordColor,
+            glowColor: tmpl.typography.glowColor,
+            showContainerPill: tmpl.typography.showContainerPill,
+            pillBgColor: tmpl.typography.pillBgColor
+          },
+          artworkOverride: {
+            style: tmpl.layout.artworkType,
+            animation: tmpl.layout.artworkAnim,
+            sizeScale: 1.0
+          },
+          animationOverride: {
+            lineAnimation: tmpl.animations.lineAnimation,
+            wordAnimation: tmpl.animations.wordAnimation,
+            intensity: tmpl.animations.intensity
+          }
+        });
+      },
+
+      setSelectedBackgroundPresetId: (presetId) => {
+        const preset = BACKGROUND_PRESETS.find(p => p.id === presetId);
+        if (preset) {
+          set({
+            selectedBackgroundPresetId: presetId,
+            customBackground: {
+              type: preset.type,
+              value: preset.value
+            }
+          });
+        }
+      },
+
+      setCustomBackground: (bg) => set((s) => ({ customBackground: { ...s.customBackground, ...bg } })),
+
+      updateTypographyOverride: (updates) => set((s) => ({
+        typographyOverride: { ...s.typographyOverride, ...updates }
+      })),
+
+      updateArtworkOverride: (updates) => set((s) => ({
+        artworkOverride: { ...s.artworkOverride, ...updates }
+      })),
+
+      updateAnimationOverride: (updates) => set((s) => ({
+        animationOverride: { ...s.animationOverride, ...updates },
+        ...(updates.wordAnimation === 'karaoke' ? { animationStyle: 'karaoke' } : updates.wordAnimation === 'word-fade' ? { animationStyle: 'fade' } : {})
+      })),
+
+      setAnimationStyle: (style) => set((s) => ({
+        animationStyle: style,
+        animationOverride: {
+          ...s.animationOverride,
+          wordAnimation: style === 'karaoke' ? 'karaoke' : 'word-fade',
+          lineAnimation: style === 'fade' ? 'fade' : s.animationOverride.lineAnimation,
+        }
+      })),
+
+      setShowSafeArea: (showSafeArea) => set({ showSafeArea }),
+
+      setSelectedElement: (selectedElement) => set({ selectedElement }),
+      setVisibleLineCount: (visibleLineCount) => set({ visibleLineCount }),
+      setElementPosition: (key, pos) => set((s) => ({
+        elementPositions: { ...s.elementPositions, [key]: pos }
+      })),
+      resetElementPositions: (aspectRatio = '16:9') => {
+        set({ elementPositions: getDefaultPositions(aspectRatio) });
+      },
+
+      generateLyricsVideo: () => {
+        set({ isAutoGenerating: true });
+
+        const mvState = useMVStore.getState();
+        const mainState = useStore.getState();
+
+        const analysis = mvState.songAnalysis;
+        const bpm = analysis?.bpm || 120;
+        const language = analysis?.language || 'en';
+
+        // Intelligent template selection based on song profile
+        let targetTemplate: LyricTemplateId = 'vinyl';
+
+        if (bpm > 130) {
+          targetTemplate = 'vinyl-needle';
+        } else if (bpm < 90) {
+          targetTemplate = 'circle';
+        } else if (language === 'ko' || language === 'ja') {
+          targetTemplate = 'cd-needle';
+        } else {
+          const templates: LyricTemplateId[] = ['vinyl', 'cd', 'square', 'circle', 'full', 'vinyl-needle', 'cd-needle'];
+          targetTemplate = templates[Math.floor(Math.random() * templates.length)];
+        }
+
+        get().setSelectedTemplateId(targetTemplate);
+
+        setTimeout(() => {
+          set({ isAutoGenerating: false });
+        }, 600);
+      }
+    }),
+    {
+      name: 'lyrics-video-storage',
+      storage: createJSONStorage(() => sessionStorage)
+    }
+  )
+);

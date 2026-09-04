@@ -14,18 +14,21 @@ function cn(...inputs: ClassValue[]) {
 export interface VinylRecordProps {
   isPlaying: boolean;
   coverImage?: string;
+  currentTime?: number;
 }
 
-export const VinylRecord = memo(function VinylRecord({ isPlaying, coverImage }: VinylRecordProps) {
+export const VinylRecord = memo(function VinylRecord({ isPlaying, coverImage, currentTime }: VinylRecordProps) {
+  const rotationDeg = currentTime !== undefined ? ((currentTime / 1.8) * 360) % 360 : null;
+
   return (
     <div className="relative flex justify-center items-center py-6 group">
       {/* Outer Dynamic Glow */}
       <motion.div
         animate={{
-          scale: isPlaying ? [1, 1.05, 1] : 1,
-          opacity: isPlaying ? [0.3, 0.5, 0.3] : 0.1,
+          scale: isPlaying ? [1, 1.03, 1] : 1,
+          opacity: isPlaying ? [0.25, 0.45, 0.25] : 0.1,
         }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }}
         className="absolute w-[300px] h-[300px] sm:w-[340px] sm:h-[340px] rounded-full bg-white/20 blur-[60px] pointer-events-none"
       />
 
@@ -38,16 +41,15 @@ export const VinylRecord = memo(function VinylRecord({ isPlaying, coverImage }: 
       {/* The Vinyl Disc Frame */}
       <div className="relative w-[260px] h-[260px] sm:w-[300px] sm:h-[300px] rounded-full border border-black/80 shadow-[0_0_20px_rgba(0,0,0,0.8),inset_0_0_10px_rgba(0,0,0,0.9)] bg-neutral-900 pointer-events-none isolate">
         
-        {/* The Spinning Layer */}
+        {/* The Spinning Layer - 33⅓ RPM: 1 complete rotation every 1.8 seconds */}
         <div
           className="absolute inset-0 rounded-full overflow-hidden"
           style={{
-            animation: 'spin 3.5s linear infinite',
+            animation: rotationDeg === null ? 'spin 1.8s linear infinite' : undefined,
             animationPlayState: isPlaying ? 'running' : 'paused',
-            transform: 'translate3d(0, 0, 0)',
+            transform: rotationDeg !== null ? `rotate(${rotationDeg}deg)` : 'translate3d(0, 0, 0)',
             willChange: 'transform',
             backfaceVisibility: 'hidden',
-            perspective: 1000,
           }}
         >
           {/* Base Vinyl Color and Grooves */}
@@ -73,13 +75,9 @@ export const VinylRecord = memo(function VinylRecord({ isPlaying, coverImage }: 
              />
           </div>
 
-          {/* Center Label Area */}
+          {/* Center Label Area - Rotates synchronously with the record disc */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100px] h-[100px] sm:w-[120px] sm:h-[120px] rounded-full shadow-[0_0_15px_rgba(0,0,0,0.9)] border-[4px] border-zinc-800 bg-neutral-900 flex items-center justify-center z-10 overflow-hidden">
-            <motion.div 
-               className="w-full h-full relative"
-               animate={{ scale: isPlaying ? [1, 1.02, 1] : 1 }}
-               transition={{ duration: 0.5, repeat: Infinity, ease: 'linear' }}
-            >
+            <div className="w-full h-full relative">
               {coverImage ? (
                 <img src={coverImage} alt="Cover Artwork" className="w-full h-full object-cover opacity-95 pointer-events-none" referrerPolicy="no-referrer" />
               ) : (
@@ -90,7 +88,7 @@ export const VinylRecord = memo(function VinylRecord({ isPlaying, coverImage }: 
                    </div>
                 </div>
               )}
-            </motion.div>
+            </div>
             
             {/* Inner Ring effect on Label */}
             <div className="absolute inset-0 rounded-full border-[2px] border-white/5 shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] z-20 pointer-events-none" />
