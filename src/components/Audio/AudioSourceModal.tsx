@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
-import { X, Upload, Link2, Sparkles, Music, Check, Loader2, FileText, Disc3, Tag, Bot } from 'lucide-react';
+import { X, Upload, Link2, Music, Loader2, FileText, Disc3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
 
@@ -14,7 +14,7 @@ interface AudioSourceModalProps {
 }
 
 // Client-side direct audio probe fallback for static hosting / Vercel
-function probeDirectAudioUrl(inputUrl: string): Promise<{
+async function probeDirectAudioUrl(inputUrl: string): Promise<{
   id: string;
   title: string;
   artist: string;
@@ -26,6 +26,38 @@ function probeDirectAudioUrl(inputUrl: string): Promise<{
   duration?: number;
   source: string;
 } | null> {
+  // Check if Suno link with UUID
+  const uuidMatch = inputUrl.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (uuidMatch) {
+    const songId = uuidMatch[0].toLowerCase();
+    try {
+      const sunoRes = await fetch(`https://studio-api.prod.suno.com/api/feed/?ids=${songId}`, {
+        signal: AbortSignal.timeout(4000)
+      });
+      if (sunoRes.ok) {
+        const sunoJson: any = await sunoRes.json();
+        const clip = Array.isArray(sunoJson) ? sunoJson[0] : (sunoJson?.clips ? sunoJson.clips[0] : null);
+        if (clip) {
+          const artistName = clip.user_display_name || clip.user_handle || clip.display_name || clip.handle || clip.user_name || clip.metadata?.user_name || 'Creator';
+          return {
+            id: songId,
+            title: clip.title || 'Suno Track',
+            artist: artistName,
+            audioUrl: clip.audio_url || `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${songId}.m4a`,
+            proxiedAudioUrl: clip.audio_url || `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${songId}.m4a`,
+            imageUrl: clip.image_large_url || clip.image_url || `https://cdn2.suno.ai/image_large_${songId}.jpeg`,
+            lyrics: clip.metadata?.prompt || '',
+            tags: clip.metadata?.tags || '',
+            duration: clip.metadata?.duration || clip.duration || 180,
+            source: 'online'
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('Direct Suno client feed fetch error:', e);
+    }
+  }
+
   return new Promise((resolve) => {
     try {
       const audio = new Audio();
@@ -37,11 +69,30 @@ function probeDirectAudioUrl(inputUrl: string): Promise<{
       audio.onloadedmetadata = () => {
         clearTimeout(timer);
         const urlParts = inputUrl.split('/');
-        const rawFileName = urlParts[urlParts.length - 1].split('?')[0] || 'Audio Track';
-        const cleanName = decodeURIComponent(rawFileName).replace(/[-_]/g, ' ').replace(/\.[^/.]+$/, '');
+        const rawFileName = urlParts[urlParts.length - 1].split('?')[0] || '';
+        let cleanName = decodeURIComponent(rawFileName)
+          .replace(/[-_]/g, ' ')
+          .replace(/\.[^/.]+$/, '')
+          .trim();
+
+        if (!cleanName || cleanName.toLowerCase() === 'audio' || cleanName.toLowerCase() === 'track' || cleanName.length <= 1) {
+          try {
+            const parsedObj = new URL(inputUrl);
+            const pathSegments = parsedObj.pathname.split('/').filter(Boolean);
+            if (pathSegments.length > 1) {
+              const prev = decodeURIComponent(pathSegments[pathSegments.length - 2]).replace(/[-_]/g, ' ');
+              if (prev) cleanName = prev;
+            } else {
+              cleanName = parsedObj.hostname.replace(/^www\./, '');
+            }
+          } catch {
+            cleanName = 'Imported Song';
+          }
+        }
+
         resolve({
           id: `url-${Date.now()}`,
-          title: cleanName || 'Audio Stream',
+          title: cleanName || 'Imported Song',
           artist: 'Web Audio',
           audioUrl: inputUrl,
           proxiedAudioUrl: inputUrl,
@@ -166,7 +217,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
         if (res.ok && data && !data.error && data.audioUrl) {
           setSongInfo({
             ...data,
-            artist: (data.artist && data.artist !== 'Suno AI') ? data.artist : 'Online Artist',
+            artist: data.artist || 'Suno Artist',
             source: 'online'
           });
           return;
@@ -391,11 +442,11 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                   <button
                     onClick={() => handleFetchUrl()}
                     disabled={isLoading || !url.trim()}
-                    className="px-4 py-2.5 text-black font-bold uppercase text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-95 shadow-md"
+                    className="px-4 py-2.5 text-black font-bold uppercase text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-95 shadow-md"
                     style={{ backgroundColor: activeColor }}
                   >
-                    {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    <span>Fetch</span>
+                    {isLoading && <Loader2 size={14} className="animate-spin" />}
+                    <span>{isLoading ? 'Fetching...' : 'Fetch'}</span>
                   </button>
                 </div>
               </div>
@@ -434,31 +485,19 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                       {songInfo.artist && (
                         <p className="text-[11px] text-slate-400 font-mono truncate">By {songInfo.artist}</p>
                       )}
-
-                      {songInfo.tags && (
-                        <div className="flex items-center gap-1 text-[10px] font-mono text-slate-300 truncate">
-                          <Tag size={10} className="text-slate-500 shrink-0" />
-                          <span className="truncate">{songInfo.tags}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
 
                   {/* Lyrics Extraction status */}
-                  {songInfo.lyrics ? (
+                  {songInfo.lyrics && (
                     <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs font-mono text-emerald-300">
                       <div className="flex items-center gap-1.5">
                         <FileText size={13} className="text-emerald-400" />
-                        <span>Lyrics text extracted from audio source</span>
+                        <span>Lyrics text ready from audio source</span>
                       </div>
                       <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 font-bold">
                         Ready
                       </span>
-                    </div>
-                  ) : (
-                    <div className="p-2.5 rounded-lg bg-white/5 border border-white/10 flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
-                      <Bot size={13} className="text-slate-400" />
-                      <span>Lyrics will be transcribed automatically with Gemini AI audio analysis.</span>
                     </div>
                   )}
 
@@ -470,8 +509,8 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                       className="py-3 px-4 text-black font-bold uppercase text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 disabled:opacity-50 shadow-lg"
                       style={{ backgroundColor: activeColor }}
                     >
-                      {isApplying ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                      <span>⚡ Import & Auto-Transcribe</span>
+                      {isApplying && <Loader2 size={15} className="animate-spin" />}
+                      <span>Auto-Transcribe</span>
                     </button>
 
                     <button
@@ -479,8 +518,8 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                       disabled={isApplying}
                       className="py-3 px-4 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold uppercase text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
                     >
-                      {isApplying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                      <span>Load into Studio</span>
+                      {isApplying && <Loader2 size={15} className="animate-spin" />}
+                      <span>Load Audio Only</span>
                     </button>
                   </div>
                 </div>

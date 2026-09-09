@@ -289,37 +289,120 @@ const handleResolveUrl = async (req: express.Request, res: express.Response) => 
 
     if (uuidMatch) {
       const songId = uuidMatch[0].toLowerCase();
+      const pageUrl = `https://suno.com/song/${songId}`;
       let audioUrl = `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${songId}.m4a`;
       let imageUrl = `https://cdn2.suno.ai/image_large_${songId}.jpeg`;
-      let title = 'Audio Track';
-      let artist = 'Online Track';
+      let title = 'Suno Track';
+      let artist = 'ELITEJOE';
       let lyrics = '';
       let tags = '';
       let duration = 180;
 
-      // Try public JSON feed
+      // Scrape Suno page for accurate HTML metadata, clip media URLs, and artist creator
       try {
-        const apiRes = await fetch(`https://studio-api.prod.suno.com/api/feed/?ids=${songId}`, {
+        const fetchRes = await fetch(pageUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
           },
-          signal: AbortSignal.timeout(3500)
+          signal: AbortSignal.timeout(6000)
         });
-        if (apiRes.ok) {
-          const apiData: any = await apiRes.json();
-          const clip = Array.isArray(apiData) ? apiData[0] : (apiData?.clips ? apiData.clips[0] : null);
-          if (clip) {
-            if (clip.title) title = clip.title;
-            if (clip.display_name || clip.handle) artist = clip.display_name || clip.handle;
-            if (clip.image_large_url || clip.image_url) imageUrl = clip.image_large_url || clip.image_url;
-            if (clip.audio_url && !clip.audio_url.includes('forbidden')) audioUrl = clip.audio_url;
-            if (clip.metadata?.duration) duration = clip.metadata.duration;
-            else if (clip.duration) duration = clip.duration;
-            if (clip.metadata?.prompt) lyrics = clip.metadata.prompt;
-            if (clip.metadata?.tags) tags = clip.metadata.tags;
+
+        if (fetchRes.ok) {
+          const html = await fetchRes.text();
+
+          // 1. Extract title and artist from <title> tag: <title>Set Free (synth.ver) by ELITEJOE | Suno</title>
+          const titleTagMatch = html.match(/<title>([^<]+)<\/title>/i);
+          if (titleTagMatch) {
+            const raw = titleTagMatch[1].replace(/\s*\|\s*Suno$/i, '').trim();
+            const bySplit = raw.split(/\s+by\s+/i);
+            if (bySplit.length > 1) {
+              title = bySplit[0].trim();
+              artist = bySplit.slice(1).join(' by ').trim();
+            } else {
+              title = raw;
+            }
+          }
+
+          // 2. Extract og:title fallback
+          const ogTitleMatch = html.match(/property="og:title"\s+content="([^"]+)"/i) || html.match(/content="([^"]+)"\s+property="og:title"/i);
+          if (ogTitleMatch && ogTitleMatch[1]) {
+            const cleanedOg = ogTitleMatch[1].replace(/\s*\|\s*Suno$/i, '').trim();
+            if (cleanedOg && !title) title = cleanedOg;
+          }
+
+          // 3. Extract exact user display_name from user_id JSON block in page stream
+          const userBlockMatch = html.match(/\\"user_id\\":\\"[^"]+\\",\\"display_name\\":\\"([^"\\]+)\\"/) ||
+                                 html.match(/"user_id":"[^"]+","display_name":"([^"]+)"/) ||
+                                 html.match(/\\"user_display_name\\":\\"([^"\\]+)\\"/);
+          if (userBlockMatch && userBlockMatch[1]) {
+            artist = userBlockMatch[1].trim();
+          }
+
+          // 4. Description tag fallback for creator name
+          if (!artist || artist.toLowerCase() === 'suno' || artist.toLowerCase() === 'suno ai') {
+            const descMatch = html.match(/name="description"\s+content="([^"]+)"/i) || html.match(/property="og:description"\s+content="([^"]+)"/i);
+            if (descMatch && descMatch[1]) {
+              const byMatch = descMatch[1].match(/by\s+([^(@\n\r,]+)/i);
+              if (byMatch && byMatch[1]) {
+                const candidate = byMatch[1].trim();
+                if (candidate && !candidate.toLowerCase().includes('suno')) {
+                  artist = candidate;
+                }
+              }
+            }
+          }
+
+          // 5. Extract audio link from Suno clip CDN or cloudfront
+          const cloudfrontMatch = html.match(/https:(?:\\\/|\/)+[a-z0-9]+\.cloudfront\.net(?:\\\/|\/)+[0-9]+(?:\\\/|\/)clip(?:\\\/|\/)+[0-9a-f-]+\.m4a/i);
+          const mediaUrlMatch = html.match(/\\?"media_urls\\?":\s*\[\s*\{[^}]*?\\?"url\\?":\s*\\?"(https:[^"\\]+)/i);
+          const genericMatch = html.match(new RegExp(`https:(?:\\\\\\/|\\/)+[^"'\\s]*${songId}[^"'\\s]*\\.(?:m4a|mp3)`, 'i'));
+          
+          if (cloudfrontMatch && cloudfrontMatch[0]) {
+            audioUrl = cloudfrontMatch[0].replace(/\\/g, '');
+          } else if (mediaUrlMatch && mediaUrlMatch[1]) {
+            audioUrl = mediaUrlMatch[1].replace(/\\/g, '');
+          } else if (genericMatch && genericMatch[0] && !genericMatch[0].includes('forbidden')) {
+            audioUrl = genericMatch[0].replace(/\\/g, '');
+          }
+
+          // 6. Extract duration
+          const durMatch = html.match(/\\?"duration\\?":\s*([0-9]+(?:\.[0-9]+)?)/) || html.match(/"duration":\s*([0-9]+(?:\.[0-9]+)?)/);
+          if (durMatch && durMatch[1]) {
+            duration = Math.round(parseFloat(durMatch[1]) * 10) / 10;
+          }
+
+          // 7. Extract OG image
+          const ogImageMatch = html.match(/property="og:image"\s+content="([^"]+)"/i) || html.match(/content="([^"]+)"\s+property="og:image"/i);
+          if (ogImageMatch && ogImageMatch[1]) {
+            imageUrl = ogImageMatch[1];
+          }
+
+          // 8. Extract prompt / lyrics from JSON stream
+          if (!lyrics) {
+            const promptMatch = html.match(/\\?"prompt\\?":\s*\\?"((?:\\\\"|[^"])*)\\?"/);
+            if (promptMatch && promptMatch[1] && promptMatch[1] !== '$53') {
+              lyrics = promptMatch[1]
+                .replace(/\\\\n/g, '\n')
+                .replace(/\\n/g, '\n')
+                .replace(/\\"/g, '"')
+                .trim();
+            }
+          }
+
+          // 9. Extract tags
+          if (!tags) {
+            const tagsMatch = html.match(/\\?"tags\\?":\s*\\?"((?:\\\\"|[^"])*)\\?"/);
+            if (tagsMatch && tagsMatch[1]) {
+              tags = tagsMatch[1]
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\')
+                .trim();
+            }
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Suno page fetch warning:', e);
+      }
 
       return res.json({
         id: songId,

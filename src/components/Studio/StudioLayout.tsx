@@ -25,6 +25,9 @@ export function StudioLayout() {
   const audioFile = useStore(s => s.audioFile);
   const audioDuration = useStore(s => s.audioDuration);
   const audioUrl = useStore(s => s.audioUrl);
+  const tracks = useStore(s => s.tracks);
+  const currentTrackIndex = useStore(s => s.currentTrackIndex);
+  const currentTrack = tracks[currentTrackIndex] || (tracks.length > 0 ? tracks[0] : null);
   const setAudio = useStore(s => s.setAudio);
   const lyricsLines = useStore(s => s.lyricsSettings.lines);
   const updateLyricsSettings = useStore(s => s.updateLyricsSettings);
@@ -848,18 +851,6 @@ export function StudioLayout() {
                 <span className="text-[9px] text-slate-400 font-mono">Upload local file or paste audio link</span>
               </div>
             </button>
-
-            {audioFile ? (
-              <div className="bg-white/5 rounded-lg p-2.5 flex items-center gap-2.5 border border-white/10">
-                <Music size={16} style={{ color: activeColor }} />
-                <div className="overflow-hidden flex-1">
-                  <span className="text-xs font-bold text-white truncate block">{('name' in audioFile) ? (audioFile as File).name : 'Saved Track'}</span>
-                  <span className="text-[9px] text-slate-400 font-mono">{Math.round(audioDuration)}s • {(audioFile.size / (1024 * 1024)).toFixed(1)} MB</span>
-                </div>
-              </div>
-            ) : (
-              <div className="text-[10px] text-slate-500 text-center italic font-mono">No custom audio loaded</div>
-            )}
           </div>
 
           {/* 2. Upload Lyrics Section (Optional) */}
