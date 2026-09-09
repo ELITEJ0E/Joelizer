@@ -103,7 +103,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* 4. VISUALIZER OVERLAY */}
-      {(isVisualizerScene || showLyricsScene) && (
+      {(isVisualizerScene || showLyricsScene) && artwork?.style !== 'glowing-disc' && artwork?.style !== 'glowing-disc-needle' && (
         <VisualizerLayer 
           visualizer={visualizer} 
           currentTime={currentTime} 
@@ -304,6 +304,137 @@ function ArtworkLayer({
   const baseSize = Math.min(width, height) * (isPortrait ? 0.42 : 0.35) * scale;
   const isCD = artwork.style === 'cd' || artwork.style === 'cd-needle';
   const hasNeedle = artwork.style === 'vinyl-needle' || artwork.style === 'cd-needle';
+
+  if (artwork.style === 'glowing-disc' || artwork.style === 'glowing-disc-needle') {
+    const ringSize = baseSize * 1.05;
+    const discSize = baseSize * 0.94;
+    const hasNeedle = artwork.style === 'glowing-disc-needle';
+
+    return (
+      <div 
+        style={{
+          position: 'absolute',
+          left: `${pos.x * 100}%`,
+          top: `${pos.y * 100}%`,
+          transform: 'translate(-50%, -50%)',
+          width: ringSize,
+          height: ringSize,
+          borderRadius: '50%',
+          padding: '4px',
+          background: 'linear-gradient(135deg, #06b6d4 0%, #a855f7 50%, #ec4899 100%)',
+          boxShadow: '0 0 35px rgba(6, 182, 212, 0.45), 0 0 50px rgba(236, 72, 153, 0.35), inset 0 0 15px rgba(255,255,255,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10
+        }}
+      >
+        {/* Inner Dark Backdrop Circle */}
+        <div 
+          style={{
+            width: '100%',
+            height: '100%',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, #151624 0%, #0c0d16 70%, #07080e 100%)',
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          {/* Subtle inner circular border */}
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)' }} />
+
+          {/* Centered Rotating Vinyl Record */}
+          <div 
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              width: discSize,
+              height: discSize,
+              borderRadius: '50%',
+              transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+              background: 'radial-gradient(circle, #18181b 0%, #09090b 70%, #000000 100%)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.95), 0 0 15px rgba(255,255,255,0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '2px solid #27272a',
+              zIndex: 1
+            }}
+          >
+            {/* Concentric Vinyl Grooves */}
+            <div style={{ position: 'absolute', inset: '8%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)' }} />
+            <div style={{ position: 'absolute', inset: '18%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.06)' }} />
+            <div style={{ position: 'absolute', inset: '28%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.05)' }} />
+
+            {/* Centered Circular Song Thumbnail Label */}
+            <div 
+              style={{
+                width: '38%',
+                height: '38%',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                position: 'relative',
+                border: '2.5px solid rgba(255,255,255,0.85)',
+                boxShadow: '0 0 15px rgba(0,0,0,0.9)'
+              }}
+            >
+              {albumArt ? (
+                <Img src={albumArt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #ea580c, #f97316)' }} />
+              )}
+              {/* Spindle Hole */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '22%',
+                  height: '22%',
+                  borderRadius: '50%',
+                  backgroundColor: '#09090b',
+                  border: '1.5px solid rgba(255,255,255,0.4)'
+                }} 
+              />
+            </div>
+          </div>
+
+          {/* Tonearm / Needle (for Neon Vinyl & Needle) */}
+          {hasNeedle && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '-4%',
+                right: '-4%',
+                width: discSize * 0.55,
+                height: discSize * 0.70,
+                pointerEvents: 'none',
+                zIndex: 5
+              }}
+            >
+              <svg width="100%" height="100%" viewBox="0 0 100 130" fill="none">
+                {/* Pivot base */}
+                <circle cx="85" cy="18" r="14" fill="#18181b" stroke="#3f3f46" strokeWidth="2" />
+                <circle cx="85" cy="18" r="7" fill="#27272a" />
+                <circle cx="85" cy="18" r="3" fill="#e4e4e7" />
+                {/* Tone arm tube */}
+                <path d="M 85 18 Q 85 55 52 75 T 38 115" stroke="#d4d4d8" strokeWidth="4" strokeLinecap="round" />
+                <path d="M 85 18 Q 85 55 52 75 T 38 115" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+                {/* Headshell joint & headshell */}
+                <circle cx="38" cy="115" r="3" fill="#52525b" />
+                <rect x="28" y="114" width="12" height="15" rx="1.5" fill="#1a1a1a" stroke="#3f3f46" strokeWidth="1" transform="rotate(15 34 121)" />
+                <rect x="30" y="120" width="8" height="7" fill="#ef4444" transform="rotate(15 34 123)" />
+              </svg>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (artwork.style === 'vinyl' || artwork.style === 'vinyl-needle' || artwork.style === 'cd' || artwork.style === 'cd-needle') {
     return (

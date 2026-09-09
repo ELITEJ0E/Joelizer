@@ -17,6 +17,7 @@ export function SongListSection() {
   const removeTrack = useStore(s => s.removeTrack);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setAudio = useStore(s => s.setAudio);
+  const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const lyricsLines = useStore(s => s.lyricsSettings?.lines) || [];
 
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
@@ -92,9 +93,16 @@ export function SongListSection() {
       {/* Header with Title & Action Buttons */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Music2 size={15} className="text-cyan-400" />
+          <Music2 size={15} style={{ color: activeColor }} />
           <span className="text-xs font-black uppercase tracking-wider text-white">Song List</span>
-          <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">
+          <span
+            className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold border"
+            style={{
+              backgroundColor: `${activeColor}18`,
+              color: activeColor,
+              borderColor: `${activeColor}35`
+            }}
+          >
             {tracks.length}
           </span>
         </div>
@@ -116,13 +124,19 @@ export function SongListSection() {
             className="hidden" 
           />
 
-          {/* Import Suno / URL Modal Trigger */}
+          {/* Import Modal Trigger */}
           <button
             onClick={() => {
               audioManager.resume().catch(() => {});
               setIsAudioModalOpen(true);
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 hover:text-cyan-200 border border-cyan-500/40 text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_10px_rgba(6,182,212,0.15)]"
+            style={{
+              backgroundColor: `${activeColor}18`,
+              borderColor: `${activeColor}40`,
+              color: activeColor,
+              boxShadow: `0 0 10px ${activeColor}20`
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer hover:brightness-125"
           >
             <Plus size={13} strokeWidth={2.5} />
             <span>Import</span>
@@ -132,82 +146,115 @@ export function SongListSection() {
 
       {/* Main Track List */}
       <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-0.5 no-scrollbar">
-        {tracks.map((track, idx) => {
-          const isSelected = idx === currentTrackIndex;
-          const isThisPlaying = isSelected && isPlaying;
-          const cover = track.albumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&auto=format&fit=crop&q=80';
+        {tracks.length === 0 ? (
+          <div className="py-6 px-3 text-center rounded-xl border border-dashed border-white/10 bg-black/20">
+            <Music2 size={24} className="mx-auto text-slate-500 mb-2 opacity-60" />
+            <p className="text-xs font-semibold text-slate-400">No tracks in playlist</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Click "Import" to add an audio track</p>
+          </div>
+        ) : (
+          tracks.map((track, idx) => {
+            const isSelected = idx === currentTrackIndex;
+            const isThisPlaying = isSelected && isPlaying;
+            const cover = track.albumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&auto=format&fit=crop&q=80';
 
-          return (
-            <div
-              key={track.id || `track-${idx}`}
-              onClick={() => handleTrackClick(idx)}
-              className={`group relative flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer select-none ${
-                isSelected
-                  ? 'bg-gradient-to-r from-cyan-950/40 via-cyan-900/20 to-black/40 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.2)] ring-1 ring-cyan-500/30'
-                  : 'bg-black/30 hover:bg-white/5 border-white/5 hover:border-white/15'
-              }`}
-            >
-              {/* Thumbnail with Play/Pause Badge */}
-              <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-white/10 shadow-sm bg-black">
-                <img 
-                  src={cover} 
-                  alt={track.name} 
-                  className={`w-full h-full object-cover transition-transform duration-300 ${isThisPlaying ? 'scale-110' : 'group-hover:scale-105'}`}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&auto=format&fit=crop&q=80';
-                  }}
-                />
-                
-                {/* Play/Pause Overlay */}
-                <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${
-                  isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                }`}>
-                  {isThisPlaying ? (
-                    <div className="w-6 h-6 rounded-full bg-cyan-400 text-black flex items-center justify-center shadow-lg">
-                      <Pause size={12} fill="currentColor" />
-                    </div>
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-white/90 text-black flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                      <Play size={12} fill="currentColor" className="ml-0.5" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Animated Equalizer Indicator if playing */}
-                {isThisPlaying && (
-                  <div className="absolute bottom-1 right-1 flex items-end gap-[1.5px] h-3 px-1 rounded bg-black/60 backdrop-blur-xs">
-                    <span className="w-0.5 bg-cyan-400 rounded-full animate-[bounce_0.6s_infinite_ease-in-out]" style={{ height: '70%' }} />
-                    <span className="w-0.5 bg-cyan-400 rounded-full animate-[bounce_0.8s_infinite_ease-in-out_0.2s]" style={{ height: '100%' }} />
-                    <span className="w-0.5 bg-cyan-400 rounded-full animate-[bounce_0.7s_infinite_ease-in-out_0.4s]" style={{ height: '50%' }} />
+            return (
+              <div
+                key={track.id || `track-${idx}`}
+                onClick={() => handleTrackClick(idx)}
+                style={
+                  isSelected
+                    ? {
+                        backgroundColor: `${activeColor}15`,
+                        borderColor: `${activeColor}45`,
+                        boxShadow: `0 0 15px ${activeColor}15`
+                      }
+                    : undefined
+                }
+                className={`group relative flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer select-none ${
+                  isSelected
+                    ? 'ring-1 text-white'
+                    : 'bg-black/30 hover:bg-white/5 border-white/5 hover:border-white/15 text-slate-300'
+                }`}
+              >
+                {/* Thumbnail with Play/Pause Badge */}
+                <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-white/10 shadow-sm bg-black">
+                  <img 
+                    src={cover} 
+                    alt={track.name} 
+                    className={`w-full h-full object-cover transition-transform duration-300 ${isThisPlaying ? 'scale-110' : 'group-hover:scale-105'}`}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&auto=format&fit=crop&q=80';
+                    }}
+                  />
+                  
+                  {/* Play/Pause Overlay */}
+                  <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${
+                    isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}>
+                    {isThisPlaying ? (
+                      <div
+                        className="w-6 h-6 rounded-full text-black flex items-center justify-center shadow-lg"
+                        style={{ backgroundColor: activeColor }}
+                      >
+                        <Pause size={12} fill="currentColor" />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-white/90 text-black flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                        <Play size={12} fill="currentColor" className="ml-0.5" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Title & Metadata */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <p className={`text-xs font-bold truncate leading-tight ${isSelected ? 'text-cyan-300 font-extrabold' : 'text-white'}`}>
-                    {track.name}
-                  </p>
-                  {isSelected && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
+                  {/* Animated Equalizer Indicator if playing */}
+                  {isThisPlaying && (
+                    <div className="absolute bottom-1 right-1 flex items-end gap-[1.5px] h-3 px-1 rounded bg-black/60 backdrop-blur-xs">
+                      <span
+                        className="w-0.5 rounded-full animate-[bounce_0.6s_infinite_ease-in-out]"
+                        style={{ height: '70%', backgroundColor: activeColor }}
+                      />
+                      <span
+                        className="w-0.5 rounded-full animate-[bounce_0.8s_infinite_ease-in-out_0.2s]"
+                        style={{ height: '100%', backgroundColor: activeColor }}
+                      />
+                      <span
+                        className="w-0.5 rounded-full animate-[bounce_0.7s_infinite_ease-in-out_0.4s]"
+                        style={{ height: '50%', backgroundColor: activeColor }}
+                      />
+                    </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
-                  <span className="truncate max-w-[120px] font-medium">
-                    {track.artist || (track.isUserUploaded ? 'Uploaded' : 'Studio Track')}
-                  </span>
-                  <span>•</span>
-                  <span className="font-mono text-[9.5px]">
-                    {formatSecs(track.duration)}
-                  </span>
-                </div>
-              </div>
+                {/* Title & Metadata */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p
+                      className={`text-xs font-bold truncate leading-tight ${isSelected ? 'font-extrabold' : 'text-white'}`}
+                      style={isSelected ? { color: activeColor } : undefined}
+                    >
+                      {track.name}
+                    </p>
+                    {isSelected && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: activeColor }}
+                      />
+                    )}
+                  </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1 shrink-0">
-                {tracks.length > 1 && (
+                  <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
+                    <span className="truncate max-w-[120px] font-medium">
+                      {track.artist || (track.isUserUploaded ? 'Uploaded' : 'Studio Track')}
+                    </span>
+                    <span>•</span>
+                    <span className="font-mono text-[9.5px]">
+                      {formatSecs(track.duration)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -218,11 +265,11 @@ export function SongListSection() {
                   >
                     <Trash2 size={13} />
                   </button>
-                )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* Audio Source Modal */}
@@ -236,8 +283,9 @@ export function SongListSection() {
             .filter(l => l.length > 0 && !l.startsWith('[') && !l.endsWith(']'));
 
           if (rawLines.length > 0) {
-            const currentDur = useStore.getState().audioDuration || 180;
-            const lineDur = Math.min(4.5, currentDur / rawLines.length);
+            const track = tracks[currentTrackIndex];
+            const dur = track?.duration || 180;
+            const lineDur = Math.min(4.5, dur / rawLines.length);
             const generatedLines = rawLines.map((text, i) => ({
               id: `l_${i}_${Math.random().toString(36).substring(2, 6)}`,
               text,

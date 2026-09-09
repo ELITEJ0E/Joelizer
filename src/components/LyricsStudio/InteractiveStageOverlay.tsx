@@ -122,7 +122,11 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight }: Props) {
 
   const artworkStyle = useLyricsVideoStore(s => s.artworkOverride.style);
   const keys: ElementKey[] = (['artwork', 'meta', 'lyrics', 'visualizer', 'watermark'] as ElementKey[]).filter(
-    k => k !== 'artwork' || (artworkStyle !== 'none' && artworkStyle !== 'background-blur')
+    k => {
+      if (k === 'artwork') return artworkStyle !== 'none' && artworkStyle !== 'background-blur';
+      if (k === 'visualizer') return artworkStyle !== 'glowing-disc' && artworkStyle !== 'glowing-disc-needle';
+      return true;
+    }
   );
 
   return (

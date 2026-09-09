@@ -9,9 +9,11 @@ import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplate
 import { BACKGROUND_PRESETS } from '../../lib/lyricsBackgrounds';
 import { formatTime } from '../../lib/utils';
 import { SongListSection } from './SongListSection';
+import { SongListPopover } from '../Audio/SongListPopover';
 import {
   Play, Pause, Check, Upload, RotateCcw, RotateCw, Maximize2,
-  Sparkles, Type, Film, Image as ImageIcon, Music, Sliders, Palette
+  Sparkles, Type, Film, Image as ImageIcon, Music, Sliders, Palette,
+  SkipBack, SkipForward, Repeat
 } from 'lucide-react';
 
 export function LyricsVideoLayout() {
@@ -49,6 +51,10 @@ export function LyricsVideoLayout() {
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const isPlaying = useStore(s => s.isPlaying);
   const setIsPlaying = useStore(s => s.setIsPlaying);
+  const isLooping = useStore(s => s.isLooping);
+  const setIsLooping = useStore(s => s.setIsLooping);
+  const previousTrack = useStore(s => s.previousTrack);
+  const nextTrack = useStore(s => s.nextTrack);
   const audioDuration = useStore(s => s.audioDuration) || 180;
 
   const aspectRatio = useStore(s => s.aspectRatio);
@@ -67,8 +73,10 @@ export function LyricsVideoLayout() {
     { id: 'square' },
     { id: 'circle' },
     { id: 'vinyl' },
-    { id: 'cd' },
+    { id: 'glowing-disc' },
     { id: 'vinyl-needle' },
+    { id: 'glowing-disc-needle' },
+    { id: 'cd' },
     { id: 'cd-needle' },
   ];
 
@@ -195,36 +203,59 @@ export function LyricsVideoLayout() {
                       )}
 
                       {layout.id === 'circle' && (
-                        <div className="w-10 h-10 rounded-full overflow-hidden shadow-lg mb-2 relative">
+                        <div className="w-10 h-10 rounded-full overflow-hidden shadow-lg mb-2 relative border border-white/20">
                            <img src={albumArt} alt="" className="w-full h-full object-cover" />
                         </div>
                       )}
 
+                      {(layout.id === 'glowing-disc' || layout.id === 'glowing-disc-needle') && (
+                        <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-pink-500 via-purple-500 to-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.6)] mb-2 relative flex items-center justify-center">
+                          <div className="w-full h-full rounded-full bg-[#111114] relative overflow-hidden flex items-center justify-center border border-white/10">
+                            <div className="absolute inset-1 rounded-full border border-white/10"></div>
+                            <div className="w-4 h-4 rounded-full overflow-hidden relative z-10 border border-white/60 shadow">
+                              <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                            </div>
+                            {layout.id === 'glowing-disc-needle' && (
+                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#e4e4e7] rounded-tr-lg z-20 origin-top-right rotate-12 shadow">
+                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#18181b] rounded-xs border border-white/20">
+                                  <div className="w-full h-1 bg-[#ef4444] rounded-xs"></div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {(layout.id === 'vinyl' || layout.id === 'vinyl-needle') && (
-                        <div className="w-12 h-12 rounded-full bg-[#111] shadow-xl mb-2 relative flex items-center justify-center border border-white/10">
+                        <div className="w-12 h-12 rounded-full bg-[#111] shadow-xl mb-2 relative flex items-center justify-center border border-white/15">
                            <div className="absolute inset-1 rounded-full border border-white/10"></div>
                            <div className="absolute inset-2 rounded-full border border-white/10"></div>
-                           <div className="w-4 h-4 rounded-full overflow-hidden relative z-10">
+                           <div className="w-4 h-4 rounded-full overflow-hidden relative z-10 border border-white/60 shadow">
                               <img src={albumArt} alt="" className="w-full h-full object-cover" />
                            </div>
                            {layout.id === 'vinyl-needle' && (
-                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#a3a3a3] rounded-tr-lg z-20 origin-top-right rotate-12">
-                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#404040] rounded-sm"></div>
+                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#e4e4e7] rounded-tr-lg z-20 origin-top-right rotate-12 shadow">
+                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#18181b] rounded-xs border border-white/20">
+                                  <div className="w-full h-1 bg-[#ef4444] rounded-xs"></div>
+                                </div>
                               </div>
                            )}
                         </div>
                       )}
 
                       {(layout.id === 'cd' || layout.id === 'cd-needle') && (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-pink-500 via-cyan-400 to-emerald-400 shadow-[0_0_10px_rgba(255,255,255,0.4)] mb-2 relative flex items-center justify-center">
-                           <div className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center backdrop-blur-sm">
-                             <div className="w-10 h-10 rounded-full overflow-hidden relative z-10">
+                        <div className="w-12 h-12 rounded-full p-[1.5px] bg-gradient-to-tr from-cyan-400 via-pink-400 to-emerald-400 shadow-[0_0_8px_rgba(255,255,255,0.3)] mb-2 relative flex items-center justify-center">
+                           <div className="w-full h-full rounded-full bg-[#18181f] relative overflow-hidden flex items-center justify-center">
+                             <div className="w-5 h-5 rounded-full overflow-hidden border border-white/30 shadow">
                                 <img src={albumArt} alt="" className="w-full h-full object-cover" />
                              </div>
+                             <div className="w-2 h-2 rounded-full bg-black/80 border border-white/30 absolute"></div>
                            </div>
                            {layout.id === 'cd-needle' && (
-                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#e5e5e5] rounded-tr-lg z-20 origin-top-right rotate-12 shadow">
-                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#525252] rounded-sm"></div>
+                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#e4e4e7] rounded-tr-lg z-20 origin-top-right rotate-12 shadow">
+                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#18181b] rounded-xs border border-white/20">
+                                  <div className="w-full h-1 bg-[#ef4444] rounded-xs"></div>
+                                </div>
                               </div>
                            )}
                         </div>
@@ -501,21 +532,78 @@ export function LyricsVideoLayout() {
           </div>
 
           {/* BOTTOM VISUALIZER RANGE DISPLAY PLAYER */}
-          <div className="bg-[#08080c] border-t border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between gap-3 sm:gap-4 shrink-0 z-30">
+          <div className="bg-[#08080c] border-t border-white/10 px-3 sm:px-6 py-2.5 sm:py-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-4 shrink-0 z-30 min-h-[64px]">
             
-            {/* Circular Play / Pause Button */}
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer shrink-0"
-              title={isPlaying ? "Pause" : "Play"}
-            >
-              {isPlaying ? <Pause size={20} fill="black" /> : <Play size={20} fill="black" className="ml-0.5" />}
-            </button>
+            {/* Transport & Playlist Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Song List Dropdown / Popup */}
+              <SongListPopover align="left" />
+
+              <div className="h-6 w-[1px] bg-white/10 mx-0.5" />
+
+              {/* Previous Track Button */}
+              <button
+                onClick={previousTrack}
+                className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 active:scale-95"
+                title="Previous Track"
+              >
+                <SkipBack size={16} />
+              </button>
+
+              {/* Circular Play / Pause Button */}
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer shrink-0"
+                title={isPlaying ? "Pause" : "Play"}
+              >
+                {isPlaying ? <Pause size={18} fill="black" /> : <Play size={18} fill="black" className="ml-0.5" />}
+              </button>
+
+              {/* Next Track Button */}
+              <button
+                onClick={nextTrack}
+                className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 active:scale-95"
+                title="Next Track"
+              >
+                <SkipForward size={16} />
+              </button>
+
+              {/* Looping / Repeat Button */}
+              <button
+                onClick={() => setIsLooping(!isLooping)}
+                style={
+                  isLooping
+                    ? {
+                        backgroundColor: `${activeColor}20`,
+                        borderColor: `${activeColor}40`,
+                        color: activeColor,
+                        boxShadow: `0 0 12px ${activeColor}30`
+                      }
+                    : undefined
+                }
+                className={`p-1.5 sm:p-2 rounded-lg transition-all cursor-pointer shrink-0 relative active:scale-95 ${
+                  isLooping
+                    ? 'border font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+                title={isLooping ? "Disable Loop" : "Enable Loop (Repeat Current Song)"}
+              >
+                <Repeat size={15} />
+                {isLooping && (
+                  <span
+                    className="absolute -top-1 -right-1 w-3.5 h-3.5 text-black text-[9px] font-black rounded-full flex items-center justify-center shadow"
+                    style={{ backgroundColor: activeColor }}
+                  >
+                    1
+                  </span>
+                )}
+              </button>
+            </div>
 
             {/* Visualizer Range Display Timeline Scrubber */}
             <div 
               onClick={handleWaveformScrub}
-              className="flex-1 h-12 bg-black/80 rounded-xl border border-white/10 px-3 flex items-center gap-3 cursor-pointer relative group overflow-hidden select-none"
+              className="flex-1 min-w-[160px] h-11 sm:h-12 bg-black/80 rounded-xl border border-white/10 px-3 flex items-center gap-2.5 sm:gap-3 cursor-pointer relative group overflow-hidden select-none"
             >
               {/* AUD Badge */}
               <div className="flex items-center gap-1 font-mono text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded border border-emerald-500/40 shrink-0 shadow">
@@ -524,7 +612,7 @@ export function LyricsVideoLayout() {
               </div>
 
               {/* Waveform Bars Container */}
-              <div className="flex-1 h-8 flex items-center gap-[2px] relative">
+              <div className="flex-1 h-7 sm:h-8 flex items-center gap-[2px] relative">
                 {WAVEFORM_BARS.map((height, idx) => {
                   const barRatio = idx / WAVEFORM_BARS.length;
                   const isPlayed = barRatio <= playbackProgress;
@@ -543,7 +631,7 @@ export function LyricsVideoLayout() {
               </div>
 
               {/* Time readout */}
-              <div className="text-[11px] font-mono font-bold text-slate-300 bg-black/60 px-2.5 py-1 rounded border border-white/10 shrink-0">
+              <div className="text-[10px] sm:text-[11px] font-mono font-bold text-slate-300 bg-black/60 px-2 sm:px-2.5 py-1 rounded border border-white/10 shrink-0">
                 {formatTime(currentTime)} / {formatTime(audioDuration)}
               </div>
             </div>

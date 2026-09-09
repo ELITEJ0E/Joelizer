@@ -7,9 +7,11 @@ export type LyricTemplateId =
   | 'vinyl'
   | 'cd'
   | 'vinyl-needle'
-  | 'cd-needle';
+  | 'cd-needle'
+  | 'glowing-disc'
+  | 'glowing-disc-needle';
 
-export type ArtworkStyle = 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'floating' | 'framed' | 'background-blur';
+export type ArtworkStyle = 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'glowing-disc-needle' | 'floating' | 'framed' | 'background-blur';
 export type ArtworkAnimation = 'none' | 'rotate' | 'scale-beat' | 'pulse' | 'float' | 'bounce';
 export type LyricPosition = 'center' | 'bottom' | 'top' | 'split';
 export type LyricAlignment = 'left' | 'center' | 'right';
@@ -141,5 +143,19 @@ export const LYRIC_VIDEO_TEMPLATES: Record<LyricTemplateId, LyricVideoTemplate> 
     typography: { fontFamily: 'Space Grotesk', fontWeight: '800', fontSizeScale: 1.1, textColor: '#ffffff', activeWordColor: '#22d3ee', inactiveWordColor: 'rgba(255, 255, 255, 0.5)', glowColor: '#0891b2', shadowColor: 'rgba(6, 182, 212, 0.9)', showContainerPill: true, pillBgColor: 'rgba(8, 51, 68, 0.75)' },
     animations: { lineAnimation: 'slide-right', wordAnimation: 'word-glow', intensity: 1.5 },
     defaultBackground: { type: 'particles', presetName: 'Neon', value: '#083344' }
+  },
+  'glowing-disc': {
+    id: 'glowing-disc', name: 'Neon Vinyl', description: '', category: 'Modern', previewColor: '#06b6d4', badge: 'Popular',
+    layout: { lyricPosition: 'bottom', lyricAlignment: 'center', maxLines: 2, showNextLine: true, showPrevLine: false, artworkType: 'glowing-disc', artworkPosition: 'top-center', artworkAnim: 'rotate', showSongTitle: true, showArtist: true, titlePosition: 'below-artwork' },
+    typography: { fontFamily: 'Outfit', fontWeight: '800', fontSizeScale: 1.1, textColor: '#ffffff', activeWordColor: '#38bdf8', inactiveWordColor: 'rgba(255, 255, 255, 0.65)', glowColor: '#06b6d4', shadowColor: 'rgba(0, 0, 0, 0.95)', showContainerPill: true, pillBgColor: 'rgba(12, 12, 18, 0.85)' },
+    animations: { lineAnimation: 'slide-up', wordAnimation: 'karaoke', intensity: 1.1 },
+    defaultBackground: { type: 'gradient', presetName: 'Cyberpunk', value: 'linear-gradient(135deg, #090a14 0%, #171026 50%, #080b18 100%)' }
+  },
+  'glowing-disc-needle': {
+    id: 'glowing-disc-needle', name: 'Neon Vinyl & Needle', description: '', category: 'Modern', previewColor: '#ec4899', badge: 'Popular',
+    layout: { lyricPosition: 'bottom', lyricAlignment: 'center', maxLines: 2, showNextLine: true, showPrevLine: false, artworkType: 'glowing-disc-needle', artworkPosition: 'top-center', artworkAnim: 'rotate', showSongTitle: true, showArtist: true, titlePosition: 'below-artwork' },
+    typography: { fontFamily: 'Outfit', fontWeight: '800', fontSizeScale: 1.1, textColor: '#ffffff', activeWordColor: '#f472b6', inactiveWordColor: 'rgba(255, 255, 255, 0.65)', glowColor: '#db2777', shadowColor: 'rgba(0, 0, 0, 0.95)', showContainerPill: true, pillBgColor: 'rgba(12, 12, 18, 0.85)' },
+    animations: { lineAnimation: 'slide-up', wordAnimation: 'karaoke', intensity: 1.1 },
+    defaultBackground: { type: 'gradient', presetName: 'Cyberpunk', value: 'linear-gradient(135deg, #090a14 0%, #171026 50%, #080b18 100%)' }
   }
 };

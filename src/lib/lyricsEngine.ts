@@ -179,8 +179,11 @@ export function renderLyricsVideoFrame(
     lyricsPos
   );
 
-  // 5. Render Horizontal Segment Dots Indicator Row below lyrics
-  renderSegmentDots(ctx, W, H, visualizerPos, audioFrequencyData);
+  // 5. Render Horizontal Segment Dots Indicator Row below lyrics (omitted on neon layouts with glowing ring)
+  const isNeonLayout = artStyle === 'glowing-disc' || artStyle === 'glowing-disc-needle';
+  if (!isNeonLayout) {
+    renderSegmentDots(ctx, W, H, visualizerPos, audioFrequencyData);
+  }
 
   // 6. Render Watermark text
   renderWatermarkText(ctx, W, H, config.watermarkText || 'Made with Joelizer', watermarkPos);
@@ -189,6 +192,36 @@ export function renderLyricsVideoFrame(
   if (config.showSafeArea) {
     renderSafeAreaGuide(ctx, W, H);
   }
+}
+
+// Draw image with object-fit: cover aspect ratio matching
+function drawCoverImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  dx: number,
+  dy: number,
+  dWidth: number,
+  dHeight: number
+) {
+  if (!img || !img.complete || img.naturalWidth <= 0 || img.naturalHeight <= 0) return;
+  const nw = img.naturalWidth;
+  const nh = img.naturalHeight;
+  const targetAspect = dWidth / dHeight;
+  const srcAspect = nw / nh;
+  let sx = 0;
+  let sy = 0;
+  let sw = nw;
+  let sh = nh;
+
+  if (srcAspect > targetAspect) {
+    sw = nh * targetAspect;
+    sx = (nw - sw) / 2;
+  } else {
+    sh = nw / targetAspect;
+    sy = (nh - sh) / 2;
+  }
+
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dWidth, dHeight);
 }
 
 // Render Vinyl Record & Artwork Styles
@@ -359,7 +392,7 @@ function renderArtworkObject(
     ctx.clip();
 
     if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, -labelRadius, -labelRadius, labelRadius * 2, labelRadius * 2);
+      drawCoverImage(ctx, img, -labelRadius, -labelRadius, labelRadius * 2, labelRadius * 2);
     } else {
       ctx.fillStyle = '#18181b';
       ctx.fillRect(-labelRadius, -labelRadius, labelRadius * 2, labelRadius * 2);
@@ -520,6 +553,201 @@ function renderArtworkObject(
 
       ctx.restore();
     }
+  } else if (artStyle === 'glowing-disc' || artStyle === 'glowing-disc-needle') {
+    // --- GLOWING NEON CIRCLE WITH CENTERED VINYL RECORD & CENTER THUMBNAIL ---
+    const recordRadius = (size / 2) * 0.94;
+    const ringRadius = (size / 2) * 1.05;
+    const hasNeedle = artStyle === 'glowing-disc-needle';
+
+    // 1. Draw Outer Glowing Neon Gradient Ring (Cyan -> Violet -> Pink)
+    ctx.save();
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = 'rgba(6, 182, 212, 0.85)';
+
+    const ringGrad = ctx.createLinearGradient(-ringRadius, -ringRadius, ringRadius, ringRadius);
+    ringGrad.addColorStop(0, '#06b6d4');   // Cyan at top-left
+    ringGrad.addColorStop(0.5, '#a855f7'); // Purple in middle
+    ringGrad.addColorStop(1, '#ec4899');   // Pink at bottom-right
+
+    ctx.strokeStyle = ringGrad;
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Secondary Pink/Magenta glow pass for vibrant neon emission
+    ctx.shadowBlur = 40;
+    ctx.shadowColor = 'rgba(236, 72, 153, 0.6)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // 2. Inner Circular Dark Backdrop
+    ctx.beginPath();
+    ctx.arc(0, 0, ringRadius - 2, 0, Math.PI * 2);
+    const bgGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, ringRadius);
+    bgGrad.addColorStop(0, '#151624');
+    bgGrad.addColorStop(0.7, '#0c0d16');
+    bgGrad.addColorStop(1, '#07080e');
+    ctx.fillStyle = bgGrad;
+    ctx.fill();
+
+    // 3. Draw Centered Rotating Vinyl Disc
+    ctx.save();
+    ctx.rotate(rotAngle);
+
+    // Drop shadow for the vinyl
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+
+    // Vinyl Disc Base
+    const vinylGrad = ctx.createRadialGradient(0, 0, recordRadius * 0.1, 0, 0, recordRadius);
+    vinylGrad.addColorStop(0, '#111111');
+    vinylGrad.addColorStop(0.5, '#292929');
+    vinylGrad.addColorStop(1, '#050505');
+    ctx.fillStyle = vinylGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Concentric Microgrooves
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    for (let r = recordRadius * 0.44; r < recordRadius * 0.94; r += 4.5) {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Specular Reflection / Sheen
+    const sheenGrad = ctx.createLinearGradient(-recordRadius, -recordRadius, recordRadius, recordRadius);
+    sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.16)');
+    sheenGrad.addColorStop(0.5, 'transparent');
+    sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0.10)');
+    ctx.fillStyle = sheenGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, recordRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. Centered Circular Song Thumbnail
+    const labelRadius = recordRadius * 0.38;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, labelRadius, 0, Math.PI * 2);
+    ctx.clip();
+
+    if (img && img.complete && img.naturalWidth > 0) {
+      drawCoverImage(ctx, img, -labelRadius, -labelRadius, labelRadius * 2, labelRadius * 2);
+    } else {
+      const fallbackGrad = ctx.createLinearGradient(-labelRadius, -labelRadius, labelRadius, labelRadius);
+      fallbackGrad.addColorStop(0, '#ea580c');
+      fallbackGrad.addColorStop(1, '#f97316');
+      ctx.fillStyle = fallbackGrad;
+      ctx.fillRect(-labelRadius, -labelRadius, labelRadius * 2, labelRadius * 2);
+    }
+    ctx.restore(); // restore thumbnail clip
+
+    // Circular Center Label Outer Rim
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, labelRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Spindle Hole
+    ctx.fillStyle = '#09090b';
+    ctx.beginPath();
+    ctx.arc(0, 0, labelRadius * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.restore(); // restore rotating disc transform
+    ctx.restore(); // restore neon ring save
+
+    // 5. Tonearm / Needle (for Neon Vinyl & Needle)
+    if (hasNeedle) {
+      ctx.save();
+      const pivotX = recordRadius * 0.90;
+      const pivotY = -recordRadius * 0.85;
+      ctx.translate(pivotX, pivotY);
+
+      // Pivot Base
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.fillStyle = '#18181b';
+      ctx.fill();
+      ctx.strokeStyle = '#3f3f46';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Arm Body Tube
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(0, recordRadius * 0.45, -recordRadius * 0.45, recordRadius * 0.65, -recordRadius * 0.60, recordRadius * 1.10);
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = '#d4d4d8';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Tube Highlight
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(0, recordRadius * 0.45, -recordRadius * 0.45, recordRadius * 0.65, -recordRadius * 0.60, recordRadius * 1.10);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+
+      // Headshell Joint
+      ctx.fillStyle = '#52525b';
+      ctx.beginPath();
+      ctx.arc(-recordRadius * 0.60, recordRadius * 1.10, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Dark Matte Headshell
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath();
+      ctx.rect(-recordRadius * 0.65, recordRadius * 1.12, 12, 18);
+      ctx.fill();
+      ctx.strokeStyle = '#3f3f46';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Red Cartridge Accent (#ef4444)
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(-recordRadius * 0.63, recordRadius * 1.20, 8, 10);
+
+      // Micro Stylus / Needle Point
+      ctx.fillStyle = '#d4d4d8';
+      ctx.beginPath();
+      ctx.moveTo(-recordRadius * 0.61, recordRadius * 1.30);
+      ctx.lineTo(-recordRadius * 0.57, recordRadius * 1.30);
+      ctx.lineTo(-recordRadius * 0.59, recordRadius * 1.36);
+      ctx.closePath();
+      ctx.fill();
+
+      // Pivot Base Cap
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, Math.PI * 2);
+      ctx.fillStyle = '#27272a';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#e4e4e7';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#18181b';
+      ctx.fill();
+
+      ctx.restore();
+    }
   } else if (artStyle === 'circle') {
     // --- CIRCULAR ALBUM ARTWORK CONTAINER ---
     const half = size / 2;
@@ -540,7 +768,7 @@ function renderArtworkObject(
     ctx.clip();
 
     if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, -half, -half, size, size);
+      drawCoverImage(ctx, img, -half, -half, size, size);
     } else {
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(-half, -half, size, size);
@@ -583,7 +811,7 @@ function renderArtworkObject(
     ctx.clip();
 
     if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, -half, -half, size, size);
+      drawCoverImage(ctx, img, -half, -half, size, size);
     } else {
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(-half, -half, size, size);

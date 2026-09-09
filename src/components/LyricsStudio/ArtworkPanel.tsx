@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
-import { ArtworkStyle, ArtworkAnimation } from '../../lib/lyricsTemplates';
+import { ArtworkStyle, ArtworkAnimation, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { Disc, Circle, Square, Radio, Sparkles, Activity, Image as ImageIcon, Upload, Check } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 
@@ -12,6 +12,7 @@ export function ArtworkPanel() {
 
   const artwork = useLyricsVideoStore(s => s.artworkOverride);
   const updateArtwork = useLyricsVideoStore(s => s.updateArtworkOverride);
+  const setSelectedTemplateId = useLyricsVideoStore(s => s.setSelectedTemplateId);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,12 +37,14 @@ export function ArtworkPanel() {
   };
 
   const styles: { id: ArtworkStyle; name: string; icon: React.ReactNode }[] = [
+    { id: 'glowing-disc', name: 'Neon Vinyl', icon: <Radio size={16} className="text-cyan-400" /> },
+    { id: 'glowing-disc-needle', name: 'Neon Vinyl & Needle', icon: <Radio size={16} className="text-pink-400" /> },
     { id: 'vinyl', name: 'Vinyl Record', icon: <Disc size={16} /> },
+    { id: 'vinyl-needle', name: 'Vinyl & Needle', icon: <Disc size={16} className="text-amber-400" /> },
     { id: 'cd', name: 'Holo CD', icon: <Disc size={16} className="text-purple-400" /> },
-    { id: 'glowing-disc', name: 'Glow Disc', icon: <Radio size={16} className="text-sky-400" /> },
+    { id: 'cd-needle', name: 'CD & Needle', icon: <Disc size={16} className="text-sky-400" /> },
     { id: 'circle', name: 'Circle', icon: <Circle size={16} /> },
     { id: 'square', name: 'Square', icon: <Square size={16} /> },
-    { id: 'framed', name: 'Framed Card', icon: <Square size={16} className="rounded-sm" /> },
     { id: 'none', name: 'Hidden', icon: <span className="text-xs">Off</span> }
   ];
 
@@ -141,7 +144,12 @@ export function ArtworkPanel() {
             return (
               <button
                 key={st.id}
-                onClick={() => updateArtwork({ style: st.id })}
+                onClick={() => {
+                  updateArtwork({ style: st.id });
+                  if (st.id in LYRIC_VIDEO_TEMPLATES) {
+                    setSelectedTemplateId(st.id as any);
+                  }
+                }}
                 className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-white/15 border-white text-white shadow-md'

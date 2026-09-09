@@ -4,7 +4,8 @@ import {
   Upload, Music, FileText, Play, Pause, RotateCcw, Download, Sparkles, 
   Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight,
   Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, SlidersHorizontal, Activity, AudioLines, ArrowUpRight, ListMusic, XCircle,
-  Copy, Check, Package, X, PanelLeftClose, PanelLeftOpen, Link2, Globe
+  Copy, Check, Package, X, PanelLeftClose, PanelLeftOpen, Link2, Globe,
+  SkipBack, SkipForward, Repeat
 } from 'lucide-react';
 import { cn, formatTime } from '../../lib/utils';
 import { Scrubber } from '../ui/scrubber';
@@ -16,6 +17,7 @@ import { LyricLineWithWords, ProcessingProgress, ExportFormat, SongAnalysis } fr
 import { generateLRC, generateEnhancedLRC, generateSRT, generateASS, generateJSON, generateTXT, generateZIP, downloadFile, formatLRCStamp } from '../../lib/lyricExporters';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
+import { SongListPopover } from '../Audio/SongListPopover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export function StudioLayout() {
@@ -32,6 +34,10 @@ export function StudioLayout() {
 
   const isPlaying = useStore(s => s.isPlaying);
   const setIsPlaying = useStore(s => s.setIsPlaying);
+  const isLooping = useStore(s => s.isLooping);
+  const setIsLooping = useStore(s => s.setIsLooping);
+  const previousTrack = useStore(s => s.previousTrack);
+  const nextTrack = useStore(s => s.nextTrack);
   const currentTime = useStore(s => s.currentTime);
   const setCurrentTime = useStore(s => s.setCurrentTime);
 
@@ -1359,9 +1365,24 @@ export function StudioLayout() {
       </div>
 
       {/* STICKY BOTTOM PLAYBACK & CONTROL BAR */}
-      <div className="sticky bottom-0 z-30 shrink-0 w-full bg-[#070709] border-t border-white/10 px-3 py-3.5 sm:py-2.5 sm:px-6 shadow-2xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 min-h-[86px] sm:min-h-0">
-        {/* Play/Pause & Seek Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <div className="sticky bottom-0 z-30 shrink-0 w-full bg-[#070709] border-t border-white/10 px-3 py-3 sm:py-2.5 sm:px-6 shadow-2xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 min-h-[72px] sm:min-h-0">
+        {/* Play/Pause, Skip, Loop & Track Playlist Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Song List Dropdown / Popup Trigger */}
+          <SongListPopover align="left" />
+
+          <div className="h-6 w-[1px] bg-white/10 mx-0.5" />
+
+          {/* Previous Track Button */}
+          <button
+            onClick={previousTrack}
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 active:scale-95"
+            title="Previous Track"
+          >
+            <SkipBack size={16} />
+          </button>
+
+          {/* Play/Pause Button */}
           <button
             onClick={togglePlay}
             className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-black shadow-lg transition-transform active:scale-95 cursor-pointer shrink-0"
@@ -1371,12 +1392,52 @@ export function StudioLayout() {
             {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
           </button>
 
+          {/* Next Track Button */}
+          <button
+            onClick={nextTrack}
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 active:scale-95"
+            title="Next Track"
+          >
+            <SkipForward size={16} />
+          </button>
+
+          {/* Looping / Repeat Button */}
+          <button
+            onClick={() => setIsLooping(!isLooping)}
+            style={
+              isLooping
+                ? {
+                    backgroundColor: `${activeColor}20`,
+                    borderColor: `${activeColor}40`,
+                    color: activeColor,
+                    boxShadow: `0 0 12px ${activeColor}30`
+                  }
+                : undefined
+            }
+            className={`p-1.5 sm:p-2 rounded-lg transition-all cursor-pointer shrink-0 relative active:scale-95 ${
+              isLooping
+                ? 'border font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+            title={isLooping ? 'Disable Loop' : 'Enable Loop (Repeat Current Song)'}
+          >
+            <Repeat size={15} />
+            {isLooping && (
+              <span
+                className="absolute -top-1 -right-1 w-3.5 h-3.5 text-black text-[9px] font-black rounded-full flex items-center justify-center shadow"
+                style={{ backgroundColor: activeColor }}
+              >
+                1
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => handleSeek(0)}
-            className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
-            title="Restart Audio"
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 hidden min-[480px]:inline-flex"
+            title="Restart Audio to 0:00"
           >
-            <RotateCcw size={15} />
+            <RotateCcw size={14} />
           </button>
 
           {/* Time Counter */}

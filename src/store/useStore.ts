@@ -216,12 +216,12 @@ export const useStore = create<ProjectState>((set, get) => ({
     size: 0.15,
   },
   
-  tracks: [DEFAULT_SUNO_TRACK],
+  tracks: [],
   currentTrackIndex: 0,
   audioFile: null,
-  audioDuration: DEFAULT_SUNO_TRACK.duration,
-  audioUrl: DEFAULT_SUNO_TRACK.url,
-  albumArt: DEFAULT_SUNO_TRACK.albumArt || null,
+  audioDuration: 0,
+  audioUrl: null,
+  albumArt: null,
   
   currentTime: 0,
   isPlaying: false,
