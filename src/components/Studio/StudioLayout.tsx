@@ -86,15 +86,36 @@ export function StudioLayout() {
   const { handleClose: handleCloseExportMenu } = usePopstateModal(showExportMenu, () => setShowExportMenu(false));
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
   const { handleClose: handleCloseAudioModal } = usePopstateModal(isAudioModalOpen, () => setIsAudioModalOpen(false));
-  const [copiedLRC, setCopiedLRC] = useState(false);
+  const [selectedCopyFormat, setSelectedCopyFormat] = useState<'lrc' | 'enhanced-lrc' | 'srt' | 'ass' | 'json' | 'txt'>('lrc');
+  const [copiedFormat, setCopiedFormat] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [mobileStudioTab, setMobileStudioTab] = useState<'waveform' | 'lyrics' | 'source'>('waveform');
 
-  const handleCopyLRC = () => {
-    const lrcContent = generateLRC(lines, projectName || 'joelizer-lyrics');
-    navigator.clipboard.writeText(lrcContent);
-    setCopiedLRC(true);
-    setTimeout(() => setCopiedLRC(false), 2000);
+  const getFormatContent = (fmt: 'lrc' | 'enhanced-lrc' | 'srt' | 'ass' | 'json' | 'txt') => {
+    const name = projectName || 'joelizer-lyrics';
+    switch (fmt) {
+      case 'lrc':
+        return generateLRC(lines, name);
+      case 'enhanced-lrc':
+        return generateEnhancedLRC(lines, name);
+      case 'srt':
+        return generateSRT(lines);
+      case 'ass':
+        return generateASS(lines, name);
+      case 'json':
+        return generateJSON(lines, analysis);
+      case 'txt':
+        return generateTXT(lines);
+      default:
+        return generateLRC(lines, name);
+    }
+  };
+
+  const handleCopyCurrentFormat = () => {
+    const content = getFormatContent(selectedCopyFormat);
+    navigator.clipboard.writeText(content);
+    setCopiedFormat(true);
+    setTimeout(() => setCopiedFormat(false), 2000);
   };
 
   const handleClearAllLines = () => {
@@ -1563,140 +1584,163 @@ export function StudioLayout() {
       {showExportMenu && (
         <div 
           onClick={(e) => { if (e.target === e.currentTarget) handleCloseExportMenu(); }}
-          className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
         >
-          <div className="bg-[#09090d] border border-white/10 rounded-2xl p-6 w-full max-w-xl shadow-2xl relative overflow-hidden space-y-5">
+          <div className="bg-[#09090d] border border-white/10 rounded-2xl p-5 sm:p-7 w-full max-w-3xl shadow-2xl relative overflow-hidden space-y-4 h-[86vh] max-h-[780px] flex flex-col">
             {/* Ambient Background Accent */}
             <div 
-              className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[90px] pointer-events-none opacity-20"
+              className="absolute -top-24 -right-24 w-80 h-80 rounded-full blur-[100px] pointer-events-none opacity-20"
               style={{ background: activeColor }}
             />
 
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <Package size={20} style={{ color: activeColor }} />
+            <div className="flex items-center justify-between border-b border-white/10 pb-3.5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center border"
+                  style={{
+                    backgroundColor: `${activeColor}15`,
+                    borderColor: `${activeColor}35`,
+                    color: activeColor
+                  }}
+                >
+                  <Package size={20} />
+                </div>
                 <div>
-                  <h2 className="text-sm font-black uppercase tracking-wider text-white">EXPORT LYRICS & SYNC PACK</h2>
-                  <p className="text-[10px] text-slate-400 font-mono">Copy synced LRC, download individual formats, or grab full pack</p>
+                  <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-white">EXPORT & COPY LYRICS</h2>
+                  <p className="text-[11px] text-slate-400 font-mono">Select any lyric format to preview, copy to clipboard, or download</p>
                 </div>
               </div>
-              <button
-                onClick={handleCloseExportMenu}
-                className="p-1.5 text-slate-400 hover:text-white transition-colors rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* LRC Copy & Preview Section */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">LRC Content Preview</span>
+              <div className="flex items-center gap-2">
+                {/* Download All as ZIP button */}
                 <button
-                  onClick={handleCopyLRC}
-                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/15 rounded text-[10px] font-bold uppercase tracking-wider text-white flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  onClick={() => { handleExportFormat('zip'); setShowExportMenu(false); }}
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  title="Download all formats in a single ZIP file"
                 >
-                  {copiedLRC ? (
-                    <>
-                      <Check size={12} className="text-emerald-400" />
-                      <span className="text-emerald-400">Copied to Clipboard!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={12} style={{ color: activeColor }} />
-                      <span>Copy LRC Lyrics</span>
-                    </>
-                  )}
+                  <Package size={13} />
+                  <span>Download ZIP Pack</span>
+                </button>
+                <button
+                  onClick={handleCloseExportMenu}
+                  className="p-1.5 text-slate-400 hover:text-white transition-colors rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+                >
+                  <X size={17} />
                 </button>
               </div>
-
-              <textarea
-                readOnly
-                value={generateLRC(lines, projectName || 'joelizer-lyrics')}
-                className="w-full h-32 bg-black/60 border border-white/10 rounded-lg p-3 text-[10px] font-mono text-emerald-400/90 outline-none resize-none leading-relaxed select-all"
-              />
             </div>
 
-            {/* Primary Action: Download All as ZIP Pack */}
-            <button
-              onClick={() => { handleExportFormat('zip'); setShowExportMenu(false); }}
-              className="w-full py-3.5 text-black font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2.5 shadow-xl transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
-              style={{ backgroundColor: activeColor, boxShadow: `0 0 30px ${activeColor}40` }}
-            >
-              <Package size={16} />
-              <span>Download All as ZIP Pack (.zip)</span>
-            </button>
+            {/* Format Selection Tabs for Preview & Copy */}
+            <div className="space-y-2 shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                  Select Format:
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">Default: Standard LRC</span>
+              </div>
 
-            {/* Individual Export Formats */}
-            <div className="space-y-2 pt-2 border-t border-white/10">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block">Download Individual Format</span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <button
-                  onClick={() => { handleExportFormat('lrc'); setShowExportMenu(false); }}
-                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
-                >
-                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-emerald-400 flex items-center justify-between">
-                    <span>LRC File</span>
-                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
-                  </div>
-                  <div className="text-[9px] font-mono text-slate-500">Standard timed lyrics</div>
-                </button>
+              {/* Format Tabs Bar */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                {[
+                  { id: 'lrc', label: 'LRC', badge: 'Standard' },
+                  { id: 'enhanced-lrc', label: 'Enhanced LRC', badge: 'Word Timings' },
+                  { id: 'json', label: 'JSON', badge: 'Full Data' },
+                  { id: 'srt', label: 'SRT', badge: 'Subtitles' },
+                  { id: 'ass', label: 'ASS', badge: 'Styled Subtitles' },
+                  { id: 'txt', label: 'TXT', badge: 'Plain Text' }
+                ].map(fmt => {
+                  const isSelected = selectedCopyFormat === fmt.id;
+                  return (
+                    <button
+                      key={fmt.id}
+                      onClick={() => setSelectedCopyFormat(fmt.id as any)}
+                      style={
+                        isSelected
+                          ? {
+                              backgroundColor: `${activeColor}20`,
+                              borderColor: `${activeColor}60`,
+                              color: activeColor,
+                              boxShadow: `0 0 14px ${activeColor}25`
+                            }
+                          : undefined
+                      }
+                      className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
+                        isSelected
+                          ? 'ring-1'
+                          : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <span>{fmt.label}</span>
+                      <span className="text-[9.5px] opacity-60 font-mono">({fmt.badge})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                <button
-                  onClick={() => { handleExportFormat('enhanced-lrc'); setShowExportMenu(false); }}
-                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
-                >
-                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-cyan-400 flex items-center justify-between">
-                    <span>Enhanced LRC</span>
-                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
-                  </div>
-                  <div className="text-[9px] font-mono text-slate-500">Word karaoke timestamps</div>
-                </button>
+            {/* Content Preview & Copy Toolbar */}
+            <div className="flex-1 min-h-0 flex flex-col space-y-2">
+              <div className="flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-300">
+                    {selectedCopyFormat.toUpperCase()} Preview
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    ({lines.length} lines)
+                  </span>
+                </div>
 
-                <button
-                  onClick={() => { handleExportFormat('srt'); setShowExportMenu(false); }}
-                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
-                >
-                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-amber-400 flex items-center justify-between">
-                    <span>SRT Subtitles</span>
-                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
-                  </div>
-                  <div className="text-[9px] font-mono text-slate-500">Video subtitle format</div>
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Download this specific format */}
+                  <button
+                    onClick={() => handleExportFormat(selectedCopyFormat)}
+                    className="px-3 py-1.5 bg-white/10 hover:bg-white/15 border border-white/15 rounded-lg text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm"
+                    title={`Download .${selectedCopyFormat === 'enhanced-lrc' ? 'lrc' : selectedCopyFormat} file`}
+                  >
+                    <Download size={13} />
+                    <span>Download .{selectedCopyFormat === 'enhanced-lrc' ? 'lrc' : selectedCopyFormat}</span>
+                  </button>
 
-                <button
-                  onClick={() => { handleExportFormat('ass'); setShowExportMenu(false); }}
-                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
-                >
-                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-purple-400 flex items-center justify-between">
-                    <span>ASS Subtitles</span>
-                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
-                  </div>
-                  <div className="text-[9px] font-mono text-slate-500">Styled karaoke subtitles</div>
-                </button>
+                  {/* Copy Button */}
+                  <button
+                    onClick={handleCopyCurrentFormat}
+                    style={
+                      copiedFormat
+                        ? {
+                            backgroundColor: `${activeColor}25`,
+                            borderColor: `${activeColor}50`,
+                            color: activeColor
+                          }
+                        : {
+                            backgroundColor: `${activeColor}20`,
+                            borderColor: `${activeColor}40`,
+                            color: activeColor
+                          }
+                    }
+                    className="px-4 py-1.5 border rounded-lg text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm hover:brightness-125"
+                  >
+                    {copiedFormat ? (
+                      <>
+                        <Check size={13} strokeWidth={2.5} style={{ color: activeColor }} />
+                        <span>Copied {selectedCopyFormat.toUpperCase()}!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={13} strokeWidth={2.5} style={{ color: activeColor }} />
+                        <span>Copy {selectedCopyFormat.toUpperCase()}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
 
-                <button
-                  onClick={() => { handleExportFormat('txt'); setShowExportMenu(false); }}
-                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
-                >
-                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-slate-200 flex items-center justify-between">
-                    <span>TXT Lyrics</span>
-                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
-                  </div>
-                  <div className="text-[9px] font-mono text-slate-500">Plain text transcript</div>
-                </button>
-
-                <button
-                  onClick={() => { handleExportFormat('json'); setShowExportMenu(false); }}
-                  className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-lg text-left transition-all cursor-pointer group"
-                >
-                  <div className="text-[10px] font-bold uppercase text-white group-hover:text-rose-400 flex items-center justify-between">
-                    <span>JSON Data</span>
-                    <Download size={11} className="opacity-60 group-hover:opacity-100" />
-                  </div>
-                  <div className="text-[9px] font-mono text-slate-500">Full structured object</div>
-                </button>
+              {/* Large Scrollable Textarea Preview */}
+              <div className="flex-1 min-h-0 relative rounded-xl border border-white/10 bg-black/70 overflow-hidden">
+                <textarea
+                  readOnly
+                  value={getFormatContent(selectedCopyFormat)}
+                  className="w-full h-full p-4 text-xs font-mono text-emerald-400/90 outline-none resize-none leading-relaxed select-all no-scrollbar"
+                />
               </div>
             </div>
           </div>

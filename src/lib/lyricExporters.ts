@@ -68,8 +68,19 @@ export function generateLRC(lines: LyricLineWithWords[], title?: string, artist?
   lrc += `[by:Joelizer AI Studio]\n\n`;
 
   const sorted = [...lines].sort((a, b) => a.startTime - b.startTime);
-  sorted.forEach(line => {
+  sorted.forEach((line, index) => {
     lrc += `${formatLRCStamp(line.startTime)}${line.text}\n`;
+
+    // If an explicit endTime exists that ends before the next line starts (or for the final line),
+    // insert an empty timestamp marker so standard music players clear the screen at that exact moment.
+    const nextLine = sorted[index + 1];
+    if (line.endTime && line.endTime > line.startTime) {
+      const gapToNext = nextLine ? nextLine.startTime - line.endTime : 999;
+      // If there is a noticeable gap (>= 0.25s) before the next line, or if it's the last line
+      if (gapToNext >= 0.25) {
+        lrc += `${formatLRCStamp(line.endTime)}\n`;
+      }
+    }
   });
 
   return lrc;
@@ -83,17 +94,30 @@ export function generateEnhancedLRC(lines: LyricLineWithWords[], title?: string,
   lrc += `[by:Joelizer AI Studio - Enhanced Word Karaoke]\n\n`;
 
   const sorted = [...lines].sort((a, b) => a.startTime - b.startTime);
-  sorted.forEach(line => {
+  sorted.forEach((line, index) => {
     lrc += `${formatLRCStamp(line.startTime)}`;
     if (line.words && line.words.length > 0) {
       line.words.forEach(w => {
         lrc += `${formatWordStamp(w.startTime)}${w.word} `;
       });
+      // Append end timestamp marker for word karaoke
+      if (line.endTime && line.endTime > line.startTime) {
+        lrc += `${formatWordStamp(line.endTime)}`;
+      }
       lrc = lrc.trimEnd();
     } else {
       lrc += line.text;
     }
     lrc += `\n`;
+
+    // Also insert empty timestamp line if there is a gap before the next line
+    const nextLine = sorted[index + 1];
+    if (line.endTime && line.endTime > line.startTime) {
+      const gapToNext = nextLine ? nextLine.startTime - line.endTime : 999;
+      if (gapToNext >= 0.25) {
+        lrc += `${formatLRCStamp(line.endTime)}\n`;
+      }
+    }
   });
 
   return lrc;
