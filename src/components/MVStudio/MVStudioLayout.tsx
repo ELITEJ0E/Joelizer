@@ -38,11 +38,11 @@ export function MVStudioLayout() {
               onClick={() => setActivePanel('none')}
               className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                 activePanel === 'none' 
-                  ? 'bg-[#161b22] text-[#00e676] border-b-2 border-[#00e676] shadow-sm' 
+                  ? 'bg-[#161b22] text-accent border-b-2 border-accent shadow-sm' 
                   : 'text-[#7e8999] hover:text-[#f0f3f6] bg-[#12161c] border border-[#232933]'
               }`}
             >
-              <Film size={12} className="text-[#00e676]" />
+              <Film size={12} className="text-accent" />
               <span>Preview</span>
             </button>
 
@@ -50,7 +50,7 @@ export function MVStudioLayout() {
               onClick={() => setActivePanel(p => p === 'media' ? 'none' : 'media')}
               className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                 activePanel === 'media' 
-                  ? 'bg-[#161b22] text-[#00e676] border-b-2 border-[#00e676] shadow-sm' 
+                  ? 'bg-[#161b22] text-accent border-b-2 border-accent shadow-sm' 
                   : 'text-[#7e8999] hover:text-[#f0f3f6] bg-[#12161c] border border-[#232933]'
               }`}
             >
@@ -62,7 +62,7 @@ export function MVStudioLayout() {
               onClick={() => setActivePanel(p => p === 'controls' ? 'none' : 'controls')}
               className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                 activePanel === 'controls' 
-                  ? 'bg-[#161b22] text-[#00e676] border-b-2 border-[#00e676] shadow-sm' 
+                  ? 'bg-[#161b22] text-accent border-b-2 border-accent shadow-sm' 
                   : 'text-[#7e8999] hover:text-[#f0f3f6] bg-[#12161c] border border-[#232933]'
               }`}
             >
@@ -74,7 +74,7 @@ export function MVStudioLayout() {
               onClick={() => setActivePanel(p => p === 'settings' ? 'none' : 'settings')}
               className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                 activePanel === 'settings' 
-                  ? 'bg-[#161b22] text-[#00e676] border-b-2 border-[#00e676] shadow-sm' 
+                  ? 'bg-[#161b22] text-accent border-b-2 border-accent shadow-sm' 
                   : 'text-[#7e8999] hover:text-[#f0f3f6] bg-[#12161c] border border-[#232933]'
               }`}
             >
@@ -89,7 +89,7 @@ export function MVStudioLayout() {
           <button
             onClick={() => setActivePanel(p => p === 'media' ? 'none' : 'media')}
             className={`w-10 py-4 rounded flex flex-col items-center justify-center gap-2.5 transition-all cursor-pointer ${
-              activePanel === 'media' ? 'bg-[#161b22] text-[#00e676] border-r-2 border-[#00e676]' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
+              activePanel === 'media' ? 'bg-[#161b22] text-accent border-r-2 border-accent' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
             }`}
             title="Media Library"
           >
@@ -102,7 +102,7 @@ export function MVStudioLayout() {
           <button
             onClick={() => setActivePanel(p => p === 'controls' ? 'none' : 'controls')}
             className={`w-10 py-4 rounded flex flex-col items-center justify-center gap-2.5 transition-all cursor-pointer ${
-              activePanel === 'controls' ? 'bg-[#161b22] text-[#00e676] border-r-2 border-[#00e676]' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
+              activePanel === 'controls' ? 'bg-[#161b22] text-accent border-r-2 border-accent' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
             }`}
             title="Auto Editor Controls"
           >
@@ -115,7 +115,7 @@ export function MVStudioLayout() {
           <button
             onClick={() => setActivePanel(p => p === 'settings' ? 'none' : 'settings')}
             className={`w-10 py-4 rounded flex flex-col items-center justify-center gap-2.5 transition-all cursor-pointer ${
-              activePanel === 'settings' ? 'bg-[#161b22] text-[#00e676] border-r-2 border-[#00e676]' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
+              activePanel === 'settings' ? 'bg-[#161b22] text-accent border-r-2 border-accent' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
             }`}
             title="Music Video settings"
           >
@@ -139,9 +139,9 @@ export function MVStudioLayout() {
               {/* Mobile Panel Header with Close Button */}
               <div className="md:hidden p-2.5 border-b border-[#232933] flex items-center justify-between bg-[#0e1115] shrink-0">
                 <span className="text-xs font-mono font-bold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-1.5">
-                  {activePanel === 'media' ? <Layers size={14} className="text-[#00e676]" /> : 
-                   activePanel === 'controls' ? <Sliders size={14} className="text-[#00e676]" /> : 
-                   <Settings2 size={14} className="text-[#00e676]" />}
+                  {activePanel === 'media' ? <Layers size={14} className="text-accent" /> : 
+                   activePanel === 'controls' ? <Sliders size={14} className="text-accent" /> : 
+                   <Settings2 size={14} className="text-accent" />}
                   {activePanel === 'media' ? 'Media Library' : 
                    activePanel === 'controls' ? 'Auto Editor Controls' : 'Music Video Settings'}
                 </span>

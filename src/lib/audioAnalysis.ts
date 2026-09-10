@@ -284,16 +284,16 @@ export function drawStudioWaveform(
     const x = ((peakTime - startSec) / visibleDuration) * width;
     const isPast = peakTime <= currentTime;
 
-    // Ableton/DaVinci style subtle emerald for played, precision slate for unplayed
-    ctx.fillStyle = isPast ? '#00e676' : '#2b3442';
+    // Ableton/DaVinci style subtle accent for played, precision slate for unplayed
+    ctx.fillStyle = isPast ? activeColor : '#2b3442';
 
     // Mirror top & bottom
     ctx.fillRect(x, centerY - barHeight, Math.max(1.2, peakWidth - 0.8), barHeight * 2);
   }
 
-  // 2. Draw Beat Markers (subtle emerald dots along the bottom)
+  // 2. Draw Beat Markers (subtle accent dots along the bottom)
   if (waveformData.beats && waveformData.beats.length > 0) {
-    ctx.fillStyle = '#00e676';
+    ctx.fillStyle = activeColor;
     waveformData.beats.forEach(bTime => {
       if (bTime >= startSec && bTime <= endSec) {
         const bx = ((bTime - startSec) / visibleDuration) * width;
@@ -310,7 +310,7 @@ export function drawStudioWaveform(
       const isSelected = selectedLineId === line.id;
       const isHovered = hoveredLineId === line.id;
 
-      const pinColor = isSelected ? '#ffffff' : (isHovered ? '#69f0ae' : '#00e676');
+      const pinColor = isSelected ? '#ffffff' : (isHovered ? '#ffffff' : activeColor);
 
       // Vertical line
       ctx.strokeStyle = pinColor;
@@ -353,7 +353,7 @@ export function drawStudioWaveform(
     const px = ((currentTime - startSec) / visibleDuration) * width;
 
     // Precision 1.5px Playhead
-    ctx.strokeStyle = '#00e676';
+    ctx.strokeStyle = activeColor;
     ctx.lineWidth = 1.5;
 
     ctx.beginPath();
@@ -362,7 +362,7 @@ export function drawStudioWaveform(
     ctx.stroke();
 
     // Playhead arrow marker at the top
-    ctx.fillStyle = '#00e676';
+    ctx.fillStyle = activeColor;
     ctx.beginPath();
     ctx.moveTo(px - 5, 0);
     ctx.lineTo(px + 5, 0);

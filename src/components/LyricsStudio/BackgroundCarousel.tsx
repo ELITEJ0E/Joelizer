@@ -43,7 +43,7 @@ export function BackgroundCarousel() {
       {/* Upload Custom Background Section */}
       <div className="bg-[#12161c] border border-[#232933] rounded-xl p-3 flex flex-col gap-2.5">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-          <Upload size={12} className="text-[#00e676]" />
+          <Upload size={12} className="text-accent" />
           Custom Media Background
         </span>
 
@@ -51,9 +51,9 @@ export function BackgroundCarousel() {
           {/* Custom Image Upload */}
           <button
             onClick={() => imageInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-[#232933] bg-[#0a0c0f] hover:bg-[#161b22] hover:border-[#00e676]/40 text-xs font-mono text-[#f0f3f6] transition-all cursor-pointer"
+            className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-[#232933] bg-[#0a0c0f] hover:bg-[#161b22] hover:border-accent/40 text-xs font-mono text-[#f0f3f6] transition-all cursor-pointer"
           >
-            <ImageIcon size={14} className="text-[#00e676]" />
+            <ImageIcon size={14} className="text-accent" />
             <span>Upload Image</span>
           </button>
           <input
@@ -67,9 +67,9 @@ export function BackgroundCarousel() {
           {/* Custom Video Upload */}
           <button
             onClick={() => videoInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-[#232933] bg-[#0a0c0f] hover:bg-[#161b22] hover:border-[#00e676]/40 text-xs font-mono text-[#f0f3f6] transition-all cursor-pointer"
+            className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-[#232933] bg-[#0a0c0f] hover:bg-[#161b22] hover:border-accent/40 text-xs font-mono text-[#f0f3f6] transition-all cursor-pointer"
           >
-            <Film size={14} className="text-[#00e676]" />
+            <Film size={14} className="text-accent" />
             <span>Upload Video</span>
           </button>
           <input
@@ -82,7 +82,7 @@ export function BackgroundCarousel() {
         </div>
 
         {customBackground.type === 'video' && (
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161b22] border border-[#232933] text-[11px] text-[#00e676] font-mono">
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161b22] border border-[#232933] text-[11px] text-accent font-mono">
             <span className="flex items-center gap-1.5">
               <Repeat size={12} />
               Looping Video Active
@@ -95,7 +95,7 @@ export function BackgroundCarousel() {
       {/* Preset Backgrounds Section */}
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-          <Sparkles size={12} className="text-[#00e676]" />
+          <Sparkles size={12} className="text-accent" />
           Preset Styles & Themes
         </span>
 
@@ -116,7 +116,7 @@ export function BackgroundCarousel() {
                 }}
                 className={`relative rounded-xl p-2.5 border transition-all cursor-pointer flex flex-col justify-between h-20 overflow-hidden ${
                   isSelected
-                    ? 'border-[#00e676] shadow-[0_0_12px_rgba(0,230,118,0.2)] ring-1 ring-[#00e676]'
+                    ? 'border-accent shadow-[0_0_12px_rgba(0,230,118,0.2)] ring-1 ring-accent'
                     : 'border-[#232933] hover:border-[#384252]'
                 }`}
                 style={{ background: preset.previewGradient }}
@@ -127,7 +127,7 @@ export function BackgroundCarousel() {
                   </span>
 
                   {isSelected && (
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center bg-[#00e676] text-black font-extrabold shadow-md">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center bg-accent text-black font-extrabold shadow-md">
                       <Check size={12} strokeWidth={3} />
                     </span>
                   )}

@@ -101,7 +101,7 @@ export function ImageGeneratorPanel() {
               }}
               className={`flex-1 py-1.5 text-[10px] rounded border font-mono font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
                 activeProviderName === provider.name
-                  ? 'bg-[#161b22] text-[#00e676] border-[#232933]'
+                  ? 'bg-[#161b22] text-accent border-[#232933]'
                   : 'bg-[#0a0c0f] text-[#7e8999] border-[#232933] hover:text-[#f0f3f6]'
               }`}
             >
@@ -117,7 +117,7 @@ export function ImageGeneratorPanel() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="A cinematic city at night, stage lights, 4k..."
-          className="w-full h-20 bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded p-2 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none resize-none font-mono transition-colors"
+          className="w-full h-20 bg-[#0a0c0f] border border-[#232933] focus:border-accent rounded p-2 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none resize-none font-mono transition-colors"
         />
         <div className="flex justify-between items-center mt-1">
           <button
@@ -129,7 +129,7 @@ export function ImageGeneratorPanel() {
           </button>
           <button
             onClick={handleGenerateFromLyrics}
-            className="flex items-center gap-1 text-[9px] text-[#00e676] hover:text-[#00c853] font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+            className="flex items-center gap-1 text-[9px] text-accent hover:text-accent/80 font-semibold uppercase tracking-wider transition-colors cursor-pointer"
           >
             <Wand2 size={10} /> Random from Lyrics
           </button>
@@ -145,7 +145,7 @@ export function ImageGeneratorPanel() {
               value={negativePrompt}
               onChange={(e) => setNegativePrompt(e.target.value)}
               placeholder="ugly, blurry, bad anatomy..."
-              className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded p-2 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
+              className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-accent rounded p-2 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
             />
           </div>
 
@@ -159,7 +159,7 @@ export function ImageGeneratorPanel() {
                     onClick={() => setAspectRatio(ar as any)}
                     className={`py-1 text-[10px] rounded border font-mono transition-colors cursor-pointer ${
                       aspectRatio === ar 
-                        ? 'bg-[#161b22] text-[#00e676] border-[#232933]' 
+                        ? 'bg-[#161b22] text-accent border-[#232933]' 
                         : 'bg-[#0a0c0f] text-[#7e8999] border-[#232933] hover:text-[#f0f3f6]'
                     }`}
                   >
@@ -178,7 +178,7 @@ export function ImageGeneratorPanel() {
                     onClick={() => setAmount(n)}
                     className={`flex-1 py-1 text-[10px] rounded border font-mono transition-colors cursor-pointer ${
                       amount === n 
-                        ? 'bg-[#161b22] text-[#00e676] border-[#232933]' 
+                        ? 'bg-[#161b22] text-accent border-[#232933]' 
                         : 'bg-[#0a0c0f] text-[#7e8999] border-[#232933] hover:text-[#f0f3f6]'
                     }`}
                   >
@@ -196,7 +196,7 @@ export function ImageGeneratorPanel() {
           <div className="bg-[#161b22] border border-[#232933] text-[#c9d1d9] text-[11px] p-3 rounded flex flex-col gap-2 leading-relaxed">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-[#f0f3f6] flex items-center gap-1.5 text-xs">
-                <Sparkles size={13} className="text-[#00e676]" />
+                <Sparkles size={13} className="text-accent" />
                 Perchance AI Generator Hub
               </span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#0a0c0f] text-[#7e8999] font-mono border border-[#232933]">
@@ -214,7 +214,7 @@ export function ImageGeneratorPanel() {
                   handleCopyPrompt();
                   window.open('https://perchance.org/image-generator-professional', '_blank', 'width=1000,height=800,scrollbars=yes');
                 }}
-                className="w-full sm:w-auto flex-1 py-1.5 px-3 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="w-full sm:w-auto flex-1 py-1.5 px-3 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Copy size={12} />
                 <ExternalLink size={12} />
@@ -225,7 +225,7 @@ export function ImageGeneratorPanel() {
                 onClick={() => setActiveProviderName('Pollinations (Headless)')}
                 className="w-full sm:w-auto py-1.5 px-3 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] text-[#f0f3f6] font-semibold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
               >
-                <Wand2 size={12} className="text-[#00e676]" />
+                <Wand2 size={12} className="text-accent" />
                 <span>Use Inline AI Instead</span>
               </button>
             </div>
@@ -235,7 +235,7 @@ export function ImageGeneratorPanel() {
           <div className="bg-[#12161c] border border-[#232933] rounded p-3 flex flex-col gap-2.5">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-[#7e8999] flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <ImageIcon size={12} className="text-[#00e676]" />
+                <ImageIcon size={12} className="text-accent" />
                 Import Generated Image
               </span>
               <span className="text-[9px] text-[#7e8999] font-normal">Copy Image URL & Paste Here</span>
@@ -250,7 +250,7 @@ export function ImageGeneratorPanel() {
                   setPrompt(e.target.value);
                   setErrorMsg(null);
                 }}
-                className="flex-1 bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] focus:outline-none font-mono placeholder-[#4d5566] transition-colors"
+                className="flex-1 bg-[#0a0c0f] border border-[#232933] focus:border-accent rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] focus:outline-none font-mono placeholder-[#4d5566] transition-colors"
               />
               <button
                 onClick={() => {
@@ -273,7 +273,7 @@ export function ImageGeneratorPanel() {
                     setErrorMsg('Please paste a valid image URL starting with http:// or https://');
                   }
                 }}
-                className="px-3 py-1.5 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-semibold text-xs shrink-0 cursor-pointer transition-colors"
+                className="px-3 py-1.5 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] font-semibold text-xs shrink-0 cursor-pointer transition-colors"
               >
                 Import
               </button>
@@ -311,7 +311,7 @@ export function ImageGeneratorPanel() {
           <button
             onClick={handleGenerate}
             disabled={isGenerating || !prompt.trim()}
-            className="w-full py-2.5 mt-auto rounded font-semibold tracking-wider uppercase text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f]"
+            className="w-full py-2.5 mt-auto rounded font-semibold tracking-wider uppercase text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-accent hover:bg-accent/80 text-[#0a0c0f]"
           >
             {isGenerating ? (
               <>

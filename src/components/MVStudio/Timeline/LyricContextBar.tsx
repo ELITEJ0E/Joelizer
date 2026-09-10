@@ -58,11 +58,11 @@ export function LyricContextBar({
               if (e.key === 'Escape') setIsEditing(false);
             }}
             autoFocus
-            className="px-2 py-0.5 bg-[#0a0c0f] border border-[#00e676] rounded text-xs text-[#f0f3f6] outline-none w-48 font-sans"
+            className="px-2 py-0.5 bg-[#0a0c0f] border border-accent rounded text-xs text-[#f0f3f6] outline-none w-48 font-sans"
           />
           <button
             onClick={handleSaveText}
-            className="p-1 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-bold cursor-pointer transition-colors"
+            className="p-1 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] font-bold cursor-pointer transition-colors"
             title="Save text"
           >
             <Check size={12} />
@@ -94,7 +94,7 @@ export function LyricContextBar({
             title="Edit lyric line text"
             className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] text-[#c9d1d9] hover:text-[#f0f3f6] font-medium flex items-center gap-1 transition-colors cursor-pointer"
           >
-            <Edit3 size={11} className="text-[#00e676]" />
+            <Edit3 size={11} className="text-accent" />
             <span>EDIT</span>
           </button>
 
@@ -108,7 +108,7 @@ export function LyricContextBar({
                 : 'bg-[#161b22] hover:bg-[#1c222b] border-[#232933] hover:border-[#303846] text-[#c9d1d9] hover:text-[#f0f3f6]'
             }`}
           >
-            <Layers size={11} className={isWordsExpanded ? 'text-[#00e676]' : undefined} />
+            <Layers size={11} className={isWordsExpanded ? 'text-accent' : undefined} />
             <span>{isWordsExpanded ? 'WORDS ▲' : 'WORDS ▼'}</span>
           </button>
 

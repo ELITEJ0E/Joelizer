@@ -667,54 +667,13 @@ export function StudioLayout() {
     <div className="flex flex-col h-full w-full bg-[#0a0c0f] text-[#c4cad4] overflow-hidden relative font-sans">
       {/* WORKSTATION TIMELINE HEADER BAR */}
       <div className="h-10 bg-[#0e1115] border-b border-[#232933] px-3 flex items-center justify-between z-20 shrink-0 gap-2 overflow-x-auto no-scrollbar">
-        {/* Left: Audio Analysis Info & Zoom/Speed Controls */}
+        {/* Left: Audio Analysis Info */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-2 px-2 py-1 rounded bg-[#13171e] border border-[#232933] text-[10px] font-mono text-[#9aa2ae]">
-            <Activity size={12} className="text-[#00e676]" />
+            <Activity size={12} className="text-accent" />
             <span className="font-bold text-[#f0f3f6]">{analysis.bpm || 120} BPM</span>
             <span className="text-[#5e6877]">•</span>
             <span>{analysis.key || 'C Major'}</span>
-          </div>
-
-          <div className="h-3.5 w-[1px] bg-[#232933] hidden sm:block" />
-
-          {/* Waveform Zoom Controls */}
-          <div className="hidden lg:flex items-center gap-0.5 bg-[#13171e] border border-[#232933] rounded p-0.5 text-[10px] font-mono">
-            <span className="text-[#5e6877] px-1 font-semibold text-[9px]">ZOOM</span>
-            {[1, 2, 4, 8].map(z => (
-              <button
-                key={z}
-                type="button"
-                onClick={() => setZoom(z)}
-                className={cn(
-                  "px-1.5 py-0.5 rounded transition-colors cursor-pointer",
-                  zoom === z ? "bg-[#232a35] text-[#00e676] font-bold" : "text-[#7e8999] hover:text-[#f0f3f6]"
-                )}
-              >
-                {z}x
-              </button>
-            ))}
-          </div>
-
-          {/* Playback Speed Controls */}
-          <div className="hidden sm:flex items-center gap-0.5 bg-[#13171e] border border-[#232933] rounded p-0.5 text-[10px] font-mono">
-            <span className="text-[#5e6877] px-1 font-semibold text-[9px]">RATE</span>
-            {[0.5, 1.0, 1.5, 2.0].map(s => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => {
-                  setPlaybackSpeed(s);
-                  audioManager.setPlaybackRate(s);
-                }}
-                className={cn(
-                  "px-1.5 py-0.5 rounded transition-colors cursor-pointer",
-                  playbackSpeed === s ? "bg-[#232a35] text-[#00e676] font-bold" : "text-[#7e8999] hover:text-[#f0f3f6]"
-                )}
-              >
-                {s}x
-              </button>
-            ))}
           </div>
         </div>
 
@@ -757,7 +716,7 @@ export function StudioLayout() {
             className="px-2.5 py-1 bg-[#13171e] hover:bg-[#1a2028] border border-[#232933] hover:border-[#323b49] rounded text-[10px] font-semibold text-[#f0f3f6] flex items-center gap-1.5 transition-colors cursor-pointer active:scale-98"
             title="Perform AI Forced Alignment against uploaded lyrics"
           >
-            <SlidersHorizontal size={11} className="text-[#00e676]" />
+            <SlidersHorizontal size={11} className="text-accent" />
             <span>Align Lyrics</span>
           </button>
 
@@ -789,7 +748,7 @@ export function StudioLayout() {
             onClick={() => setShowExportMenu(true)}
             className="px-2.5 py-1 bg-[#181d24] hover:bg-[#202731] border border-[#262c37] hover:border-[#384252] text-[#f0f3f6] font-semibold text-[10px] rounded flex items-center gap-1.5 transition-colors cursor-pointer active:scale-98"
           >
-            <Download size={11} className="text-[#00e676]" />
+            <Download size={11} className="text-accent" />
             <span>Export LRC</span>
           </button>
 
@@ -799,7 +758,7 @@ export function StudioLayout() {
               updateLyricsSettings({ lines });
               setActiveTab('lyrics');
             }}
-            className="px-2.5 py-1 bg-[#00e676]/10 hover:bg-[#00e676]/20 border border-[#00e676]/30 text-[#00e676] font-semibold text-[10px] rounded flex items-center gap-1 transition-colors cursor-pointer active:scale-98 ml-0.5"
+            className="px-2.5 py-1 bg-accent/10 hover:bg-accent/20 border border-accent/30 text-accent font-semibold text-[10px] rounded flex items-center gap-1 transition-colors cursor-pointer active:scale-98 ml-0.5"
             title="Switch to Lyrics Video Canvas"
           >
             <Eye size={11} />
@@ -816,7 +775,7 @@ export function StudioLayout() {
           className={cn(
             "flex-1 py-1.5 text-[10px] font-mono font-semibold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
             mobileStudioTab === 'waveform'
-              ? "bg-[#181d24] text-[#00e676] border border-[#232933]"
+              ? "bg-[#181d24] text-accent border border-[#232933]"
               : "text-[#7e8999] hover:text-[#f0f3f6]"
           )}
         >
@@ -830,7 +789,7 @@ export function StudioLayout() {
           className={cn(
             "flex-1 py-1.5 text-[10px] font-mono font-semibold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
             mobileStudioTab === 'lyrics'
-              ? "bg-[#181d24] text-[#00e676] border border-[#232933]"
+              ? "bg-[#181d24] text-accent border border-[#232933]"
               : "text-[#7e8999] hover:text-[#f0f3f6]"
           )}
         >
@@ -844,7 +803,7 @@ export function StudioLayout() {
           className={cn(
             "flex-1 py-1.5 text-[10px] font-mono font-semibold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
             mobileStudioTab === 'source'
-              ? "bg-[#181d24] text-[#00e676] border border-[#232933]"
+              ? "bg-[#181d24] text-accent border border-[#232933]"
               : "text-[#7e8999] hover:text-[#f0f3f6]"
           )}
         >
@@ -861,7 +820,7 @@ export function StudioLayout() {
             {/* Header inside left panel */}
             <div className="flex items-center justify-between pb-1.5 border-b border-[#232933]">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#9aa2ae] flex items-center gap-2">
-                <Sliders size={13} className="text-[#00e676]" />
+                <Sliders size={13} className="text-accent" />
                 <span>Audio & Source</span>
               </span>
               <button
@@ -878,7 +837,7 @@ export function StudioLayout() {
             <div className="bg-[#13171e] border border-[#232933] rounded-md p-3 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono font-bold uppercase text-[#7e8999] tracking-wider">1. Audio Source</span>
-                {audioFile && <CheckCircle2 size={13} className="text-[#00e676]" />}
+                {audioFile && <CheckCircle2 size={13} className="text-accent" />}
               </div>
 
               <button
@@ -887,7 +846,7 @@ export function StudioLayout() {
                 className="w-full border border-dashed border-[#2b3442] hover:border-[#425066] hover:bg-[#181d26] rounded p-3 flex items-center gap-3 transition-colors cursor-pointer group text-left"
               >
                 <div 
-                  className="w-7 h-7 rounded bg-[#181d26] border border-[#2b3442] flex items-center justify-center shrink-0 text-[#00e676]"
+                  className="w-7 h-7 rounded bg-[#181d26] border border-[#2b3442] flex items-center justify-center shrink-0 text-accent"
                 >
                   <Music size={14} />
                 </div>
@@ -902,7 +861,7 @@ export function StudioLayout() {
             <div className="bg-[#13171e] border border-[#232933] rounded-md p-3 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono font-bold uppercase text-[#7e8999] tracking-wider">2. Raw Lyrics (Optional)</span>
-                {rawUploadedLyrics && <CheckCircle2 size={13} className="text-[#00e676]" />}
+                {rawUploadedLyrics && <CheckCircle2 size={13} className="text-accent" />}
               </div>
 
               <label className="border border-dashed border-[#2b3442] hover:border-[#425066] hover:bg-[#181d26] rounded p-2.5 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
@@ -915,7 +874,7 @@ export function StudioLayout() {
               </label>
 
               {uploadedLyricsFileName && (
-                <div className="text-[10px] font-mono text-[#00e676] bg-[#00e676]/10 border border-[#00e676]/30 p-1.5 rounded flex items-center justify-between">
+                <div className="text-[10px] font-mono text-accent bg-accent/10 border border-accent/30 p-1.5 rounded flex items-center justify-between">
                   <span className="truncate">{uploadedLyricsFileName}</span>
                   <button type="button" onClick={() => { setRawUploadedLyrics(''); setUploadedLyricsFileName(null); }} className="text-[#7e8999] hover:text-[#f0f3f6]">✕</button>
                 </div>
@@ -934,7 +893,7 @@ export function StudioLayout() {
                   onClick={handleManualParseLRC}
                   className="w-full py-1.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[10px] font-mono font-semibold text-[#f0f3f6] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <ListMusic size={12} className="text-[#00e676]" />
+                  <ListMusic size={12} className="text-accent" />
                   <span>Parse & Sync LRC Lines</span>
                 </button>
               )}
@@ -945,7 +904,7 @@ export function StudioLayout() {
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono font-bold uppercase text-[#7e8999] tracking-wider block">3. Track Intelligence</span>
                 <div className="flex items-center gap-1 text-[9px] font-mono text-[#7e8999]">
-                  <Globe size={10} className="text-[#00e676]" />
+                  <Globe size={10} className="text-accent" />
                   <span>{selectedLanguage}</span>
                 </div>
               </div>
@@ -992,7 +951,7 @@ export function StudioLayout() {
               className="p-2 bg-[#13171e] hover:bg-[#181d26] border border-[#232933] rounded text-[#7e8999] hover:text-[#f0f3f6] transition-colors cursor-pointer flex flex-col items-center gap-1.5"
               title="Expand Source Sidebar"
             >
-              <PanelLeftOpen size={15} className="text-[#00e676]" />
+              <PanelLeftOpen size={15} className="text-accent" />
               <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-[#7e8999] [writing-mode:vertical-lr] rotate-180 py-1">Source</span>
             </button>
           </div>
@@ -1157,7 +1116,7 @@ export function StudioLayout() {
 
             {/* Time Overlay */}
             <div className="absolute top-2.5 left-3 bg-[#12161c]/90 border border-[#232933] px-2.5 py-1 rounded text-[11px] font-mono font-medium flex items-center gap-1.5 shadow-sm">
-              <span className="text-[#00e676] font-bold">{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
+              <span className="text-accent font-bold">{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
               <span className="text-[#5e6877]">/</span>
               <span className="text-[#7e8999]">{formatLRCStamp(audioDuration).replace('[', '').replace(']', '')}</span>
             </div>
@@ -1179,7 +1138,7 @@ export function StudioLayout() {
         </div>
 
         {/* RIGHT PANEL: EDITABLE LYRIC LINE TIMELINE & HISTORY */}
-        <div className={cn("w-full md:w-[420px] lg:w-[440px] bg-[#111418] border-l border-[#232933] flex-col shrink-0 overflow-hidden", mobileStudioTab === 'lyrics' ? "flex flex-1 w-full h-full" : "hidden md:flex")}>
+        <div className={cn("w-full md:w-[320px] lg:w-[360px] bg-[#111418] border-l border-[#232933] flex-col shrink-0 overflow-hidden", mobileStudioTab === 'lyrics' ? "flex flex-1 w-full h-full" : "hidden md:flex")}>
           
           {/* Header Bar */}
           <div className="p-3 bg-[#13171e] border-b border-[#232933] flex items-center justify-between gap-3">
@@ -1251,7 +1210,7 @@ export function StudioLayout() {
           {/* Hotkey Helper Bar */}
           <div className="px-3 py-1.5 bg-[#0e1115] border-b border-[#232933] text-[9px] font-mono text-[#7e8999] flex items-center justify-between overflow-x-auto no-scrollbar gap-2">
             <span className="flex items-center gap-1.5 font-bold text-[#9aa2ae] shrink-0">
-              <Zap size={10} className="text-[#00e676]" /> Quick Sync:
+              <Zap size={10} className="text-accent" /> Quick Sync:
             </span>
             <div className="flex items-center gap-2 shrink-0">
               <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">Space</kbd> Play</span>
@@ -1267,7 +1226,7 @@ export function StudioLayout() {
             {lines.length === 0 ? (
               <div className="text-center text-[#5e6877] font-mono text-xs py-12">
                 No lyric lines generated yet. <br />
-                Click <span className="text-[#00e676] font-semibold">Generate Transcript</span> above!
+                Click <span className="text-accent font-semibold">Generate Transcript</span> above!
               </div>
             ) : (() => {
               const activeLine = getActiveLyricLine(lines, currentTime);
@@ -1282,9 +1241,9 @@ export function StudioLayout() {
                     className={cn(
                       "p-2.5 rounded-md border transition-all space-y-2 relative group cursor-pointer",
                       isSelected
-                        ? "bg-[#17202b] border-[#00e676]"
+                        ? "bg-[#17202b] border-accent"
                         : isActive
-                        ? "bg-[#161d24] border-[#00e676]/40"
+                        ? "bg-[#161d24] border-accent/40"
                         : "bg-[#13171e] border-[#232933] hover:border-[#333d4d]"
                     )}
                   >
@@ -1315,7 +1274,7 @@ export function StudioLayout() {
                               if (!isNaN(sec)) handleLineTimeChange(line.id, sec);
                             }
                           }}
-                          className="w-20 bg-[#0e1115] border border-[#2b3442] focus:border-[#3b4759] rounded px-1.5 py-0.5 text-[10px] font-mono text-[#00e676] font-bold outline-none text-center"
+                          className="w-20 bg-[#0e1115] border border-[#2b3442] focus:border-[#3b4759] rounded px-1.5 py-0.5 text-[10px] font-mono text-accent font-bold outline-none text-center"
                         />
                       </div>
 
@@ -1327,7 +1286,7 @@ export function StudioLayout() {
                             e.stopPropagation();
                             handleMarkStart(line.id, currentTime);
                           }}
-                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#00e676] hover:text-white cursor-pointer transition-colors"
+                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-accent hover:text-white cursor-pointer transition-colors"
                           title="Set start time to current playhead position (Shortcut: '[')"
                         >
                           Mark Start [
@@ -1460,7 +1419,7 @@ export function StudioLayout() {
           <button
             type="button"
             onClick={togglePlay}
-            className="w-8 h-8 rounded flex items-center justify-center text-[#0a0c0f] bg-[#00e676] hover:bg-[#00c853] transition-colors cursor-pointer shrink-0 shadow-sm"
+            className="w-8 h-8 rounded flex items-center justify-center text-[#0a0c0f] bg-accent hover:bg-accent/80 transition-colors cursor-pointer shrink-0 shadow-sm"
             title={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
@@ -1483,7 +1442,7 @@ export function StudioLayout() {
             className={cn(
               "p-1.5 rounded transition-colors cursor-pointer shrink-0 relative",
               isLooping
-                ? "bg-[#00e676]/15 border border-[#00e676]/40 text-[#00e676]"
+                ? "bg-accent/15 border border-accent/40 text-accent"
                 : "text-[#9aa2ae] hover:text-[#f0f3f6] hover:bg-[#181d26] border border-transparent"
             )}
             title={isLooping ? 'Disable Loop' : 'Enable Loop (Repeat Current Song)'}
@@ -1491,7 +1450,7 @@ export function StudioLayout() {
             <Repeat size={14} />
             {isLooping && (
               <span
-                className="absolute -top-1 -right-1 w-3 h-3 text-[#0a0c0f] text-[8px] font-bold rounded-full flex items-center justify-center bg-[#00e676]"
+                className="absolute -top-1 -right-1 w-3 h-3 text-[#0a0c0f] text-[8px] font-bold rounded-full flex items-center justify-center bg-accent"
               >
                 1
               </span>
@@ -1509,7 +1468,7 @@ export function StudioLayout() {
 
           {/* Time Counter */}
           <div className="text-[10px] sm:text-[11px] font-mono font-medium flex items-center gap-1.5 bg-[#13171e] border border-[#232933] px-2 py-1 rounded shrink-0">
-            <span className="text-[#00e676] font-bold">{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
+            <span className="text-accent font-bold">{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
             <span className="text-[#5e6877]">/</span>
             <span className="text-[#7e8999]">{formatLRCStamp(audioDuration).replace('[', '').replace(']', '')}</span>
           </div>
@@ -1543,7 +1502,7 @@ export function StudioLayout() {
                 }}
                 className={cn(
                   "px-1.5 py-0.5 rounded cursor-pointer transition-colors shrink-0",
-                  playbackSpeed === s ? "bg-[#1f2631] text-[#00e676] font-bold border border-[#2b3442]" : "text-[#7e8999] hover:text-[#f0f3f6]"
+                  playbackSpeed === s ? "bg-[#1f2631] text-accent font-bold border border-[#2b3442]" : "text-[#7e8999] hover:text-[#f0f3f6]"
                 )}
               >
                 {s}x
@@ -1561,7 +1520,7 @@ export function StudioLayout() {
                 onClick={() => setZoom(z)}
                 className={cn(
                   "px-1.5 py-0.5 rounded cursor-pointer transition-colors",
-                  zoom === z ? "bg-[#1f2631] text-[#00e676] font-bold border border-[#2b3442]" : "text-[#7e8999] hover:text-[#f0f3f6]"
+                  zoom === z ? "bg-[#1f2631] text-accent font-bold border border-[#2b3442]" : "text-[#7e8999] hover:text-[#f0f3f6]"
                 )}
               >
                 {z}x
@@ -1638,7 +1597,7 @@ export function StudioLayout() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[#232933] pb-3 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded bg-[#181d26] border border-[#2b3442] flex items-center justify-center text-[#00e676]">
+                <div className="w-8 h-8 rounded bg-[#181d26] border border-[#2b3442] flex items-center justify-center text-accent">
                   <Package size={16} />
                 </div>
                 <div>
@@ -1654,7 +1613,7 @@ export function StudioLayout() {
                   className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] text-[#c4cad4] hover:text-[#f0f3f6] rounded text-xs font-semibold transition-colors cursor-pointer"
                   title="Download all formats in a single ZIP file"
                 >
-                  <Package size={13} className="text-[#00e676]" />
+                  <Package size={13} className="text-accent" />
                   <span>Download ZIP Pack</span>
                 </button>
                 <button
@@ -1695,7 +1654,7 @@ export function StudioLayout() {
                       className={cn(
                         "px-3 py-1.5 rounded border text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none",
                         isSelected
-                          ? "bg-[#181d26] border-[#00e676] text-[#00e676]"
+                          ? "bg-[#181d26] border-accent text-accent"
                           : "bg-[#0e1115] hover:bg-[#181d26] border-[#232933] text-[#9aa2ae] hover:text-[#f0f3f6]"
                       )}
                     >
@@ -1727,7 +1686,7 @@ export function StudioLayout() {
                     className="px-2.5 py-1.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-xs font-semibold text-[#f0f3f6] flex items-center gap-1.5 transition-colors cursor-pointer"
                     title={`Download .${selectedCopyFormat === 'enhanced-lrc' ? 'lrc' : selectedCopyFormat} file`}
                   >
-                    <Download size={13} className="text-[#00e676]" />
+                    <Download size={13} className="text-accent" />
                     <span>Download .{selectedCopyFormat === 'enhanced-lrc' ? 'lrc' : selectedCopyFormat}</span>
                   </button>
 
@@ -1735,7 +1694,7 @@ export function StudioLayout() {
                   <button
                     type="button"
                     onClick={handleCopyCurrentFormat}
-                    className="px-3 py-1.5 bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-accent hover:bg-accent/80 text-[#0a0c0f] rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     {copiedFormat ? (
                       <>
@@ -1757,7 +1716,7 @@ export function StudioLayout() {
                 <textarea
                   readOnly
                   value={getFormatContent(selectedCopyFormat)}
-                  className="w-full h-full p-3 text-xs font-mono text-[#00e676] outline-none resize-none leading-relaxed select-all no-scrollbar"
+                  className="w-full h-full p-3 text-xs font-mono text-accent outline-none resize-none leading-relaxed select-all no-scrollbar"
                 />
               </div>
             </div>

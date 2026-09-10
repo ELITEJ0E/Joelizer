@@ -37,7 +37,7 @@ export function MVSettingsPanel() {
       {/* Panel Header */}
       <div className="p-3 border-b border-[#232933] shrink-0">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
-          <Sliders size={13} className="text-[#00e676]" />
+          <Sliders size={13} className="text-accent" />
           <span>Music Video Settings</span>
         </span>
       </div>
@@ -102,13 +102,13 @@ export function MVSettingsPanel() {
                 type="number"
                 value={editSeed}
                 onChange={(e) => setEditSeed(parseInt(e.target.value) || 42)}
-                className="flex-1 bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded px-3 py-1.5 text-xs text-[#f0f3f6] font-mono outline-none transition-colors"
+                className="flex-1 bg-[#0a0c0f] border border-[#232933] focus:border-accent rounded px-3 py-1.5 text-xs text-[#f0f3f6] font-mono outline-none transition-colors"
               />
               <button
                 onClick={() => setEditSeed(Math.floor(Math.random() * 900000) + 100000)}
                 className="px-3 py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] text-[#c9d1d9] hover:text-[#f0f3f6] text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
               >
-                <Wand2 size={12} className="text-[#00e676]" />
+                <Wand2 size={12} className="text-accent" />
                 <span>RAND</span>
               </button>
             </div>
@@ -122,7 +122,7 @@ export function MVSettingsPanel() {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-[#f0f3f6] flex items-center gap-1.5 font-mono">
-                  <Sparkles size={13} className="text-[#00e676]" />
+                  <Sparkles size={13} className="text-accent" />
                   <span>Gemini Copilot</span>
                 </span>
                 <p className="text-[10px] text-[#7e8999] font-sans">Use AI to select matching clips based on lyrics.</p>
@@ -130,7 +130,7 @@ export function MVSettingsPanel() {
               <button
                 onClick={() => setUseGemini(!useGemini)}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-[#232933] transition-colors duration-200 ease-in-out focus:outline-none ${
-                  useGemini ? 'bg-[#00e676]' : 'bg-[#161b22]'
+                  useGemini ? 'bg-accent' : 'bg-[#161b22]'
                 }`}
               >
                 <span
@@ -152,7 +152,7 @@ export function MVSettingsPanel() {
                   value={geminiKey}
                   onChange={(e) => setGeminiKey(e.target.value)}
                   placeholder="AI Studio API Key..."
-                  className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded p-2 text-xs text-[#f0f3f6] outline-none font-mono transition-colors"
+                  className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-accent rounded p-2 text-xs text-[#f0f3f6] outline-none font-mono transition-colors"
                 />
               </div>
             )}

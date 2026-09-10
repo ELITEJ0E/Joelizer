@@ -42,7 +42,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
         {/* Header */}
         <div className="h-10 px-4 bg-[#0e1115] border-b border-[#232933] flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#f0f3f6]">
-            <Keyboard size={14} className="text-[#00e676]" />
+            <Keyboard size={14} className="text-accent" />
             <span id="shortcuts-title">Workstation Keyboard Shortcuts</span>
           </div>
           <button

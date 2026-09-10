@@ -5,6 +5,7 @@
   --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-display: "Space Grotesk", var(--font-sans);
+  --color-accent: var(--accent);
 }
 
 :root {
@@ -23,9 +24,37 @@
   --text-secondary: #9aa2ae;
   --text-muted: #5e6877;
   
-  --signal-emerald: #00e676;
-  --signal-emerald-dim: rgba(0, 230, 118, 0.15);
-  --signal-emerald-border: rgba(0, 230, 118, 0.35);
+  --accent: #00e676;
+  --accent-hover: #00c853;
+  --accent-dim: rgba(0, 230, 118, 0.15);
+  --accent-border: rgba(0, 230, 118, 0.35);
+  --signal-emerald: var(--accent);
+  --signal-emerald-dim: var(--accent-dim);
+  --signal-emerald-border: var(--accent-border);
+}
+
+.text-accent {
+  color: var(--accent);
+}
+
+.bg-accent {
+  background-color: var(--accent);
+}
+
+.border-accent {
+  border-color: var(--accent);
+}
+
+.border-accent-border {
+  border-color: var(--accent-border);
+}
+
+.bg-accent-dim {
+  background-color: var(--accent-dim);
+}
+
+.accent-accent {
+  accent-color: var(--accent);
 }
 
 body {

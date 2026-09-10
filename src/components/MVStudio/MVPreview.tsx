@@ -536,7 +536,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             className={`absolute inset-0 bg-transparent flex items-center justify-center group cursor-pointer z-10 ${showOverlay ? 'pointer-events-none [&>*]:pointer-events-auto' : ''}`}
           >
             {!isPlaying && (
-              <div className="w-12 h-12 rounded-full bg-[#0e1115]/90 border border-[#232933] hover:border-[#00e676] flex items-center justify-center text-[#f0f3f6] hover:text-[#00e676] backdrop-blur-sm group-hover:scale-105 transition-all cursor-pointer shadow-xl">
+              <div className="w-12 h-12 rounded-full bg-[#0e1115]/90 border border-[#232933] hover:border-accent flex items-center justify-center text-[#f0f3f6] hover:text-accent backdrop-blur-sm group-hover:scale-105 transition-all cursor-pointer shadow-xl">
                 <Play size={18} className="ml-0.5" />
               </div>
             )}
@@ -545,7 +545,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           {/* Timecode Overlay */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-20 pointer-events-none">
             <div className="bg-[#0e1115]/90 backdrop-blur-md px-2 py-0.5 rounded text-[#f0f3f6] font-mono text-[9px] font-semibold shadow-md border border-[#232933]">
-              <span className="text-[#00e676] mr-1 font-bold">TC</span>
+              <span className="text-accent mr-1 font-bold">TC</span>
               {formatTime(currentTime)} / {formatTime(audioDuration || 0)}
             </div>
           </div>

@@ -135,7 +135,7 @@ function VisualizerSettingsPanel() {
               type="checkbox" 
               checked={settings.showGrain}
               onChange={e => updateSettings({ showGrain: e.target.checked })}
-              className="accent-[#00e676] w-4 h-4 cursor-pointer"
+              className="accent-accent w-4 h-4 cursor-pointer"
               style={{ accentColor: activeColor }}
             />
             <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest group-hover:text-white transition-colors">Film Grain</span>
@@ -145,7 +145,7 @@ function VisualizerSettingsPanel() {
               type="checkbox" 
               checked={settings.showScanlines}
               onChange={e => updateSettings({ showScanlines: e.target.checked })}
-              className="accent-[#00e676] w-4 h-4 cursor-pointer"
+              className="accent-accent w-4 h-4 cursor-pointer"
               style={{ accentColor: activeColor }}
             />
             <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest group-hover:text-white transition-colors">Scanlines</span>

@@ -93,9 +93,9 @@ export function SongListSection() {
       {/* Header with Title & Action Buttons */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Music2 size={14} className="text-[#00e676]" />
+          <Music2 size={14} className="text-accent" />
           <span className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6]">Song List</span>
-          <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-[#181d26] text-[#00e676] border border-[#2b3442]">
+          <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-[#181d26] text-accent border border-[#2b3442]">
             {tracks.length}
           </span>
         </div>
@@ -125,7 +125,7 @@ export function SongListSection() {
               audioManager.resume().catch(() => {});
               setIsAudioModalOpen(true);
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
           >
             <Plus size={13} strokeWidth={2.5} />
             <span>Import</span>
@@ -153,7 +153,7 @@ export function SongListSection() {
                 onClick={() => handleTrackClick(idx)}
                 className={`group relative flex items-center gap-2 p-1.5 rounded border transition-colors cursor-pointer select-none ${
                   isSelected
-                    ? 'bg-[#181d26] border-[#00e676]/60 text-[#f0f3f6]'
+                    ? 'bg-[#181d26] border-accent/60 text-[#f0f3f6]'
                     : 'bg-[#0e1115] hover:bg-[#181d26]/70 border-[#232933] text-[#c4cad4]'
                 }`}
               >
@@ -173,7 +173,7 @@ export function SongListSection() {
                     isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                   }`}>
                     {isThisPlaying ? (
-                      <div className="w-5 h-5 rounded-full bg-[#00e676] text-[#0a0c0f] flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-full bg-accent text-[#0a0c0f] flex items-center justify-center">
                         <Pause size={10} fill="currentColor" />
                       </div>
                     ) : (
@@ -187,11 +187,11 @@ export function SongListSection() {
                 {/* Title & Metadata */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p className={`text-xs font-semibold truncate leading-tight ${isSelected ? 'text-[#00e676]' : 'text-[#f0f3f6]'}`}>
+                    <p className={`text-xs font-semibold truncate leading-tight ${isSelected ? 'text-accent' : 'text-[#f0f3f6]'}`}>
                       {track.name}
                     </p>
                     {isSelected && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#00e676] shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
                     )}
                   </div>
 

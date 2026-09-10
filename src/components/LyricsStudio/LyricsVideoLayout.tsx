@@ -10,6 +10,8 @@ import { BACKGROUND_PRESETS } from '../../lib/lyricsBackgrounds';
 import { cn, formatTime } from '../../lib/utils';
 import { SongListSection } from './SongListSection';
 import { SongListPopover } from '../Audio/SongListPopover';
+import { VideoSlider } from '../ui/video-slider';
+import { audioManager } from '../../lib/audio';
 import {
   Play, Pause, Check, Upload, RotateCcw, RotateCw, Maximize2,
   Sparkles, Type, Film, Image as ImageIcon, Music, Sliders, Palette,
@@ -56,6 +58,12 @@ export function LyricsVideoLayout() {
   const previousTrack = useStore(s => s.previousTrack);
   const nextTrack = useStore(s => s.nextTrack);
   const audioDuration = useStore(s => s.audioDuration) || 180;
+
+  const handleSeek = (time: number) => {
+    const t = Math.max(0, Math.min(audioDuration, time));
+    setCurrentTime(t);
+    audioManager.seek(t);
+  };
 
   const aspectRatio = useStore(s => s.aspectRatio);
   const setAspectRatio = useStore(s => s.setAspectRatio);
@@ -134,7 +142,7 @@ export function LyricsVideoLayout() {
               className={cn(
                 "flex-1 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer text-center",
                 sidebarTab === 'design'
-                  ? "bg-[#181d26] text-[#00e676] border border-[#2b3442]"
+                  ? "bg-[#181d26] text-accent border border-[#2b3442]"
                   : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/50"
               )}
             >
@@ -146,7 +154,7 @@ export function LyricsVideoLayout() {
               className={cn(
                 "flex-1 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer text-center",
                 sidebarTab === 'settings'
-                  ? "bg-[#181d26] text-[#00e676] border border-[#2b3442]"
+                  ? "bg-[#181d26] text-accent border border-[#2b3442]"
                   : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/50"
               )}
             >
@@ -168,7 +176,7 @@ export function LyricsVideoLayout() {
               {/* 1. LAYOUT SELECTOR SECTION */}
               <div className="space-y-2.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-[#00e676]" />
+                  <Sparkles size={13} className="text-accent" />
                   <span>Layout</span>
                 </label>
 
@@ -184,7 +192,7 @@ export function LyricsVideoLayout() {
                         className={cn(
                           "relative shrink-0 w-[72px] h-[94px] rounded overflow-hidden border transition-all cursor-pointer group bg-[#181d26]",
                           isSelected
-                            ? "border-[#00e676] ring-1 ring-[#00e676]"
+                            ? "border-accent ring-1 ring-accent"
                             : "border-[#232933] hover:border-[#2b3442]"
                         )}
                       >
@@ -215,7 +223,7 @@ export function LyricsVideoLayout() {
                           )}
 
                           {(layout.id === 'glowing-disc' || layout.id === 'glowing-disc-needle') && (
-                            <div className="w-11 h-11 rounded-full p-[1.5px] bg-[#232933] mb-1.5 relative flex items-center justify-center border border-[#00e676]/40">
+                            <div className="w-11 h-11 rounded-full p-[1.5px] bg-[#232933] mb-1.5 relative flex items-center justify-center border border-accent/40">
                               <div className="w-full h-full rounded-full bg-[#111317] relative overflow-hidden flex items-center justify-center border border-white/10">
                                 <div className="absolute inset-1 rounded-full border border-white/10"></div>
                                 <div className="w-3.5 h-3.5 rounded-full overflow-hidden relative z-10 border border-white/40">
@@ -224,7 +232,7 @@ export function LyricsVideoLayout() {
                                 {layout.id === 'glowing-disc-needle' && (
                                   <div className="absolute -top-1 -right-1 w-5 h-7 border-r-2 border-t-2 border-[#c4cad4] rounded-tr z-20 origin-top-right rotate-12">
                                     <div className="absolute bottom-0 right-[-2px] w-1.5 h-2 bg-[#12161c] rounded-xs border border-white/20">
-                                      <div className="w-full h-0.5 bg-[#00e676]"></div>
+                                      <div className="w-full h-0.5 bg-accent"></div>
                                     </div>
                                   </div>
                                 )}
@@ -242,7 +250,7 @@ export function LyricsVideoLayout() {
                                {layout.id === 'vinyl-needle' && (
                                   <div className="absolute -top-1 -right-1 w-5 h-7 border-r-2 border-t-2 border-[#c4cad4] rounded-tr z-20 origin-top-right rotate-12">
                                     <div className="absolute bottom-0 right-[-2px] w-1.5 h-2 bg-[#12161c] rounded-xs border border-white/20">
-                                      <div className="w-full h-0.5 bg-[#00e676]"></div>
+                                      <div className="w-full h-0.5 bg-accent"></div>
                                     </div>
                                   </div>
                                )}
@@ -260,7 +268,7 @@ export function LyricsVideoLayout() {
                                {layout.id === 'cd-needle' && (
                                   <div className="absolute -top-1 -right-1 w-5 h-7 border-r-2 border-t-2 border-[#c4cad4] rounded-tr z-20 origin-top-right rotate-12">
                                     <div className="absolute bottom-0 right-[-2px] w-1.5 h-2 bg-[#12161c] rounded-xs border border-white/20">
-                                      <div className="w-full h-0.5 bg-[#00e676]"></div>
+                                      <div className="w-full h-0.5 bg-accent"></div>
                                     </div>
                                   </div>
                                )}
@@ -276,7 +284,7 @@ export function LyricsVideoLayout() {
 
                         {/* Active Checkmark Badge */}
                         {isSelected && (
-                          <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#00e676] text-[#0a0c0f] flex items-center justify-center z-20">
+                          <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-accent text-[#0a0c0f] flex items-center justify-center z-20">
                             <Check size={9} strokeWidth={3} />
                           </div>
                         )}
@@ -290,7 +298,7 @@ export function LyricsVideoLayout() {
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
-                    <ImageIcon size={13} className="text-[#00e676]" />
+                    <ImageIcon size={13} className="text-accent" />
                     <span>Background</span>
                   </label>
                   <span className="text-[10px] font-mono text-[#5e6877]">
@@ -304,9 +312,9 @@ export function LyricsVideoLayout() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="relative rounded border border-dashed border-[#2b3442] hover:border-[#00e676] p-2 flex flex-col items-center justify-center gap-1 text-[#7e8999] hover:text-[#00e676] bg-[#0e1115] hover:bg-[#181d26] transition-colors cursor-pointer group shrink-0"
+                    className="relative rounded border border-dashed border-[#2b3442] hover:border-accent p-2 flex flex-col items-center justify-center gap-1 text-[#7e8999] hover:text-accent bg-[#0e1115] hover:bg-[#181d26] transition-colors cursor-pointer group shrink-0"
                   >
-                    <Upload size={13} className="text-[#00e676]" />
+                    <Upload size={13} className="text-accent" />
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#f0f3f6]">Upload</span>
                     <span className="text-[8px] text-[#5e6877]">Img / Video</span>
                   </button>
@@ -340,7 +348,7 @@ export function LyricsVideoLayout() {
                         className={cn(
                           "relative rounded overflow-hidden border p-1.5 text-left transition-colors cursor-pointer flex flex-col justify-between shrink-0 group bg-[#181d26]",
                           isSelected
-                            ? "border-[#00e676] ring-1 ring-[#00e676]"
+                            ? "border-accent ring-1 ring-accent"
                             : "border-[#232933] hover:border-[#2b3442]"
                         )}
                         style={{
@@ -379,7 +387,7 @@ export function LyricsVideoLayout() {
 
                         {/* Active Checkmark Badge */}
                         {isSelected && (
-                          <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#00e676] text-[#0a0c0f] flex items-center justify-center z-20">
+                          <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-accent text-[#0a0c0f] flex items-center justify-center z-20">
                             <Check size={9} strokeWidth={3} />
                           </div>
                         )}
@@ -393,10 +401,10 @@ export function LyricsVideoLayout() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
-                    <Film size={13} className="text-[#00e676]" />
+                    <Film size={13} className="text-accent" />
                     <span>Aspect Ratio</span>
                   </label>
-                  <span className="text-[10px] font-mono text-[#00e676] font-bold">
+                  <span className="text-[10px] font-mono text-accent font-bold">
                     {aspectRatio}
                   </span>
                 </div>
@@ -415,7 +423,7 @@ export function LyricsVideoLayout() {
                         className={cn(
                           "py-1.5 px-0.5 rounded text-xs font-semibold transition-colors cursor-pointer flex flex-col items-center justify-center",
                           isSelected
-                            ? "bg-[#181d26] text-[#00e676] border border-[#00e676]"
+                            ? "bg-[#181d26] text-accent border border-accent"
                             : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/40"
                         )}
                       >
@@ -430,10 +438,10 @@ export function LyricsVideoLayout() {
               <div className="space-y-2 pt-2 border-t border-[#232933]">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
-                    <Sparkles size={13} className="text-[#00e676]" />
+                    <Sparkles size={13} className="text-accent" />
                     <span>Animation Style</span>
                   </label>
-                  <span className="text-[10px] font-mono text-[#00e676] font-bold uppercase">
+                  <span className="text-[10px] font-mono text-accent font-bold uppercase">
                     {animationStyle === 'karaoke' ? 'Karaoke' : 'Fade In/Out'}
                   </span>
                 </div>
@@ -445,7 +453,7 @@ export function LyricsVideoLayout() {
                     className={cn(
                       "py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer flex flex-col items-center gap-0.5",
                       animationStyle === 'karaoke'
-                        ? "bg-[#181d26] text-[#00e676] border border-[#00e676]"
+                        ? "bg-[#181d26] text-accent border border-accent"
                         : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/40"
                     )}
                   >
@@ -459,7 +467,7 @@ export function LyricsVideoLayout() {
                     className={cn(
                       "py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer flex flex-col items-center gap-0.5",
                       animationStyle === 'fade'
-                        ? "bg-[#181d26] text-[#00e676] border border-[#00e676]"
+                        ? "bg-[#181d26] text-accent border border-accent"
                         : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/40"
                     )}
                   >
@@ -472,7 +480,7 @@ export function LyricsVideoLayout() {
               {/* 5. STYLE & TYPOGRAPHY SECTION */}
               <div className="space-y-2.5 pt-2 border-t border-[#232933]">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
-                  <Type size={13} className="text-[#00e676]" />
+                  <Type size={13} className="text-accent" />
                   <span>Style & Typography</span>
                 </label>
 
@@ -482,7 +490,7 @@ export function LyricsVideoLayout() {
                   <select
                     value={typographyOverride.fontFamily}
                     onChange={(e) => updateTypographyOverride({ fontFamily: e.target.value })}
-                    className="w-full bg-[#0e1115] border border-[#232933] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] font-medium cursor-pointer outline-none hover:border-[#2b3442] focus:border-[#00e676] transition-colors"
+                    className="w-full bg-[#0e1115] border border-[#232933] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] font-medium cursor-pointer outline-none hover:border-[#2b3442] focus:border-accent transition-colors"
                   >
                     {fontOptions.map(f => (
                       <option key={f} value={f} className="bg-[#12161c] text-[#f0f3f6]">{f}</option>
@@ -502,7 +510,7 @@ export function LyricsVideoLayout() {
                         className={cn(
                           "py-1 rounded text-xs font-semibold transition-colors cursor-pointer",
                           visibleLineCount === count
-                            ? "bg-[#181d26] text-[#00e676] border border-[#00e676]"
+                            ? "bg-[#181d26] text-accent border border-accent"
                             : "text-[#7e8999] hover:text-[#f0f3f6]"
                         )}
                       >
@@ -572,7 +580,7 @@ export function LyricsVideoLayout() {
               <button
                 type="button"
                 onClick={() => setIsPlaying(!isPlaying)}
-                className="w-8 h-8 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                className="w-8 h-8 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] flex items-center justify-center transition-colors cursor-pointer shrink-0"
                 title={isPlaying ? "Pause" : "Play"}
               >
                 {isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" className="ml-0.5" />}
@@ -595,52 +603,37 @@ export function LyricsVideoLayout() {
                 className={cn(
                   "p-1.5 rounded transition-colors cursor-pointer shrink-0 relative",
                   isLooping
-                    ? "bg-[#181d26] border border-[#00e676] text-[#00e676]"
+                    ? "bg-[#181d26] border border-accent text-accent"
                     : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]"
                 )}
                 title={isLooping ? "Disable Loop" : "Enable Loop (Repeat Current Song)"}
               >
                 <Repeat size={14} />
                 {isLooping && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 text-[#0a0c0f] text-[8px] font-bold rounded-full bg-[#00e676] flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-3 h-3 text-[#0a0c0f] text-[8px] font-bold rounded-full bg-accent flex items-center justify-center">
                     1
                   </span>
                 )}
               </button>
             </div>
 
-            {/* Visualizer Range Display Timeline Scrubber */}
-            <div 
-              onClick={handleWaveformScrub}
-              className="flex-1 min-w-[160px] h-10 bg-[#0a0c0f] rounded border border-[#232933] px-2.5 flex items-center gap-2.5 cursor-pointer relative group overflow-hidden select-none"
-            >
-              {/* AUD Badge */}
-              <div className="flex items-center gap-1 font-mono text-[10px] font-bold text-[#00e676] bg-[#12161c] px-1.5 py-0.5 rounded border border-[#232933] shrink-0">
-                <Music size={11} className="text-[#00e676]" />
-                <span>AUD</span>
+            {/* Standardized Scrubber / Seek Bar */}
+            <div className="flex-1 min-w-[160px] flex items-center gap-3">
+              <div className="flex-1 flex items-center">
+                <VideoSlider
+                  value={currentTime}
+                  min={0}
+                  max={audioDuration || 100}
+                  step={0.01}
+                  onChange={handleSeek}
+                  formatTooltip={formatTime}
+                  className="w-full"
+                />
               </div>
 
-              {/* Waveform Bars Container */}
-              <div className="flex-1 h-6 flex items-center gap-[2px] relative">
-                {WAVEFORM_BARS.map((height, idx) => {
-                  const barRatio = idx / WAVEFORM_BARS.length;
-                  const isPlayed = barRatio <= playbackProgress;
-                  return (
-                    <div
-                      key={idx}
-                      className="flex-1 rounded-xs transition-colors duration-75"
-                      style={{
-                        height: `${height * 100}%`,
-                        backgroundColor: isPlayed ? '#00e676' : '#232933',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Time readout */}
-              <div className="text-[10px] sm:text-[11px] font-mono font-semibold text-[#c4cad4] bg-[#12161c] px-2 py-0.5 rounded border border-[#232933] shrink-0">
-                {formatTime(currentTime)} / {formatTime(audioDuration)}
+              {/* Time & Duration */}
+              <div className="text-[10px] sm:text-[11px] font-mono font-medium text-[#7e8999] tracking-wider shrink-0 min-w-[80px] text-right">
+                <span className="text-[#c4cad4] font-bold">{formatTime(currentTime)}</span> / {formatTime(audioDuration)}
               </div>
             </div>
           </div>

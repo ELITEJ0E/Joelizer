@@ -32,7 +32,7 @@ export function TrackHeaderMenu({ trackType, onClose, onAction }: TrackHeaderMen
             onClick={() => { onAction('add-visualizer'); onClose(); }}
             className="w-full px-3 py-1.5 text-left hover:bg-[#161b22] flex items-center gap-2 cursor-pointer text-[#c9d1d9] hover:text-[#f0f3f6] transition-colors"
           >
-            <Sparkles size={12} className="text-[#00e676]" />
+            <Sparkles size={12} className="text-accent" />
             <span>Add Visualizer Scene</span>
           </button>
           <button
@@ -65,7 +65,7 @@ export function TrackHeaderMenu({ trackType, onClose, onAction }: TrackHeaderMen
             onClick={() => { onAction('add-line'); onClose(); }}
             className="w-full px-3 py-1.5 text-left hover:bg-[#161b22] flex items-center gap-2 cursor-pointer text-[#c9d1d9] hover:text-[#f0f3f6] transition-colors"
           >
-            <Plus size={12} className="text-[#00e676]" />
+            <Plus size={12} className="text-accent" />
             <span>Add Line at Playhead</span>
           </button>
           <button
@@ -98,14 +98,14 @@ export function TrackHeaderMenu({ trackType, onClose, onAction }: TrackHeaderMen
             onClick={() => { onAction('reset-volume'); onClose(); }}
             className="w-full px-3 py-1.5 text-left hover:bg-[#161b22] flex items-center gap-2 cursor-pointer text-[#c9d1d9] hover:text-[#f0f3f6] transition-colors"
           >
-            <Volume2 size={12} className="text-[#00e676]" />
+            <Volume2 size={12} className="text-accent" />
             <span>Reset Volume (100%)</span>
           </button>
           <button
             onClick={() => { onAction('generate-peaks'); onClose(); }}
             className="w-full px-3 py-1.5 text-left hover:bg-[#161b22] flex items-center gap-2 cursor-pointer text-[#c9d1d9] hover:text-[#f0f3f6] transition-colors"
           >
-            <Sliders size={12} className="text-[#00e676]" />
+            <Sliders size={12} className="text-accent" />
             <span>Re-analyze Audio Waveform</span>
           </button>
         </div>

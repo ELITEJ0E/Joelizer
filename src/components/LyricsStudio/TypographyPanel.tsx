@@ -29,7 +29,7 @@ export function TypographyPanel() {
       {/* Extended Aspect Ratio Picker */}
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-          <Layout size={12} className="text-[#00e676]" />
+          <Layout size={12} className="text-accent" />
           Canvas Aspect Ratio
         </span>
 
@@ -42,7 +42,7 @@ export function TypographyPanel() {
                 onClick={() => setAspectRatio(ar.id)}
                 className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-[#161b22] border-[#00e676]/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)]'
+                    ? 'bg-[#161b22] border-accent/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)]'
                     : 'bg-[#12161c] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#161b22] hover:border-[#2e3746]'
                 }`}
               >
@@ -57,7 +57,7 @@ export function TypographyPanel() {
       {/* Font Family Picker */}
       <div className="flex flex-col gap-2 pt-3 border-t border-[#232933]">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-          <Type size={12} className="text-[#00e676]" />
+          <Type size={12} className="text-accent" />
           Font Family
         </span>
 
@@ -70,7 +70,7 @@ export function TypographyPanel() {
                 onClick={() => updateTypo({ fontFamily: font })}
                 className={`p-2.5 rounded-lg border text-xs transition-all cursor-pointer text-left ${
                   isSelected
-                    ? 'bg-[#161b22] border-[#00e676]/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)] font-semibold'
+                    ? 'bg-[#161b22] border-accent/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)] font-semibold'
                     : 'bg-[#12161c] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#161b22] hover:border-[#2e3746]'
                 }`}
                 style={{ fontFamily: font }}
@@ -85,7 +85,7 @@ export function TypographyPanel() {
       {/* Color Customization */}
       <div className="flex flex-col gap-2 pt-3 border-t border-[#232933]">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-          <Palette size={12} className="text-[#00e676]" />
+          <Palette size={12} className="text-accent" />
           Color & Glow Palette
         </span>
 
@@ -124,27 +124,27 @@ export function TypographyPanel() {
       <div className="flex flex-col gap-2 pt-3 border-t border-[#232933]">
         <label className="flex items-center justify-between bg-[#12161c] border border-[#232933] p-2.5 rounded-lg cursor-pointer hover:border-[#2e3746] transition-colors">
           <span className="text-xs font-medium text-[#f0f3f6] flex items-center gap-2">
-            <Eye size={14} className="text-[#00e676]" />
+            <Eye size={14} className="text-accent" />
             Background Pill Backdrop
           </span>
           <input
             type="checkbox"
             checked={typo.showContainerPill}
             onChange={(e) => updateTypo({ showContainerPill: e.target.checked })}
-            className="w-4 h-4 accent-[#00e676] rounded cursor-pointer"
+            className="w-4 h-4 accent-accent rounded cursor-pointer"
           />
         </label>
 
         <label className="flex items-center justify-between bg-[#12161c] border border-[#232933] p-2.5 rounded-lg cursor-pointer hover:border-[#2e3746] transition-colors">
           <span className="text-xs font-medium text-[#f0f3f6] flex items-center gap-2">
-            <ShieldCheck size={14} className="text-[#00e676]" />
+            <ShieldCheck size={14} className="text-accent" />
             Safe Area Guide Lines
           </span>
           <input
             type="checkbox"
             checked={showSafeArea}
             onChange={(e) => setShowSafeArea(e.target.checked)}
-            className="w-4 h-4 accent-[#00e676] rounded cursor-pointer"
+            className="w-4 h-4 accent-accent rounded cursor-pointer"
           />
         </label>
       </div>

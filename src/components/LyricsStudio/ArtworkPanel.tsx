@@ -37,8 +37,8 @@ export function ArtworkPanel() {
   };
 
   const styles: { id: ArtworkStyle; name: string; icon: React.ReactNode }[] = [
-    { id: 'glowing-disc', name: 'Neon Vinyl', icon: <Radio size={14} className="text-[#00e676]" /> },
-    { id: 'glowing-disc-needle', name: 'Vinyl + Needle', icon: <Radio size={14} className="text-[#00e676]" /> },
+    { id: 'glowing-disc', name: 'Neon Vinyl', icon: <Radio size={14} className="text-accent" /> },
+    { id: 'glowing-disc-needle', name: 'Vinyl + Needle', icon: <Radio size={14} className="text-accent" /> },
     { id: 'vinyl', name: 'Vinyl Record', icon: <Disc size={14} className="text-[#7e8999]" /> },
     { id: 'vinyl-needle', name: 'Vinyl & Arm', icon: <Disc size={14} className="text-[#7e8999]" /> },
     { id: 'cd', name: 'Compact Disc', icon: <Disc size={14} className="text-[#7e8999]" /> },
@@ -64,10 +64,10 @@ export function ArtworkPanel() {
       <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-[#232933] bg-[#12161c]">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-            <ImageIcon size={12} className="text-[#00e676]" />
+            <ImageIcon size={12} className="text-accent" />
             Song Cover Artwork
           </span>
-          <span className="text-[9px] font-mono text-[#00e676] font-semibold">
+          <span className="text-[9px] font-mono text-accent font-semibold">
             {currentTrack?.name ? currentTrack.name.slice(0, 18) : 'Track Attached'}
           </span>
         </div>
@@ -87,9 +87,9 @@ export function ArtworkPanel() {
           <div className="flex-1 flex flex-col gap-1.5">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#1f2632] border border-[#232933] hover:border-[#00e676]/50 text-[#f0f3f6] font-mono font-semibold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
+              className="px-3 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#1f2632] border border-[#232933] hover:border-accent/50 text-[#f0f3f6] font-mono font-semibold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
             >
-              <Upload size={12} className="text-[#00e676]" />
+              <Upload size={12} className="text-accent" />
               <span>Upload Custom</span>
             </button>
             <input
@@ -114,12 +114,12 @@ export function ArtworkPanel() {
                 key={idx}
                 onClick={() => updateCurrentTrackCover(cov)}
                 className={`w-9 h-9 rounded-md overflow-hidden shrink-0 border transition-all cursor-pointer relative ${
-                  albumArt === cov ? 'border-[#00e676] ring-1 ring-[#00e676] scale-105' : 'border-[#232933] hover:border-[#384252]'
+                  albumArt === cov ? 'border-accent ring-1 ring-accent scale-105' : 'border-[#232933] hover:border-[#384252]'
                 }`}
               >
                 <img src={cov} alt="Preset" className="w-full h-full object-cover" />
                 {albumArt === cov && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-[#00e676]">
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-accent">
                     <Check size={12} strokeWidth={3} />
                   </div>
                 )}
@@ -132,7 +132,7 @@ export function ArtworkPanel() {
       {/* Artwork Object Style Selector */}
       <div className="flex flex-col gap-2 pt-3 border-t border-[#232933]">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-          <Disc size={12} className="text-[#00e676]" />
+          <Disc size={12} className="text-accent" />
           Artwork Object Style
         </span>
 
@@ -151,7 +151,7 @@ export function ArtworkPanel() {
                 }}
                 className={`flex items-center gap-2 p-2.5 rounded-lg border text-left text-xs transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-[#161b22] border-[#00e676]/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)] font-semibold'
+                    ? 'bg-[#161b22] border-accent/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)] font-semibold'
                     : 'bg-[#12161c] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#161b22] hover:border-[#2e3746]'
                 }`}
               >
@@ -166,7 +166,7 @@ export function ArtworkPanel() {
       {/* Animation Controls */}
       <div className="flex flex-col gap-2 pt-3 border-t border-[#232933]">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-          <Activity size={12} className="text-[#00e676]" />
+          <Activity size={12} className="text-accent" />
           Object Motion & Beat Sync
         </span>
 
@@ -180,7 +180,7 @@ export function ArtworkPanel() {
                 onClick={() => updateArtwork({ animation: anim.id })}
                 className={`p-2 rounded-lg border text-xs font-mono transition-all cursor-pointer text-left ${
                   isSelected
-                    ? 'bg-[#161b22] border-[#00e676]/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)] font-semibold'
+                    ? 'bg-[#161b22] border-accent/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)] font-semibold'
                     : 'bg-[#12161c] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#161b22] hover:border-[#2e3746]'
                 }`}
               >
@@ -204,7 +204,7 @@ export function ArtworkPanel() {
           step="0.05"
           value={artwork.sizeScale}
           onChange={(e) => updateArtwork({ sizeScale: parseFloat(e.target.value) })}
-          className="w-full accent-[#00e676] bg-[#12161c] rounded h-1.5 cursor-pointer border border-[#232933]"
+          className="w-full accent-accent bg-[#12161c] rounded h-1.5 cursor-pointer border border-[#232933]"
         />
       </div>
     </div>

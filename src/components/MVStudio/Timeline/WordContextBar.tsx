@@ -65,11 +65,11 @@ export function WordContextBar({
               if (e.key === 'Escape') setIsEditing(false);
             }}
             autoFocus
-            className="px-2 py-0.5 bg-[#0a0c0f] border border-[#00e676] rounded text-xs text-[#f0f3f6] outline-none w-28 font-sans"
+            className="px-2 py-0.5 bg-[#0a0c0f] border border-accent rounded text-xs text-[#f0f3f6] outline-none w-28 font-sans"
           />
           <button
             onClick={handleSaveText}
-            className="p-1 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-bold cursor-pointer transition-colors"
+            className="p-1 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] font-bold cursor-pointer transition-colors"
             title="Save word"
           >
             <Check size={12} />
@@ -84,7 +84,7 @@ export function WordContextBar({
         </div>
       ) : isInserting ? (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-[#00e676] font-semibold">
+          <span className="text-[10px] text-accent font-semibold">
             {isInserting === 'before' ? '+ PRE:' : '+ POST:'}
           </span>
           <input
@@ -97,11 +97,11 @@ export function WordContextBar({
             }}
             autoFocus
             placeholder="New word..."
-            className="px-2 py-0.5 bg-[#0a0c0f] border border-[#00e676] rounded text-xs text-[#f0f3f6] outline-none w-28 font-sans"
+            className="px-2 py-0.5 bg-[#0a0c0f] border border-accent rounded text-xs text-[#f0f3f6] outline-none w-28 font-sans"
           />
           <button
             onClick={handleConfirmInsert}
-            className="p-1 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-bold cursor-pointer transition-colors"
+            className="p-1 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] font-bold cursor-pointer transition-colors"
             title="Add word"
           >
             <Check size={12} />
@@ -120,7 +120,7 @@ export function WordContextBar({
           <div className="flex items-center gap-1.5 pr-2 border-r border-[#232933] text-[#7e8999] text-[10px]">
             <span className="font-semibold text-[#f0f3f6] bg-[#161b22] border border-[#232933] px-1.5 py-0.5 rounded font-sans">{word.word}</span>
             <span>{word.start.toFixed(2)}s - {word.end.toFixed(2)}s</span>
-            <span className="text-[#00e676]">({(word.end - word.start).toFixed(2)}s)</span>
+            <span className="text-accent">({(word.end - word.start).toFixed(2)}s)</span>
           </div>
 
           {/* Edit Word */}
@@ -132,7 +132,7 @@ export function WordContextBar({
             title="Edit word spelling"
             className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] text-[#c9d1d9] hover:text-[#f0f3f6] font-medium flex items-center gap-1 transition-colors cursor-pointer"
           >
-            <Edit3 size={11} className="text-[#00e676]" />
+            <Edit3 size={11} className="text-accent" />
             <span>EDIT</span>
           </button>
 

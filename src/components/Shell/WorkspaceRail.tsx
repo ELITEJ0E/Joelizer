@@ -91,7 +91,7 @@ export function WorkspaceRail({ onOpenAudioModal, onOpenShortcutsModal }: Worksp
               {/* Crisp Emerald Active Indicator on left border */}
               {isActive && (
                 <div
-                  className="absolute left-0 top-1.5 bottom-1.5 w-[2.5px] bg-[#00e676] rounded-r"
+                  className="absolute left-0 top-1.5 bottom-1.5 w-[2.5px] bg-accent rounded-r"
                 />
               )}
 
@@ -99,7 +99,7 @@ export function WorkspaceRail({ onOpenAudioModal, onOpenShortcutsModal }: Worksp
                 size={18}
                 className={cn(
                   "transition-colors",
-                  isActive ? "text-[#00e676]" : "text-[#7e8999] group-hover:text-[#c4cad4]"
+                  isActive ? "text-accent" : "text-[#7e8999] group-hover:text-[#c4cad4]"
                 )}
                 strokeWidth={isActive ? 2.2 : 1.8}
               />

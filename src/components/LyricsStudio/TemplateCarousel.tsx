@@ -28,7 +28,7 @@ export function TemplateCarousel() {
             onClick={() => setActiveCategory(cat)}
             className={`px-3 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
               activeCategory === cat 
-                ? 'bg-[#161b22] text-[#00e676] border border-[#00e676]/50 shadow-sm' 
+                ? 'bg-[#161b22] text-accent border border-accent/50 shadow-sm' 
                 : 'bg-[#12161c] text-[#7e8999] hover:text-[#f0f3f6] border border-[#232933] hover:bg-[#161b22]'
             }`}
           >
@@ -48,7 +48,7 @@ export function TemplateCarousel() {
               onClick={() => setSelectedTemplateId(tmpl.id as LyricTemplateId)}
               className={`group relative rounded-xl p-3 border transition-all cursor-pointer flex flex-col justify-between min-h-[110px] overflow-hidden ${
                 isSelected 
-                  ? 'bg-[#161b22] border-[#00e676]/60 shadow-[0_0_12px_rgba(0,230,118,0.12)] ring-1 ring-[#00e676]/30' 
+                  ? 'bg-[#161b22] border-accent/60 shadow-[0_0_12px_rgba(0,230,118,0.12)] ring-1 ring-accent/30' 
                   : 'bg-[#12161c] border-[#232933] hover:border-[#384252] hover:bg-[#161b22]'
               }`}
             >
@@ -65,7 +65,7 @@ export function TemplateCarousel() {
                 </div>
 
                 {tmpl.badge && (
-                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#161b22] text-[#00e676] border border-[#00e676]/30 flex items-center gap-1">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#161b22] text-accent border border-accent/30 flex items-center gap-1">
                     <Flame size={10} />
                     {tmpl.badge}
                   </span>
@@ -84,7 +84,7 @@ export function TemplateCarousel() {
                 </span>
 
                 {isSelected ? (
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 bg-[#00e676] text-black shadow-sm">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 bg-accent text-black shadow-sm">
                     <Check size={12} strokeWidth={3} />
                     Active
                   </span>

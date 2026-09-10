@@ -379,7 +379,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
           onClick={() => setActiveTab('media')}
           className={`flex-1 py-2.5 transition-colors flex items-center justify-center gap-2 border-b-2 ${
             activeTab === 'media'
-              ? 'border-[#00e676] text-[#00e676] bg-[#12161c]/50'
+              ? 'border-accent text-accent bg-[#12161c]/50'
               : 'border-transparent text-[#7e8999] hover:text-[#f0f3f6]'
           }`}
         >
@@ -390,7 +390,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
           onClick={() => setActiveTab('generate')}
           className={`flex-1 py-2.5 transition-colors flex items-center justify-center gap-2 border-b-2 ${
             activeTab === 'generate'
-              ? 'border-[#00e676] text-[#00e676] bg-[#12161c]/50'
+              ? 'border-accent text-accent bg-[#12161c]/50'
               : 'border-transparent text-[#7e8999] hover:text-[#f0f3f6]'
           }`}
         >
@@ -407,7 +407,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
           <div className="p-3 border-b border-[#232933] flex flex-col gap-2.5 shrink-0 bg-[#0e1115]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-[#f0f3f6] text-xs font-semibold tracking-wider uppercase">
-                <Film size={13} className="text-[#00e676]" />
+                <Film size={13} className="text-accent" />
                 Media Library
               </div>
               <div className="flex items-center gap-1.5">
@@ -416,13 +416,13 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   title="Import Local Files or Folder"
                   className="bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] px-2.5 py-1.5 rounded text-[#f0f3f6] transition-colors flex items-center gap-1.5 text-[10px] font-semibold cursor-pointer"
                 >
-                  <FolderPlus size={12} className="text-[#00e676]" />
+                  <FolderPlus size={12} className="text-accent" />
                   <span>Import Media</span>
                 </button>
                 <button 
                   onClick={() => setShowUrlModal(true)}
                   title="Add Direct Media URL"
-                  className="bg-[#161b22] hover:bg-[#1c222b] text-[#c9d1d9] hover:text-[#00e676] p-1.5 rounded border border-[#232933] hover:border-[#303846] transition-colors text-[10px] cursor-pointer"
+                  className="bg-[#161b22] hover:bg-[#1c222b] text-[#c9d1d9] hover:text-accent p-1.5 rounded border border-[#232933] hover:border-[#303846] transition-colors text-[10px] cursor-pointer"
                 >
                   <LinkIcon size={12} />
                 </button>
@@ -451,7 +451,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
             {/* Timeline Scene Presets */}
             <div className="p-2.5 bg-[#12161c] border border-[#232933] rounded flex flex-col gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-                <Sparkles size={11} className="text-[#00e676]" />
+                <Sparkles size={11} className="text-accent" />
                 Add Timeline Scenes
               </span>
               <div className="grid grid-cols-2 gap-1.5">
@@ -501,7 +501,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                 onClick={() => setMediaSourceFilter('all')}
                 className={`flex-1 py-1 rounded transition-colors font-semibold ${
                   mediaSourceFilter === 'all'
-                    ? 'bg-[#161b22] text-[#00e676] border border-[#232933]'
+                    ? 'bg-[#161b22] text-accent border border-[#232933]'
                     : 'text-[#7e8999] hover:text-[#f0f3f6]'
                 }`}
               >
@@ -511,7 +511,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                 onClick={() => setMediaSourceFilter('my-clips')}
                 className={`flex-1 py-1 rounded transition-colors font-semibold ${
                   mediaSourceFilter === 'my-clips'
-                    ? 'bg-[#161b22] text-[#00e676] border border-[#232933]'
+                    ? 'bg-[#161b22] text-accent border border-[#232933]'
                     : 'text-[#7e8999] hover:text-[#f0f3f6]'
                 }`}
               >
@@ -521,7 +521,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                 onClick={() => setMediaSourceFilter('stock')}
                 className={`flex-1 py-1 rounded transition-colors font-semibold ${
                   mediaSourceFilter === 'stock'
-                    ? 'bg-[#161b22] text-[#00e676] border border-[#232933]'
+                    ? 'bg-[#161b22] text-accent border border-[#232933]'
                     : 'text-[#7e8999] hover:text-[#f0f3f6]'
                 }`}
               >
@@ -545,7 +545,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   </button>
                   <button
                     onClick={handleImportSampleStock}
-                    className="w-full py-2 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#00e676] text-[#00e676] text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-accent text-accent text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Sparkles size={12} />
                     Import Pro Stock Footage Pack
@@ -588,7 +588,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                       <span className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider ${
                         asset.type === 'image' 
                           ? 'bg-[#161b22] text-[#f0f3f6] border border-[#232933]' 
-                          : 'bg-[#161b22] text-[#00e676] border border-[#232933]'
+                          : 'bg-[#161b22] text-accent border border-[#232933]'
                       }`}>
                         {asset.type === 'image' ? <ImageIcon size={9} className="inline mr-0.5" /> : <Film size={9} className="inline mr-0.5" />}
                         {asset.type}
@@ -604,7 +604,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                     <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={handleQuickAdd}
-                        className="bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] text-[#00e676] p-1 rounded cursor-pointer shadow transition-colors"
+                        className="bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] text-accent p-1 rounded cursor-pointer shadow transition-colors"
                         title="Add clip to timeline at playhead"
                       >
                         <Plus size={11} strokeWidth={2.5} />
@@ -635,13 +635,13 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
               onClick={handleImportSampleStock}
               className="w-full py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] text-[#f0f3f6] border border-[#232933] hover:border-[#303846] text-[10px] font-semibold tracking-wider uppercase transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Sparkles size={11} className="text-[#00e676]" />
+              <Sparkles size={11} className="text-accent" />
               <span>Load Royalty-Free Stock Pack</span>
             </button>
 
             <button 
               onClick={() => setShowStockModal(true)}
-              className="w-full py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] text-[#c9d1d9] hover:text-[#00e676] border border-[#232933] hover:border-[#303846] text-[10px] font-semibold tracking-wider uppercase transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] text-[#c9d1d9] hover:text-accent border border-[#232933] hover:border-[#303846] text-[10px] font-semibold tracking-wider uppercase transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Globe size={11} />
               <span>Stock Provider Hub</span>
@@ -660,7 +660,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
               >
                 <div className="flex items-center justify-between border-b border-[#232933] pb-3">
                   <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
-                    <FolderPlus size={15} className="text-[#00e676]" />
+                    <FolderPlus size={15} className="text-accent" />
                     Import Local Media
                   </h3>
                   <button onClick={() => setShowLocalUploadModal(false)} className="text-[#7e8999] hover:text-[#f0f3f6] text-xs p-1 cursor-pointer">✕</button>
@@ -679,9 +679,9 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                     }
                     setShowLocalUploadModal(false);
                   }}
-                  className="border-2 border-dashed border-[#232933] hover:border-[#00e676]/60 rounded-lg p-6 flex flex-col items-center justify-center gap-3 bg-[#0a0c0f] text-center transition-colors"
+                  className="border-2 border-dashed border-[#232933] hover:border-accent/60 rounded-lg p-6 flex flex-col items-center justify-center gap-3 bg-[#0a0c0f] text-center transition-colors"
                 >
-                  <FolderPlus size={30} className="text-[#00e676] opacity-70" />
+                  <FolderPlus size={30} className="text-accent opacity-70" />
                   <div>
                     <p className="text-xs font-semibold text-[#f0f3f6]">Drag & drop files or entire folder here</p>
                     <p className="text-[10px] text-[#7e8999] mt-1 font-sans">Supports MP4, WebM, MOV, JPG, PNG, WEBP</p>
@@ -689,7 +689,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   <div className="flex items-center gap-2 mt-2">
                     <button 
                       onClick={() => { fileInputRef.current?.click(); setShowLocalUploadModal(false); }}
-                      className="px-3.5 py-1.5 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] text-xs font-semibold transition-colors cursor-pointer"
+                      className="px-3.5 py-1.5 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Choose Files
                     </button>
@@ -717,7 +717,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
               >
                 <div className="flex items-center justify-between border-b border-[#232933] pb-3">
                   <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
-                    <LinkIcon size={14} className="text-[#00e676]" />
+                    <LinkIcon size={14} className="text-accent" />
                     Import Media from Direct URL
                   </h3>
                   <button onClick={() => setShowUrlModal(false)} className="text-[#7e8999] hover:text-[#f0f3f6] text-xs cursor-pointer">✕</button>
@@ -732,7 +732,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   placeholder="https://cdn.example.com/stock-clip.mp4"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded p-2.5 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
+                  className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-accent rounded p-2.5 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
                 />
 
                 {urlError && (
@@ -748,7 +748,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   </button>
                   <button 
                     onClick={handleAddUrl}
-                    className="px-3.5 py-1.5 rounded bg-[#00e676] hover:bg-[#00c853] text-xs text-[#0a0c0f] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                    className="px-3.5 py-1.5 rounded bg-accent hover:bg-accent/80 text-xs text-[#0a0c0f] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     <Plus size={13} strokeWidth={2.5} />
                     Import Media
@@ -771,7 +771,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                 <div className="flex items-center justify-between border-b border-[#232933] pb-3">
                   <div>
                     <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
-                      <Globe size={15} className="text-[#00e676]" />
+                      <Globe size={15} className="text-accent" />
                       Stock Provider Hub
                     </h3>
                     <p className="text-[11px] text-[#7e8999] font-sans mt-0.5">
@@ -794,7 +794,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                         <span className="font-semibold text-[#f0f3f6] text-xs tracking-wide">
                           {provider.name}
                         </span>
-                        <ExternalLink size={12} className="text-[#7e8999] group-hover:text-[#00e676] transition-colors" />
+                        <ExternalLink size={12} className="text-[#7e8999] group-hover:text-accent transition-colors" />
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-[10px] text-[#7e8999] font-mono">{provider.category}</span>
@@ -805,7 +805,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
 
                 <div className="bg-[#0a0c0f] border border-[#232933] rounded p-3 flex flex-col gap-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
-                    <LinkIcon size={12} className="text-[#00e676]" />
+                    <LinkIcon size={12} className="text-accent" />
                     Quick Import Stock Video Link
                   </span>
                   <div className="flex gap-2">
@@ -814,14 +814,14 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                       placeholder="Paste direct .mp4 or .jpg URL from stock provider"
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}
-                      className="flex-1 bg-[#12161c] border border-[#232933] focus:border-[#00e676] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
+                      className="flex-1 bg-[#12161c] border border-[#232933] focus:border-accent rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
                     />
                     <button
                       onClick={() => {
                         handleAddUrl();
                         setShowStockModal(false);
                       }}
-                      className="px-3.5 py-1.5 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-semibold text-xs shrink-0 cursor-pointer transition-colors"
+                      className="px-3.5 py-1.5 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] font-semibold text-xs shrink-0 cursor-pointer transition-colors"
                     >
                       Import
                     </button>
