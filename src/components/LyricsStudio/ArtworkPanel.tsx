@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { ArtworkStyle, ArtworkAnimation, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
-import { Disc, Circle, Square, Radio, Sparkles, Activity, Image as ImageIcon, Upload, Check } from 'lucide-react';
+import { Disc, Circle, Square, Radio, Activity, Image as ImageIcon, Upload, Check } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 
 export function ArtworkPanel() {
@@ -37,15 +37,15 @@ export function ArtworkPanel() {
   };
 
   const styles: { id: ArtworkStyle; name: string; icon: React.ReactNode }[] = [
-    { id: 'glowing-disc', name: 'Neon Vinyl', icon: <Radio size={16} className="text-cyan-400" /> },
-    { id: 'glowing-disc-needle', name: 'Neon Vinyl & Needle', icon: <Radio size={16} className="text-pink-400" /> },
-    { id: 'vinyl', name: 'Vinyl Record', icon: <Disc size={16} /> },
-    { id: 'vinyl-needle', name: 'Vinyl & Needle', icon: <Disc size={16} className="text-amber-400" /> },
-    { id: 'cd', name: 'Holo CD', icon: <Disc size={16} className="text-purple-400" /> },
-    { id: 'cd-needle', name: 'CD & Needle', icon: <Disc size={16} className="text-sky-400" /> },
-    { id: 'circle', name: 'Circle', icon: <Circle size={16} /> },
-    { id: 'square', name: 'Square', icon: <Square size={16} /> },
-    { id: 'none', name: 'Hidden', icon: <span className="text-xs">Off</span> }
+    { id: 'glowing-disc', name: 'Neon Vinyl', icon: <Radio size={14} className="text-[#00e676]" /> },
+    { id: 'glowing-disc-needle', name: 'Vinyl + Needle', icon: <Radio size={14} className="text-[#00e676]" /> },
+    { id: 'vinyl', name: 'Vinyl Record', icon: <Disc size={14} className="text-[#7e8999]" /> },
+    { id: 'vinyl-needle', name: 'Vinyl & Arm', icon: <Disc size={14} className="text-[#7e8999]" /> },
+    { id: 'cd', name: 'Compact Disc', icon: <Disc size={14} className="text-[#7e8999]" /> },
+    { id: 'cd-needle', name: 'CD Player', icon: <Disc size={14} className="text-[#7e8999]" /> },
+    { id: 'circle', name: 'Circular Cut', icon: <Circle size={14} className="text-[#7e8999]" /> },
+    { id: 'square', name: 'Square Framing', icon: <Square size={14} className="text-[#7e8999]" /> },
+    { id: 'none', name: 'Disabled', icon: <span className="text-[10px] font-mono text-[#7e8999]">OFF</span> }
   ];
 
   const animations: { id: ArtworkAnimation; name: string }[] = [
@@ -58,27 +58,27 @@ export function ArtworkPanel() {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#060608] text-slate-300 p-3 gap-3 overflow-y-auto">
+    <div className="flex flex-col h-full bg-[#0e1115] text-[#f0f3f6] p-3.5 gap-4 overflow-y-auto">
       
       {/* Active Song Cover Upload & Selector */}
-      <div className="flex flex-col gap-2 p-3 rounded-xl border border-white/10 bg-white/[0.02]">
+      <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-[#232933] bg-[#12161c]">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-            <ImageIcon size={13} style={{ color: activeColor }} />
-            Song Cover Image
+          <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+            <ImageIcon size={12} className="text-[#00e676]" />
+            Song Cover Artwork
           </span>
-          <span className="text-[9px] font-mono text-emerald-400 font-bold">
-            {currentTrack?.name ? `Saved for "${currentTrack.name.slice(0, 16)}"` : 'Persistent'}
+          <span className="text-[9px] font-mono text-[#00e676] font-semibold">
+            {currentTrack?.name ? currentTrack.name.slice(0, 18) : 'Track Attached'}
           </span>
         </div>
 
         {/* Current Cover Preview & Change Button */}
-        <div className="flex items-center gap-3 bg-black/40 p-2 rounded-lg border border-white/10">
-          <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-white/20 relative shadow-md">
+        <div className="flex items-center gap-3 bg-[#0a0c0f] p-2.5 rounded-lg border border-[#232933]">
+          <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-[#232933] relative shadow-inner bg-[#12161c]">
             {albumArt ? (
               <img src={albumArt} alt="Cover" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">
+              <div className="w-full h-full flex items-center justify-center text-[#7e8999]">
                 <Disc size={20} />
               </div>
             )}
@@ -87,11 +87,10 @@ export function ArtworkPanel() {
           <div className="flex-1 flex flex-col gap-1.5">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1.5 rounded-lg text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
-              style={{ backgroundColor: activeColor }}
+              className="px-3 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#1f2632] border border-[#232933] hover:border-[#00e676]/50 text-[#f0f3f6] font-mono font-semibold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
             >
-              <Upload size={13} />
-              <span>Upload Cover</span>
+              <Upload size={12} className="text-[#00e676]" />
+              <span>Upload Custom</span>
             </button>
             <input
               ref={fileInputRef}
@@ -100,28 +99,28 @@ export function ArtworkPanel() {
               onChange={handleFileUpload}
               className="hidden"
             />
-            <p className="text-[9px] text-slate-400 font-mono">
-              Supports PNG, JPG, WebP. Automatically saves to active song!
+            <p className="text-[9px] text-[#7e8999] font-mono">
+              PNG, JPG, WebP. Auto-saved to current project.
             </p>
           </div>
         </div>
 
         {/* Quick Sample Preset Covers */}
-        <div className="flex flex-col gap-1 pt-1">
-          <span className="text-[9px] font-mono text-slate-400 uppercase">Quick Presets:</span>
+        <div className="flex flex-col gap-1.5 pt-1">
+          <span className="text-[9px] font-mono text-[#7e8999] uppercase tracking-wider">Quick Preset Covers:</span>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             {sampleCovers.map((cov, idx) => (
               <button
                 key={idx}
                 onClick={() => updateCurrentTrackCover(cov)}
                 className={`w-9 h-9 rounded-md overflow-hidden shrink-0 border transition-all cursor-pointer relative ${
-                  albumArt === cov ? 'border-white ring-2 ring-emerald-400 scale-105' : 'border-white/10 hover:border-white/40'
+                  albumArt === cov ? 'border-[#00e676] ring-1 ring-[#00e676] scale-105' : 'border-[#232933] hover:border-[#384252]'
                 }`}
               >
                 <img src={cov} alt="Preset" className="w-full h-full object-cover" />
                 {albumArt === cov && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-emerald-400">
-                    <Check size={12} />
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-[#00e676]">
+                    <Check size={12} strokeWidth={3} />
                   </div>
                 )}
               </button>
@@ -131,13 +130,13 @@ export function ArtworkPanel() {
       </div>
 
       {/* Artwork Object Style Selector */}
-      <div className="flex flex-col gap-2 pt-1 border-t border-white/10">
-        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-          <Disc size={12} style={{ color: activeColor }} />
+      <div className="flex flex-col gap-2 pt-3 border-t border-[#232933]">
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+          <Disc size={12} className="text-[#00e676]" />
           Artwork Object Style
         </span>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
           {styles.map(st => {
             const isSelected = artwork.style === st.id;
 
@@ -150,15 +149,14 @@ export function ArtworkPanel() {
                     setSelectedTemplateId(st.id as any);
                   }
                 }}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 p-2.5 rounded-lg border text-left text-xs transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-white/15 border-white text-white shadow-md'
-                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                    ? 'bg-[#161b22] border-[#00e676]/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)] font-semibold'
+                    : 'bg-[#12161c] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#161b22] hover:border-[#2e3746]'
                 }`}
-                style={isSelected ? { borderLeft: `3px solid ${activeColor}` } : {}}
               >
                 {st.icon}
-                <span>{st.name}</span>
+                <span className="truncate">{st.name}</span>
               </button>
             );
           })}
@@ -166,13 +164,13 @@ export function ArtworkPanel() {
       </div>
 
       {/* Animation Controls */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
-        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-          <Activity size={12} style={{ color: activeColor }} />
+      <div className="flex flex-col gap-2 pt-3 border-t border-[#232933]">
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+          <Activity size={12} className="text-[#00e676]" />
           Object Motion & Beat Sync
         </span>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           {animations.map(anim => {
             const isSelected = artwork.animation === anim.id;
 
@@ -180,10 +178,10 @@ export function ArtworkPanel() {
               <button
                 key={anim.id}
                 onClick={() => updateArtwork({ animation: anim.id })}
-                className={`p-2 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                className={`p-2 rounded-lg border text-xs font-mono transition-all cursor-pointer text-left ${
                   isSelected
-                    ? 'bg-white/15 border-white text-white'
-                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                    ? 'bg-[#161b22] border-[#00e676]/60 text-[#f0f3f6] shadow-[0_0_10px_rgba(0,230,118,0.12)] font-semibold'
+                    : 'bg-[#12161c] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#161b22] hover:border-[#2e3746]'
                 }`}
               >
                 {anim.name}
@@ -194,10 +192,10 @@ export function ArtworkPanel() {
       </div>
 
       {/* Scale Slider */}
-      <div className="flex flex-col gap-1.5 pt-2 border-t border-white/10">
-        <div className="flex items-center justify-between text-[11px] font-bold">
-          <span className="text-slate-400">Object Scale</span>
-          <span className="text-white">{Math.round(artwork.sizeScale * 100)}%</span>
+      <div className="flex flex-col gap-1.5 pt-3 border-t border-[#232933]">
+        <div className="flex items-center justify-between text-[11px] font-mono">
+          <span className="text-[#7e8999]">Object Scale</span>
+          <span className="text-[#f0f3f6] font-semibold">{Math.round(artwork.sizeScale * 100)}%</span>
         </div>
         <input
           type="range"
@@ -206,7 +204,7 @@ export function ArtworkPanel() {
           step="0.05"
           value={artwork.sizeScale}
           onChange={(e) => updateArtwork({ sizeScale: parseFloat(e.target.value) })}
-          className="w-full accent-emerald-400 bg-white/10 rounded h-1.5 cursor-pointer"
+          className="w-full accent-[#00e676] bg-[#12161c] rounded h-1.5 cursor-pointer border border-[#232933]"
         />
       </div>
     </div>

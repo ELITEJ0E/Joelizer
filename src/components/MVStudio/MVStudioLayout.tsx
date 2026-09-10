@@ -28,29 +28,31 @@ export function MVStudioLayout() {
   }, [setVideoMode]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#030304] text-slate-300 font-sans select-none overflow-hidden relative">
+    <div className="flex flex-col h-full w-full bg-[#0a0c0f] text-[#f0f3f6] font-sans select-none overflow-hidden relative">
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
           
         {/* Mobile Top Sub-Nav Bar (Visible only on < md screens) */}
-        <div className="md:hidden bg-black border-b border-white/10 flex items-center justify-between px-2.5 py-1.5 shrink-0 z-40">
+        <div className="md:hidden bg-[#0e1115] border-b border-[#232933] flex items-center justify-between px-2.5 py-1.5 shrink-0 z-40">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 w-full">
             <button
               onClick={() => setActivePanel('none')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
-                activePanel === 'none' ? 'bg-white/20 text-white shadow' : 'text-slate-400 hover:text-white bg-white/5'
+              className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                activePanel === 'none' 
+                  ? 'bg-[#161b22] text-[#00e676] border-b-2 border-[#00e676] shadow-sm' 
+                  : 'text-[#7e8999] hover:text-[#f0f3f6] bg-[#12161c] border border-[#232933]'
               }`}
-              style={activePanel === 'none' ? { borderBottom: `2px solid ${activeColor}` } : {}}
             >
-              <Film size={12} style={{ color: activeColor }} />
+              <Film size={12} className="text-[#00e676]" />
               <span>Preview</span>
             </button>
 
             <button
               onClick={() => setActivePanel(p => p === 'media' ? 'none' : 'media')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
-                activePanel === 'media' ? 'bg-white/20 text-white shadow' : 'text-slate-400 hover:text-white bg-white/5'
+              className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                activePanel === 'media' 
+                  ? 'bg-[#161b22] text-[#00e676] border-b-2 border-[#00e676] shadow-sm' 
+                  : 'text-[#7e8999] hover:text-[#f0f3f6] bg-[#12161c] border border-[#232933]'
               }`}
-              style={activePanel === 'media' ? { borderBottom: `2px solid ${activeColor}` } : {}}
             >
               <Layers size={12} />
               <span>Media</span>
@@ -58,10 +60,11 @@ export function MVStudioLayout() {
 
             <button
               onClick={() => setActivePanel(p => p === 'controls' ? 'none' : 'controls')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
-                activePanel === 'controls' ? 'bg-white/20 text-white shadow' : 'text-slate-400 hover:text-white bg-white/5'
+              className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                activePanel === 'controls' 
+                  ? 'bg-[#161b22] text-[#00e676] border-b-2 border-[#00e676] shadow-sm' 
+                  : 'text-[#7e8999] hover:text-[#f0f3f6] bg-[#12161c] border border-[#232933]'
               }`}
-              style={activePanel === 'controls' ? { borderBottom: `2px solid ${activeColor}` } : {}}
             >
               <Sliders size={12} />
               <span>Auto Edit</span>
@@ -69,10 +72,11 @@ export function MVStudioLayout() {
             
             <button
               onClick={() => setActivePanel(p => p === 'settings' ? 'none' : 'settings')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
-                activePanel === 'settings' ? 'bg-white/20 text-white shadow' : 'text-slate-400 hover:text-white bg-white/5'
+              className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                activePanel === 'settings' 
+                  ? 'bg-[#161b22] text-[#00e676] border-b-2 border-[#00e676] shadow-sm' 
+                  : 'text-[#7e8999] hover:text-[#f0f3f6] bg-[#12161c] border border-[#232933]'
               }`}
-              style={activePanel === 'settings' ? { borderBottom: `2px solid ${activeColor}` } : {}}
             >
               <Settings2 size={12} />
               <span>Settings</span>
@@ -81,45 +85,42 @@ export function MVStudioLayout() {
         </div>
 
         {/* Slim Vertical Sidebar (Visible on desktop md+) */}
-        <div className="hidden md:flex w-12 bg-black border-r border-white/10 flex-col items-center py-3 shrink-0 gap-3 z-40 overflow-y-auto no-scrollbar">
+        <div className="hidden md:flex w-12 bg-[#0e1115] border-r border-[#232933] flex-col items-center py-2.5 shrink-0 gap-1.5 z-40 overflow-y-auto no-scrollbar">
           <button
             onClick={() => setActivePanel(p => p === 'media' ? 'none' : 'media')}
-            className={`w-10 py-5 rounded flex flex-col items-center justify-center gap-3 transition-all cursor-pointer ${
-              activePanel === 'media' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+            className={`w-10 py-4 rounded flex flex-col items-center justify-center gap-2.5 transition-all cursor-pointer ${
+              activePanel === 'media' ? 'bg-[#161b22] text-[#00e676] border-r-2 border-[#00e676]' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
             }`}
-            style={activePanel === 'media' ? { borderRight: `2px solid ${activeColor}` } : {}}
             title="Media Library"
           >
             <Layers size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest" style={{ writingMode: 'vertical-rl' }}>
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest" style={{ writingMode: 'vertical-rl' }}>
               Media
             </span>
           </button>
 
           <button
             onClick={() => setActivePanel(p => p === 'controls' ? 'none' : 'controls')}
-            className={`w-10 py-5 rounded flex flex-col items-center justify-center gap-3 transition-all cursor-pointer ${
-              activePanel === 'controls' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+            className={`w-10 py-4 rounded flex flex-col items-center justify-center gap-2.5 transition-all cursor-pointer ${
+              activePanel === 'controls' ? 'bg-[#161b22] text-[#00e676] border-r-2 border-[#00e676]' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
             }`}
-            style={activePanel === 'controls' ? { borderRight: `2px solid ${activeColor}` } : {}}
             title="Auto Editor Controls"
           >
             <Sliders size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest" style={{ writingMode: 'vertical-rl' }}>
-              Auto Editor
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest" style={{ writingMode: 'vertical-rl' }}>
+              Auto Edit
             </span>
           </button>
           
           <button
             onClick={() => setActivePanel(p => p === 'settings' ? 'none' : 'settings')}
-            className={`w-10 py-5 rounded flex flex-col items-center justify-center gap-3 transition-all cursor-pointer ${
-              activePanel === 'settings' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+            className={`w-10 py-4 rounded flex flex-col items-center justify-center gap-2.5 transition-all cursor-pointer ${
+              activePanel === 'settings' ? 'bg-[#161b22] text-[#00e676] border-r-2 border-[#00e676]' : 'text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#12161c]'
             }`}
-            style={activePanel === 'settings' ? { borderRight: `2px solid ${activeColor}` } : {}}
             title="Music Video settings"
           >
             <Settings2 size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest" style={{ writingMode: 'vertical-rl' }}>
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest" style={{ writingMode: 'vertical-rl' }}>
               Settings
             </span>
           </button>
@@ -134,21 +135,21 @@ export function MVStudioLayout() {
               className="md:hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-40 animate-fade-in"
             />
 
-            <div className="fixed md:relative inset-y-0 left-0 top-10 md:top-0 z-50 md:z-30 w-full sm:w-80 md:w-80 lg:w-[22rem] border-r border-white/10 flex flex-col bg-[#060608] shrink-0 transition-all shadow-2xl md:shadow-none">
+            <div className="fixed md:relative inset-y-0 left-0 top-10 md:top-0 z-50 md:z-30 w-full sm:w-80 md:w-80 lg:w-[22rem] border-r border-[#232933] flex flex-col bg-[#12161c] shrink-0 transition-all shadow-2xl md:shadow-none">
               {/* Mobile Panel Header with Close Button */}
-              <div className="md:hidden p-2.5 border-b border-white/10 flex items-center justify-between bg-black/60 shrink-0">
-                <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  {activePanel === 'media' ? <Layers size={14} style={{ color: activeColor }} /> : 
-                   activePanel === 'controls' ? <Sliders size={14} style={{ color: activeColor }} /> : 
-                   <Settings2 size={14} style={{ color: activeColor }} />}
+              <div className="md:hidden p-2.5 border-b border-[#232933] flex items-center justify-between bg-[#0e1115] shrink-0">
+                <span className="text-xs font-mono font-bold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-1.5">
+                  {activePanel === 'media' ? <Layers size={14} className="text-[#00e676]" /> : 
+                   activePanel === 'controls' ? <Sliders size={14} className="text-[#00e676]" /> : 
+                   <Settings2 size={14} className="text-[#00e676]" />}
                   {activePanel === 'media' ? 'Media Library' : 
                    activePanel === 'controls' ? 'Auto Editor Controls' : 'Music Video Settings'}
                 </span>
                 <button
                   onClick={() => setActivePanel('none')}
-                  className="p-1 rounded bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white cursor-pointer"
+                  className="p-1 rounded bg-[#161b22] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer"
                 >
-                  <X size={16} />
+                  <X size={15} />
                 </button>
               </div>
 
@@ -162,7 +163,7 @@ export function MVStudioLayout() {
         )}
 
         {/* Main Center Area: Preview & Timeline */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden relative bg-[#020202]">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden relative bg-[#0a0c0f]">
           
           {/* Video Preview Canvas Stage */}
           <div className="flex-1 min-h-[200px] relative flex items-center justify-center p-2 overflow-hidden">
@@ -170,7 +171,7 @@ export function MVStudioLayout() {
           </div>
 
           {/* Timeline Viewport */}
-          <div className="h-44 sm:h-56 md:h-64 border-t border-white/10 shrink-0 bg-[#060608]">
+          <div className="h-44 sm:h-56 md:h-64 border-t border-[#232933] shrink-0 bg-[#0e1115]">
             <MVTimeline />
           </div>
         </div>

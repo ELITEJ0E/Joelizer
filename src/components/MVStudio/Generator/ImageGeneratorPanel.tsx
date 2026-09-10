@@ -88,9 +88,9 @@ export function ImageGeneratorPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-3 gap-4">
-      <div className="flex flex-col gap-1.5 border-b border-white/10 pb-3">
-        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Provider</label>
+    <div className="flex flex-col h-full overflow-y-auto p-3 gap-3.5 bg-[#0e1115] text-[#c9d1d9] font-mono select-none">
+      <div className="flex flex-col gap-1.5 border-b border-[#232933] pb-3">
+        <label className="text-[10px] font-semibold text-[#7e8999] uppercase tracking-wider">Provider</label>
         <div className="flex gap-2">
           {PROVIDERS.map(provider => (
             <button
@@ -99,10 +99,10 @@ export function ImageGeneratorPanel() {
                 setActiveProviderName(provider.name);
                 setErrorMsg(null);
               }}
-              className={`flex-1 py-1.5 text-[10px] rounded border font-mono font-bold uppercase tracking-wider transition-colors ${
+              className={`flex-1 py-1.5 text-[10px] rounded border font-mono font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
                 activeProviderName === provider.name
-                  ? 'bg-white/10 text-white border-white/30'
-                  : 'bg-black/40 text-slate-500 border-white/5 hover:text-slate-300'
+                  ? 'bg-[#161b22] text-[#00e676] border-[#232933]'
+                  : 'bg-[#0a0c0f] text-[#7e8999] border-[#232933] hover:text-[#f0f3f6]'
               }`}
             >
               {provider.name.split(' ')[0]}
@@ -111,25 +111,25 @@ export function ImageGeneratorPanel() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5 border-b border-white/10 pb-3">
-        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Prompt</label>
+      <div className="flex flex-col gap-1.5 border-b border-[#232933] pb-3">
+        <label className="text-[10px] font-semibold text-[#7e8999] uppercase tracking-wider">Prompt</label>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="A cinematic cyberpunk city at night, neon lights, 4k..."
-          className="w-full h-20 bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 resize-none"
+          placeholder="A cinematic city at night, stage lights, 4k..."
+          className="w-full h-20 bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded p-2 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none resize-none font-mono transition-colors"
         />
         <div className="flex justify-between items-center mt-1">
           <button
             onClick={handleCopyPrompt}
             disabled={!prompt.trim()}
-            className="flex items-center gap-1 text-[9px] text-slate-400 hover:text-white font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 text-[9px] text-[#7e8999] hover:text-[#f0f3f6] font-semibold uppercase tracking-wider transition-colors disabled:opacity-40 cursor-pointer"
           >
             <Copy size={10} /> Copy Prompt
           </button>
           <button
             onClick={handleGenerateFromLyrics}
-            className="flex items-center gap-1 text-[9px] text-purple-400 hover:text-purple-300 font-bold uppercase tracking-wider transition-colors"
+            className="flex items-center gap-1 text-[9px] text-[#00e676] hover:text-[#00c853] font-semibold uppercase tracking-wider transition-colors cursor-pointer"
           >
             <Wand2 size={10} /> Random from Lyrics
           </button>
@@ -138,27 +138,29 @@ export function ImageGeneratorPanel() {
 
       {!capabilities.externalGenerator && (
         <>
-          <div className="flex flex-col gap-1.5 border-b border-white/10 pb-3">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Negative Prompt</label>
+          <div className="flex flex-col gap-1.5 border-b border-[#232933] pb-3">
+            <label className="text-[10px] font-semibold text-[#7e8999] uppercase tracking-wider">Negative Prompt</label>
             <input
               type="text"
               value={negativePrompt}
               onChange={(e) => setNegativePrompt(e.target.value)}
               placeholder="ugly, blurry, bad anatomy..."
-              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-500"
+              className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded p-2 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 border-b border-white/10 pb-3">
+          <div className="grid grid-cols-2 gap-3 border-b border-[#232933] pb-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aspect Ratio</label>
+              <label className="text-[10px] font-semibold text-[#7e8999] uppercase tracking-wider">Aspect Ratio</label>
               <div className="grid grid-cols-2 gap-1.5">
                 {['16:9', '9:16', '1:1', '4:5'].map(ar => (
                   <button
                     key={ar}
                     onClick={() => setAspectRatio(ar as any)}
-                    className={`py-1 text-[10px] rounded border font-mono ${
-                      aspectRatio === ar ? 'bg-white/10 text-white border-white/20' : 'bg-black/40 text-slate-500 border-white/5 hover:text-slate-300'
+                    className={`py-1 text-[10px] rounded border font-mono transition-colors cursor-pointer ${
+                      aspectRatio === ar 
+                        ? 'bg-[#161b22] text-[#00e676] border-[#232933]' 
+                        : 'bg-[#0a0c0f] text-[#7e8999] border-[#232933] hover:text-[#f0f3f6]'
                     }`}
                   >
                     {ar}
@@ -168,14 +170,16 @@ export function ImageGeneratorPanel() {
             </div>
             
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Number of Images</label>
+              <label className="text-[10px] font-semibold text-[#7e8999] uppercase tracking-wider">Number of Images</label>
               <div className="flex gap-1.5">
                 {[1, 2, 4].map(n => (
                   <button
                     key={n}
                     onClick={() => setAmount(n)}
-                    className={`flex-1 py-1 text-[10px] rounded border font-mono ${
-                      amount === n ? 'bg-white/10 text-white border-white/20' : 'bg-black/40 text-slate-500 border-white/5 hover:text-slate-300'
+                    className={`flex-1 py-1 text-[10px] rounded border font-mono transition-colors cursor-pointer ${
+                      amount === n 
+                        ? 'bg-[#161b22] text-[#00e676] border-[#232933]' 
+                        : 'bg-[#0a0c0f] text-[#7e8999] border-[#232933] hover:text-[#f0f3f6]'
                     }`}
                   >
                     {n}
@@ -189,52 +193,52 @@ export function ImageGeneratorPanel() {
 
       {capabilities.externalGenerator ? (
         <div className="flex flex-col gap-3 mt-1">
-          <div className="bg-purple-950/40 border border-purple-500/30 text-purple-200 text-[11px] p-3.5 rounded-xl flex flex-col gap-2.5 leading-relaxed shadow-lg">
+          <div className="bg-[#161b22] border border-[#232933] text-[#c9d1d9] text-[11px] p-3 rounded flex flex-col gap-2 leading-relaxed">
             <div className="flex items-center justify-between">
-              <span className="font-extrabold text-white flex items-center gap-1.5 text-xs">
-                <Sparkles size={14} className="text-purple-400" />
-                Perchance AI Generator Suite
+              <span className="font-semibold text-[#f0f3f6] flex items-center gap-1.5 text-xs">
+                <Sparkles size={13} className="text-[#00e676]" />
+                Perchance AI Generator Hub
               </span>
-              <span className="text-[9px] px-2 py-0.5 rounded bg-purple-900/60 text-purple-300 font-mono border border-purple-500/30 font-bold">
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#0a0c0f] text-[#7e8999] font-mono border border-[#232933]">
                 External Hub
               </span>
             </div>
 
-            <p className="text-slate-300 text-[11px]">
-              Perchance enforces browser cross-origin security headers (<code className="text-purple-300 font-mono text-[10px]">X-Frame-Options: SAMEORIGIN</code>) that prevent embedded inline rendering. Use the quick launch workflow below to generate on Perchance and import back into Joelizer!
+            <p className="text-[#7e8999] text-[11px] font-sans">
+              Perchance enforces browser cross-origin security headers that prevent embedded iframe rendering. Generate on Perchance and paste the image link below.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-purple-500/20">
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-[#232933]">
               <button
                 onClick={() => {
                   handleCopyPrompt();
                   window.open('https://perchance.org/image-generator-professional', '_blank', 'width=1000,height=800,scrollbars=yes');
                 }}
-                className="w-full sm:w-auto flex-1 py-2 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-95"
+                className="w-full sm:w-auto flex-1 py-1.5 px-3 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Copy size={12} />
                 <ExternalLink size={12} />
-                <span>Copy Prompt & Launch Perchance</span>
+                <span>Copy & Launch Perchance</span>
               </button>
 
               <button
                 onClick={() => setActiveProviderName('Pollinations (Headless)')}
-                className="w-full sm:w-auto py-2 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                className="w-full sm:w-auto py-1.5 px-3 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] text-[#f0f3f6] font-semibold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
               >
-                <Wand2 size={12} className="text-emerald-400" />
+                <Wand2 size={12} className="text-[#00e676]" />
                 <span>Use Inline AI Instead</span>
               </button>
             </div>
           </div>
 
           {/* Quick Import Form for Perchance Output */}
-          <div className="bg-black/60 border border-white/15 rounded-xl p-3.5 flex flex-col gap-3 shadow-xl">
-            <label className="text-[10px] font-black uppercase tracking-wider text-purple-300 flex items-center justify-between">
+          <div className="bg-[#12161c] border border-[#232933] rounded p-3 flex flex-col gap-2.5">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-[#7e8999] flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <ImageIcon size={13} />
+                <ImageIcon size={12} className="text-[#00e676]" />
                 Import Generated Image
               </span>
-              <span className="text-[9px] text-slate-400 font-normal">Copy Image Address & Paste Here</span>
+              <span className="text-[9px] text-[#7e8999] font-normal">Copy Image URL & Paste Here</span>
             </label>
 
             <div className="flex gap-2">
@@ -246,7 +250,7 @@ export function ImageGeneratorPanel() {
                   setPrompt(e.target.value);
                   setErrorMsg(null);
                 }}
-                className="flex-1 bg-black/80 border border-white/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-mono placeholder-slate-600"
+                className="flex-1 bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] focus:outline-none font-mono placeholder-[#4d5566] transition-colors"
               />
               <button
                 onClick={() => {
@@ -269,7 +273,7 @@ export function ImageGeneratorPanel() {
                     setErrorMsg('Please paste a valid image URL starting with http:// or https://');
                   }
                 }}
-                className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shrink-0 cursor-pointer shadow-md transition-all active:scale-95"
+                className="px-3 py-1.5 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-semibold text-xs shrink-0 cursor-pointer transition-colors"
               >
                 Import
               </button>
@@ -277,7 +281,7 @@ export function ImageGeneratorPanel() {
 
             {/* Live Preview of pasted URL */}
             {prompt.trim() && (prompt.trim().startsWith('http') || prompt.trim().startsWith('data:image')) && (
-              <div className="relative w-full h-36 bg-black/80 rounded-lg overflow-hidden border border-white/20 flex items-center justify-center">
+              <div className="relative w-full h-36 bg-[#0a0c0f] rounded overflow-hidden border border-[#232933] flex items-center justify-center">
                 <img 
                   src={prompt.trim()} 
                   alt="Import Preview" 
@@ -288,7 +292,7 @@ export function ImageGeneratorPanel() {
             )}
 
             {errorMsg && (
-              <div className="flex items-center gap-1.5 text-red-400 text-[10px] font-mono bg-red-500/10 p-2 rounded border border-red-500/20">
+              <div className="flex items-center gap-1.5 text-red-400 text-[10px] font-mono bg-red-950/20 p-2 rounded border border-red-900/30">
                 <AlertTriangle size={12} className="shrink-0" />
                 <span>{errorMsg}</span>
               </div>
@@ -298,7 +302,7 @@ export function ImageGeneratorPanel() {
       ) : (
         <>
           {errorMsg && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] p-2.5 rounded-lg flex items-start gap-2 leading-relaxed font-mono">
+            <div className="bg-red-950/20 border border-red-900/30 text-red-400 text-[10px] p-2.5 rounded flex items-start gap-2 leading-relaxed font-mono">
               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
               <p>{errorMsg}</p>
             </div>
@@ -307,12 +311,7 @@ export function ImageGeneratorPanel() {
           <button
             onClick={handleGenerate}
             disabled={isGenerating || !prompt.trim()}
-            className="w-full py-2.5 mt-auto rounded-lg font-black tracking-wider uppercase text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-            style={{ 
-              backgroundColor: activeColor, 
-              color: '#000',
-              boxShadow: isGenerating ? 'none' : `0 0 15px ${activeColor}40`
-            }}
+            className="w-full py-2.5 mt-auto rounded font-semibold tracking-wider uppercase text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f]"
           >
             {isGenerating ? (
               <>

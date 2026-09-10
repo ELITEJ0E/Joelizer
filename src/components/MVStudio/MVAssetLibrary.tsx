@@ -369,26 +369,32 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
 
   return (
     <div 
-      className="flex flex-col h-full bg-[#08080c] text-slate-300 select-none overflow-hidden"
+      className="flex flex-col h-full bg-[#0e1115] text-[#c9d1d9] select-none overflow-hidden font-mono"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
       {/* Top Tabs */}
-      <div className="flex bg-[#060608] border-b border-white/10 shrink-0 text-[11px] font-black uppercase tracking-wider">
+      <div className="flex bg-[#0a0c0f] border-b border-[#232933] shrink-0 text-[11px] font-semibold uppercase tracking-wider">
         <button
           onClick={() => setActiveTab('media')}
-          className="flex-1 py-3 transition-colors flex items-center justify-center gap-2"
-          style={activeTab === 'media' ? { borderBottom: `2px solid ${activeColor}`, color: activeColor } : { color: '#94a3b8' }}
+          className={`flex-1 py-2.5 transition-colors flex items-center justify-center gap-2 border-b-2 ${
+            activeTab === 'media'
+              ? 'border-[#00e676] text-[#00e676] bg-[#12161c]/50'
+              : 'border-transparent text-[#7e8999] hover:text-[#f0f3f6]'
+          }`}
         >
-          <Film size={14} />
+          <Film size={13} />
           Media
         </button>
         <button
           onClick={() => setActiveTab('generate')}
-          className="flex-1 py-3 transition-colors flex items-center justify-center gap-2"
-          style={activeTab === 'generate' ? { borderBottom: `2px solid ${activeColor}`, color: activeColor } : { color: '#94a3b8' }}
+          className={`flex-1 py-2.5 transition-colors flex items-center justify-center gap-2 border-b-2 ${
+            activeTab === 'generate'
+              ? 'border-[#00e676] text-[#00e676] bg-[#12161c]/50'
+              : 'border-transparent text-[#7e8999] hover:text-[#f0f3f6]'
+          }`}
         >
-          <Wand2 size={14} />
+          <Wand2 size={13} />
           AI Generate
         </button>
       </div>
@@ -398,428 +404,441 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
       ) : (
         <>
           {/* Header */}
-          <div className="p-2.5 border-b border-white/10 flex flex-col gap-2 shrink-0">
+          <div className="p-3 border-b border-[#232933] flex flex-col gap-2.5 shrink-0 bg-[#0e1115]">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-white text-xs font-bold tracking-widest uppercase">
-                <Film size={14} className="text-purple-400" />
+              <div className="flex items-center gap-1.5 text-[#f0f3f6] text-xs font-semibold tracking-wider uppercase">
+                <Film size={13} className="text-[#00e676]" />
                 Media Library
               </div>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={() => setShowLocalUploadModal(true)}
-              title="Import Local Files or Folder"
-              className="bg-white/10 hover:bg-white/20 px-2 py-1.5 rounded text-white transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer"
-            >
-              <FolderPlus size={12} />
-              <span>Import Media</span>
-            </button>
-            <button 
-              onClick={() => setShowUrlModal(true)}
-              title="Add Direct Media URL"
-              className="bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 p-1.5 rounded border border-purple-500/30 transition-colors text-[10px] cursor-pointer"
-            >
-              <LinkIcon size={12} />
-            </button>
-          </div>
-        </div>
-
-        {/* Hidden Inputs */}
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          multiple 
-          accept="video/*,image/*" 
-          className="hidden" 
-          onChange={handleFileChange}
-        />
-        <input 
-          type="file" 
-          ref={folderInputRef} 
-          multiple 
-          // @ts-ignore
-          webkitdirectory=""
-          className="hidden" 
-          onChange={handleFileChange}
-        />
-
-        {/* Timeline Scene Presets */}
-        <div className="p-2 bg-white/[0.02] border border-white/10 rounded-lg flex flex-col gap-1.5">
-          <span className="text-[10px] font-black uppercase tracking-wider text-purple-300 flex items-center gap-1">
-            <Sparkles size={11} className="text-yellow-400" />
-            Add Timeline Scenes
-          </span>
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              onClick={() => {
-                addTimelineClip({
-                  id: `clip-vinyl-${Date.now()}`,
-                  assetId: 'vinyl-lyrics',
-                  startTime: currentTime || 0,
-                  endTime: (currentTime || 0) + 15,
-                  trimStart: 0,
-                  trimEnd: 15,
-                  type: 'vinyl-lyrics'
-                });
-              }}
-              className="px-2 py-1.5 rounded bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 text-indigo-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
-              title="Add Vinyl & Karaoke Lyric Scene to timeline"
-            >
-              <span>💿</span>
-              <span>Vinyl Lyrics</span>
-            </button>
-
-            <button
-              onClick={() => {
-                addTimelineClip({
-                  id: `clip-vis-${Date.now()}`,
-                  assetId: 'visualizer',
-                  startTime: currentTime || 0,
-                  endTime: (currentTime || 0) + 15,
-                  trimStart: 0,
-                  trimEnd: 15,
-                  type: 'visualizer'
-                });
-              }}
-              className="px-2 py-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
-              title="Add Audio Visualizer Scene to timeline"
-            >
-              <span>📊</span>
-              <span>Audio Visualizer</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex items-center bg-black/40 p-0.5 rounded border border-white/10 text-[10px]">
-          <button
-            onClick={() => setMediaSourceFilter('all')}
-            className="flex-1 py-1 rounded transition-all font-bold"
-            style={mediaSourceFilter === 'all' ? { backgroundColor: activeColor, color: '#000' } : { color: '#94a3b8' }}
-          >
-            All ({videoAssets.length})
-          </button>
-          <button
-            onClick={() => setMediaSourceFilter('my-clips')}
-            className="flex-1 py-1 rounded transition-all font-bold"
-            style={mediaSourceFilter === 'my-clips' ? { backgroundColor: activeColor, color: '#000' } : { color: '#94a3b8' }}
-          >
-            My Clips
-          </button>
-          <button
-            onClick={() => setMediaSourceFilter('stock')}
-            className="flex-1 py-1 rounded transition-all font-bold"
-            style={mediaSourceFilter === 'stock' ? { backgroundColor: activeColor, color: '#000' } : { color: '#94a3b8' }}
-          >
-            Stock
-          </button>
-        </div>
-      </div>
-      
-      {/* Media List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0">
-        {filteredAssets.length === 0 ? (
-          <div className="text-center text-xs text-slate-500 py-6 px-3 flex flex-col items-center gap-2">
-            <Film size={28} className="opacity-30" />
-            <p className="font-bold text-slate-400">No media in this section.</p>
-            <div className="flex flex-col gap-1.5 w-full mt-1">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors"
-              >
-                Upload Video or Images
-              </button>
-              <button
-                onClick={handleImportSampleStock}
-                className="w-full py-1.5 rounded bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-[11px] font-bold transition-colors flex items-center justify-center gap-1"
-              >
-                <Sparkles size={12} />
-                Import Pro Stock Footage Pack
-              </button>
-            </div>
-          </div>
-        ) : (
-          filteredAssets.map(asset => {
-            const handleQuickAdd = (e: React.MouseEvent) => {
-              e.stopPropagation();
-              const dur = Math.min(4, asset.duration || 4);
-              addTimelineClip({
-                id: `clip-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-                assetId: asset.id,
-                startTime: currentTime || 0,
-                endTime: (currentTime || 0) + dur,
-                trimStart: 0,
-                trimEnd: dur,
-                locked: false,
-                type: asset.type
-              });
-            };
-
-            return (
-              <div 
-                key={asset.id} 
-                draggable={true}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('application/joelizer-asset-id', asset.id);
-                  e.dataTransfer.setData('text/plain', asset.id);
-                  e.dataTransfer.effectAllowed = 'copy';
-                }}
-                className="relative group rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:border-purple-500/50 transition-colors shadow cursor-grab active:cursor-grabbing"
-              >
-                <img src={asset.thumbnail} alt={asset.name} className="w-full h-20 object-cover opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
-                
-                {/* Type Badge */}
-                <div className="absolute top-1 left-1.5 flex items-center gap-1 pointer-events-none">
-                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${asset.type === 'image' ? 'bg-amber-500 text-black' : 'bg-blue-600 text-white'}`}>
-                    {asset.type === 'image' ? <ImageIcon size={9} className="inline mr-0.5" /> : <Film size={9} className="inline mr-0.5" />}
-                    {asset.type}
-                  </span>
-                  {asset.isStock && (
-                    <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase">
-                      Stock
-                    </span>
-                  )}
-                </div>
-
-                {/* Quick Add & Delete Action Buttons */}
-                <div className="absolute top-1 right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={handleQuickAdd}
-                    className="bg-emerald-600/90 hover:bg-emerald-500 text-white p-1 rounded cursor-pointer shadow-md transition-all active:scale-95"
-                    title="Add clip to timeline at playhead"
-                  >
-                    <Plus size={10} strokeWidth={3} />
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); removeVideoAsset(asset.id); }}
-                    className="bg-red-600/80 text-white p-1 rounded hover:bg-red-600 cursor-pointer shadow-md"
-                    title="Remove Media"
-                  >
-                    <Trash2 size={10} />
-                  </button>
-                </div>
-
-                {/* Title & Duration */}
-                <div className="absolute bottom-1 left-1.5 right-1.5 flex justify-between items-end text-[9px] font-mono pointer-events-none">
-                  <span className="truncate max-w-[120px] text-slate-200 font-medium" title={asset.name}>{asset.name}</span>
-                  <span className="font-bold text-white bg-black/80 px-1 rounded border border-white/10">{formatTime(asset.duration)}</span>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Footer / Stock Libraries Hub Button */}
-      <div className="p-2 border-t border-white/10 shrink-0 flex flex-col gap-1.5 bg-black/40">
-        <button
-          onClick={handleImportSampleStock}
-          className="w-full py-1.5 rounded bg-purple-900/40 text-purple-200 border border-purple-500/40 text-[10px] font-black tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 hover:bg-purple-900/60 cursor-pointer shadow"
-        >
-          <Sparkles size={12} className="text-purple-400" />
-          <span>Load Royalty-Free Stock Pack</span>
-        </button>
-
-        <button 
-          onClick={() => setShowStockModal(true)}
-          className="w-full py-1.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-black tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 hover:bg-amber-500/20 cursor-pointer"
-        >
-          <Globe size={12} className="text-amber-400" />
-          <span>Stock Provider Hub</span>
-        </button>
-      </div>
-
-      {/* Local Files / Folder Upload Modal */}
-      {showLocalUploadModal && (
-        <div 
-          onClick={() => setShowLocalUploadModal(false)}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#121218] border border-white/20 rounded-2xl p-6 max-w-md w-full flex flex-col gap-4 text-slate-200 shadow-2xl relative"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <FolderPlus size={18} className="text-purple-400" />
-                Import Local Media
-              </h3>
-              <button onClick={() => setShowLocalUploadModal(false)} className="text-slate-400 hover:text-white text-xs p-1">✕</button>
-            </div>
-
-            <div 
-              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const files = e.dataTransfer.files;
-                if (files) {
-                  for (let i = 0; i < files.length; i++) {
-                    processFile(files[i]);
-                  }
-                }
-                setShowLocalUploadModal(false);
-              }}
-              className="border-2 border-dashed border-white/20 hover:border-purple-500/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-black/40 text-center transition-colors"
-            >
-              <FolderPlus size={36} className="text-purple-400 opacity-80" />
-              <div>
-                <p className="text-xs font-bold text-white">Drag & drop files or entire folder here</p>
-                <p className="text-[10px] text-slate-400 mt-1">Supports MP4, WebM, MOV, JPG, PNG, WEBP</p>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-1.5">
                 <button 
-                  onClick={() => { fileInputRef.current?.click(); setShowLocalUploadModal(false); }}
-                  className="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow transition-colors cursor-pointer"
+                  onClick={() => setShowLocalUploadModal(true)}
+                  title="Import Local Files or Folder"
+                  className="bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] px-2.5 py-1.5 rounded text-[#f0f3f6] transition-colors flex items-center gap-1.5 text-[10px] font-semibold cursor-pointer"
                 >
-                  Choose Files
+                  <FolderPlus size={12} className="text-[#00e676]" />
+                  <span>Import Media</span>
                 </button>
                 <button 
-                  onClick={() => { folderInputRef.current?.click(); setShowLocalUploadModal(false); }}
-                  className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors cursor-pointer"
+                  onClick={() => setShowUrlModal(true)}
+                  title="Add Direct Media URL"
+                  className="bg-[#161b22] hover:bg-[#1c222b] text-[#c9d1d9] hover:text-[#00e676] p-1.5 rounded border border-[#232933] hover:border-[#303846] transition-colors text-[10px] cursor-pointer"
                 >
-                  Choose Folder
+                  <LinkIcon size={12} />
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Direct URL Import Modal */}
-      {showUrlModal && (
-        <div 
-          onClick={() => setShowUrlModal(false)}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#121218] border border-white/20 rounded-xl p-5 max-w-md w-full flex flex-col gap-4 text-slate-200 shadow-2xl"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <LinkIcon size={16} className="text-purple-400" />
-                Import Media from Direct URL
-              </h3>
-              <button onClick={() => setShowUrlModal(false)} className="text-slate-400 hover:text-white text-xs">✕</button>
-            </div>
-
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Paste a direct video or image URL (MP4, WebM, MOV, JPG, PNG) from your server, CDN, or stock service.
-            </p>
-
+            {/* Hidden Inputs */}
             <input 
-              type="text" 
-              placeholder="https://cdn.example.com/stock-clip.mp4"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              className="w-full bg-black/60 border border-white/20 rounded-lg p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+              type="file" 
+              ref={fileInputRef} 
+              multiple 
+              accept="video/*,image/*" 
+              className="hidden" 
+              onChange={handleFileChange}
+            />
+            <input 
+              type="file" 
+              ref={folderInputRef} 
+              multiple 
+              // @ts-ignore
+              webkitdirectory=""
+              className="hidden" 
+              onChange={handleFileChange}
             />
 
-            {urlError && (
-              <p className="text-[11px] text-red-400 font-medium">{urlError}</p>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
-              <button 
-                onClick={() => setShowUrlModal(false)}
-                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs text-white cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleAddUrl}
-                className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-xs text-white font-bold flex items-center gap-1.5 cursor-pointer shadow"
-              >
-                <Plus size={14} />
-                Import Media
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stock Providers Hub Modal */}
-      {showStockModal && (
-        <div 
-          onClick={() => setShowStockModal(false)}
-          className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#0f0f15] border border-white/20 rounded-2xl p-6 max-w-lg w-full flex flex-col gap-4 text-slate-200 shadow-2xl relative overflow-hidden"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div>
-                <h3 className="text-base font-black text-white flex items-center gap-2">
-                  <Globe size={18} className="text-amber-400" />
-                  Stock Provider Hub
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Browse stock sites directly or copy video/image links to import into Joelizer MV Studio.
-                </p>
-              </div>
-              <button onClick={() => setShowStockModal(false)} className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10">✕</button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto pr-1">
-              {stockProviders.map(provider => (
-                <a
-                  key={provider.name}
-                  href={provider.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`p-3 rounded-xl border bg-gradient-to-br ${provider.bg} ${provider.border} hover:scale-[1.02] transition-transform flex flex-col justify-between group cursor-pointer relative overflow-hidden`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-white text-xs tracking-wide flex items-center gap-1.5">
-                      {provider.name}
-                    </span>
-                    <ExternalLink size={12} className="text-slate-400 group-hover:text-white transition-colors" />
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-slate-300 font-mono">{provider.category}</span>
-                  </div>
-                </a>
-              ))}
-            </div>
-
-            <div className="bg-black/50 border border-white/10 rounded-xl p-3 flex flex-col gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1">
-                <LinkIcon size={12} />
-                Quick Import Stock Video Link
+            {/* Timeline Scene Presets */}
+            <div className="p-2.5 bg-[#12161c] border border-[#232933] rounded flex flex-col gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+                <Sparkles size={11} className="text-[#00e676]" />
+                Add Timeline Scenes
               </span>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Paste direct .mp4 or .jpg URL from stock provider"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  className="flex-1 bg-black/80 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
-                />
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
                   onClick={() => {
-                    handleAddUrl();
-                    setShowStockModal(false);
+                    addTimelineClip({
+                      id: `clip-vinyl-${Date.now()}`,
+                      assetId: 'vinyl-lyrics',
+                      startTime: currentTime || 0,
+                      endTime: (currentTime || 0) + 15,
+                      trimStart: 0,
+                      trimEnd: 15,
+                      type: 'vinyl-lyrics'
+                    });
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shrink-0 cursor-pointer"
+                  className="px-2 py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] text-[#f0f3f6] text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="Add Vinyl & Karaoke Lyric Scene to timeline"
                 >
-                  Import
+                  <span>💿</span>
+                  <span>Vinyl Lyrics</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    addTimelineClip({
+                      id: `clip-vis-${Date.now()}`,
+                      assetId: 'visualizer',
+                      startTime: currentTime || 0,
+                      endTime: (currentTime || 0) + 15,
+                      trimStart: 0,
+                      trimEnd: 15,
+                      type: 'visualizer'
+                    });
+                  }}
+                  className="px-2 py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] text-[#f0f3f6] text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="Add Audio Visualizer Scene to timeline"
+                >
+                  <span>📊</span>
+                  <span>Audio Visualizer</span>
                 </button>
               </div>
             </div>
 
-            <div className="flex justify-end items-center pt-2 border-t border-white/10">
-              <button 
-                onClick={() => setShowStockModal(false)}
-                className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs text-white cursor-pointer font-bold"
+            {/* Filter Tabs */}
+            <div className="flex items-center bg-[#0a0c0f] p-0.5 rounded border border-[#232933] text-[10px]">
+              <button
+                onClick={() => setMediaSourceFilter('all')}
+                className={`flex-1 py-1 rounded transition-colors font-semibold ${
+                  mediaSourceFilter === 'all'
+                    ? 'bg-[#161b22] text-[#00e676] border border-[#232933]'
+                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
               >
-                Close
+                All ({videoAssets.length})
+              </button>
+              <button
+                onClick={() => setMediaSourceFilter('my-clips')}
+                className={`flex-1 py-1 rounded transition-colors font-semibold ${
+                  mediaSourceFilter === 'my-clips'
+                    ? 'bg-[#161b22] text-[#00e676] border border-[#232933]'
+                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
+              >
+                My Clips
+              </button>
+              <button
+                onClick={() => setMediaSourceFilter('stock')}
+                className={`flex-1 py-1 rounded transition-colors font-semibold ${
+                  mediaSourceFilter === 'stock'
+                    ? 'bg-[#161b22] text-[#00e676] border border-[#232933]'
+                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
+              >
+                Stock
               </button>
             </div>
           </div>
-        </div>
-      )}
+          
+          {/* Media List */}
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 min-h-0">
+            {filteredAssets.length === 0 ? (
+              <div className="text-center text-xs text-[#7e8999] py-8 px-3 flex flex-col items-center gap-2.5">
+                <Film size={26} className="opacity-30" />
+                <p className="font-semibold text-[#c9d1d9]">No media in this section.</p>
+                <div className="flex flex-col gap-2 w-full mt-1">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-2 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] text-[#f0f3f6] text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    Upload Video or Images
+                  </button>
+                  <button
+                    onClick={handleImportSampleStock}
+                    className="w-full py-2 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#00e676] text-[#00e676] text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles size={12} />
+                    Import Pro Stock Footage Pack
+                  </button>
+                </div>
+              </div>
+            ) : (
+              filteredAssets.map(asset => {
+                const handleQuickAdd = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  const dur = Math.min(4, asset.duration || 4);
+                  addTimelineClip({
+                    id: `clip-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                    assetId: asset.id,
+                    startTime: currentTime || 0,
+                    endTime: (currentTime || 0) + dur,
+                    trimStart: 0,
+                    trimEnd: dur,
+                    locked: false,
+                    type: asset.type
+                  });
+                };
+
+                return (
+                  <div 
+                    key={asset.id} 
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('application/joelizer-asset-id', asset.id);
+                      e.dataTransfer.setData('text/plain', asset.id);
+                      e.dataTransfer.effectAllowed = 'copy';
+                    }}
+                    className="relative group rounded overflow-hidden bg-[#12161c] border border-[#232933] hover:border-[#303846] transition-colors shadow-sm cursor-grab active:cursor-grabbing"
+                  >
+                    <img src={asset.thumbnail} alt={asset.name} className="w-full h-20 object-cover opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c0f] via-transparent to-transparent pointer-events-none" />
+                    
+                    {/* Type Badge */}
+                    <div className="absolute top-1.5 left-1.5 flex items-center gap-1 pointer-events-none">
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider ${
+                        asset.type === 'image' 
+                          ? 'bg-[#161b22] text-[#f0f3f6] border border-[#232933]' 
+                          : 'bg-[#161b22] text-[#00e676] border border-[#232933]'
+                      }`}>
+                        {asset.type === 'image' ? <ImageIcon size={9} className="inline mr-0.5" /> : <Film size={9} className="inline mr-0.5" />}
+                        {asset.type}
+                      </span>
+                      {asset.isStock && (
+                        <span className="bg-[#161b22] text-[#c9d1d9] border border-[#232933] px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase">
+                          Stock
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick Add & Delete Action Buttons */}
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={handleQuickAdd}
+                        className="bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] text-[#00e676] p-1 rounded cursor-pointer shadow transition-colors"
+                        title="Add clip to timeline at playhead"
+                      >
+                        <Plus size={11} strokeWidth={2.5} />
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); removeVideoAsset(asset.id); }}
+                        className="bg-[#161b22] hover:bg-red-950/60 border border-[#232933] hover:border-red-900/50 text-[#7e8999] hover:text-red-400 p-1 rounded cursor-pointer shadow transition-colors"
+                        title="Remove Media"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+
+                    {/* Title & Duration */}
+                    <div className="absolute bottom-1 left-1.5 right-1.5 flex justify-between items-end text-[9px] font-mono pointer-events-none">
+                      <span className="truncate max-w-[120px] text-[#c9d1d9] font-medium" title={asset.name}>{asset.name}</span>
+                      <span className="font-semibold text-[#f0f3f6] bg-[#0a0c0f]/90 px-1 rounded border border-[#232933]">{formatTime(asset.duration)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Footer / Stock Libraries Hub Button */}
+          <div className="p-2.5 border-t border-[#232933] shrink-0 flex flex-col gap-1.5 bg-[#0a0c0f]">
+            <button
+              onClick={handleImportSampleStock}
+              className="w-full py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] text-[#f0f3f6] border border-[#232933] hover:border-[#303846] text-[10px] font-semibold tracking-wider uppercase transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Sparkles size={11} className="text-[#00e676]" />
+              <span>Load Royalty-Free Stock Pack</span>
+            </button>
+
+            <button 
+              onClick={() => setShowStockModal(true)}
+              className="w-full py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] text-[#c9d1d9] hover:text-[#00e676] border border-[#232933] hover:border-[#303846] text-[10px] font-semibold tracking-wider uppercase transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Globe size={11} />
+              <span>Stock Provider Hub</span>
+            </button>
+          </div>
+
+          {/* Local Files / Folder Upload Modal */}
+          {showLocalUploadModal && (
+            <div 
+              onClick={() => setShowLocalUploadModal(false)}
+              className="fixed inset-0 bg-[#0a0c0f]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-mono"
+            >
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="bg-[#0e1115] border border-[#232933] rounded-lg p-5 max-w-md w-full flex flex-col gap-4 text-[#c9d1d9] shadow-[0_16px_48px_rgba(0,0,0,0.9)] relative"
+              >
+                <div className="flex items-center justify-between border-b border-[#232933] pb-3">
+                  <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
+                    <FolderPlus size={15} className="text-[#00e676]" />
+                    Import Local Media
+                  </h3>
+                  <button onClick={() => setShowLocalUploadModal(false)} className="text-[#7e8999] hover:text-[#f0f3f6] text-xs p-1 cursor-pointer">✕</button>
+                </div>
+
+                <div 
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const files = e.dataTransfer.files;
+                    if (files) {
+                      for (let i = 0; i < files.length; i++) {
+                        processFile(files[i]);
+                      }
+                    }
+                    setShowLocalUploadModal(false);
+                  }}
+                  className="border-2 border-dashed border-[#232933] hover:border-[#00e676]/60 rounded-lg p-6 flex flex-col items-center justify-center gap-3 bg-[#0a0c0f] text-center transition-colors"
+                >
+                  <FolderPlus size={30} className="text-[#00e676] opacity-70" />
+                  <div>
+                    <p className="text-xs font-semibold text-[#f0f3f6]">Drag & drop files or entire folder here</p>
+                    <p className="text-[10px] text-[#7e8999] mt-1 font-sans">Supports MP4, WebM, MOV, JPG, PNG, WEBP</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button 
+                      onClick={() => { fileInputRef.current?.click(); setShowLocalUploadModal(false); }}
+                      className="px-3.5 py-1.5 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Choose Files
+                    </button>
+                    <button 
+                      onClick={() => { folderInputRef.current?.click(); setShowLocalUploadModal(false); }}
+                      className="px-3.5 py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] text-[#f0f3f6] text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Choose Folder
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Direct URL Import Modal */}
+          {showUrlModal && (
+            <div 
+              onClick={() => setShowUrlModal(false)}
+              className="fixed inset-0 bg-[#0a0c0f]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-mono"
+            >
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="bg-[#0e1115] border border-[#232933] rounded-lg p-5 max-w-md w-full flex flex-col gap-4 text-[#c9d1d9] shadow-[0_16px_48px_rgba(0,0,0,0.9)]"
+              >
+                <div className="flex items-center justify-between border-b border-[#232933] pb-3">
+                  <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
+                    <LinkIcon size={14} className="text-[#00e676]" />
+                    Import Media from Direct URL
+                  </h3>
+                  <button onClick={() => setShowUrlModal(false)} className="text-[#7e8999] hover:text-[#f0f3f6] text-xs cursor-pointer">✕</button>
+                </div>
+
+                <p className="text-xs text-[#7e8999] font-sans leading-relaxed">
+                  Paste a direct video or image URL (MP4, WebM, MOV, JPG, PNG) from your server, CDN, or stock service.
+                </p>
+
+                <input 
+                  type="text" 
+                  placeholder="https://cdn.example.com/stock-clip.mp4"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded p-2.5 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
+                />
+
+                {urlError && (
+                  <p className="text-[11px] text-red-400 font-medium font-sans">{urlError}</p>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#232933]">
+                  <button 
+                    onClick={() => setShowUrlModal(false)}
+                    className="px-3 py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] text-xs text-[#c9d1d9] hover:text-[#f0f3f6] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleAddUrl}
+                    className="px-3.5 py-1.5 rounded bg-[#00e676] hover:bg-[#00c853] text-xs text-[#0a0c0f] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Plus size={13} strokeWidth={2.5} />
+                    Import Media
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stock Providers Hub Modal */}
+          {showStockModal && (
+            <div 
+              onClick={() => setShowStockModal(false)}
+              className="fixed inset-0 bg-[#0a0c0f]/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-mono"
+            >
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="bg-[#0e1115] border border-[#232933] rounded-lg p-5 max-w-lg w-full flex flex-col gap-4 text-[#c9d1d9] shadow-[0_16px_48px_rgba(0,0,0,0.9)] relative overflow-hidden"
+              >
+                <div className="flex items-center justify-between border-b border-[#232933] pb-3">
+                  <div>
+                    <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
+                      <Globe size={15} className="text-[#00e676]" />
+                      Stock Provider Hub
+                    </h3>
+                    <p className="text-[11px] text-[#7e8999] font-sans mt-0.5">
+                      Browse stock sites directly or copy video/image links to import into Joelizer.
+                    </p>
+                  </div>
+                  <button onClick={() => setShowStockModal(false)} className="text-[#7e8999] hover:text-[#f0f3f6] p-1 cursor-pointer">✕</button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[55vh] overflow-y-auto pr-1">
+                  {stockProviders.map(provider => (
+                    <a
+                      key={provider.name}
+                      href={provider.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-3 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] transition-colors flex flex-col justify-between group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-[#f0f3f6] text-xs tracking-wide">
+                          {provider.name}
+                        </span>
+                        <ExternalLink size={12} className="text-[#7e8999] group-hover:text-[#00e676] transition-colors" />
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[10px] text-[#7e8999] font-mono">{provider.category}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+
+                <div className="bg-[#0a0c0f] border border-[#232933] rounded p-3 flex flex-col gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+                    <LinkIcon size={12} className="text-[#00e676]" />
+                    Quick Import Stock Video Link
+                  </span>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Paste direct .mp4 or .jpg URL from stock provider"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      className="flex-1 bg-[#12161c] border border-[#232933] focus:border-[#00e676] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
+                    />
+                    <button
+                      onClick={() => {
+                        handleAddUrl();
+                        setShowStockModal(false);
+                      }}
+                      className="px-3.5 py-1.5 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] font-semibold text-xs shrink-0 cursor-pointer transition-colors"
+                    >
+                      Import
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end items-center pt-2 border-t border-[#232933]">
+                  <button 
+                    onClick={() => setShowStockModal(false)}
+                    className="px-3.5 py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] text-xs text-[#c9d1d9] hover:text-[#f0f3f6] cursor-pointer font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

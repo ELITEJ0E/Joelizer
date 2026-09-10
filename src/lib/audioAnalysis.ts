@@ -204,24 +204,58 @@ export function drawStudioWaveform(
 ) {
   ctx.clearRect(0, 0, width, height);
 
-  // Dark background grid
-  ctx.fillStyle = '#050507';
+  // Precision DAW timeline background
+  ctx.fillStyle = '#0b0d11';
   ctx.fillRect(0, 0, width, height);
 
-  // Subtle grid lines
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+  const duration = waveformData?.duration || 1;
+  const visibleDuration = duration / zoom;
+  const startSec = scrollOffset;
+  const endSec = startSec + visibleDuration;
+
+  // Draw DAW Grid (time divisions based on zoom)
+  ctx.strokeStyle = '#1b212a';
   ctx.lineWidth = 1;
-  const gridSpacing = 50;
-  for (let x = 0; x < width; x += gridSpacing) {
+  
+  // Choose sensible time intervals (e.g. 1s, 2s, 5s, 10s, 30s)
+  let step = 1;
+  if (visibleDuration > 120) step = 15;
+  else if (visibleDuration > 60) step = 10;
+  else if (visibleDuration > 30) step = 5;
+  else if (visibleDuration > 10) step = 2;
+  else if (visibleDuration > 4) step = 1;
+  else step = 0.5;
+
+  const firstTick = Math.floor(startSec / step) * step;
+  ctx.fillStyle = '#525e70';
+  ctx.font = '9px monospace';
+
+  for (let t = firstTick; t <= endSec; t += step) {
+    if (t < startSec) continue;
+    const x = ((t - startSec) / visibleDuration) * width;
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, height);
     ctx.stroke();
+
+    // Timecode tick label at the top
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    const ms = Math.floor((t % 1) * 10);
+    const label = step < 1 ? `${m}:${s < 10 ? '0' : ''}${s}.${ms}` : `${m}:${s < 10 ? '0' : ''}${s}`;
+    ctx.fillText(label, x + 3, 11);
   }
 
+  // Center horizontal line
+  ctx.strokeStyle = '#1e2430';
+  ctx.beginPath();
+  ctx.moveTo(0, height / 2);
+  ctx.lineTo(width, height / 2);
+  ctx.stroke();
+
   if (!waveformData || !waveformData.peaks || waveformData.peaks.length === 0) {
-    // Render placeholder subtle pulsing waveform line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    // Subtle flatline when no audio loaded
+    ctx.strokeStyle = '#293342';
     ctx.beginPath();
     ctx.moveTo(0, height / 2);
     ctx.lineTo(width, height / 2);
@@ -229,14 +263,9 @@ export function drawStudioWaveform(
     return;
   }
 
-  const duration = waveformData.duration || 1;
-  const visibleDuration = duration / zoom;
-  const startSec = scrollOffset;
-  const endSec = startSec + visibleDuration;
-
   // Center vertical axis
   const centerY = height / 2;
-  const maxAmp = (height / 2) * 0.82;
+  const maxAmp = (height / 2) * 0.80;
 
   const numPeaks = waveformData.peaks.length;
   const secPerPeak = duration / numPeaks;
@@ -250,24 +279,25 @@ export function drawStudioWaveform(
   for (let i = startPeakIdx; i < endPeakIdx; i++) {
     const peakTime = i * secPerPeak;
     const peakVal = waveformData.peaks[i] || 0;
-    const barHeight = Math.max(3, peakVal * maxAmp);
+    const barHeight = Math.max(2, peakVal * maxAmp);
 
     const x = ((peakTime - startSec) / visibleDuration) * width;
     const isPast = peakTime <= currentTime;
 
-    ctx.fillStyle = isPast ? activeColor : 'rgba(255, 255, 255, 0.22)';
+    // Ableton/DaVinci style subtle emerald for played, precision slate for unplayed
+    ctx.fillStyle = isPast ? '#00e676' : '#2b3442';
 
     // Mirror top & bottom
-    ctx.fillRect(x, centerY - barHeight, Math.max(1.5, peakWidth - 1), barHeight * 2);
+    ctx.fillRect(x, centerY - barHeight, Math.max(1.2, peakWidth - 0.8), barHeight * 2);
   }
 
-  // 2. Draw Beat Markers (subtle yellow dots/lines at bottom)
+  // 2. Draw Beat Markers (subtle emerald dots along the bottom)
   if (waveformData.beats && waveformData.beats.length > 0) {
-    ctx.fillStyle = '#ffb74d';
+    ctx.fillStyle = '#00e676';
     waveformData.beats.forEach(bTime => {
       if (bTime >= startSec && bTime <= endSec) {
         const bx = ((bTime - startSec) / visibleDuration) * width;
-        ctx.fillRect(bx - 0.5, height - 12, 1.5, 8);
+        ctx.fillRect(bx - 0.5, height - 7, 1.2, 5);
       }
     });
   }
@@ -280,12 +310,12 @@ export function drawStudioWaveform(
       const isSelected = selectedLineId === line.id;
       const isHovered = hoveredLineId === line.id;
 
-      const pinColor = isSelected ? '#ffffff' : (isHovered ? '#69f0ae' : activeColor);
+      const pinColor = isSelected ? '#ffffff' : (isHovered ? '#69f0ae' : '#00e676');
 
-      // Vertical dashed line
+      // Vertical line
       ctx.strokeStyle = pinColor;
-      ctx.lineWidth = isSelected || isHovered ? 2 : 1.5;
-      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = isSelected || isHovered ? 1.5 : 1;
+      ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.moveTo(lx, 0);
       ctx.lineTo(lx, height);
@@ -296,51 +326,47 @@ export function drawStudioWaveform(
       const badgeText = `#${idx + 1}`;
       ctx.font = 'bold 9px monospace';
       const textWidth = ctx.measureText(badgeText).width;
-      const badgeW = textWidth + 10;
-      const badgeH = 16;
+      const badgeW = textWidth + 8;
+      const badgeH = 15;
       const badgeX = Math.min(Math.max(0, lx - badgeW / 2), width - badgeW);
-      const badgeY = 4;
+      const badgeY = 16; // Just below the time header
 
-      ctx.fillStyle = isSelected ? '#ffffff' : '#09090d';
+      ctx.fillStyle = isSelected ? '#ffffff' : '#12161c';
       ctx.strokeStyle = pinColor;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       if (ctx.roundRect) {
-        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 2);
       } else {
         ctx.rect(badgeX, badgeY, badgeW, badgeH);
       }
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = isSelected ? '#000000' : pinColor;
-      ctx.fillText(badgeText, badgeX + 5, badgeY + 11);
+      ctx.fillStyle = isSelected ? '#0a0c0f' : pinColor;
+      ctx.fillText(badgeText, badgeX + 4, badgeY + 11);
     }
   });
 
-  // 4. Draw Current Playhead Line
+  // 4. Draw Current Playhead Line (Precision signal line)
   if (currentTime >= startSec && currentTime <= endSec) {
     const px = ((currentTime - startSec) / visibleDuration) * width;
 
-    // Glowing Playhead
-    ctx.shadowColor = activeColor;
-    ctx.shadowBlur = 12;
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2.5;
+    // Precision 1.5px Playhead
+    ctx.strokeStyle = '#00e676';
+    ctx.lineWidth = 1.5;
 
     ctx.beginPath();
     ctx.moveTo(px, 0);
     ctx.lineTo(px, height);
     ctx.stroke();
 
-    ctx.shadowBlur = 0; // Reset shadow
-
-    // Playhead handle
-    ctx.fillStyle = activeColor;
+    // Playhead arrow marker at the top
+    ctx.fillStyle = '#00e676';
     ctx.beginPath();
-    ctx.moveTo(px - 6, 0);
-    ctx.lineTo(px + 6, 0);
-    ctx.lineTo(px, 12);
+    ctx.moveTo(px - 5, 0);
+    ctx.lineTo(px + 5, 0);
+    ctx.lineTo(px, 8);
     ctx.closePath();
     ctx.fill();
   }

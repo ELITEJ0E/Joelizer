@@ -664,146 +664,191 @@ export function StudioLayout() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#030304] text-slate-200 overflow-hidden relative font-sans">
-      {/* TOP AI TOOLBAR */}
-      <div className="h-16 sm:h-16 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 flex items-center justify-between z-20 shrink-0 gap-3 overflow-x-auto no-scrollbar">
-        <div className="hidden md:flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} style={{ color: activeColor }} className="animate-pulse" />
-            <span className="font-black tracking-[2px] uppercase text-xs font-mono" style={{ color: activeColor }}>
-              JOELIZER STUDIO
-            </span>
-            <span className="text-[9px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/5 border border-white/10 text-slate-400">
-              AI LYRIC ENGINE
-            </span>
+    <div className="flex flex-col h-full w-full bg-[#0a0c0f] text-[#c4cad4] overflow-hidden relative font-sans">
+      {/* WORKSTATION TIMELINE HEADER BAR */}
+      <div className="h-10 bg-[#0e1115] border-b border-[#232933] px-3 flex items-center justify-between z-20 shrink-0 gap-2 overflow-x-auto no-scrollbar">
+        {/* Left: Audio Analysis Info & Zoom/Speed Controls */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 px-2 py-1 rounded bg-[#13171e] border border-[#232933] text-[10px] font-mono text-[#9aa2ae]">
+            <Activity size={12} className="text-[#00e676]" />
+            <span className="font-bold text-[#f0f3f6]">{analysis.bpm || 120} BPM</span>
+            <span className="text-[#5e6877]">•</span>
+            <span>{analysis.key || 'C Major'}</span>
+          </div>
+
+          <div className="h-3.5 w-[1px] bg-[#232933] hidden sm:block" />
+
+          {/* Waveform Zoom Controls */}
+          <div className="hidden lg:flex items-center gap-0.5 bg-[#13171e] border border-[#232933] rounded p-0.5 text-[10px] font-mono">
+            <span className="text-[#5e6877] px-1 font-semibold text-[9px]">ZOOM</span>
+            {[1, 2, 4, 8].map(z => (
+              <button
+                key={z}
+                type="button"
+                onClick={() => setZoom(z)}
+                className={cn(
+                  "px-1.5 py-0.5 rounded transition-colors cursor-pointer",
+                  zoom === z ? "bg-[#232a35] text-[#00e676] font-bold" : "text-[#7e8999] hover:text-[#f0f3f6]"
+                )}
+              >
+                {z}x
+              </button>
+            ))}
+          </div>
+
+          {/* Playback Speed Controls */}
+          <div className="hidden sm:flex items-center gap-0.5 bg-[#13171e] border border-[#232933] rounded p-0.5 text-[10px] font-mono">
+            <span className="text-[#5e6877] px-1 font-semibold text-[9px]">RATE</span>
+            {[0.5, 1.0, 1.5, 2.0].map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  setPlaybackSpeed(s);
+                  audioManager.setPlaybackRate(s);
+                }}
+                className={cn(
+                  "px-1.5 py-0.5 rounded transition-colors cursor-pointer",
+                  playbackSpeed === s ? "bg-[#232a35] text-[#00e676] font-bold" : "text-[#7e8999] hover:text-[#f0f3f6]"
+                )}
+              >
+                {s}x
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* AI Action Buttons */}
+        {/* Center: AI Synchronization & Alignment Tools */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Language Selector */}
-          <div className="flex items-center gap-1 bg-white/5 border border-white/10 hover:border-white/20 rounded-md px-2 py-1 text-[10px] font-mono transition-colors">
-            <Globe size={12} className="text-slate-400 shrink-0" />
+          {/* Target Language Selector */}
+          <div className="flex items-center gap-1 bg-[#13171e] border border-[#232933] hover:border-[#323b49] rounded px-2 py-1 text-[10px] font-mono transition-colors">
+            <Globe size={11} className="text-[#7e8999] shrink-0" />
             <select
               value={selectedLanguage}
               onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="bg-transparent text-white focus:outline-none cursor-pointer font-bold text-[10px]"
+              className="bg-transparent text-[#f0f3f6] focus:outline-none cursor-pointer font-medium text-[10px]"
               title="Target Lyric Language"
             >
-              <option value="Auto" className="bg-[#121218] text-white">🌐 Auto Language</option>
-              <option value="Korean" className="bg-[#121218] text-white">🇰🇷 Korean (한국어)</option>
-              <option value="Chinese" className="bg-[#121218] text-white">🇨🇳 Chinese (中文)</option>
-              <option value="English" className="bg-[#121218] text-white">🇺🇸 English</option>
-              <option value="Japanese" className="bg-[#121218] text-white">🇯🇵 Japanese (日本語)</option>
-              <option value="Spanish" className="bg-[#121218] text-white">🇪🇸 Spanish</option>
-              <option value="French" className="bg-[#121218] text-white">🇫🇷 French</option>
+              <option value="Auto" className="bg-[#12161c] text-[#f0f3f6]">Auto Detect</option>
+              <option value="English" className="bg-[#12161c] text-[#f0f3f6]">English</option>
+              <option value="Korean" className="bg-[#12161c] text-[#f0f3f6]">Korean (한국어)</option>
+              <option value="Japanese" className="bg-[#12161c] text-[#f0f3f6]">Japanese (日本語)</option>
+              <option value="Chinese" className="bg-[#12161c] text-[#f0f3f6]">Chinese (中文)</option>
+              <option value="Spanish" className="bg-[#12161c] text-[#f0f3f6]">Spanish</option>
+              <option value="French" className="bg-[#12161c] text-[#f0f3f6]">French</option>
             </select>
           </div>
 
           {progress && progress.stage !== 'complete' && (
             <button
+              type="button"
               onClick={cancelAIGeneration}
-              className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 hover:text-white rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer animate-pulse"
-              title="Cancel ongoing AI task"
+              className="px-2 py-1 bg-[#2e171b] hover:bg-[#3f1e24] border border-[#f85149]/40 text-[#ff7b72] rounded text-[10px] font-semibold tracking-wide flex items-center gap-1 transition-colors cursor-pointer"
+              title="Cancel ongoing task"
             >
-              <XCircle size={12} />
+              <XCircle size={11} />
               <span>Cancel</span>
             </button>
           )}
 
           <button
-            onClick={() => runAITranscription(false)}
-            className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-            title="AI Speech-to-Text Transcription"
-          >
-            <Sparkles size={12} style={{ color: activeColor }} className="animate-pulse" />
-            <span>Generate Transcript</span>
-          </button>
-
-          <button
+            type="button"
             onClick={() => runAITranscription(true)}
-            className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-            title="Forced Lyric Text Alignment"
+            className="px-2.5 py-1 bg-[#13171e] hover:bg-[#1a2028] border border-[#232933] hover:border-[#323b49] rounded text-[10px] font-semibold text-[#f0f3f6] flex items-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+            title="Perform AI Forced Alignment against uploaded lyrics"
           >
-            <SlidersHorizontal size={12} className="text-amber-400" />
+            <SlidersHorizontal size={11} className="text-[#00e676]" />
             <span>Align Lyrics</span>
           </button>
 
           <button
+            type="button"
+            onClick={() => runAITranscription(false)}
+            className="px-2.5 py-1 bg-[#13171e] hover:bg-[#1a2028] border border-[#232933] hover:border-[#323b49] rounded text-[10px] font-semibold text-[#c4cad4] hover:text-[#f0f3f6] flex items-center gap-1.5 transition-colors cursor-pointer active:scale-98 hidden sm:flex"
+            title="Speech-to-Text Transcription"
+          >
+            <Sparkles size={11} className="text-[#7e8999]" />
+            <span>Transcribe Audio</span>
+          </button>
+
+          <button
+            type="button"
             onClick={runAIAnalysis}
-            className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer hidden md:flex"
+            className="px-2 py-1 bg-[#13171e] hover:bg-[#1a2028] border border-[#232933] rounded text-[10px] font-semibold text-[#7e8999] hover:text-[#c4cad4] flex items-center gap-1 transition-colors cursor-pointer hidden md:flex"
             title="Detect BPM & Key"
           >
-            <Activity size={12} className="text-cyan-400" />
-            <span>BPM & Key</span>
+            <Activity size={11} />
+            <span>Detect BPM</span>
           </button>
+        </div>
 
-          <div className="h-4 w-px bg-white/10 mx-1" />
-
-          {/* Export Quick Button */}
+        {/* Right: Export & Preview actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
+            type="button"
             onClick={() => setShowExportMenu(true)}
-            className="px-3 py-1.5 text-black font-black text-[10px] uppercase rounded flex items-center gap-1.5 transition-all cursor-pointer shadow-lg active:scale-95"
-            style={{ backgroundColor: activeColor }}
+            className="px-2.5 py-1 bg-[#181d24] hover:bg-[#202731] border border-[#262c37] hover:border-[#384252] text-[#f0f3f6] font-semibold text-[10px] rounded flex items-center gap-1.5 transition-colors cursor-pointer active:scale-98"
           >
-            <Download size={12} />
-            <span>Export Pack</span>
+            <Download size={11} className="text-[#00e676]" />
+            <span>Export LRC</span>
           </button>
 
           <button
+            type="button"
             onClick={() => {
               updateLyricsSettings({ lines });
               setActiveTab('lyrics');
             }}
-            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-[10px] uppercase rounded flex items-center gap-1 transition-all cursor-pointer active:scale-95 ml-1"
+            className="px-2.5 py-1 bg-[#00e676]/10 hover:bg-[#00e676]/20 border border-[#00e676]/30 text-[#00e676] font-semibold text-[10px] rounded flex items-center gap-1 transition-colors cursor-pointer active:scale-98 ml-0.5"
+            title="Switch to Lyrics Video Canvas"
           >
-            <Eye size={12} />
-            <span>Preview</span>
+            <Eye size={11} />
+            <span>Video View</span>
           </button>
         </div>
       </div>
 
       {/* MOBILE STUDIO SEGMENTED TAB SWITCHER */}
-      <div className="md:hidden flex items-center bg-[#070709] border-b border-white/10 shrink-0 p-1 gap-1 z-10">
+      <div className="md:hidden flex items-center bg-[#0e1115] border-b border-[#232933] shrink-0 p-1 gap-1 z-10">
         <button
+          type="button"
           onClick={() => setMobileStudioTab('waveform')}
           className={cn(
-            "flex-1 py-2 text-[10px] font-mono font-bold uppercase tracking-wider rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+            "flex-1 py-1.5 text-[10px] font-mono font-semibold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
             mobileStudioTab === 'waveform'
-              ? "bg-white/15 text-white font-black shadow-md border border-white/20"
-              : "text-slate-400 hover:text-white"
+              ? "bg-[#181d24] text-[#00e676] border border-[#232933]"
+              : "text-[#7e8999] hover:text-[#f0f3f6]"
           )}
-          style={mobileStudioTab === 'waveform' ? { color: activeColor, borderColor: `${activeColor}50` } : {}}
         >
-          <AudioLines size={13} />
+          <AudioLines size={12} />
           <span>Waveform</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setMobileStudioTab('lyrics')}
           className={cn(
-            "flex-1 py-2 text-[10px] font-mono font-bold uppercase tracking-wider rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+            "flex-1 py-1.5 text-[10px] font-mono font-semibold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
             mobileStudioTab === 'lyrics'
-              ? "bg-white/15 text-white font-black shadow-md border border-white/20"
-              : "text-slate-400 hover:text-white"
+              ? "bg-[#181d24] text-[#00e676] border border-[#232933]"
+              : "text-[#7e8999] hover:text-[#f0f3f6]"
           )}
-          style={mobileStudioTab === 'lyrics' ? { color: activeColor, borderColor: `${activeColor}50` } : {}}
         >
-          <FileText size={13} />
+          <FileText size={12} />
           <span>Lyrics ({lines.length})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setMobileStudioTab('source')}
           className={cn(
-            "flex-1 py-2 text-[10px] font-mono font-bold uppercase tracking-wider rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+            "flex-1 py-1.5 text-[10px] font-mono font-semibold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
             mobileStudioTab === 'source'
-              ? "bg-white/15 text-white font-black shadow-md border border-white/20"
-              : "text-slate-400 hover:text-white"
+              ? "bg-[#181d24] text-[#00e676] border border-[#232933]"
+              : "text-[#7e8999] hover:text-[#f0f3f6]"
           )}
-          style={mobileStudioTab === 'source' ? { color: activeColor, borderColor: `${activeColor}50` } : {}}
         >
-          <Sliders size={13} />
+          <Sliders size={12} />
           <span>Source & AI</span>
         </button>
       </div>
@@ -812,150 +857,152 @@ export function StudioLayout() {
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* LEFT PANEL: AUDIO & LYRIC UPLOADS & METADATA */}
         {isSidebarOpen ? (
-          <div className={cn("w-full md:w-80 bg-black/40 border-r border-white/10 flex-col p-4 gap-4 overflow-y-auto shrink-0 transition-all duration-300", mobileStudioTab === 'source' ? "flex flex-1 h-full" : "hidden md:flex")}>
+          <div className={cn("w-full md:w-72 lg:w-80 bg-[#111418] border-r border-[#232933] flex-col p-3.5 gap-3.5 overflow-y-auto shrink-0 transition-all duration-200", mobileStudioTab === 'source' ? "flex flex-1 h-full" : "hidden md:flex")}>
             {/* Header inside left panel */}
-            <div className="flex items-center justify-between pb-1 border-b border-white/10">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <Sliders size={14} style={{ color: activeColor }} />
+            <div className="flex items-center justify-between pb-1.5 border-b border-[#232933]">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#9aa2ae] flex items-center gap-2">
+                <Sliders size={13} className="text-[#00e676]" />
                 <span>Audio & Source</span>
               </span>
               <button
+                type="button"
                 onClick={() => setIsSidebarOpen(false)}
-                className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors cursor-pointer"
+                className="p-1 text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#1a2028] rounded transition-colors cursor-pointer"
                 title="Collapse Sidebar"
               >
-                <PanelLeftClose size={15} />
+                <PanelLeftClose size={14} />
               </button>
             </div>
             
             {/* 1. Upload Audio Section */}
-          <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-black uppercase text-slate-400 tracking-wider">1. Audio Source</span>
-              {audioFile && <CheckCircle2 size={14} style={{ color: activeColor }} />}
+            <div className="bg-[#13171e] border border-[#232933] rounded-md p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase text-[#7e8999] tracking-wider">1. Audio Source</span>
+                {audioFile && <CheckCircle2 size={13} className="text-[#00e676]" />}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAudioModalOpen(true)}
+                className="w-full border border-dashed border-[#2b3442] hover:border-[#425066] hover:bg-[#181d26] rounded p-3 flex items-center gap-3 transition-colors cursor-pointer group text-left"
+              >
+                <div 
+                  className="w-7 h-7 rounded bg-[#181d26] border border-[#2b3442] flex items-center justify-center shrink-0 text-[#00e676]"
+                >
+                  <Music size={14} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-[#f0f3f6] block">Load Audio Track</span>
+                  <span className="text-[9px] text-[#7e8999] font-mono">Upload file or paste audio URL</span>
+                </div>
+              </button>
             </div>
 
+            {/* 2. Upload Lyrics Section (Optional) */}
+            <div className="bg-[#13171e] border border-[#232933] rounded-md p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase text-[#7e8999] tracking-wider">2. Raw Lyrics (Optional)</span>
+                {rawUploadedLyrics && <CheckCircle2 size={13} className="text-[#00e676]" />}
+              </div>
+
+              <label className="border border-dashed border-[#2b3442] hover:border-[#425066] hover:bg-[#181d26] rounded p-2.5 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+                <FileText size={16} className="text-[#7e8999]" />
+                <div className="text-center">
+                  <span className="text-[11px] font-semibold text-[#f0f3f6] block">Upload Lyrics Document</span>
+                  <span className="text-[9px] text-[#5e6877] font-mono">TXT, LRC, DOCX</span>
+                </div>
+                <input type="file" accept=".txt,.lrc,.docx" className="hidden" onChange={handleLyricsSelect} />
+              </label>
+
+              {uploadedLyricsFileName && (
+                <div className="text-[10px] font-mono text-[#00e676] bg-[#00e676]/10 border border-[#00e676]/30 p-1.5 rounded flex items-center justify-between">
+                  <span className="truncate">{uploadedLyricsFileName}</span>
+                  <button type="button" onClick={() => { setRawUploadedLyrics(''); setUploadedLyricsFileName(null); }} className="text-[#7e8999] hover:text-[#f0f3f6]">✕</button>
+                </div>
+              )}
+
+              {/* Quick Textarea Preview & LRC Parser */}
+              <textarea
+                value={rawUploadedLyrics}
+                onChange={(e) => handleRawLyricsChange(e.target.value)}
+                placeholder="Paste or write lyrics text (supports LRC format [mm:ss.xx])..."
+                className="w-full h-20 bg-[#0e1115] border border-[#232933] focus:border-[#3b4759] rounded p-2 text-[10px] font-mono text-[#c4cad4] outline-none resize-none"
+              />
+              {rawUploadedLyrics.trim() && (
+                <button
+                  type="button"
+                  onClick={handleManualParseLRC}
+                  className="w-full py-1.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[10px] font-mono font-semibold text-[#f0f3f6] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ListMusic size={12} className="text-[#00e676]" />
+                  <span>Parse & Sync LRC Lines</span>
+                </button>
+              )}
+            </div>
+
+            {/* 3. AI Song Intelligence Summary */}
+            <div className="bg-[#13171e] border border-[#232933] rounded-md p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase text-[#7e8999] tracking-wider block">3. Track Intelligence</span>
+                <div className="flex items-center gap-1 text-[9px] font-mono text-[#7e8999]">
+                  <Globe size={10} className="text-[#00e676]" />
+                  <span>{selectedLanguage}</span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                <div className="bg-[#0e1115] p-2 rounded border border-[#232933]">
+                  <span className="text-[#5e6877] block text-[8px] uppercase">TEMPO</span>
+                  <span className="font-bold text-[#f0f3f6]">{analysis.bpm || 120} BPM</span>
+                </div>
+
+                <div className="bg-[#0e1115] p-2 rounded border border-[#232933]">
+                  <span className="text-[#5e6877] block text-[8px] uppercase">KEY</span>
+                  <span className="font-bold text-[#f0f3f6]">{analysis.key || 'C Major'}</span>
+                </div>
+
+                <div className="bg-[#0e1115] p-2 rounded border border-[#232933] col-span-2 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[#5e6877] block text-[8px] uppercase">TARGET LANGUAGE</span>
+                    <span className="font-bold text-[#f0f3f6]">{analysis.language && analysis.language !== 'Auto' ? analysis.language : selectedLanguage}</span>
+                  </div>
+                  <Select value={selectedLanguage} onValueChange={(val) => setSelectedLanguage(val)}>
+                    <SelectTrigger className="h-6 w-28 text-[9px] bg-[#161b22] border-[#2b3442] text-[#f0f3f6]">
+                      <SelectValue placeholder="Language" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#12161c] border-[#232933] text-[#f0f3f6]">
+                      <SelectItem value="Auto">Auto Detect</SelectItem>
+                      <SelectItem value="Korean">Korean (한국어)</SelectItem>
+                      <SelectItem value="Chinese">Chinese (中文)</SelectItem>
+                      <SelectItem value="English">English</SelectItem>
+                      <SelectItem value="Japanese">Japanese (日本語)</SelectItem>
+                      <SelectItem value="Spanish">Spanish</SelectItem>
+                      <SelectItem value="French">French</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-[#0e1115] border-r border-[#232933] flex flex-col items-center py-3 px-1.5 shrink-0 transition-all duration-200">
             <button
               type="button"
-              onClick={() => setIsAudioModalOpen(true)}
-              className="w-full border border-dashed border-white/15 hover:border-white/30 hover:bg-white/[0.04] rounded-lg p-3.5 flex items-center justify-center gap-3 transition-all cursor-pointer group"
-            >
-              <div 
-                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform"
-                style={{ color: activeColor }}
-              >
-                <Music size={16} />
-              </div>
-              <div className="text-left flex-1 min-w-0">
-                <span className="text-xs font-bold text-white block">Load Audio Track</span>
-                <span className="text-[9px] text-slate-400 font-mono">Upload local file or paste audio link</span>
-              </div>
-            </button>
-          </div>
-
-          {/* 2. Upload Lyrics Section (Optional) */}
-          <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-black uppercase text-slate-400 tracking-wider">2. Raw Lyrics (Optional)</span>
-              {rawUploadedLyrics && <CheckCircle2 size={14} style={{ color: activeColor }} />}
-            </div>
-
-            <label className="border border-dashed border-white/15 hover:border-white/30 hover:bg-white/[0.04] rounded-lg p-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all">
-              <FileText size={18} className="text-slate-400" />
-              <div className="text-center">
-                <span className="text-[11px] font-bold text-white block">Upload Lyrics Document</span>
-                <span className="text-[9px] text-slate-500 font-mono">TXT, LRC, DOCX</span>
-              </div>
-              <input type="file" accept=".txt,.lrc,.docx" className="hidden" onChange={handleLyricsSelect} />
-            </label>
-
-            {uploadedLyricsFileName && (
-              <div className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 border border-emerald-800/40 p-2 rounded flex items-center justify-between">
-                <span className="truncate">{uploadedLyricsFileName}</span>
-                <button onClick={() => { setRawUploadedLyrics(''); setUploadedLyricsFileName(null); }} className="text-slate-400 hover:text-white">✕</button>
-              </div>
-            )}
-
-            {/* Quick Textarea Preview & LRC Parser */}
-            <textarea
-              value={rawUploadedLyrics}
-              onChange={(e) => handleRawLyricsChange(e.target.value)}
-              placeholder="Paste or write lyrics text (supports LRC format [mm:ss.xx])..."
-              className="w-full h-24 bg-black/50 border border-white/10 rounded-lg p-2.5 text-[10px] font-mono text-slate-300 outline-none focus:border-white/20 resize-none"
-            />
-            {rawUploadedLyrics.trim() && (
-              <button
-                onClick={handleManualParseLRC}
-                className="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
-              >
-                <ListMusic size={12} style={{ color: activeColor }} />
-                <span>Parse & Sync LRC Lines</span>
-              </button>
-            )}
-          </div>
-
-          {/* 3. AI Song Intelligence Summary */}
-          <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-black uppercase text-slate-400 tracking-wider block">3. AI Song Intelligence</span>
-              <div className="flex items-center gap-1 text-[9px] font-mono text-slate-400">
-                <Globe size={11} style={{ color: activeColor }} />
-                <span>{selectedLanguage}</span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-              <div className="bg-white/5 p-2 rounded border border-white/5">
-                <span className="text-slate-500 block text-[8px] uppercase">TEMPO</span>
-                <span className="font-bold text-white">{analysis.bpm || 120} BPM</span>
-              </div>
-
-              <div className="bg-white/5 p-2 rounded border border-white/5">
-                <span className="text-slate-500 block text-[8px] uppercase">KEY</span>
-                <span className="font-bold text-white">{analysis.key || 'C Major'}</span>
-              </div>
-
-              <div className="bg-white/5 p-2 rounded border border-white/5 col-span-2 flex items-center justify-between gap-2">
-                <div>
-                  <span className="text-slate-500 block text-[8px] uppercase">DETECTED / TARGET LANGUAGE</span>
-                  <span className="font-bold text-white">{analysis.language && analysis.language !== 'Auto' ? analysis.language : selectedLanguage}</span>
-                </div>
-                <Select value={selectedLanguage} onValueChange={(val) => setSelectedLanguage(val)}>
-                  <SelectTrigger className="h-7 w-28 text-[9px] bg-black/60 border-white/15">
-                    <SelectValue placeholder="Language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Auto">Auto Detect</SelectItem>
-                    <SelectItem value="Korean">Korean (한국어)</SelectItem>
-                    <SelectItem value="Chinese">Chinese (中文)</SelectItem>
-                    <SelectItem value="English">English</SelectItem>
-                    <SelectItem value="Japanese">Japanese (日本語)</SelectItem>
-                    <SelectItem value="Spanish">Spanish</SelectItem>
-                    <SelectItem value="French">French</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </div>
-        ) : (
-          <div className="bg-black/80 border-r border-white/10 flex flex-col items-center py-4 px-2 shrink-0 transition-all duration-300">
-            <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl text-slate-300 hover:text-white transition-all cursor-pointer shadow-xl flex flex-col items-center gap-1.5 group"
-              title="Expand Audio & Source Sidebar"
+              className="p-2 bg-[#13171e] hover:bg-[#181d26] border border-[#232933] rounded text-[#7e8999] hover:text-[#f0f3f6] transition-colors cursor-pointer flex flex-col items-center gap-1.5"
+              title="Expand Source Sidebar"
             >
-              <PanelLeftOpen size={18} style={{ color: activeColor }} />
-              <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-slate-400 group-hover:text-white [writing-mode:vertical-lr] rotate-180 py-2">Source</span>
+              <PanelLeftOpen size={15} className="text-[#00e676]" />
+              <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-[#7e8999] [writing-mode:vertical-lr] rotate-180 py-1">Source</span>
             </button>
           </div>
         )}
 
         {/* CENTER PANEL: WAVEFORM & TIMELINE PREVIEW & CONTROLS */}
-        <div className={cn("flex-1 flex-col bg-[#050508] border-r border-white/10 overflow-hidden relative", mobileStudioTab === 'waveform' ? "flex w-full h-full" : "hidden md:flex")}>
+        <div className={cn("flex-1 flex-col bg-[#0a0c0f] border-r border-[#232933] overflow-hidden relative", mobileStudioTab === 'waveform' ? "flex w-full h-full" : "hidden md:flex")}>
           
           {/* Interactive Waveform Canvas Container */}
-          <div className="flex-1 relative bg-black/60 flex flex-col justify-center items-center overflow-hidden select-none">
+          <div className="flex-1 relative bg-[#0b0d11] flex flex-col justify-center items-center overflow-hidden select-none">
             <canvas 
               ref={canvasRef} 
               width={900} 
@@ -1109,22 +1156,22 @@ export function StudioLayout() {
             />
 
             {/* Time Overlay */}
-            <div className="absolute top-3 left-4 bg-black/80 backdrop-blur border border-white/10 px-3 py-1 rounded-md text-xs font-mono font-bold flex items-center gap-2">
-              <span style={{ color: activeColor }}>{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-slate-400">{formatLRCStamp(audioDuration).replace('[', '').replace(']', '')}</span>
+            <div className="absolute top-2.5 left-3 bg-[#12161c]/90 border border-[#232933] px-2.5 py-1 rounded text-[11px] font-mono font-medium flex items-center gap-1.5 shadow-sm">
+              <span className="text-[#00e676] font-bold">{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
+              <span className="text-[#5e6877]">/</span>
+              <span className="text-[#7e8999]">{formatLRCStamp(audioDuration).replace('[', '').replace(']', '')}</span>
             </div>
 
-            {/* Current Active Lyric Display */}
-            <div className="absolute bottom-6 inset-x-8 text-center bg-black/80 backdrop-blur-md border border-white/15 py-3 px-6 rounded-xl shadow-2xl">
+            {/* Current Active Lyric Display (Workstation Editorial Strip) */}
+            <div className="absolute bottom-4 inset-x-6 text-center bg-[#12161c]/95 border border-[#232933] py-2 px-4 rounded shadow-md">
               {(() => {
                 const currentLine = getActiveLyricLine(lines, currentTime);
                 return currentLine ? (
-                  <span className="text-sm sm:text-base font-bold text-white tracking-wide" style={{ textShadow: `0 0 10px ${activeColor}80` }}>
+                  <span className="text-sm font-semibold text-[#f0f3f6] tracking-normal">
                     {currentLine.text}
                   </span>
                 ) : (
-                  <span className="text-xs text-slate-500 italic font-mono">[ Instrumental / Silence ]</span>
+                  <span className="text-xs text-[#5e6877] font-mono">[ Instrumental / Silence ]</span>
                 );
               })()}
             </div>
@@ -1132,62 +1179,67 @@ export function StudioLayout() {
         </div>
 
         {/* RIGHT PANEL: EDITABLE LYRIC LINE TIMELINE & HISTORY */}
-        <div className={cn("w-full md:w-[420px] lg:w-[440px] bg-black/60 border-l border-white/10 flex-col shrink-0 overflow-hidden", mobileStudioTab === 'lyrics' ? "flex flex-1 w-full h-full" : "hidden md:flex")}>
+        <div className={cn("w-full md:w-[420px] lg:w-[440px] bg-[#111418] border-l border-[#232933] flex-col shrink-0 overflow-hidden", mobileStudioTab === 'lyrics' ? "flex flex-1 w-full h-full" : "hidden md:flex")}>
           
           {/* Header Bar */}
-          <div className="p-3.5 bg-black/80 border-b border-white/10 flex items-center justify-between gap-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200 shrink-0">
+          <div className="p-3 bg-[#13171e] border-b border-[#232933] flex items-center justify-between gap-3">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#9aa2ae] shrink-0">
               Synced Lines ({lines.length})
             </span>
 
             {/* Actions: Clear All, Undo, Redo, Global Offset */}
             <div className="flex items-center gap-2 shrink-0">
               <button
+                type="button"
                 onClick={handleClearAllLines}
                 disabled={lines.length === 0}
-                className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-30 rounded text-[10px] font-mono font-bold text-rose-300 hover:text-rose-200 cursor-pointer flex items-center gap-1.5 transition-all shrink-0"
+                className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-30 rounded text-[10px] font-mono font-semibold text-rose-400 hover:text-rose-300 cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
                 title="Clear all synchronized lines"
               >
                 <Trash2 size={11} />
                 <span>Clear</span>
               </button>
 
-              <div className="h-4 w-px bg-white/10" />
+              <div className="h-3.5 w-px bg-[#232933]" />
 
               <div className="flex items-center gap-1">
                 <button 
+                  type="button"
                   onClick={undo} 
                   disabled={historyIndex <= 0} 
-                  className="p-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded text-slate-300 cursor-pointer"
+                  className="p-1 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] disabled:opacity-30 rounded text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer"
                   title="Undo"
                 >
-                  <Undo2 size={13} />
+                  <Undo2 size={12} />
                 </button>
 
                 <button 
+                  type="button"
                   onClick={redo} 
                   disabled={historyIndex >= history.length - 1} 
-                  className="p-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded text-slate-300 cursor-pointer"
+                  className="p-1 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] disabled:opacity-30 rounded text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer"
                   title="Redo"
                 >
-                  <Redo2 size={13} />
+                  <Redo2 size={12} />
                 </button>
               </div>
 
-              <div className="h-4 w-px bg-white/10" />
+              <div className="h-3.5 w-px bg-[#232933]" />
 
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
                   onClick={() => shiftAllTimestamps(-0.5)}
-                  className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[10px] font-mono font-bold text-slate-300 cursor-pointer hover:text-white transition-colors"
+                  className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[10px] font-mono font-semibold text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
                   title="Shift All Lyrics -0.5s"
                 >
                   -0.5s
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => shiftAllTimestamps(0.5)}
-                  className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[10px] font-mono font-bold text-slate-300 cursor-pointer hover:text-white transition-colors"
+                  className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[10px] font-mono font-semibold text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
                   title="Shift All Lyrics +0.5s"
                 >
                   +0.5s
@@ -1197,26 +1249,25 @@ export function StudioLayout() {
           </div>
 
           {/* Hotkey Helper Bar */}
-          <div className="px-3 py-1.5 bg-white/[0.02] border-b border-white/10 text-[9px] font-mono text-slate-400 flex items-center justify-between overflow-x-auto no-scrollbar gap-2">
-            <span className="flex items-center gap-1.5 font-bold text-slate-300 shrink-0">
-              <Zap size={10} style={{ color: activeColor }} /> Quick Sync Hotkeys:
+          <div className="px-3 py-1.5 bg-[#0e1115] border-b border-[#232933] text-[9px] font-mono text-[#7e8999] flex items-center justify-between overflow-x-auto no-scrollbar gap-2">
+            <span className="flex items-center gap-1.5 font-bold text-[#9aa2ae] shrink-0">
+              <Zap size={10} className="text-[#00e676]" /> Quick Sync:
             </span>
             <div className="flex items-center gap-2 shrink-0">
-              <span><kbd className="px-1 bg-white/10 rounded text-white">Space</kbd> Play/Pause</span>
-              <span><kbd className="px-1 bg-white/10 rounded text-white">P / N</kbd> Prev/Next Track</span>
-              <span><kbd className="px-1 bg-white/10 rounded text-white">Enter</kbd> Start & Next</span>
-              <span><kbd className="px-1 bg-white/10 rounded text-white">Shift+Enter</kbd> End</span>
-              <span><kbd className="px-1 bg-white/10 rounded text-white">↑↓</kbd> Select</span>
-              <span><kbd className="px-1 bg-white/10 rounded text-white">Ctrl+Z/Y</kbd> Undo/Redo</span>
+              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">Space</kbd> Play</span>
+              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">Enter</kbd> Next</span>
+              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">[</kbd> Mark Start</span>
+              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">]</kbd> Mark End</span>
+              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">Ctrl+Z</kbd> Undo</span>
             </div>
           </div>
 
           {/* Editable Line List */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
             {lines.length === 0 ? (
-              <div className="text-center text-slate-500 font-mono text-xs py-12">
+              <div className="text-center text-[#5e6877] font-mono text-xs py-12">
                 No lyric lines generated yet. <br />
-                Click <span className="text-emerald-400 font-bold">Generate Transcript</span> above!
+                Click <span className="text-[#00e676] font-semibold">Generate Transcript</span> above!
               </div>
             ) : (() => {
               const activeLine = getActiveLyricLine(lines, currentTime);
@@ -1229,25 +1280,25 @@ export function StudioLayout() {
                     id={`lyric-line-${line.id}`}
                     onClick={() => setSelectedLineId(line.id)}
                     className={cn(
-                      "p-3 rounded-lg border transition-all space-y-2 relative group cursor-pointer",
+                      "p-2.5 rounded-md border transition-all space-y-2 relative group cursor-pointer",
                       isSelected
-                        ? "bg-white/[0.08] border-white/30 shadow-xl"
+                        ? "bg-[#17202b] border-[#00e676]"
                         : isActive
-                        ? "bg-white/[0.04] border-white/20"
-                        : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                        ? "bg-[#161d24] border-[#00e676]/40"
+                        : "bg-[#13171e] border-[#232933] hover:border-[#333d4d]"
                     )}
-                    style={isSelected ? { borderColor: activeColor } : (isActive ? { borderColor: `${activeColor}80` } : {})}
                   >
                     <div className="flex items-center justify-between gap-2">
                       {/* Line Badge & Timestamp Input */}
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#181d26] border border-[#2b3442] text-[#9aa2ae]">
                           #{idx + 1}
                         </span>
 
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleSeek(line.startTime); }}
-                          className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer"
+                          className="p-1 rounded hover:bg-[#1f2631] text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors"
                           title="Seek audio to line start"
                         >
                           <Play size={10} fill="currentColor" />
@@ -1264,29 +1315,31 @@ export function StudioLayout() {
                               if (!isNaN(sec)) handleLineTimeChange(line.id, sec);
                             }
                           }}
-                          className="w-20 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] font-mono text-emerald-400 font-bold outline-none text-center"
+                          className="w-20 bg-[#0e1115] border border-[#2b3442] focus:border-[#3b4759] rounded px-1.5 py-0.5 text-[10px] font-mono text-[#00e676] font-bold outline-none text-center"
                         />
                       </div>
 
                       {/* Quick Sync & Nudge Controls */}
                       <div className="flex items-center gap-1">
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleMarkStart(line.id, currentTime);
                           }}
-                          className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 border border-white/15 rounded text-[9px] font-mono font-bold text-emerald-300 hover:text-white cursor-pointer transition-all active:scale-95"
+                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#00e676] hover:text-white cursor-pointer transition-colors"
                           title="Set start time to current playhead position (Shortcut: '[')"
                         >
                           Mark Start [
                         </button>
 
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleMarkEnd(line.id, currentTime);
                           }}
-                          className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 border border-white/15 rounded text-[9px] font-mono font-bold text-cyan-300 hover:text-white cursor-pointer transition-all active:scale-95"
+                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors"
                           title="Set end time to current playhead position (Shortcut: ']')"
                         >
                           Mark End ]
@@ -1295,30 +1348,34 @@ export function StudioLayout() {
                     </div>
 
                     {/* Micro-Nudge Row */}
-                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 pt-0.5 border-t border-white/5">
+                    <div className="flex items-center justify-between text-[9px] font-mono text-[#7e8999] pt-1 border-t border-[#232933]">
                       <div className="flex items-center gap-1">
-                        <span className="text-slate-500 font-bold text-[8px]">NUDGE:</span>
+                        <span className="text-[#5e6877] font-semibold text-[8px]">NUDGE:</span>
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime - 0.5); }}
-                          className="px-1 py-0.5 bg-white/5 hover:bg-white/15 rounded text-slate-300 cursor-pointer"
+                          className="px-1 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#232933] rounded text-[#9aa2ae] cursor-pointer"
                         >
                           -0.5s
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime - 0.1); }}
-                          className="px-1 py-0.5 bg-white/5 hover:bg-white/15 rounded text-slate-300 cursor-pointer"
+                          className="px-1 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#232933] rounded text-[#9aa2ae] cursor-pointer"
                         >
                           -0.1s
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime + 0.1); }}
-                          className="px-1 py-0.5 bg-white/5 hover:bg-white/15 rounded text-slate-300 cursor-pointer"
+                          className="px-1 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#232933] rounded text-[#9aa2ae] cursor-pointer"
                         >
                           +0.1s
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime + 0.5); }}
-                          className="px-1 py-0.5 bg-white/5 hover:bg-white/15 rounded text-slate-300 cursor-pointer"
+                          className="px-1 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#232933] rounded text-[#9aa2ae] cursor-pointer"
                         >
                           +0.5s
                         </button>
@@ -1327,32 +1384,36 @@ export function StudioLayout() {
                       {/* Line Action Buttons */}
                       <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleSplitLine(idx); }}
-                          className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white cursor-pointer"
+                          className="p-1 hover:bg-[#1f2631] rounded text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors"
                           title="Split line into two"
                         >
                           <Split size={12} />
                         </button>
 
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleMergeLine(idx); }}
-                          className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white cursor-pointer"
+                          className="p-1 hover:bg-[#1f2631] rounded text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors"
                           title="Merge with next line"
                         >
                           <Combine size={12} />
                         </button>
 
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleAddLine(idx); }}
-                          className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white cursor-pointer"
+                          className="p-1 hover:bg-[#1f2631] rounded text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors"
                           title="Add new line below"
                         >
                           <Plus size={12} />
                         </button>
 
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleDeleteLine(line.id); }}
-                          className="p-1 hover:bg-rose-500/20 rounded text-rose-400 hover:text-rose-300 cursor-pointer"
+                          className="p-1 hover:bg-rose-500/20 rounded text-rose-400 hover:text-rose-300 cursor-pointer transition-colors"
                           title="Delete line"
                         >
                           <Trash2 size={12} />
@@ -1366,7 +1427,7 @@ export function StudioLayout() {
                       value={line.text}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => handleLineTextChange(line.id, e.target.value)}
-                      className="w-full bg-black/30 border border-white/10 focus:border-white/20 rounded px-2.5 py-1.5 text-xs text-white font-medium outline-none"
+                      className="w-full bg-[#0e1115] border border-[#232933] focus:border-[#3b4759] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] font-medium outline-none"
                     />
                   </div>
                 );
@@ -1377,67 +1438,60 @@ export function StudioLayout() {
       </div>
 
       {/* STICKY BOTTOM PLAYBACK & CONTROL BAR */}
-      <div className="sticky bottom-0 z-30 shrink-0 w-full bg-[#070709] border-t border-white/10 px-3 py-3 sm:py-2.5 sm:px-6 shadow-2xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 min-h-[72px] sm:min-h-0">
+      <div className="sticky bottom-0 z-30 shrink-0 w-full bg-[#0e1115] border-t border-[#232933] px-3 py-2.5 sm:px-4 shadow-xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 min-h-[64px] sm:min-h-0">
         {/* Play/Pause, Skip, Loop & Track Playlist Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Song List Dropdown / Popup Trigger */}
           <SongListPopover align="left" />
 
-          <div className="h-6 w-[1px] bg-white/10 mx-0.5" />
+          <div className="h-5 w-[1px] bg-[#232933] mx-0.5" />
 
           {/* Previous Track Button */}
           <button
+            type="button"
             onClick={previousTrack}
-            className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 active:scale-95"
+            className="p-1.5 text-[#9aa2ae] hover:text-[#f0f3f6] transition-colors cursor-pointer shrink-0 rounded hover:bg-[#181d26]"
             title="Previous Track"
           >
-            <SkipBack size={16} />
+            <SkipBack size={15} />
           </button>
 
           {/* Play/Pause Button */}
           <button
+            type="button"
             onClick={togglePlay}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-black shadow-lg transition-transform active:scale-95 cursor-pointer shrink-0"
-            style={{ backgroundColor: activeColor }}
+            className="w-8 h-8 rounded flex items-center justify-center text-[#0a0c0f] bg-[#00e676] hover:bg-[#00c853] transition-colors cursor-pointer shrink-0 shadow-sm"
             title={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+            {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
           </button>
 
           {/* Next Track Button */}
           <button
+            type="button"
             onClick={nextTrack}
-            className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 active:scale-95"
+            className="p-1.5 text-[#9aa2ae] hover:text-[#f0f3f6] transition-colors cursor-pointer shrink-0 rounded hover:bg-[#181d26]"
             title="Next Track"
           >
-            <SkipForward size={16} />
+            <SkipForward size={15} />
           </button>
 
           {/* Looping / Repeat Button */}
           <button
+            type="button"
             onClick={() => setIsLooping(!isLooping)}
-            style={
+            className={cn(
+              "p-1.5 rounded transition-colors cursor-pointer shrink-0 relative",
               isLooping
-                ? {
-                    backgroundColor: `${activeColor}20`,
-                    borderColor: `${activeColor}40`,
-                    color: activeColor,
-                    boxShadow: `0 0 12px ${activeColor}30`
-                  }
-                : undefined
-            }
-            className={`p-1.5 sm:p-2 rounded-lg transition-all cursor-pointer shrink-0 relative active:scale-95 ${
-              isLooping
-                ? 'border font-bold'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-            }`}
+                ? "bg-[#00e676]/15 border border-[#00e676]/40 text-[#00e676]"
+                : "text-[#9aa2ae] hover:text-[#f0f3f6] hover:bg-[#181d26] border border-transparent"
+            )}
             title={isLooping ? 'Disable Loop' : 'Enable Loop (Repeat Current Song)'}
           >
-            <Repeat size={15} />
+            <Repeat size={14} />
             {isLooping && (
               <span
-                className="absolute -top-1 -right-1 w-3.5 h-3.5 text-black text-[9px] font-black rounded-full flex items-center justify-center shadow"
-                style={{ backgroundColor: activeColor }}
+                className="absolute -top-1 -right-1 w-3 h-3 text-[#0a0c0f] text-[8px] font-bold rounded-full flex items-center justify-center bg-[#00e676]"
               >
                 1
               </span>
@@ -1445,18 +1499,19 @@ export function StudioLayout() {
           </button>
 
           <button
+            type="button"
             onClick={() => handleSeek(0)}
-            className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 hidden min-[480px]:inline-flex"
+            className="p-1.5 text-[#9aa2ae] hover:text-[#f0f3f6] transition-colors cursor-pointer shrink-0 rounded hover:bg-[#181d26] hidden min-[480px]:inline-flex"
             title="Restart Audio to 0:00"
           >
             <RotateCcw size={14} />
           </button>
 
           {/* Time Counter */}
-          <div className="text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1.5 bg-white/5 border border-white/10 px-2 py-1 rounded shrink-0">
-            <span style={{ color: activeColor }}>{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
-            <span className="text-slate-600">/</span>
-            <span className="text-slate-400">{formatLRCStamp(audioDuration).replace('[', '').replace(']', '')}</span>
+          <div className="text-[10px] sm:text-[11px] font-mono font-medium flex items-center gap-1.5 bg-[#13171e] border border-[#232933] px-2 py-1 rounded shrink-0">
+            <span className="text-[#00e676] font-bold">{formatLRCStamp(currentTime).replace('[', '').replace(']', '')}</span>
+            <span className="text-[#5e6877]">/</span>
+            <span className="text-[#7e8999]">{formatLRCStamp(audioDuration).replace('[', '').replace(']', '')}</span>
           </div>
         </div>
 
@@ -1476,18 +1531,19 @@ export function StudioLayout() {
         {/* Speed & Zoom Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Speed Selector */}
-          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-1 text-[9px] sm:text-[10px] font-mono">
-            <span className="text-slate-500 px-1 font-bold shrink-0 hidden min-[400px]:inline">SPEED</span>
+          <div className="flex items-center gap-0.5 bg-[#13171e] border border-[#232933] rounded p-0.5 text-[9px] sm:text-[10px] font-mono">
+            <span className="text-[#5e6877] px-1 font-semibold shrink-0 hidden min-[400px]:inline">SPEED</span>
             {[0.5, 1.0, 1.5, 2.0].map(s => (
               <button
                 key={s}
+                type="button"
                 onClick={() => {
                   setPlaybackSpeed(s);
                   audioManager.setPlaybackRate(s);
                 }}
                 className={cn(
-                  "px-1.5 py-0.5 rounded cursor-pointer transition-all shrink-0",
-                  playbackSpeed === s ? "bg-white/20 text-white font-bold" : "text-slate-400 hover:text-white"
+                  "px-1.5 py-0.5 rounded cursor-pointer transition-colors shrink-0",
+                  playbackSpeed === s ? "bg-[#1f2631] text-[#00e676] font-bold border border-[#2b3442]" : "text-[#7e8999] hover:text-[#f0f3f6]"
                 )}
               >
                 {s}x
@@ -1496,15 +1552,16 @@ export function StudioLayout() {
           </div>
 
           {/* Zoom Controls */}
-          <div className="hidden sm:flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-1 text-[10px] font-mono shrink-0">
-            <span className="text-slate-500 px-1 font-bold">ZOOM</span>
+          <div className="hidden sm:flex items-center gap-0.5 bg-[#13171e] border border-[#232933] rounded p-0.5 text-[10px] font-mono shrink-0">
+            <span className="text-[#5e6877] px-1 font-semibold">ZOOM</span>
             {[1, 2, 4, 8].map(z => (
               <button
                 key={z}
+                type="button"
                 onClick={() => setZoom(z)}
                 className={cn(
-                  "px-2 py-0.5 rounded cursor-pointer transition-all",
-                  zoom === z ? "bg-white/20 text-white font-bold" : "text-slate-400 hover:text-white"
+                  "px-1.5 py-0.5 rounded cursor-pointer transition-colors",
+                  zoom === z ? "bg-[#1f2631] text-[#00e676] font-bold border border-[#2b3442]" : "text-[#7e8999] hover:text-[#f0f3f6]"
                 )}
               >
                 {z}x
@@ -1575,63 +1632,52 @@ export function StudioLayout() {
       {showExportMenu && (
         <div 
           onClick={(e) => { if (e.target === e.currentTarget) handleCloseExportMenu(); }}
-          className="fixed inset-0 bg-black/85 backdrop-blur-xl z-50 flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 sm:p-6"
         >
-          <div className="bg-[#09090d] border border-white/10 rounded-2xl p-5 sm:p-7 w-full max-w-3xl shadow-2xl relative overflow-hidden space-y-4 h-[86vh] max-h-[780px] flex flex-col">
-            {/* Ambient Background Accent */}
-            <div 
-              className="absolute -top-24 -right-24 w-80 h-80 rounded-full blur-[100px] pointer-events-none opacity-20"
-              style={{ background: activeColor }}
-            />
-
+          <div className="bg-[#12161c] border border-[#232933] rounded-lg p-5 sm:p-6 w-full max-w-3xl shadow-2xl relative overflow-hidden space-y-4 h-[84vh] max-h-[720px] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-3.5 shrink-0">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center border"
-                  style={{
-                    backgroundColor: `${activeColor}15`,
-                    borderColor: `${activeColor}35`,
-                    color: activeColor
-                  }}
-                >
-                  <Package size={20} />
+            <div className="flex items-center justify-between border-b border-[#232933] pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded bg-[#181d26] border border-[#2b3442] flex items-center justify-center text-[#00e676]">
+                  <Package size={16} />
                 </div>
                 <div>
-                  <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-white">EXPORT & COPY LYRICS</h2>
-                  <p className="text-[11px] text-slate-400 font-mono">Select any lyric format to preview, copy to clipboard, or download</p>
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-[#f0f3f6]">Export Lyrics Data</h2>
+                  <p className="text-[11px] text-[#7e8999] font-mono">Select format to preview, copy to clipboard, or download</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {/* Download All as ZIP button */}
                 <button
+                  type="button"
                   onClick={() => { handleExportFormat('zip'); setShowExportMenu(false); }}
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] text-[#c4cad4] hover:text-[#f0f3f6] rounded text-xs font-semibold transition-colors cursor-pointer"
                   title="Download all formats in a single ZIP file"
                 >
-                  <Package size={13} />
+                  <Package size={13} className="text-[#00e676]" />
                   <span>Download ZIP Pack</span>
                 </button>
                 <button
+                  type="button"
                   onClick={handleCloseExportMenu}
-                  className="p-1.5 text-slate-400 hover:text-white transition-colors rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+                  className="p-1.5 text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26] transition-colors rounded cursor-pointer"
                 >
-                  <X size={17} />
+                  <X size={16} />
                 </button>
               </div>
             </div>
 
             {/* Format Selection Tabs for Preview & Copy */}
-            <div className="space-y-2 shrink-0">
+            <div className="space-y-1.5 shrink-0">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#7e8999]">
                   Select Format:
                 </span>
-                <span className="text-[10px] font-mono text-slate-500">Default: Standard LRC</span>
+                <span className="text-[10px] font-mono text-[#5e6877]">Standard LRC format recommended</span>
               </div>
 
               {/* Format Tabs Bar */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
                 {[
                   { id: 'lrc', label: 'LRC', badge: 'Standard' },
                   { id: 'enhanced-lrc', label: 'Enhanced LRC', badge: 'Word Timings' },
@@ -1644,25 +1690,17 @@ export function StudioLayout() {
                   return (
                     <button
                       key={fmt.id}
+                      type="button"
                       onClick={() => setSelectedCopyFormat(fmt.id as any)}
-                      style={
+                      className={cn(
+                        "px-3 py-1.5 rounded border text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none",
                         isSelected
-                          ? {
-                              backgroundColor: `${activeColor}20`,
-                              borderColor: `${activeColor}60`,
-                              color: activeColor,
-                              boxShadow: `0 0 14px ${activeColor}25`
-                            }
-                          : undefined
-                      }
-                      className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
-                        isSelected
-                          ? 'ring-1'
-                          : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
-                      }`}
+                          ? "bg-[#181d26] border-[#00e676] text-[#00e676]"
+                          : "bg-[#0e1115] hover:bg-[#181d26] border-[#232933] text-[#9aa2ae] hover:text-[#f0f3f6]"
+                      )}
                     >
                       <span>{fmt.label}</span>
-                      <span className="text-[9.5px] opacity-60 font-mono">({fmt.badge})</span>
+                      <span className="text-[9px] opacity-60 font-mono">({fmt.badge})</span>
                     </button>
                   );
                 })}
@@ -1673,10 +1711,10 @@ export function StudioLayout() {
             <div className="flex-1 min-h-0 flex flex-col space-y-2">
               <div className="flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-300">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#c4cad4]">
                     {selectedCopyFormat.toUpperCase()} Preview
                   </span>
-                  <span className="text-[10px] text-slate-500 font-mono">
+                  <span className="text-[10px] text-[#5e6877] font-mono">
                     ({lines.length} lines)
                   </span>
                 </div>
@@ -1684,40 +1722,29 @@ export function StudioLayout() {
                 <div className="flex items-center gap-2">
                   {/* Download this specific format */}
                   <button
+                    type="button"
                     onClick={() => handleExportFormat(selectedCopyFormat)}
-                    className="px-3 py-1.5 bg-white/10 hover:bg-white/15 border border-white/15 rounded-lg text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm"
+                    className="px-2.5 py-1.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-xs font-semibold text-[#f0f3f6] flex items-center gap-1.5 transition-colors cursor-pointer"
                     title={`Download .${selectedCopyFormat === 'enhanced-lrc' ? 'lrc' : selectedCopyFormat} file`}
                   >
-                    <Download size={13} />
+                    <Download size={13} className="text-[#00e676]" />
                     <span>Download .{selectedCopyFormat === 'enhanced-lrc' ? 'lrc' : selectedCopyFormat}</span>
                   </button>
 
                   {/* Copy Button */}
                   <button
+                    type="button"
                     onClick={handleCopyCurrentFormat}
-                    style={
-                      copiedFormat
-                        ? {
-                            backgroundColor: `${activeColor}25`,
-                            borderColor: `${activeColor}50`,
-                            color: activeColor
-                          }
-                        : {
-                            backgroundColor: `${activeColor}20`,
-                            borderColor: `${activeColor}40`,
-                            color: activeColor
-                          }
-                    }
-                    className="px-4 py-1.5 border rounded-lg text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm hover:brightness-125"
+                    className="px-3 py-1.5 bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     {copiedFormat ? (
                       <>
-                        <Check size={13} strokeWidth={2.5} style={{ color: activeColor }} />
-                        <span>Copied {selectedCopyFormat.toUpperCase()}!</span>
+                        <Check size={13} strokeWidth={2.5} />
+                        <span>Copied {selectedCopyFormat.toUpperCase()}</span>
                       </>
                     ) : (
                       <>
-                        <Copy size={13} strokeWidth={2.5} style={{ color: activeColor }} />
+                        <Copy size={13} strokeWidth={2.5} />
                         <span>Copy {selectedCopyFormat.toUpperCase()}</span>
                       </>
                     )}
@@ -1726,11 +1753,11 @@ export function StudioLayout() {
               </div>
 
               {/* Large Scrollable Textarea Preview */}
-              <div className="flex-1 min-h-0 relative rounded-xl border border-white/10 bg-black/70 overflow-hidden">
+              <div className="flex-1 min-h-0 relative rounded border border-[#232933] bg-[#0b0d11] overflow-hidden">
                 <textarea
                   readOnly
                   value={getFormatContent(selectedCopyFormat)}
-                  className="w-full h-full p-4 text-xs font-mono text-emerald-400/90 outline-none resize-none leading-relaxed select-all no-scrollbar"
+                  className="w-full h-full p-3 text-xs font-mono text-[#00e676] outline-none resize-none leading-relaxed select-all no-scrollbar"
                 />
               </div>
             </div>

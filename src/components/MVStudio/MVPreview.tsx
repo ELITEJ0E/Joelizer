@@ -498,15 +498,15 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   }, [aspectRatio]);
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full p-1.5 sm:p-2 overflow-hidden gap-1.5 sm:gap-2">
+    <div className="flex flex-col items-center justify-center w-full h-full p-1.5 sm:p-2 overflow-hidden gap-1.5 sm:gap-2 bg-[#0a0c0f]">
       {/* Main Stage Canvas Area - Perfectly Proportional & 1:1 Match for Preview & Export */}
       <div 
         ref={stageRef}
-        className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-black/40 rounded-xl"
+        className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-[#0a0c0f]"
       >
         <div 
           ref={canvasContainerRef}
-          className="bg-black rounded-xl overflow-hidden relative shadow-2xl ring-1 ring-white/20 flex items-center justify-center transition-all duration-300"
+          className="bg-black rounded border border-[#232933] overflow-hidden relative shadow-[0_16px_50px_rgba(0,0,0,0.9)] flex items-center justify-center transition-all duration-300"
           style={{
             aspectRatio: aspectRatioVal,
             maxHeight: '100%',
@@ -536,15 +536,16 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             className={`absolute inset-0 bg-transparent flex items-center justify-center group cursor-pointer z-10 ${showOverlay ? 'pointer-events-none [&>*]:pointer-events-auto' : ''}`}
           >
             {!isPlaying && (
-              <div className="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white backdrop-blur-sm group-hover:scale-110 transition-transform cursor-pointer shadow-lg">
-                <Play size={20} className="ml-1" />
+              <div className="w-12 h-12 rounded-full bg-[#0e1115]/90 border border-[#232933] hover:border-[#00e676] flex items-center justify-center text-[#f0f3f6] hover:text-[#00e676] backdrop-blur-sm group-hover:scale-105 transition-all cursor-pointer shadow-xl">
+                <Play size={18} className="ml-0.5" />
               </div>
             )}
           </button>
 
           {/* Timecode Overlay */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-20 pointer-events-none">
-            <div className="bg-black/80 backdrop-blur-md px-2 py-0.5 rounded text-white font-mono text-[9px] font-bold shadow-md border border-white/10">
+            <div className="bg-[#0e1115]/90 backdrop-blur-md px-2 py-0.5 rounded text-[#f0f3f6] font-mono text-[9px] font-semibold shadow-md border border-[#232933]">
+              <span className="text-[#00e676] mr-1 font-bold">TC</span>
               {formatTime(currentTime)} / {formatTime(audioDuration || 0)}
             </div>
           </div>
@@ -552,7 +553,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           {/* Fullscreen Toggle Button */}
           <button
             onClick={handleToggleFullscreen}
-            className="absolute top-2 right-2 z-20 bg-black/80 hover:bg-black text-white p-1.5 rounded-md backdrop-blur-md cursor-pointer transition-all active:scale-95 shadow-md border border-white/10"
+            className="absolute top-2 right-2 z-20 bg-[#0e1115]/90 hover:bg-[#161b22] text-[#c9d1d9] hover:text-[#f0f3f6] p-1.5 rounded border border-[#232933] hover:border-[#303846] cursor-pointer transition-colors shadow-md"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview"}
           >
             {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}

@@ -19,15 +19,17 @@ export function TemplateCarousel() {
   });
 
   return (
-    <div className="flex flex-col h-full bg-[#060608] text-slate-300 p-3 gap-3 overflow-y-auto">
+    <div className="flex flex-col h-full bg-[#0e1115] text-[#f0f3f6] p-3.5 gap-3.5 overflow-y-auto">
       {/* Category Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 pb-1">
         {categories.map(cat => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
-              activeCategory === cat ? 'bg-white text-black font-extrabold shadow-md' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+            className={`px-3 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+              activeCategory === cat 
+                ? 'bg-[#161b22] text-[#00e676] border border-[#00e676]/50 shadow-sm' 
+                : 'bg-[#12161c] text-[#7e8999] hover:text-[#f0f3f6] border border-[#232933] hover:bg-[#161b22]'
             }`}
           >
             {cat}
@@ -46,24 +48,24 @@ export function TemplateCarousel() {
               onClick={() => setSelectedTemplateId(tmpl.id as LyricTemplateId)}
               className={`group relative rounded-xl p-3 border transition-all cursor-pointer flex flex-col justify-between min-h-[110px] overflow-hidden ${
                 isSelected 
-                  ? 'bg-white/10 border-white shadow-xl ring-2 ring-white/30' 
-                  : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/8'
+                  ? 'bg-[#161b22] border-[#00e676]/60 shadow-[0_0_12px_rgba(0,230,118,0.12)] ring-1 ring-[#00e676]/30' 
+                  : 'bg-[#12161c] border-[#232933] hover:border-[#384252] hover:bg-[#161b22]'
               }`}
             >
               {/* Top Row: Name & Badge */}
               <div className="flex items-center justify-between z-10">
                 <div className="flex items-center gap-1.5">
                   <div 
-                    className="w-3 h-3 rounded-full shadow-sm"
+                    className="w-2.5 h-2.5 rounded-full shadow-sm"
                     style={{ backgroundColor: tmpl.previewColor }}
                   />
-                  <span className="text-xs font-black text-white uppercase tracking-wider">
+                  <span className="text-xs font-mono font-bold text-[#f0f3f6] uppercase tracking-wider">
                     {tmpl.name}
                   </span>
                 </div>
 
                 {tmpl.badge && (
-                  <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#161b22] text-[#00e676] border border-[#00e676]/30 flex items-center gap-1">
                     <Flame size={10} />
                     {tmpl.badge}
                   </span>
@@ -71,26 +73,23 @@ export function TemplateCarousel() {
               </div>
 
               {/* Description */}
-              <p className="text-[11px] text-slate-400 font-medium leading-snug my-1 z-10">
+              <p className="text-[11px] text-[#7e8999] leading-snug my-1.5 z-10 font-sans">
                 {tmpl.description}
               </p>
 
               {/* Bottom Tag & Selected Indicator */}
-              <div className="flex items-center justify-between z-10 pt-1">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+              <div className="flex items-center justify-between z-10 pt-1 border-t border-[#232933]/50">
+                <span className="text-[9px] font-mono text-[#7e8999] uppercase tracking-wider">
                   {tmpl.category}
                 </span>
 
                 {isSelected ? (
-                  <span 
-                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-md"
-                    style={{ backgroundColor: activeColor, color: '#000000' }}
-                  >
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1 bg-[#00e676] text-black shadow-sm">
                     <Check size={12} strokeWidth={3} />
                     Active
                   </span>
                 ) : (
-                  <span className="text-[10px] text-slate-400 group-hover:text-white transition-colors">
+                  <span className="text-[10px] font-mono text-[#7e8999] group-hover:text-[#f0f3f6] transition-colors">
                     Apply
                   </span>
                 )}
@@ -98,7 +97,7 @@ export function TemplateCarousel() {
 
               {/* Background Accent Glow */}
               <div 
-                className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full blur-2xl opacity-20 pointer-events-none transition-opacity group-hover:opacity-30"
+                className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full blur-2xl opacity-10 pointer-events-none transition-opacity group-hover:opacity-20"
                 style={{ backgroundColor: tmpl.previewColor }}
               />
             </div>

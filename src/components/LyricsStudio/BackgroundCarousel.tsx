@@ -38,12 +38,12 @@ export function BackgroundCarousel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#060608] text-slate-300 p-3 gap-3 overflow-y-auto">
+    <div className="flex flex-col h-full bg-[#0e1115] text-[#f0f3f6] p-3.5 gap-4 overflow-y-auto">
       
       {/* Upload Custom Background Section */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col gap-2">
-        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-          <Upload size={12} style={{ color: activeColor }} />
+      <div className="bg-[#12161c] border border-[#232933] rounded-xl p-3 flex flex-col gap-2.5">
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+          <Upload size={12} className="text-[#00e676]" />
           Custom Media Background
         </span>
 
@@ -51,9 +51,9 @@ export function BackgroundCarousel() {
           {/* Custom Image Upload */}
           <button
             onClick={() => imageInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 text-xs font-bold text-white transition-all cursor-pointer"
+            className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-[#232933] bg-[#0a0c0f] hover:bg-[#161b22] hover:border-[#00e676]/40 text-xs font-mono text-[#f0f3f6] transition-all cursor-pointer"
           >
-            <ImageIcon size={14} className="text-sky-400" />
+            <ImageIcon size={14} className="text-[#00e676]" />
             <span>Upload Image</span>
           </button>
           <input
@@ -67,9 +67,9 @@ export function BackgroundCarousel() {
           {/* Custom Video Upload */}
           <button
             onClick={() => videoInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 text-xs font-bold text-white transition-all cursor-pointer"
+            className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-[#232933] bg-[#0a0c0f] hover:bg-[#161b22] hover:border-[#00e676]/40 text-xs font-mono text-[#f0f3f6] transition-all cursor-pointer"
           >
-            <Film size={14} className="text-purple-400" />
+            <Film size={14} className="text-[#00e676]" />
             <span>Upload Video</span>
           </button>
           <input
@@ -82,20 +82,20 @@ export function BackgroundCarousel() {
         </div>
 
         {customBackground.type === 'video' && (
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-[11px] text-purple-300 font-medium">
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161b22] border border-[#232933] text-[11px] text-[#00e676] font-mono">
             <span className="flex items-center gap-1.5">
-              <Repeat size={12} className="text-purple-400" />
-              Looping Video Enabled
+              <Repeat size={12} />
+              Looping Video Active
             </span>
-            <span className="text-[10px] uppercase font-bold text-slate-400">Auto-Seamless</span>
+            <span className="text-[9px] uppercase font-semibold text-[#7e8999]">Auto-Seamless</span>
           </div>
         )}
       </div>
 
       {/* Preset Backgrounds Section */}
       <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-          <Sparkles size={12} style={{ color: activeColor }} />
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+          <Sparkles size={12} className="text-[#00e676]" />
           Preset Styles & Themes
         </span>
 
@@ -116,32 +116,29 @@ export function BackgroundCarousel() {
                 }}
                 className={`relative rounded-xl p-2.5 border transition-all cursor-pointer flex flex-col justify-between h-20 overflow-hidden ${
                   isSelected
-                    ? 'border-white shadow-xl ring-2 ring-white/30 scale-[1.02]'
-                    : 'border-white/10 hover:border-white/30 hover:scale-[1.01]'
+                    ? 'border-[#00e676] shadow-[0_0_12px_rgba(0,230,118,0.2)] ring-1 ring-[#00e676]'
+                    : 'border-[#232933] hover:border-[#384252]'
                 }`}
                 style={{ background: preset.previewGradient }}
               >
                 <div className="flex items-center justify-between z-10">
-                  <span className="text-[10px] font-extrabold text-white uppercase tracking-wider bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-sm shadow">
+                  <span className="text-[10px] font-mono font-bold text-white uppercase tracking-wider bg-black/75 px-1.5 py-0.5 rounded border border-[#232933] shadow">
                     {preset.name}
                   </span>
 
                   {isSelected && (
-                    <span 
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-black font-extrabold shadow-md"
-                      style={{ backgroundColor: activeColor }}
-                    >
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center bg-[#00e676] text-black font-extrabold shadow-md">
                       <Check size={12} strokeWidth={3} />
                     </span>
                   )}
                 </div>
 
-                <span className="text-[9px] font-bold text-white/70 uppercase tracking-widest bg-black/40 px-1.5 py-0.5 rounded w-fit backdrop-blur-sm z-10">
+                <span className="text-[9px] font-mono font-medium text-white/80 uppercase tracking-wider bg-black/60 px-1.5 py-0.5 rounded border border-white/10 w-fit z-10">
                   {preset.category}
                 </span>
 
-                {/* Dark Vignette Overlay */}
-                <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+                {/* Subtle dark vignette */}
+                <div className="absolute inset-0 bg-black/25 pointer-events-none" />
               </div>
             );
           })}

@@ -1,84 +1,89 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: "Space Grotesk", var(--font-sans);
+}
+
+:root {
+  --bg-app: #0a0c0f;
+  --bg-workspace: #0e1115;
+  --bg-panel: #12161c;
+  --bg-surface: #171b22;
+  --bg-active: #1d232c;
+  --bg-hover: #1f2530;
+  
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-default: #232933;
+  --border-strong: #323b49;
+  
+  --text-primary: #f0f3f6;
+  --text-secondary: #9aa2ae;
+  --text-muted: #5e6877;
+  
+  --signal-emerald: #00e676;
+  --signal-emerald-dim: rgba(0, 230, 118, 0.15);
+  --signal-emerald-border: rgba(0, 230, 118, 0.35);
 }
 
 body {
   font-family: var(--font-sans);
-  background: #040405;
-  color: #e2e8f0;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  user-select: none;
 }
 
-/* Dark high-tech Spotify Grid Background */
-.spotify-grid {
-  background-color: #030304;
-  background-image: 
-    linear-gradient(rgba(29, 185, 84, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(29, 185, 84, 0.015) 1px, transparent 1px);
-  background-size: 32px 32px;
-  background-position: center center;
-  position: relative;
-}
-
-.spotify-grid::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 20%, rgba(29, 185, 84, 0.08) 0%, transparent 60%);
-  pointer-events: none;
-}
-
-/* Elegant minimalist scrollbar custom rules */
+/* Precision Workstation Scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(29, 185, 84, 0.25);
-  border-radius: 9999px;
-  transition: background 0.2s ease;
+  background: #262c37;
+  border-radius: 2px;
+  transition: background 0.15s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(29, 185, 84, 0.5);
+  background: #394354;
 }
 
-/* Utilities for glassmorphism panels */
-.glass-panel {
-  background: rgba(5, 5, 6, 0.75);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
+/* Technical Monospace Values */
+.font-timecode {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
-/* Micro-interaction transitions */
-.transition-glass {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+/* Restrained Workstation Panels */
+.ws-panel {
+  background-color: var(--bg-panel);
+  border-color: var(--border-default);
 }
 
-/* Spotify Pulsing Green Glow */
-.spotify-glow {
-  box-shadow: 0 0 20px rgba(29, 185, 84, 0.35);
+.ws-surface {
+  background-color: var(--bg-surface);
+  border-color: var(--border-subtle);
 }
 
-.spotify-text-glow {
-  text-shadow: 0 0 12px rgba(29, 185, 84, 0.6);
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
 
 

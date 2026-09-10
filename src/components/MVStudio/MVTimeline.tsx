@@ -655,38 +655,37 @@ export function MVTimeline() {
 
   return (
     <div 
-      className="flex flex-col h-full bg-[#08080c] text-slate-300 select-none"
+      className="flex flex-col h-full bg-[#0a0c0f] text-[#f0f3f6] select-none"
       onPointerMove={handleGlobalPointerMove}
       onPointerUp={handleGlobalPointerUp}
     >
       {/* ========================================================================= */}
       {/* TOP TOOLBAR */}
       {/* ========================================================================= */}
-      <div className="h-9 border-b border-white/10 flex items-center px-3 justify-between bg-black/70 text-xs shrink-0 backdrop-blur-md">
-        <div className="flex items-center gap-3">
+      <div className="h-9 border-b border-[#232933] flex items-center px-3 justify-between bg-[#0e1115] text-xs shrink-0">
+        <div className="flex items-center gap-2.5">
           {/* Play / Pause button */}
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className="flex items-center gap-1.5 px-3 py-1 rounded text-black text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
-            style={{ backgroundColor: activeColor }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#00e676] hover:bg-[#00c853] text-black text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
           >
-            {isPlaying ? <Pause size={11} /> : <Play size={11} className="ml-0.5" />}
+            {isPlaying ? <Pause size={11} strokeWidth={2.5} /> : <Play size={11} strokeWidth={2.5} className="ml-0.5" />}
             <span>{isPlaying ? 'Pause' : 'Play'}</span>
           </button>
 
           {/* Title */}
-          <span className="font-mono text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5" style={{ color: activeColor }}>
-            <Film size={13} />
+          <span className="font-mono text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-[#00e676]">
+            <Film size={12} />
             Timeline
           </span>
 
           {/* Global Undo / Redo */}
-          <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+          <div className="flex items-center gap-1 pl-2 border-l border-[#232933]">
             <button
               onClick={(e) => { e.stopPropagation(); undo(); }}
               disabled={!canUndo}
               title="Undo (Ctrl+Z)"
-              className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+              className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] disabled:opacity-30 text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
             >
               <Undo2 size={11} />
               <span>Undo</span>
@@ -696,7 +695,7 @@ export function MVTimeline() {
               onClick={(e) => { e.stopPropagation(); redo(); }}
               disabled={!canRedo}
               title="Redo (Ctrl+Y / Cmd+Shift+Z)"
-              className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-white/10 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+              className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] disabled:opacity-30 text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
             >
               <Redo2 size={11} />
               <span>Redo</span>
@@ -704,14 +703,14 @@ export function MVTimeline() {
           </div>
 
           {/* Magnetic Snapping Toggle */}
-          <div className="flex items-center pl-2 border-l border-white/10">
+          <div className="flex items-center pl-2 border-l border-[#232933]">
             <button
               onClick={() => setSnappingEnabled(!snappingEnabled)}
               title="Toggle Magnetic Snapping (S)"
-              className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
                 snappingEnabled 
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]' 
-                  : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                  ? 'bg-[#161b22] text-[#00e676] border border-[#00e676]/40 shadow-sm' 
+                  : 'bg-[#12161c] text-[#7e8999] hover:text-[#f0f3f6] border border-[#232933]'
               }`}
             >
               <Magnet size={11} />
@@ -721,18 +720,18 @@ export function MVTimeline() {
 
           {/* Selected Video Clip Quick Actions */}
           {selectedClip && (
-            <div className="flex items-center gap-1.5 pl-3 border-l border-white/10">
+            <div className="flex items-center gap-1 pl-2.5 border-l border-[#232933]">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleLockClip(selectedClip.id);
                   commitTimeline();
                 }}
-                className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer ${
-                  selectedClip.locked ? 'bg-amber-500 text-black' : 'bg-white/10 text-white hover:bg-white/20'
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer border ${
+                  selectedClip.locked ? 'bg-amber-500 text-black border-amber-400' : 'bg-[#161b22] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6]'
                 }`}
               >
-                {selectedClip.locked ? <Lock size={11} /> : <Unlock size={11} />}
+                {selectedClip.locked ? <Lock size={10} /> : <Unlock size={10} />}
                 <span>{selectedClip.locked ? 'Locked' : 'Lock'}</span>
               </button>
 
@@ -743,9 +742,9 @@ export function MVTimeline() {
                   commitTimeline();
                 }}
                 disabled={currentTime <= selectedClip.startTime || currentTime >= selectedClip.endTime || selectedClip.locked}
-                className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold flex items-center gap-1 disabled:opacity-30 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 disabled:opacity-30 cursor-pointer"
               >
-                <Scissors size={11} />
+                <Scissors size={10} />
                 <span>Split</span>
               </button>
 
@@ -756,9 +755,9 @@ export function MVTimeline() {
                   commitTimeline();
                 }}
                 disabled={selectedClip.locked}
-                className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold flex items-center gap-1 disabled:opacity-30 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 disabled:opacity-30 cursor-pointer"
               >
-                <Copy size={11} />
+                <Copy size={10} />
                 <span>Dup</span>
               </button>
 
@@ -768,9 +767,9 @@ export function MVTimeline() {
                   removeTimelineClip(selectedClip.id);
                   commitTimeline();
                 }}
-                className="px-2 py-1 rounded bg-red-600/30 hover:bg-red-600/50 text-red-300 border border-red-500/30 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer"
               >
-                <Trash2 size={11} />
+                <Trash2 size={10} />
                 <span>Delete</span>
               </button>
             </div>
@@ -778,40 +777,40 @@ export function MVTimeline() {
 
           {/* Selected Lyric Line Quick Actions in Header */}
           {selectedLyric && !selectedClip && (
-            <div className="flex items-center gap-1.5 pl-3 border-l border-white/10">
-              <span className="text-[10px] text-purple-400 font-bold font-mono">LYRIC:</span>
+            <div className="flex items-center gap-1 pl-2.5 border-l border-[#232933]">
+              <span className="text-[10px] text-[#00e676] font-bold font-mono">LYRIC:</span>
               <button
                 onClick={() => setWordsExpanded(!wordsExpanded)}
-                className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                  wordsExpanded ? 'bg-purple-500 text-white' : 'bg-purple-900/40 text-purple-200 hover:bg-purple-900/60 border border-purple-500/30'
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  wordsExpanded ? 'bg-[#00e676] text-black' : 'bg-[#161b22] text-[#7e8999] hover:text-[#f0f3f6] border border-[#232933]'
                 }`}
               >
-                <Layers size={11} />
+                <Layers size={10} />
                 <span>{wordsExpanded ? 'Words ▲' : 'Words ▼'}</span>
               </button>
 
               <button
                 onClick={() => splitLyricLine(selectedLyric.id, currentTime)}
                 disabled={currentTime <= selectedLyric.startTime + 0.2 || currentTime >= selectedLyric.endTime - 0.2}
-                className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold flex items-center gap-1 disabled:opacity-30 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 disabled:opacity-30 cursor-pointer"
               >
-                <Scissors size={11} />
+                <Scissors size={10} />
                 <span>Split</span>
               </button>
 
               <button
                 onClick={() => duplicateLyricLine(selectedLyric.id)}
-                className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer"
               >
-                <Copy size={11} />
+                <Copy size={10} />
                 <span>Dup</span>
               </button>
 
               <button
                 onClick={() => deleteLyricLine(selectedLyric.id)}
-                className="px-2 py-1 rounded bg-red-600/30 hover:bg-red-600/50 text-red-300 border border-red-500/30 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer"
               >
-                <Trash2 size={11} />
+                <Trash2 size={10} />
                 <span>Delete</span>
               </button>
             </div>
@@ -823,10 +822,10 @@ export function MVTimeline() {
           {/* Zoom Out */}
           <button
             onClick={() => setZoom(z => Math.max(1, z - 0.5))}
-            className="p-1 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white cursor-pointer"
+            className="p-1 rounded bg-[#12161c] hover:bg-[#161b22] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer"
             title="Zoom Out"
           >
-            <ZoomOut size={12} />
+            <ZoomOut size={11} />
           </button>
 
           {/* Zoom Slider */}
@@ -837,29 +836,29 @@ export function MVTimeline() {
             step="0.2"
             value={zoom}
             onChange={(e) => setZoom(parseFloat(e.target.value))}
-            className="w-16 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+            className="w-16 h-1 bg-[#232933] rounded appearance-none cursor-pointer accent-[#00e676]"
             title="Zoom timeline scale"
           />
 
           {/* Zoom In */}
           <button
             onClick={() => setZoom(z => Math.min(20, z + 0.5))}
-            className="p-1 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white cursor-pointer"
+            className="p-1 rounded bg-[#12161c] hover:bg-[#161b22] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer"
             title="Zoom In"
           >
-            <ZoomIn size={12} />
+            <ZoomIn size={11} />
           </button>
 
           {/* Zoom Badge */}
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-slate-400 font-mono">
-            <span className="text-white font-extrabold">{zoom.toFixed(1)}x</span>
+          <div className="flex items-center px-1.5 py-0.5 rounded bg-[#12161c] border border-[#232933] text-[10px] text-[#7e8999] font-mono">
+            <span className="text-[#00e676] font-bold">{zoom.toFixed(1)}x</span>
           </div>
 
           {/* Fit Timeline Button */}
           <button
             onClick={() => setZoom(1)}
             title="Fit Entire Timeline to Window"
-            className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+            className="px-2 py-0.5 rounded bg-[#12161c] hover:bg-[#161b22] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer"
           >
             <Maximize2 size={10} />
             <span>Fit</span>
@@ -870,35 +869,35 @@ export function MVTimeline() {
       {/* ========================================================================= */}
       {/* TIMELINE MAIN CONTAINER (Track Headers + Scrollable Tracks) */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex relative overflow-hidden bg-black/40">
+      <div className="flex-1 flex relative overflow-hidden bg-[#0a0c0f]">
         
         {/* ========================================================================= */}
         {/* LEFT FIXED TRACK HEADERS */}
         {/* ========================================================================= */}
-        <div className="w-28 bg-[#0d0d12] border-r border-white/10 flex flex-col shrink-0 z-30 shadow-lg">
+        <div className="w-28 bg-[#0e1115] border-r border-[#232933] flex flex-col shrink-0 z-30 shadow-lg">
           {/* Header Spacer (matches ruler height) */}
-          <div className="h-6 border-b border-white/10 bg-white/5 flex items-center px-2 text-[9px] font-mono text-slate-400 font-bold uppercase tracking-wider">
+          <div className="h-6 border-b border-[#232933] bg-[#12161c] flex items-center px-2 text-[9px] font-mono text-[#7e8999] font-bold uppercase tracking-wider">
             <span>TRACKS</span>
           </div>
 
           {/* VIS Track Header */}
-          <div className="h-16 border-b border-white/10 p-1.5 flex flex-col justify-between relative group/vis-header bg-blue-950/20">
+          <div className="h-16 border-b border-[#232933] p-1.5 flex flex-col justify-between relative group/vis-header bg-[#12161c]/40">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] font-black text-blue-400 flex items-center gap-1">
-                <Film size={11} /> VIS
+              <span className="font-mono text-[10px] font-bold text-[#f0f3f6] flex items-center gap-1">
+                <Film size={11} className="text-[#00e676]" /> VIS
               </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setVisTrackVisible(!visTrackVisible)}
                   title={visTrackVisible ? 'Hide video track' : 'Show video track'}
-                  className="text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                  className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                 >
-                  {visTrackVisible ? <Eye size={11} /> : <EyeOff size={11} className="text-slate-600" />}
+                  {visTrackVisible ? <Eye size={11} /> : <EyeOff size={11} className="text-[#7e8999]/40" />}
                 </button>
                 <button
                   onClick={() => setVisTrackLocked(!visTrackLocked)}
                   title={visTrackLocked ? 'Unlock track' : 'Lock track'}
-                  className={`p-0.5 cursor-pointer ${visTrackLocked ? 'text-amber-400' : 'text-slate-400 hover:text-white'}`}
+                  className={`p-0.5 cursor-pointer ${visTrackLocked ? 'text-amber-400' : 'text-[#7e8999] hover:text-[#f0f3f6]'}`}
                 >
                   {visTrackLocked ? <Lock size={11} /> : <Unlock size={11} />}
                 </button>
@@ -908,14 +907,14 @@ export function MVTimeline() {
             <div className="flex items-center justify-between">
               <button
                 onClick={() => handleTrackAction('vis', 'add-visualizer')}
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 flex items-center gap-0.5 cursor-pointer"
+                className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] flex items-center gap-0.5 cursor-pointer"
                 title="Add scene clip"
               >
                 <Plus size={9} /> Media
               </button>
               <button
                 onClick={() => setActiveTrackMenu(activeTrackMenu === 'vis' ? null : 'vis')}
-                className="text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                 title="Track options"
               >
                 <MoreVertical size={11} />
@@ -932,24 +931,24 @@ export function MVTimeline() {
           </div>
 
           {/* LYR Track Header */}
-          <div className="h-10 border-b border-white/10 p-1.5 flex flex-col justify-between relative group/lyr-header bg-purple-950/20">
+          <div className="h-10 border-b border-[#232933] p-1.5 flex flex-col justify-between relative group/lyr-header bg-[#12161c]/30">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] font-black text-purple-400 flex items-center gap-1">
-                <Type size={11} /> LYR
+              <span className="font-mono text-[10px] font-bold text-[#f0f3f6] flex items-center gap-1">
+                <Type size={11} className="text-[#00e676]" /> LYR
               </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setLyrTrackVisible(!lyrTrackVisible)}
                   title={lyrTrackVisible ? 'Hide lyrics track' : 'Show lyrics track'}
-                  className="text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                  className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                 >
-                  {lyrTrackVisible ? <Eye size={11} /> : <EyeOff size={11} className="text-slate-600" />}
+                  {lyrTrackVisible ? <Eye size={11} /> : <EyeOff size={11} className="text-[#7e8999]/40" />}
                 </button>
                 <button
                   onClick={() => setWordsExpanded(!wordsExpanded)}
                   title={wordsExpanded ? 'Collapse word layer' : 'Expand word layer'}
-                  className={`px-1 py-0.5 rounded text-[8px] font-black flex items-center gap-0.5 cursor-pointer ${
-                    wordsExpanded ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' : 'bg-white/10 text-slate-300 hover:text-white'
+                  className={`px-1 py-0.5 rounded text-[8px] font-mono font-bold flex items-center gap-0.5 cursor-pointer ${
+                    wordsExpanded ? 'bg-[#161b22] text-[#00e676] border border-[#00e676]/40' : 'bg-[#12161c] text-[#7e8999] hover:text-[#f0f3f6] border border-[#232933]'
                   }`}
                 >
                   {wordsExpanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
@@ -957,7 +956,7 @@ export function MVTimeline() {
                 </button>
                 <button
                   onClick={() => setActiveTrackMenu(activeTrackMenu === 'lyr' ? null : 'lyr')}
-                  className="text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                  className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                   title="Lyrics track options"
                 >
                   <MoreVertical size={11} />
@@ -976,33 +975,33 @@ export function MVTimeline() {
 
           {/* Sub-Header: WORD Timeline Layer (when expanded) */}
           {wordsExpanded && (
-            <div className="h-8 border-b border-white/10 px-1.5 flex items-center justify-between bg-amber-950/20">
-              <span className="font-mono text-[9px] font-black text-amber-400 flex items-center gap-0.5 pl-2">
+            <div className="h-8 border-b border-[#232933] px-1.5 flex items-center justify-between bg-[#12161c]/50">
+              <span className="font-mono text-[9px] font-bold text-amber-400 flex items-center gap-0.5 pl-2">
                 └ WORD
               </span>
-              <span className="text-[8px] font-mono text-amber-300/60 font-semibold">
+              <span className="text-[8px] font-mono text-[#7e8999]">
                 Sync
               </span>
             </div>
           )}
 
           {/* AUD Track Header */}
-          <div className="h-12 border-b border-white/10 p-1.5 flex flex-col justify-between relative group/aud-header bg-emerald-950/20">
+          <div className="h-12 border-b border-[#232933] p-1.5 flex flex-col justify-between relative group/aud-header bg-[#12161c]/30">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] font-black text-emerald-400 flex items-center gap-1">
-                <Music size={11} /> AUD
+              <span className="font-mono text-[10px] font-bold text-[#f0f3f6] flex items-center gap-1">
+                <Music size={11} className="text-[#00e676]" /> AUD
               </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={handleToggleMute}
                   title={audioMuted ? 'Unmute' : 'Mute'}
-                  className={`p-0.5 cursor-pointer ${audioMuted ? 'text-red-400' : 'text-emerald-400'}`}
+                  className={`p-0.5 cursor-pointer ${audioMuted ? 'text-red-400' : 'text-[#00e676]'}`}
                 >
                   {audioMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
                 </button>
                 <button
                   onClick={() => setShowVolumeSlider(!showVolumeSlider)}
-                  className="text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                  className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                   title="Volume level"
                 >
                   <MoreVertical size={11} />
@@ -1012,8 +1011,8 @@ export function MVTimeline() {
 
             {/* Volume slider popover */}
             {showVolumeSlider && (
-              <div className="absolute left-28 top-0 z-50 p-2 bg-[#121218] border border-white/20 rounded-lg shadow-xl flex items-center gap-2">
-                <Volume2 size={12} className="text-emerald-400" />
+              <div className="absolute left-28 top-0 z-50 p-2 bg-[#12161c] border border-[#232933] rounded-lg shadow-xl flex items-center gap-2">
+                <Volume2 size={12} className="text-[#00e676]" />
                 <input
                   type="range"
                   min="0"
@@ -1021,9 +1020,9 @@ export function MVTimeline() {
                   step="0.05"
                   value={audioMuted ? 0 : audioVolume}
                   onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                  className="w-20 h-1 bg-white/20 rounded accent-emerald-400 cursor-pointer"
+                  className="w-20 h-1 bg-[#232933] rounded accent-[#00e676] cursor-pointer"
                 />
-                <span className="text-[10px] font-mono text-white font-bold w-6">{Math.round(audioVolume * 100)}%</span>
+                <span className="text-[10px] font-mono text-[#f0f3f6] font-bold w-6">{Math.round(audioVolume * 100)}%</span>
               </div>
             )}
           </div>
@@ -1053,7 +1052,7 @@ export function MVTimeline() {
               onPointerDown={handleRulerPointerDown}
               onPointerMove={handleRulerPointerMove}
               onPointerUp={handleRulerPointerUp}
-              className="h-6 bg-white/5 border-b border-white/10 relative text-[9px] font-mono text-slate-400 flex items-center cursor-ew-resize select-none"
+              className="h-6 bg-[#0e1115] border-b border-[#232933] relative text-[9px] font-mono text-[#7e8999] flex items-center cursor-ew-resize select-none"
             >
               {/* Dynamic Ruler Ticks & Section Markers */}
               {Array.from({ length: Math.max(13, Math.round(12 * zoom)) }, (_, i) => (duration / Math.max(12, Math.round(12 * zoom))) * i).map((tick, idx) => (
@@ -1063,7 +1062,7 @@ export function MVTimeline() {
                   style={{ left: `${(tick / duration) * 100}%` }}
                 >
                   <span className="text-[8px] font-mono opacity-80">{formatTime(tick)}</span>
-                  <div className="w-[1px] h-1.5 bg-white/20" />
+                  <div className="w-[1px] h-1.5 bg-[#232933]" />
                 </div>
               ))}
 
@@ -1071,7 +1070,7 @@ export function MVTimeline() {
               {songAnalysis?.sections?.map((sec, i) => (
                 <div
                   key={i}
-                  className="absolute top-0.5 px-1.5 py-0.2 rounded text-[7px] font-black uppercase tracking-wider bg-white/10 border border-white/20 text-yellow-300 pointer-events-none -translate-x-1/2"
+                  className="absolute top-0.5 px-1.5 py-0.2 rounded text-[7px] font-mono font-bold uppercase tracking-wider bg-[#161b22] border border-[#232933] text-yellow-400 pointer-events-none -translate-x-1/2"
                   style={{ left: `${(sec.startTime / duration) * 100}%` }}
                 >
                   {sec.title}
@@ -1091,11 +1090,11 @@ export function MVTimeline() {
                 ref={trackRef}
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
                 onDrop={handleDropOnVisTrack}
-                className={`h-16 relative border-b border-white/10 bg-blue-950/20 group/vis ${visTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}
+                className={`h-16 relative border-b border-[#232933] bg-[#0a0c0f] group/vis ${visTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}
               >
                 {/* Empty Drop Hint */}
                 {timelineClips.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-blue-400/40 text-[10px] font-mono tracking-widest uppercase">
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[#7e8999]/40 text-[10px] font-mono tracking-widest uppercase">
                     Drag media clips here from library or click + Media
                   </div>
                 )}
@@ -1110,15 +1109,15 @@ export function MVTimeline() {
                   const isVisualizer = clip.type === 'visualizer' || clip.assetId === 'visualizer';
                   const isImage = clip.type === 'image';
 
-                  let clipBg = 'bg-blue-600/40 border-blue-400/50 hover:bg-blue-600/60';
+                  let clipBg = 'bg-[#161b22] border-[#2e3746] hover:border-[#404d60]';
                   if (clip.locked) {
-                    clipBg = 'bg-amber-900/40 border-amber-500/60';
+                    clipBg = 'bg-amber-950/40 border-amber-600/50';
                   } else if (isVinyl) {
-                    clipBg = 'bg-indigo-900/60 border-indigo-400/60 hover:bg-indigo-800/80';
+                    clipBg = 'bg-indigo-950/50 border-indigo-500/40 hover:border-indigo-400';
                   } else if (isVisualizer) {
-                    clipBg = 'bg-emerald-900/60 border-emerald-400/60 hover:bg-emerald-800/80';
+                    clipBg = 'bg-emerald-950/50 border-emerald-500/40 hover:border-emerald-400';
                   } else if (isImage) {
-                    clipBg = 'bg-amber-900/40 border-amber-500/50 hover:bg-amber-800/60';
+                    clipBg = 'bg-amber-950/40 border-amber-500/40 hover:border-amber-400';
                   }
 
                   let clipLabel = asset ? asset.name : 'Media Clip';
@@ -1139,21 +1138,19 @@ export function MVTimeline() {
                         clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
                       } ${
                         isSelected 
-                          ? 'ring-2 border-white z-20 shadow-lg' 
+                          ? 'ring-1 border-[#00e676] z-20 shadow-[0_0_10px_rgba(0,230,118,0.2)] bg-[#1a212b]' 
                           : clipBg
                       }`}
                       style={{ 
                         left: `${left}%`, 
                         width: `${width}%`,
-                        borderColor: isSelected ? activeColor : undefined,
-                        boxShadow: isSelected ? `0 0 12px ${activeColor}` : undefined
                       }}
                     >
                       {/* Left Resize Trim Handle */}
                       {!clip.locked && (
                         <div 
                           onPointerDown={(e) => handleClipPointerDown(e, clip, 'clip-left')}
-                          className="absolute left-0 top-0 bottom-0 w-2.5 bg-white/30 hover:bg-yellow-400 z-30 cursor-ew-resize opacity-0 group-hover/vis:opacity-100 transition-opacity"
+                          className="absolute left-0 top-0 bottom-0 w-2.5 bg-[#00e676]/30 hover:bg-[#00e676] z-30 cursor-ew-resize opacity-0 group-hover/vis:opacity-100 transition-opacity"
                           title="Drag to trim start"
                         />
                       )}
@@ -1166,16 +1163,16 @@ export function MVTimeline() {
                       <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60 pointer-events-none" />
 
                       {/* Label & Type Icon */}
-                      <div className="absolute left-2 right-2 flex items-center justify-between pointer-events-none z-10 text-[9px] font-mono text-white truncate">
+                      <div className="absolute left-2 right-2 flex items-center justify-between pointer-events-none z-10 text-[9px] font-mono text-[#f0f3f6] truncate">
                         <span className="truncate flex items-center gap-1 font-bold">
                           {isVinyl ? (
                             <span className="text-purple-300">💿</span>
                           ) : isVisualizer ? (
-                            <span className="text-emerald-300">📊</span>
+                            <span className="text-[#00e676]">📊</span>
                           ) : isImage ? (
                             <ImageIcon size={9} className="text-amber-300" />
                           ) : (
-                            <Film size={9} className="text-blue-300" />
+                            <Film size={9} className="text-[#00e676]" />
                           )}
                           {clipLabel}
                         </span>
@@ -1186,7 +1183,7 @@ export function MVTimeline() {
                       {!clip.locked && (
                         <div 
                           onPointerDown={(e) => handleClipPointerDown(e, clip, 'clip-right')}
-                          className="absolute right-0 top-0 bottom-0 w-2.5 bg-white/30 hover:bg-yellow-400 z-30 cursor-ew-resize opacity-0 group-hover/vis:opacity-100 transition-opacity"
+                          className="absolute right-0 top-0 bottom-0 w-2.5 bg-[#00e676]/30 hover:bg-[#00e676] z-30 cursor-ew-resize opacity-0 group-hover/vis:opacity-100 transition-opacity"
                           title="Drag to trim end"
                         />
                       )}
@@ -1198,9 +1195,9 @@ export function MVTimeline() {
               {/* ----------------------------------------------------------------- */}
               {/* TRACK 2: LYRICS (LYR) — REAL EDITABLE OBJECT BLOCKS */}
               {/* ----------------------------------------------------------------- */}
-              <div className={`h-10 relative border-b border-white/10 bg-purple-950/20 group/lyr ${lyrTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}>
+              <div className={`h-10 relative border-b border-[#232933] bg-[#0c0e12] group/lyr ${lyrTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}>
                 {displayLyrics.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-purple-400/40 text-[10px] font-mono tracking-widest uppercase">
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[#7e8999]/40 text-[10px] font-mono tracking-widest uppercase">
                     No lyrics lines · Click + in Lyrics tab or track menu
                   </div>
                 )}
@@ -1230,17 +1227,17 @@ export function MVTimeline() {
                       }}
                       className={`absolute top-1 bottom-1 rounded border px-2 flex items-center justify-between overflow-hidden transition-all cursor-grab active:cursor-grabbing select-none ${
                         isSelected
-                          ? 'bg-purple-600/80 border-purple-300 ring-2 ring-purple-400 z-20 shadow-[0_0_12px_rgba(168,85,247,0.5)]'
+                          ? 'bg-[#1a212b] border-[#00e676] ring-1 ring-[#00e676] z-20 shadow-[0_0_10px_rgba(0,230,118,0.25)] text-[#f0f3f6]'
                           : isCurrent 
-                            ? 'bg-purple-700/60 border-yellow-300/80 text-yellow-200 z-10 shadow-md' 
-                            : 'bg-purple-900/40 border-purple-500/40 hover:bg-purple-900/60 text-purple-200'
+                            ? 'bg-[#161b22] border-[#00e676]/60 text-[#00e676] z-10 shadow-sm' 
+                            : 'bg-[#12161c] border-[#232933] hover:border-[#384252] text-[#7e8999] hover:text-[#f0f3f6]'
                       }`}
                       style={{ left: `${left}%`, width: `${width}%` }}
                     >
                       {/* Left Trim Handle */}
                       <div 
                         onPointerDown={(e) => handleLyricPointerDown(e, line, 'lyric-left')}
-                        className="absolute left-0 top-0 bottom-0 w-2 bg-purple-300/40 hover:bg-yellow-400 z-30 cursor-ew-resize opacity-0 group-hover/lyr:opacity-100 transition-opacity"
+                        className="absolute left-0 top-0 bottom-0 w-2 bg-[#00e676]/40 hover:bg-[#00e676] z-30 cursor-ew-resize opacity-0 group-hover/lyr:opacity-100 transition-opacity"
                         title="Drag to trim lyric start"
                       />
 

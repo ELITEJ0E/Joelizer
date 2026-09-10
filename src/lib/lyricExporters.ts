@@ -98,7 +98,10 @@ export function generateEnhancedLRC(lines: LyricLineWithWords[], title?: string,
     lrc += `${formatLRCStamp(line.startTime)}`;
     if (line.words && line.words.length > 0) {
       line.words.forEach(w => {
-        lrc += `${formatWordStamp(w.startTime)}${w.word} `;
+        const wStart = typeof w.startTime === 'number' && !isNaN(w.startTime)
+          ? w.startTime 
+          : (typeof (w as any).start === 'number' && !isNaN((w as any).start) ? (w as any).start : line.startTime);
+        lrc += `${formatWordStamp(wStart)}${w.word} `;
       });
       // Append end timestamp marker for word karaoke
       if (line.endTime && line.endTime > line.startTime) {

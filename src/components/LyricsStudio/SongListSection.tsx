@@ -93,16 +93,9 @@ export function SongListSection() {
       {/* Header with Title & Action Buttons */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Music2 size={15} style={{ color: activeColor }} />
-          <span className="text-xs font-black uppercase tracking-wider text-white">Song List</span>
-          <span
-            className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold border"
-            style={{
-              backgroundColor: `${activeColor}18`,
-              color: activeColor,
-              borderColor: `${activeColor}35`
-            }}
-          >
+          <Music2 size={14} className="text-[#00e676]" />
+          <span className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6]">Song List</span>
+          <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-[#181d26] text-[#00e676] border border-[#2b3442]">
             {tracks.length}
           </span>
         </div>
@@ -110,9 +103,10 @@ export function SongListSection() {
         <div className="flex items-center gap-1.5">
           {/* Quick File Upload Button */}
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             title="Upload Audio File (MP3, M4A, WAV)"
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded bg-[#181d26] hover:bg-[#222935] text-[#9aa2ae] hover:text-[#f0f3f6] border border-[#232933] transition-colors cursor-pointer"
           >
             <Upload size={13} />
           </button>
@@ -126,17 +120,12 @@ export function SongListSection() {
 
           {/* Import Modal Trigger */}
           <button
+            type="button"
             onClick={() => {
               audioManager.resume().catch(() => {});
               setIsAudioModalOpen(true);
             }}
-            style={{
-              backgroundColor: `${activeColor}18`,
-              borderColor: `${activeColor}40`,
-              color: activeColor,
-              boxShadow: `0 0 10px ${activeColor}20`
-            }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer hover:brightness-125"
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
           >
             <Plus size={13} strokeWidth={2.5} />
             <span>Import</span>
@@ -145,12 +134,12 @@ export function SongListSection() {
       </div>
 
       {/* Main Track List */}
-      <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-0.5 no-scrollbar">
+      <div className="space-y-1 max-h-[220px] overflow-y-auto pr-0.5 no-scrollbar">
         {tracks.length === 0 ? (
-          <div className="py-6 px-3 text-center rounded-xl border border-dashed border-white/10 bg-black/20">
-            <Music2 size={24} className="mx-auto text-slate-500 mb-2 opacity-60" />
-            <p className="text-xs font-semibold text-slate-400">No tracks in playlist</p>
-            <p className="text-[10px] text-slate-500 mt-0.5">Click "Import" to add an audio track</p>
+          <div className="py-6 px-3 text-center rounded border border-dashed border-[#232933] bg-[#0e1115]">
+            <Music2 size={20} className="mx-auto text-[#5e6877] mb-1.5" />
+            <p className="text-xs font-semibold text-[#9aa2ae]">No tracks in playlist</p>
+            <p className="text-[10px] text-[#5e6877] mt-0.5">Click "Import" to add an audio track</p>
           </div>
         ) : (
           tracks.map((track, idx) => {
@@ -162,88 +151,52 @@ export function SongListSection() {
               <div
                 key={track.id || `track-${idx}`}
                 onClick={() => handleTrackClick(idx)}
-                style={
+                className={`group relative flex items-center gap-2 p-1.5 rounded border transition-colors cursor-pointer select-none ${
                   isSelected
-                    ? {
-                        backgroundColor: `${activeColor}15`,
-                        borderColor: `${activeColor}45`,
-                        boxShadow: `0 0 15px ${activeColor}15`
-                      }
-                    : undefined
-                }
-                className={`group relative flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer select-none ${
-                  isSelected
-                    ? 'ring-1 text-white'
-                    : 'bg-black/30 hover:bg-white/5 border-white/5 hover:border-white/15 text-slate-300'
+                    ? 'bg-[#181d26] border-[#00e676]/60 text-[#f0f3f6]'
+                    : 'bg-[#0e1115] hover:bg-[#181d26]/70 border-[#232933] text-[#c4cad4]'
                 }`}
               >
                 {/* Thumbnail with Play/Pause Badge */}
-                <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-white/10 shadow-sm bg-black">
+                <div className="relative w-8 h-8 rounded overflow-hidden shrink-0 border border-[#232933] bg-black">
                   <img 
                     src={cover} 
                     alt={track.name} 
-                    className={`w-full h-full object-cover transition-transform duration-300 ${isThisPlaying ? 'scale-110' : 'group-hover:scale-105'}`}
+                    className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&auto=format&fit=crop&q=80';
                     }}
                   />
                   
                   {/* Play/Pause Overlay */}
-                  <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${
+                  <div className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity ${
                     isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                   }`}>
                     {isThisPlaying ? (
-                      <div
-                        className="w-6 h-6 rounded-full text-black flex items-center justify-center shadow-lg"
-                        style={{ backgroundColor: activeColor }}
-                      >
-                        <Pause size={12} fill="currentColor" />
+                      <div className="w-5 h-5 rounded-full bg-[#00e676] text-[#0a0c0f] flex items-center justify-center">
+                        <Pause size={10} fill="currentColor" />
                       </div>
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-white/90 text-black flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                        <Play size={12} fill="currentColor" className="ml-0.5" />
+                      <div className="w-5 h-5 rounded-full bg-white text-black flex items-center justify-center">
+                        <Play size={10} fill="currentColor" className="ml-0.5" />
                       </div>
                     )}
                   </div>
-
-                  {/* Animated Equalizer Indicator if playing */}
-                  {isThisPlaying && (
-                    <div className="absolute bottom-1 right-1 flex items-end gap-[1.5px] h-3 px-1 rounded bg-black/60 backdrop-blur-xs">
-                      <span
-                        className="w-0.5 rounded-full animate-[bounce_0.6s_infinite_ease-in-out]"
-                        style={{ height: '70%', backgroundColor: activeColor }}
-                      />
-                      <span
-                        className="w-0.5 rounded-full animate-[bounce_0.8s_infinite_ease-in-out_0.2s]"
-                        style={{ height: '100%', backgroundColor: activeColor }}
-                      />
-                      <span
-                        className="w-0.5 rounded-full animate-[bounce_0.7s_infinite_ease-in-out_0.4s]"
-                        style={{ height: '50%', backgroundColor: activeColor }}
-                      />
-                    </div>
-                  )}
                 </div>
 
                 {/* Title & Metadata */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p
-                      className={`text-xs font-bold truncate leading-tight ${isSelected ? 'font-extrabold' : 'text-white'}`}
-                      style={isSelected ? { color: activeColor } : undefined}
-                    >
+                    <p className={`text-xs font-semibold truncate leading-tight ${isSelected ? 'text-[#00e676]' : 'text-[#f0f3f6]'}`}>
                       {track.name}
                     </p>
                     {isSelected && (
-                      <span
-                        className="w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{ backgroundColor: activeColor }}
-                      />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#00e676] shrink-0" />
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
-                    <span className="truncate max-w-[120px] font-medium">
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-[#7e8999]">
+                    <span className="truncate max-w-[120px]">
                       {track.artist || (track.isUserUploaded ? 'Uploaded' : 'Studio Track')}
                     </span>
                     <span>•</span>
@@ -256,12 +209,13 @@ export function SongListSection() {
                 {/* Action Buttons */}
                 <div className="flex items-center gap-1 shrink-0">
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       removeTrack(idx);
                     }}
                     title="Remove Track"
-                    className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                    className="p-1 text-[#5e6877] hover:text-[#ff5252] hover:bg-[#ff5252]/10 rounded transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
                   >
                     <Trash2 size={13} />
                   </button>

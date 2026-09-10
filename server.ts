@@ -892,22 +892,24 @@ async function startServer() {
       const ai = getGeminiClient(req);
       const candidateModels = ['gemini-2.5-flash', 'gemini-3.7-flash'];
 
-      const systemPrompt = `You are an elite, highly accurate multilingual music transcription and subtitle synchronization system.
+      const systemPrompt = `You are a high-precision music transcription and lyrics synchronization engine.
 You specialize in English, Korean (한국어 / Hangul, K-Pop, melisma), Chinese (中文 / Mandarin, Cantonese, Traditional & Simplified Hanzi characters), Japanese, and mixed multilingual lyrics.
 
 Target Song Language: ${language || 'Auto-detect'}.
 Extra User Guidance: ${prompt || 'None'}.
 
-Rules for High-Accuracy Transcription:
-1. Listen carefully to the singing and speech in the audio.
+Rules for High-Accuracy Transcription & Alignment:
+1. Listen carefully to the singing vocals and speech in the audio.
 2. For Korean (한국어): Transcribe in natural, correct Hangul characters with standard word spacing (어절). Keep Korean phrases grouped logically.
-3. For Chinese (中文): Transcribe in accurate Chinese Hanzi characters (Traditional or Simplified as heard). Break lines into natural musical singing phrases (usually 4 to 10 characters per line).
-4. For Mixed Lyrics (e.g. K-pop / C-pop with English rap or chorus): Preserve exact English words alongside Hangul/Hanzi without corrupting non-English parts into phonetic approximations.
-5. Assign precise start times (startTime in seconds, float format e.g. 12.34) and end times (endTime in seconds).
-6. Ensure timestamps are strictly chronological (startTime < endTime and sorted ascending).
-7. VERY IMPORTANT: Match timestamps precisely to vocal sound onsets and offsets. Compensate for latency so lyrics illuminate in exact sync with the audio.
+3. For Chinese (中文): Transcribe in accurate Chinese Hanzi characters. Break lines into natural musical phrases.
+4. For Mixed Lyrics: Preserve exact English words alongside Hangul/Hanzi without corrupting non-English parts.
+5. Exact Acoustic Boundaries:
+   - startTime: The EXACT second where vocal articulation begins for the line. If there is an intro, do NOT start at 0.00s.
+   - endTime: The EXACT second where vocal sound finishes decaying or pauses.
+6. Word-Level Timings: Provide word-level start and end timestamps in the "words" array for each line.
+7. Ensure timestamps are strictly chronological (startTime < endTime and sorted ascending).
 
-Schema required:
+Return strictly JSON:
 {
   "text": "Full plain text transcription",
   "language": "Detected primary language (e.g. Korean, Chinese, English, Mixed)",
@@ -918,7 +920,12 @@ Schema required:
       "id": "line-1",
       "startTime": 4.25,
       "endTime": 7.80,
-      "text": "Lyric text line"
+      "text": "Lyric text line",
+      "words": [
+        { "word": "Lyric", "startTime": 4.25, "endTime": 5.10 },
+        { "word": "text", "startTime": 5.15, "endTime": 6.20 },
+        { "word": "line", "startTime": 6.25, "endTime": 7.80 }
+      ]
     }
   ]
 }`;
@@ -957,7 +964,19 @@ Schema required:
                         id: { type: 'STRING' },
                         startTime: { type: 'NUMBER' },
                         endTime: { type: 'NUMBER' },
-                        text: { type: 'STRING' }
+                        text: { type: 'STRING' },
+                        words: {
+                          type: 'ARRAY',
+                          items: {
+                            type: 'OBJECT',
+                            properties: {
+                              word: { type: 'STRING' },
+                              startTime: { type: 'NUMBER' },
+                              endTime: { type: 'NUMBER' }
+                            },
+                            required: ['word', 'startTime', 'endTime']
+                          }
+                        }
                       },
                       required: ['startTime', 'endTime', 'text']
                     }
@@ -984,19 +1003,49 @@ Schema required:
       const parsedData = safeExtractJson(responseText);
 
       if (parsedData && Array.isArray(parsedData.lines) && parsedData.lines.length > 0) {
-        // Clean and sort lines, apply a -300ms latency compensation offset for Gemini speech
-        const LATENCY_OFFSET = -0.3;
-        
         const sortedLines = parsedData.lines
           .map((l: any, idx: number) => {
-            const rawStart = typeof l.startTime === 'number' ? l.startTime : idx * 4;
-            const rawEnd = typeof l.endTime === 'number' ? l.endTime : rawStart + 3.5;
-            
+            const rawStart = typeof l.startTime === 'number' && !isNaN(l.startTime) ? Math.max(0, l.startTime) : idx * 4;
+            const rawEnd = typeof l.endTime === 'number' && !isNaN(l.endTime) && l.endTime > rawStart ? l.endTime : rawStart + 3.5;
+            const lineText = String(l.text || '').trim();
+
+            let words = Array.isArray(l.words) && l.words.length > 0
+              ? l.words.map((w: any) => {
+                  const wStart = typeof w.startTime === 'number' ? Math.max(rawStart, w.startTime) : (typeof w.start === 'number' ? Math.max(rawStart, w.start) : rawStart);
+                  const wEnd = typeof w.endTime === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.endTime)) : (typeof w.end === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.end)) : Math.min(rawEnd, wStart + 0.4));
+                  return {
+                    word: String(w.word || '').trim(),
+                    startTime: wStart,
+                    endTime: wEnd,
+                    start: wStart,
+                    end: wEnd
+                  };
+                }).filter((w: any) => w.word.length > 0)
+              : [];
+
+            if (words.length === 0 && lineText.length > 0) {
+              const textTokens = lineText.split(/\s+/).filter(Boolean);
+              const duration = rawEnd - rawStart;
+              const tokenDuration = duration / Math.max(1, textTokens.length);
+              words = textTokens.map((token: string, tIdx: number) => {
+                const ts = Number((rawStart + tIdx * tokenDuration).toFixed(2));
+                const te = Number((ts + tokenDuration).toFixed(2));
+                return {
+                  word: token,
+                  startTime: ts,
+                  endTime: te,
+                  start: ts,
+                  end: te
+                };
+              });
+            }
+
             return {
               id: l.id || `line-${idx}-${Date.now()}`,
-              startTime: Math.max(0, rawStart + LATENCY_OFFSET),
-              endTime: Math.max((rawStart + LATENCY_OFFSET) + 0.5, rawEnd + LATENCY_OFFSET),
-              text: String(l.text || '').trim()
+              startTime: Number(rawStart.toFixed(2)),
+              endTime: Number(rawEnd.toFixed(2)),
+              text: lineText,
+              words
             };
           })
           .filter((l: any) => l.text.length > 0)
@@ -1035,7 +1084,7 @@ Schema required:
     }
   });
 
-  // 3. Forced Alignment endpoint (Audio + Uploaded Lyrics -> Synchronized LRC JSON)
+  // 3. Forced Alignment endpoint (Audio + Provided Lyrics -> Precise Synchronized LRC JSON)
   app.post('/api/align', async (req, res) => {
     try {
       const { audioBase64, mimeType = 'audio/mp3', rawLyrics, language } = req.body;
@@ -1046,21 +1095,39 @@ Schema required:
       const ai = getGeminiClient(req);
       const candidateModels = ['gemini-2.5-flash', 'gemini-3.7-flash'];
 
-      const systemPrompt = `You are a high-precision multilingual forced audio alignment engine specialized in Korean (한국어), Chinese (中文 - Mandarin/Cantonese), English, Japanese, and mixed language lyrics.
-You are given an audio file and the exact raw lyric text provided by the user.
+      const systemPrompt = `You are an expert audio engineer and precision multilingual forced audio alignment system.
+You are given an audio track and the exact, user-provided lyrics.
+Your objective: Align the provided lyrics line-by-line and word-by-word with the actual vocals in the audio recording to produce millisecond-accurate timestamps.
 
-User Provided Raw Lyrics:
+User Provided Lyrics:
 ${rawLyrics}
 
 Target Language Preference: ${language || 'Auto-detect'}
 
-Instructions:
-1. Preserve the user's provided lyric text line-by-line without altering characters.
-2. Accurately handle Korean Hangul (한국어), Chinese characters (中文 / 繁體 / 簡體), and mixed language phrases.
-3. For each line in the user's text, listen to the audio and find its exact start timestamp (startTime in seconds) and end timestamp (endTime in seconds).
-4. Do NOT omit or drop any lines from the user's text.
-5. Timestamps must be sorted in strictly ascending chronological order.
-6. VERY IMPORTANT: Assign timestamps precisely where the vocal sound begins and ends for each phrase. Compensate for any audio/processing latency to achieve millimeter-exact visual synchronization.
+CRITICAL FORCED ALIGNMENT RULES:
+1. STRICT TEXT FIDELITY & PRESERVATION:
+   - Match the provided lyrics text line-by-line without altering, replacing, misspelling, or translating words.
+   - Do NOT omit any line from the user's provided lyrics. Every single line in the input must appear in the output "lines" array with its corresponding timestamp.
+   - If a line repeats (e.g. repeated chorus), find its distinct chronological occurrence in the audio.
+
+2. PRECISION ACOUSTIC ONSET & OFFSET:
+   - startTime: The EXACT second (floating point, e.g. 14.25) where the singer articulates the first audible syllable of the line. If there is an instrumental intro, DO NOT start at 0.00s.
+   - endTime: The EXACT second (e.g. 17.80) where the vocal sound decay ends or the phrase finishes.
+   - For instrumental solos, breaks, and pauses between verses, do NOT place timestamps during silence.
+
+3. WORD-LEVEL TIMESTAMPS:
+   - For each line, break it down into words and provide the start and end timestamp for each word in the "words" array:
+     words: [
+       { "word": "First", "startTime": 14.25, "endTime": 14.70 },
+       { "word": "word", "startTime": 14.75, "endTime": 15.60 }
+     ]
+
+4. STRICT CHRONOLOGICAL MONOTONICITY:
+   - All lines must follow ascending chronological order: line[0].startTime <= line[1].startTime ...
+   - For every line and word: startTime < endTime.
+
+5. MULTILINGUAL ACCURACY:
+   - Accurately align Korean Hangul (한국어, K-pop vocal chops & melisma), Chinese (中文 / 國語 / 粵語), Japanese (日本語), English, Spanish, and mixed-language rap/vocals.
 
 Schema required:
 {
@@ -1073,7 +1140,13 @@ Schema required:
       "id": "line-1",
       "startTime": 4.50,
       "endTime": 8.20,
-      "text": "User lyric text line"
+      "text": "Exact lyric text line",
+      "words": [
+        { "word": "Exact", "startTime": 4.50, "endTime": 5.20 },
+        { "word": "lyric", "startTime": 5.25, "endTime": 6.10 },
+        { "word": "text", "startTime": 6.15, "endTime": 7.00 },
+        { "word": "line", "startTime": 7.05, "endTime": 8.20 }
+      ]
     }
   ]
 }`;
@@ -1112,7 +1185,19 @@ Schema required:
                         id: { type: 'STRING' },
                         startTime: { type: 'NUMBER' },
                         endTime: { type: 'NUMBER' },
-                        text: { type: 'STRING' }
+                        text: { type: 'STRING' },
+                        words: {
+                          type: 'ARRAY',
+                          items: {
+                            type: 'OBJECT',
+                            properties: {
+                              word: { type: 'STRING' },
+                              startTime: { type: 'NUMBER' },
+                              endTime: { type: 'NUMBER' }
+                            },
+                            required: ['word', 'startTime', 'endTime']
+                          }
+                        }
                       },
                       required: ['startTime', 'endTime', 'text']
                     }
@@ -1139,18 +1224,49 @@ Schema required:
       const parsedData = safeExtractJson(responseText);
 
       if (parsedData && Array.isArray(parsedData.lines) && parsedData.lines.length > 0) {
-        const LATENCY_OFFSET = -0.3;
-        
         const sortedLines = parsedData.lines
           .map((l: any, idx: number) => {
-            const rawStart = typeof l.startTime === 'number' ? l.startTime : idx * 4;
-            const rawEnd = typeof l.endTime === 'number' ? l.endTime : rawStart + 3.5;
-            
+            const rawStart = typeof l.startTime === 'number' && !isNaN(l.startTime) ? Math.max(0, l.startTime) : idx * 4;
+            const rawEnd = typeof l.endTime === 'number' && !isNaN(l.endTime) && l.endTime > rawStart ? l.endTime : rawStart + 3.5;
+            const lineText = String(l.text || '').trim();
+
+            let words = Array.isArray(l.words) && l.words.length > 0
+              ? l.words.map((w: any) => {
+                  const wStart = typeof w.startTime === 'number' ? Math.max(rawStart, w.startTime) : (typeof w.start === 'number' ? Math.max(rawStart, w.start) : rawStart);
+                  const wEnd = typeof w.endTime === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.endTime)) : (typeof w.end === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.end)) : Math.min(rawEnd, wStart + 0.4));
+                  return {
+                    word: String(w.word || '').trim(),
+                    startTime: wStart,
+                    endTime: wEnd,
+                    start: wStart,
+                    end: wEnd
+                  };
+                }).filter((w: any) => w.word.length > 0)
+              : [];
+
+            if (words.length === 0 && lineText.length > 0) {
+              const textTokens = lineText.split(/\s+/).filter(Boolean);
+              const duration = rawEnd - rawStart;
+              const tokenDuration = duration / Math.max(1, textTokens.length);
+              words = textTokens.map((token: string, tIdx: number) => {
+                const ts = Number((rawStart + tIdx * tokenDuration).toFixed(2));
+                const te = Number((ts + tokenDuration).toFixed(2));
+                return {
+                  word: token,
+                  startTime: ts,
+                  endTime: te,
+                  start: ts,
+                  end: te
+                };
+              });
+            }
+
             return {
               id: l.id || `align-${idx}-${Date.now()}`,
-              startTime: Math.max(0, rawStart + LATENCY_OFFSET),
-              endTime: Math.max((rawStart + LATENCY_OFFSET) + 0.5, rawEnd + LATENCY_OFFSET),
-              text: String(l.text || '').trim()
+              startTime: Number(rawStart.toFixed(2)),
+              endTime: Number(rawEnd.toFixed(2)),
+              text: lineText,
+              words
             };
           })
           .filter((l: any) => l.text.length > 0)
@@ -1164,12 +1280,27 @@ Schema required:
 
       // Fallback alignment algorithm if Gemini API fails
       const rawLines = (req.body.rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
-      const lines = rawLines.map((l: string, idx: number) => ({
-        id: `align-fb-${idx}`,
-        startTime: idx * 4 + 2,
-        endTime: idx * 4 + 5.5,
-        text: l
-      }));
+      const lines = rawLines.map((l: string, idx: number) => {
+        const st = idx * 4 + 2;
+        const et = st + 3.5;
+        const tokens = l.split(/\s+/).filter(Boolean);
+        const wDur = (et - st) / Math.max(1, tokens.length);
+        const words = tokens.map((t: string, ti: number) => ({
+          word: t,
+          startTime: Number((st + ti * wDur).toFixed(2)),
+          endTime: Number((st + (ti + 1) * wDur).toFixed(2)),
+          start: Number((st + ti * wDur).toFixed(2)),
+          end: Number((st + (ti + 1) * wDur).toFixed(2))
+        }));
+
+        return {
+          id: `align-fb-${idx}`,
+          startTime: st,
+          endTime: et,
+          text: l,
+          words
+        };
+      });
 
       res.json({
         text: req.body.rawLyrics,
@@ -1180,12 +1311,27 @@ Schema required:
     } catch (err: any) {
       console.error('Alignment API Error:', err);
       const rawLines = (req.body.rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
-      const lines = rawLines.map((l: string, idx: number) => ({
-        id: `align-fb-${idx}`,
-        startTime: idx * 4 + 2,
-        endTime: idx * 4 + 5.5,
-        text: l
-      }));
+      const lines = rawLines.map((l: string, idx: number) => {
+        const st = idx * 4 + 2;
+        const et = st + 3.5;
+        const tokens = l.split(/\s+/).filter(Boolean);
+        const wDur = (et - st) / Math.max(1, tokens.length);
+        const words = tokens.map((t: string, ti: number) => ({
+          word: t,
+          startTime: Number((st + ti * wDur).toFixed(2)),
+          endTime: Number((st + (ti + 1) * wDur).toFixed(2)),
+          start: Number((st + ti * wDur).toFixed(2)),
+          end: Number((st + (ti + 1) * wDur).toFixed(2))
+        }));
+
+        return {
+          id: `align-fb-${idx}`,
+          startTime: st,
+          endTime: et,
+          text: l,
+          words
+        };
+      });
 
       res.json({
         text: req.body.rawLyrics,

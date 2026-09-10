@@ -144,10 +144,10 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight }: Props) {
             e.stopPropagation();
             resetElementPositions(aspectRatio);
           }}
-          className="px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black border border-white/15 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 backdrop-blur-md transition-all shadow-lg cursor-pointer"
+          className="px-2.5 py-1 rounded-md bg-[#12161c]/90 hover:bg-[#161b22] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 backdrop-blur-md transition-all shadow-md cursor-pointer"
           title="Reset elements to default positions"
         >
-          <RotateCcw size={12} />
+          <RotateCcw size={11} className="text-[#00e676]" />
           <span>Reset Layout</span>
         </button>
       </div>
@@ -165,10 +165,10 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight }: Props) {
           <div
             key={key}
             onPointerDown={(e) => handlePointerDown(e, key)}
-            className={`absolute rounded-lg transition-shadow cursor-grab active:cursor-grabbing flex items-center justify-center ${
+            className={`absolute rounded transition-shadow cursor-grab active:cursor-grabbing flex items-center justify-center ${
               isSelected
-                ? 'border-2 border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] z-30'
-                : 'border border-transparent hover:border-white/40 z-10'
+                ? 'border border-[#00e676] shadow-[0_0_16px_rgba(0,230,118,0.2)] z-30'
+                : 'border border-dashed border-transparent hover:border-[#00e676]/40 z-10'
             }`}
             style={{
               left: `${leftPx}px`,
@@ -182,20 +182,20 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight }: Props) {
             {isSelected && (
               <>
                 {/* Drag Handle Tag */}
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white text-black px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md whitespace-nowrap">
-                  <Move size={10} />
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#00e676] text-black px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 shadow-md whitespace-nowrap">
+                  <Move size={9} />
                   <span>{key}</span>
                 </div>
 
-                {/* 8 Corner & Edge Handles */}
-                <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border border-black rounded-full" />
-                <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border border-black rounded-full" />
-                <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border border-black rounded-full" />
-                <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border border-black rounded-full" />
-                <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-black rounded-full" />
-                <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-black rounded-full" />
-                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white border border-black rounded-full" />
-                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white border border-black rounded-full" />
+                {/* Precision Corner & Edge Handles */}
+                <div className="absolute -top-1 -left-1 w-2 h-2 bg-[#00e676] border border-black rounded-none" />
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#00e676] border border-black rounded-none" />
+                <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-[#00e676] border border-black rounded-none" />
+                <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-[#00e676] border border-black rounded-none" />
+                <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-1.5 h-1.5 bg-[#00e676] border border-black rounded-none" />
+                <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-1.5 h-1.5 bg-[#00e676] border border-black rounded-none" />
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#00e676] border border-black rounded-none" />
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#00e676] border border-black rounded-none" />
               </>
             )}
           </div>

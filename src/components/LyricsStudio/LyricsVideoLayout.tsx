@@ -7,7 +7,7 @@ import { GlobalSettingsPanel } from '../MVStudio/GlobalSettingsPanel';
 import { InteractiveStageOverlay } from './InteractiveStageOverlay';
 import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { BACKGROUND_PRESETS } from '../../lib/lyricsBackgrounds';
-import { formatTime } from '../../lib/utils';
+import { cn, formatTime } from '../../lib/utils';
 import { SongListSection } from './SongListSection';
 import { SongListPopover } from '../Audio/SongListPopover';
 import {
@@ -118,482 +118,491 @@ export function LyricsVideoLayout() {
   const playbackProgress = Math.max(0, Math.min(1, currentTime / (audioDuration || 1)));
 
   return (
-    <div className="flex flex-col h-full bg-[#050508] text-slate-200 font-sans select-none overflow-hidden relative">
+    <div className="flex flex-col h-full bg-[#0a0c0f] text-[#f0f3f6] font-sans select-none overflow-hidden relative">
       
       {/* MAIN WORKSPACE: LEFT CONTROL SIDEBAR + RIGHT STAGE */}
       <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden relative">
         
         {/* LEFT CONTROL SIDEBAR */}
-        <div className="w-full md:w-80 lg:w-96 bg-[#09090e] border-r border-white/10 flex flex-col shrink-0 overflow-y-auto no-scrollbar p-4 gap-5 z-20">
+        <div className="w-full md:w-80 lg:w-96 bg-[#12161c] border-r border-[#232933] flex flex-col shrink-0 overflow-y-auto no-scrollbar p-3.5 gap-4 z-20">
           
           {/* Sidebar Tab Toggle */}
-          <div className="flex gap-1.5 p-1 bg-black/40 rounded-xl border border-white/5 shrink-0">
+          <div className="flex gap-1 p-0.5 bg-[#0e1115] rounded border border-[#232933] shrink-0">
             <button
+              type="button"
               onClick={() => setSidebarTab('design')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer text-center ${
+              className={cn(
+                "flex-1 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer text-center",
                 sidebarTab === 'design'
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-black shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
+                  ? "bg-[#181d26] text-[#00e676] border border-[#2b3442]"
+                  : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/50"
+              )}
             >
               Quick Design
             </button>
             <button
+              type="button"
               onClick={() => setSidebarTab('settings')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer text-center ${
+              className={cn(
+                "flex-1 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer text-center",
                 sidebarTab === 'settings'
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-black shadow'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
+                  ? "bg-[#181d26] text-[#00e676] border border-[#2b3442]"
+                  : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/50"
+              )}
             >
               Advanced Settings
             </button>
           </div>
 
           {sidebarTab === 'settings' ? (
-            <div className="flex-1 -mx-4 -my-4 h-full">
+            <div className="flex-1 -mx-3.5 -my-3.5 h-full">
               <GlobalSettingsPanel />
             </div>
           ) : (
             <>
               {/* 0. SONG LIST SECTION */}
-              <div className="pb-3 border-b border-white/10">
+              <div className="pb-3 border-b border-[#232933]">
                 <SongListSection />
               </div>
 
               {/* 1. LAYOUT SELECTOR SECTION */}
-          <div className="space-y-3">
-            <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-              <Sparkles size={14} className="text-cyan-400" />
-              <span>Layout</span>
-            </label>
+              <div className="space-y-2.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-[#00e676]" />
+                  <span>Layout</span>
+                </label>
 
-            {/* Layout Cards Scroll */}
-            <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
-              {LAYOUT_PRESETS.map((layout) => {
-                const isSelected = selectedTemplateId === layout.id;
-                return (
-                  <button
-                    key={layout.id}
-                    onClick={() => setSelectedTemplateId(layout.id)}
-                    className={`relative shrink-0 w-[72px] h-[96px] rounded-xl overflow-hidden border transition-all cursor-pointer group ${
-                      isSelected
-                        ? 'border-cyan-400 ring-1 ring-cyan-400'
-                        : 'border-transparent hover:border-white/20'
-                    }`}
-                  >
-                    {/* Blurred Background Base for all except full */}
-                    {layout.id !== 'full' && (
-                      <div className="absolute inset-0 z-0">
-                        <img src={albumArt} alt="" className="w-full h-full object-cover blur-sm brightness-50" />
-                      </div>
-                    )}
+                {/* Layout Cards Scroll */}
+                <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar">
+                  {LAYOUT_PRESETS.map((layout) => {
+                    const isSelected = selectedTemplateId === layout.id;
+                    return (
+                      <button
+                        key={layout.id}
+                        type="button"
+                        onClick={() => setSelectedTemplateId(layout.id)}
+                        className={cn(
+                          "relative shrink-0 w-[72px] h-[94px] rounded overflow-hidden border transition-all cursor-pointer group bg-[#181d26]",
+                          isSelected
+                            ? "border-[#00e676] ring-1 ring-[#00e676]"
+                            : "border-[#232933] hover:border-[#2b3442]"
+                        )}
+                      >
+                        {/* Blurred Background Base for all except full */}
+                        {layout.id !== 'full' && (
+                          <div className="absolute inset-0 z-0">
+                            <img src={albumArt} alt="" className="w-full h-full object-cover blur-sm brightness-40" />
+                          </div>
+                        )}
 
-                    {/* Content Layers */}
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none p-1">
-                      
-                      {layout.id === 'full' && (
-                        <img src={albumArt} alt="" className="w-full h-full object-cover rounded-lg" />
-                      )}
+                        {/* Content Layers */}
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none p-1">
+                          
+                          {layout.id === 'full' && (
+                            <img src={albumArt} alt="" className="w-full h-full object-cover rounded" />
+                          )}
 
-                      {layout.id === 'square' && (
-                        <div className="w-10 h-10 rounded-md overflow-hidden shadow-lg mb-2 relative">
-                           <img src={albumArt} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      )}
-
-                      {layout.id === 'circle' && (
-                        <div className="w-10 h-10 rounded-full overflow-hidden shadow-lg mb-2 relative border border-white/20">
-                           <img src={albumArt} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      )}
-
-                      {(layout.id === 'glowing-disc' || layout.id === 'glowing-disc-needle') && (
-                        <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-pink-500 via-purple-500 to-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.6)] mb-2 relative flex items-center justify-center">
-                          <div className="w-full h-full rounded-full bg-[#111114] relative overflow-hidden flex items-center justify-center border border-white/10">
-                            <div className="absolute inset-1 rounded-full border border-white/10"></div>
-                            <div className="w-4 h-4 rounded-full overflow-hidden relative z-10 border border-white/60 shadow">
-                              <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                          {layout.id === 'square' && (
+                            <div className="w-9 h-9 rounded overflow-hidden shadow mb-1.5 relative border border-white/10">
+                               <img src={albumArt} alt="" className="w-full h-full object-cover" />
                             </div>
-                            {layout.id === 'glowing-disc-needle' && (
-                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#e4e4e7] rounded-tr-lg z-20 origin-top-right rotate-12 shadow">
-                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#18181b] rounded-xs border border-white/20">
-                                  <div className="w-full h-1 bg-[#ef4444] rounded-xs"></div>
+                          )}
+
+                          {layout.id === 'circle' && (
+                            <div className="w-9 h-9 rounded-full overflow-hidden shadow mb-1.5 relative border border-white/20">
+                               <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+
+                          {(layout.id === 'glowing-disc' || layout.id === 'glowing-disc-needle') && (
+                            <div className="w-11 h-11 rounded-full p-[1.5px] bg-[#232933] mb-1.5 relative flex items-center justify-center border border-[#00e676]/40">
+                              <div className="w-full h-full rounded-full bg-[#111317] relative overflow-hidden flex items-center justify-center border border-white/10">
+                                <div className="absolute inset-1 rounded-full border border-white/10"></div>
+                                <div className="w-3.5 h-3.5 rounded-full overflow-hidden relative z-10 border border-white/40">
+                                  <img src={albumArt} alt="" className="w-full h-full object-cover" />
                                 </div>
+                                {layout.id === 'glowing-disc-needle' && (
+                                  <div className="absolute -top-1 -right-1 w-5 h-7 border-r-2 border-t-2 border-[#c4cad4] rounded-tr z-20 origin-top-right rotate-12">
+                                    <div className="absolute bottom-0 right-[-2px] w-1.5 h-2 bg-[#12161c] rounded-xs border border-white/20">
+                                      <div className="w-full h-0.5 bg-[#00e676]"></div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
+                          )}
+
+                          {(layout.id === 'vinyl' || layout.id === 'vinyl-needle') && (
+                            <div className="w-11 h-11 rounded-full bg-[#111317] shadow mb-1.5 relative flex items-center justify-center border border-[#232933]">
+                               <div className="absolute inset-1 rounded-full border border-white/10"></div>
+                               <div className="absolute inset-2 rounded-full border border-white/10"></div>
+                               <div className="w-3.5 h-3.5 rounded-full overflow-hidden relative z-10 border border-white/40">
+                                  <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                               </div>
+                               {layout.id === 'vinyl-needle' && (
+                                  <div className="absolute -top-1 -right-1 w-5 h-7 border-r-2 border-t-2 border-[#c4cad4] rounded-tr z-20 origin-top-right rotate-12">
+                                    <div className="absolute bottom-0 right-[-2px] w-1.5 h-2 bg-[#12161c] rounded-xs border border-white/20">
+                                      <div className="w-full h-0.5 bg-[#00e676]"></div>
+                                    </div>
+                                  </div>
+                               )}
+                            </div>
+                          )}
+
+                          {(layout.id === 'cd' || layout.id === 'cd-needle') && (
+                            <div className="w-11 h-11 rounded-full p-[1.5px] bg-[#1d222b] mb-1.5 relative flex items-center justify-center border border-[#232933]">
+                               <div className="w-full h-full rounded-full bg-[#14171d] relative overflow-hidden flex items-center justify-center">
+                                 <div className="w-4 h-4 rounded-full overflow-hidden border border-white/20">
+                                    <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                 </div>
+                                 <div className="w-1.5 h-1.5 rounded-full bg-black border border-white/20 absolute"></div>
+                               </div>
+                               {layout.id === 'cd-needle' && (
+                                  <div className="absolute -top-1 -right-1 w-5 h-7 border-r-2 border-t-2 border-[#c4cad4] rounded-tr z-20 origin-top-right rotate-12">
+                                    <div className="absolute bottom-0 right-[-2px] w-1.5 h-2 bg-[#12161c] rounded-xs border border-white/20">
+                                      <div className="w-full h-0.5 bg-[#00e676]"></div>
+                                    </div>
+                                  </div>
+                               )}
+                            </div>
+                          )}
+
+                          {/* Mock Text Lines */}
+                          <div className="flex flex-col gap-0.5 items-center w-full px-2 opacity-50">
+                            <div className="h-0.5 w-full max-w-[36px] bg-white rounded-full"></div>
+                            <div className="h-0.5 w-full max-w-[26px] bg-white rounded-full"></div>
                           </div>
                         </div>
-                      )}
 
-                      {(layout.id === 'vinyl' || layout.id === 'vinyl-needle') && (
-                        <div className="w-12 h-12 rounded-full bg-[#111] shadow-xl mb-2 relative flex items-center justify-center border border-white/15">
-                           <div className="absolute inset-1 rounded-full border border-white/10"></div>
-                           <div className="absolute inset-2 rounded-full border border-white/10"></div>
-                           <div className="w-4 h-4 rounded-full overflow-hidden relative z-10 border border-white/60 shadow">
-                              <img src={albumArt} alt="" className="w-full h-full object-cover" />
-                           </div>
-                           {layout.id === 'vinyl-needle' && (
-                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#e4e4e7] rounded-tr-lg z-20 origin-top-right rotate-12 shadow">
-                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#18181b] rounded-xs border border-white/20">
-                                  <div className="w-full h-1 bg-[#ef4444] rounded-xs"></div>
-                                </div>
-                              </div>
-                           )}
-                        </div>
-                      )}
-
-                      {(layout.id === 'cd' || layout.id === 'cd-needle') && (
-                        <div className="w-12 h-12 rounded-full p-[1.5px] bg-gradient-to-tr from-cyan-400 via-pink-400 to-emerald-400 shadow-[0_0_8px_rgba(255,255,255,0.3)] mb-2 relative flex items-center justify-center">
-                           <div className="w-full h-full rounded-full bg-[#18181f] relative overflow-hidden flex items-center justify-center">
-                             <div className="w-5 h-5 rounded-full overflow-hidden border border-white/30 shadow">
-                                <img src={albumArt} alt="" className="w-full h-full object-cover" />
-                             </div>
-                             <div className="w-2 h-2 rounded-full bg-black/80 border border-white/30 absolute"></div>
-                           </div>
-                           {layout.id === 'cd-needle' && (
-                              <div className="absolute -top-1 -right-1 w-6 h-8 border-r-2 border-t-2 border-[#e4e4e7] rounded-tr-lg z-20 origin-top-right rotate-12 shadow">
-                                <div className="absolute bottom-0 right-[-3px] w-1.5 h-2.5 bg-[#18181b] rounded-xs border border-white/20">
-                                  <div className="w-full h-1 bg-[#ef4444] rounded-xs"></div>
-                                </div>
-                              </div>
-                           )}
-                        </div>
-                      )}
-
-                      {/* Mock Text Lines */}
-                      <div className="flex flex-col gap-1 items-center w-full px-2 opacity-60">
-                        <div className="h-1 w-full max-w-[40px] bg-white rounded-full"></div>
-                        <div className="h-1 w-full max-w-[30px] bg-white rounded-full"></div>
-                      </div>
-                    </div>
-
-                    {/* Active Checkmark Badge */}
-                    {isSelected && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center shadow z-20">
-                        <Check size={10} strokeWidth={3} />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 2. BACKGROUND SELECTOR SECTION - 3 ROWS HORIZONTAL SCROLL */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                <ImageIcon size={14} className="text-cyan-400" />
-                <span>Background</span>
-              </label>
-              <span className="text-[10px] font-mono text-slate-500 font-semibold">
-                {BACKGROUND_PRESETS.length + 1} styles · scroll left/right
-              </span>
-            </div>
-
-            {/* 3-Row Horizontal Scrolling Carousel */}
-            <div className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-2 overflow-x-auto pb-2 no-scrollbar select-none h-[220px]">
-              {/* Upload Custom File Card */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="relative rounded-xl border border-dashed border-white/20 hover:border-cyan-400 p-2 flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-cyan-300 bg-white/5 hover:bg-cyan-950/20 transition-all cursor-pointer group shrink-0"
-              >
-                <Upload size={14} className="group-hover:scale-110 transition-transform text-cyan-400" />
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-white">Upload</span>
-                <span className="text-[8px] text-slate-500 font-medium">Img / Video</span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                onChange={handleCustomFileUpload}
-                className="hidden"
-              />
-
-              {/* Background Preset Cards flowing into 3 rows */}
-              {BACKGROUND_PRESETS.map((bg) => {
-                const isSongCover = bg.id === 'cover';
-                const isSelected = isSongCover
-                  ? customBackground.type === 'blurred-artwork' || (selectedBackgroundPresetId === 'cover' && !customBackground.videoUrl)
-                  : (customBackground.value === bg.value && customBackground.type === bg.type) || selectedBackgroundPresetId === bg.id;
-
-                return (
-                  <button
-                    key={bg.id}
-                    onClick={() => {
-                      setSelectedBackgroundPresetId(bg.id);
-                      if (isSongCover) {
-                        setCustomBackground({ type: 'blurred-artwork', value: albumArt });
-                      } else {
-                        setCustomBackground({ type: bg.type as any, value: bg.value });
-                      }
-                    }}
-                    className={`relative rounded-xl overflow-hidden border p-1.5 text-left transition-all cursor-pointer flex flex-col justify-between shrink-0 group ${
-                      isSelected
-                        ? 'border-cyan-400 ring-1 ring-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.3)] scale-[1.02]'
-                        : 'border-white/10 hover:border-white/30 hover:scale-[1.01]'
-                    }`}
-                    style={{
-                      background: bg.previewGradient || bg.value || '#0a0a0e'
-                    }}
-                  >
-                    {isSongCover && (
-                      <img 
-                        src={albumArt} 
-                        alt="Song Cover" 
-                        className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none group-hover:opacity-75 transition-opacity" 
-                      />
-                    )}
-
-                    {/* Top Row: Category/Duration Pill */}
-                    <div className="relative z-10 flex items-center justify-between w-full">
-                      <span className="text-[6.5px] font-black text-white/95 bg-black/60 px-1 py-0.5 rounded backdrop-blur-xs uppercase tracking-widest scale-90 origin-left">
-                        {bg.category || (bg.type === 'particles' ? 'Anim' : bg.type === 'waveform' ? 'Wave' : 'Grad')}
-                      </span>
-                      {bg.duration && (
-                        <span className="text-[6.5px] font-mono font-bold text-slate-400 bg-black/70 px-1 py-0.5 rounded scale-90 origin-right">
-                          {bg.duration}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Bottom Title */}
-                    <div className="relative z-10 mt-auto flex items-center justify-between w-full">
-                      <span className="text-[7.5px] font-extrabold text-white uppercase tracking-wider truncate drop-shadow-md bg-black/50 px-1.5 py-0.5 rounded backdrop-blur-xs max-w-full">
-                        {bg.name}
-                      </span>
-                    </div>
-
-                    {/* Dark Vignette Overlay */}
-                    <div className="absolute inset-0 bg-black/20 pointer-events-none" />
-
-                    {/* Active Checkmark Badge */}
-                    {isSelected && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center shadow-lg z-20">
-                        <Check size={10} strokeWidth={3} />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 3. ASPECT RATIO SECTION - ALL 6 RATIOS */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                <Film size={14} className="text-cyan-400" />
-                <span>Aspect Ratio</span>
-              </label>
-              <span className="text-[10px] font-mono text-cyan-400 font-bold">
-                {aspectRatio}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-6 gap-1 bg-black/60 p-1.5 rounded-xl border border-white/10">
-              {(['16:9', '9:16', '1:1', '4:5', '3:4', '4:3'] as AspectRatio[]).map((ar) => {
-                const isSelected = aspectRatio === ar;
-                return (
-                  <button
-                    key={ar}
-                    onClick={() => {
-                      setAspectRatio(ar);
-                      resetElementPositions(ar);
-                    }}
-                    className={`py-2 px-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                      isSelected
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black shadow'
-                        : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                    }`}
-                  >
-                    <span className="text-[10px] font-extrabold whitespace-nowrap">{ar}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 4. LYRIC ANIMATION STYLE SECTION */}
-          <div className="space-y-2.5 pt-2 border-t border-white/10">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                <Sparkles size={14} className="text-cyan-400" />
-                <span>Animation Style</span>
-              </label>
-              <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase">
-                {animationStyle === 'karaoke' ? 'Karaoke' : 'Fade In/Out'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 bg-black/60 p-1.5 rounded-xl border border-white/10">
-              <button
-                type="button"
-                onClick={() => setAnimationStyle('karaoke')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
-                  animationStyle === 'karaoke'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black shadow'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                }`}
-              >
-                <span className="font-extrabold text-[11px] uppercase tracking-wider">Karaoke</span>
-                <span className="text-[9px] text-slate-400 font-normal">Word Highlight</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAnimationStyle('fade')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
-                  animationStyle === 'fade'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black shadow'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                }`}
-              >
-                <span className="font-extrabold text-[11px] uppercase tracking-wider">Fade In / Out</span>
-                <span className="text-[9px] text-slate-400 font-normal">Line Crossfade</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 5. STYLE & TYPOGRAPHY SECTION */}
-          <div className="space-y-3 pt-2 border-t border-white/10">
-            <label className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-              <Type size={14} className="text-cyan-400" />
-              <span>Style & Typography</span>
-            </label>
-
-            {/* Font Family Selector */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold text-slate-400">Font Family</span>
-              <select
-                value={typographyOverride.fontFamily}
-                onChange={(e) => updateTypographyOverride({ fontFamily: e.target.value })}
-                className="w-full bg-black/70 border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-200 font-semibold cursor-pointer outline-none hover:border-cyan-400/50 transition-colors"
-              >
-                {fontOptions.map(f => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Visible Lines Selector */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold text-slate-400">Lyrics Display Lines</span>
-              <div className="grid grid-cols-3 gap-1.5 bg-black/60 p-1.5 rounded-xl border border-white/10">
-                {[1, 2, 5].map((count) => (
-                  <button
-                    key={count}
-                    onClick={() => setVisibleLineCount(count)}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      visibleLineCount === count
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    {count} {count === 1 ? 'Line' : 'Lines'}
-                  </button>
-                ))}
+                        {/* Active Checkmark Badge */}
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#00e676] text-[#0a0c0f] flex items-center justify-center z-20">
+                            <Check size={9} strokeWidth={3} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            {/* Accent Color Swatches */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold text-slate-400">Accent Color</span>
-              <div className="flex items-center gap-2 bg-black/60 p-2 rounded-xl border border-white/10 flex-wrap">
-                {colorSwatches.map((c) => (
+              {/* 2. BACKGROUND SELECTOR SECTION - 3 ROWS HORIZONTAL SCROLL */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
+                    <ImageIcon size={13} className="text-[#00e676]" />
+                    <span>Background</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-[#5e6877]">
+                    {BACKGROUND_PRESETS.length + 1} styles · scroll
+                  </span>
+                </div>
+
+                {/* 3-Row Horizontal Scrolling Carousel */}
+                <div className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-1.5 overflow-x-auto pb-1.5 no-scrollbar select-none h-[210px]">
+                  {/* Upload Custom File Card */}
                   <button
-                    key={c}
-                    onClick={() => setVisualizerColor(c)}
-                    className={`w-7 h-7 rounded-full border transition-transform cursor-pointer relative ${
-                      activeColor.toLowerCase() === c.toLowerCase()
-                        ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.6)]'
-                        : 'border-white/20 hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: c }}
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative rounded border border-dashed border-[#2b3442] hover:border-[#00e676] p-2 flex flex-col items-center justify-center gap-1 text-[#7e8999] hover:text-[#00e676] bg-[#0e1115] hover:bg-[#181d26] transition-colors cursor-pointer group shrink-0"
                   >
-                    {activeColor.toLowerCase() === c.toLowerCase() && (
-                      <Check size={12} className="text-black absolute inset-0 m-auto" strokeWidth={3} />
-                    )}
+                    <Upload size={13} className="text-[#00e676]" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#f0f3f6]">Upload</span>
+                    <span className="text-[8px] text-[#5e6877]">Img / Video</span>
                   </button>
-                ))}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleCustomFileUpload}
+                    className="hidden"
+                  />
+
+                  {/* Background Preset Cards flowing into 3 rows */}
+                  {BACKGROUND_PRESETS.map((bg) => {
+                    const isSongCover = bg.id === 'cover';
+                    const isSelected = isSongCover
+                      ? customBackground.type === 'blurred-artwork' || (selectedBackgroundPresetId === 'cover' && !customBackground.videoUrl)
+                      : (customBackground.value === bg.value && customBackground.type === bg.type) || selectedBackgroundPresetId === bg.id;
+
+                    return (
+                      <button
+                        key={bg.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBackgroundPresetId(bg.id);
+                          if (isSongCover) {
+                            setCustomBackground({ type: 'blurred-artwork', value: albumArt });
+                          } else {
+                            setCustomBackground({ type: bg.type as any, value: bg.value });
+                          }
+                        }}
+                        className={cn(
+                          "relative rounded overflow-hidden border p-1.5 text-left transition-colors cursor-pointer flex flex-col justify-between shrink-0 group bg-[#181d26]",
+                          isSelected
+                            ? "border-[#00e676] ring-1 ring-[#00e676]"
+                            : "border-[#232933] hover:border-[#2b3442]"
+                        )}
+                        style={{
+                          background: bg.previewGradient || bg.value || '#12161c'
+                        }}
+                      >
+                        {isSongCover && (
+                          <img 
+                            src={albumArt} 
+                            alt="Song Cover" 
+                            className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none group-hover:opacity-70 transition-opacity" 
+                          />
+                        )}
+
+                        {/* Top Row: Category/Duration Pill */}
+                        <div className="relative z-10 flex items-center justify-between w-full">
+                          <span className="text-[7px] font-bold text-[#f0f3f6] bg-[#0a0c0f]/80 px-1 py-0.5 rounded uppercase tracking-widest">
+                            {bg.category || (bg.type === 'particles' ? 'Anim' : bg.type === 'waveform' ? 'Wave' : 'Grad')}
+                          </span>
+                          {bg.duration && (
+                            <span className="text-[7px] font-mono text-[#7e8999] bg-[#0a0c0f]/80 px-1 py-0.5 rounded">
+                              {bg.duration}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Bottom Title */}
+                        <div className="relative z-10 mt-auto flex items-center justify-between w-full">
+                          <span className="text-[8px] font-bold text-[#f0f3f6] uppercase tracking-wider truncate bg-[#0a0c0f]/70 px-1 py-0.5 rounded max-w-full">
+                            {bg.name}
+                          </span>
+                        </div>
+
+                        {/* Dark Vignette Overlay */}
+                        <div className="absolute inset-0 bg-black/25 pointer-events-none" />
+
+                        {/* Active Checkmark Badge */}
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#00e676] text-[#0a0c0f] flex items-center justify-center z-20">
+                            <Check size={9} strokeWidth={3} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </div>
-          </>
+
+              {/* 3. ASPECT RATIO SECTION - ALL 6 RATIOS */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
+                    <Film size={13} className="text-[#00e676]" />
+                    <span>Aspect Ratio</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-[#00e676] font-bold">
+                    {aspectRatio}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-6 gap-1 bg-[#0e1115] p-1 rounded border border-[#232933]">
+                  {(['16:9', '9:16', '1:1', '4:5', '3:4', '4:3'] as AspectRatio[]).map((ar) => {
+                    const isSelected = aspectRatio === ar;
+                    return (
+                      <button
+                        key={ar}
+                        type="button"
+                        onClick={() => {
+                          setAspectRatio(ar);
+                          resetElementPositions(ar);
+                        }}
+                        className={cn(
+                          "py-1.5 px-0.5 rounded text-xs font-semibold transition-colors cursor-pointer flex flex-col items-center justify-center",
+                          isSelected
+                            ? "bg-[#181d26] text-[#00e676] border border-[#00e676]"
+                            : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/40"
+                        )}
+                      >
+                        <span className="text-[10px] font-mono whitespace-nowrap">{ar}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. LYRIC ANIMATION STYLE SECTION */}
+              <div className="space-y-2 pt-2 border-t border-[#232933]">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-[#00e676]" />
+                    <span>Animation Style</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-[#00e676] font-bold uppercase">
+                    {animationStyle === 'karaoke' ? 'Karaoke' : 'Fade In/Out'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5 bg-[#0e1115] p-1 rounded border border-[#232933]">
+                  <button
+                    type="button"
+                    onClick={() => setAnimationStyle('karaoke')}
+                    className={cn(
+                      "py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer flex flex-col items-center gap-0.5",
+                      animationStyle === 'karaoke'
+                        ? "bg-[#181d26] text-[#00e676] border border-[#00e676]"
+                        : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/40"
+                    )}
+                  >
+                    <span className="font-bold text-[11px] uppercase tracking-wider">Karaoke</span>
+                    <span className="text-[9px] text-[#7e8999]">Word Highlight</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAnimationStyle('fade')}
+                    className={cn(
+                      "py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer flex flex-col items-center gap-0.5",
+                      animationStyle === 'fade'
+                        ? "bg-[#181d26] text-[#00e676] border border-[#00e676]"
+                        : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/40"
+                    )}
+                  >
+                    <span className="font-bold text-[11px] uppercase tracking-wider">Fade In / Out</span>
+                    <span className="text-[9px] text-[#7e8999]">Line Crossfade</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 5. STYLE & TYPOGRAPHY SECTION */}
+              <div className="space-y-2.5 pt-2 border-t border-[#232933]">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
+                  <Type size={13} className="text-[#00e676]" />
+                  <span>Style & Typography</span>
+                </label>
+
+                {/* Font Family Selector */}
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-[#7e8999]">Font Family</span>
+                  <select
+                    value={typographyOverride.fontFamily}
+                    onChange={(e) => updateTypographyOverride({ fontFamily: e.target.value })}
+                    className="w-full bg-[#0e1115] border border-[#232933] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] font-medium cursor-pointer outline-none hover:border-[#2b3442] focus:border-[#00e676] transition-colors"
+                  >
+                    {fontOptions.map(f => (
+                      <option key={f} value={f} className="bg-[#12161c] text-[#f0f3f6]">{f}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Visible Lines Selector */}
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-[#7e8999]">Lyrics Display Lines</span>
+                  <div className="grid grid-cols-3 gap-1 bg-[#0e1115] p-1 rounded border border-[#232933]">
+                    {[1, 2, 5].map((count) => (
+                      <button
+                        key={count}
+                        type="button"
+                        onClick={() => setVisibleLineCount(count)}
+                        className={cn(
+                          "py-1 rounded text-xs font-semibold transition-colors cursor-pointer",
+                          visibleLineCount === count
+                            ? "bg-[#181d26] text-[#00e676] border border-[#00e676]"
+                            : "text-[#7e8999] hover:text-[#f0f3f6]"
+                        )}
+                      >
+                        {count} {count === 1 ? 'Line' : 'Lines'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Accent Color Swatches */}
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-[#7e8999]">Accent Color</span>
+                  <div className="flex items-center gap-2 bg-[#0e1115] p-2 rounded border border-[#232933] flex-wrap">
+                    {colorSwatches.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setVisualizerColor(c)}
+                        className={cn(
+                          "w-6 h-6 rounded-full border transition-transform cursor-pointer relative",
+                          activeColor.toLowerCase() === c.toLowerCase()
+                            ? "border-[#f0f3f6] scale-105"
+                            : "border-transparent hover:scale-105"
+                        )}
+                        style={{ backgroundColor: c }}
+                      >
+                        {activeColor.toLowerCase() === c.toLowerCase() && (
+                          <Check size={11} className="text-black absolute inset-0 m-auto" strokeWidth={3} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
         </div>
 
         {/* RIGHT CANVAS STAGE */}
-        <div className="flex-1 min-w-0 bg-[#020204] flex flex-col relative overflow-hidden">
+        <div className="flex-1 min-w-0 bg-[#0a0c0f] flex flex-col relative overflow-hidden">
           <div className="flex-1 min-h-[320px] relative flex items-center justify-center p-2 sm:p-4 overflow-hidden">
             <MVPreview mode="lyrics-video" />
           </div>
 
           {/* BOTTOM VISUALIZER RANGE DISPLAY PLAYER */}
-          <div className="bg-[#08080c] border-t border-white/10 px-3 sm:px-6 py-2.5 sm:py-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-4 shrink-0 z-30 min-h-[64px]">
+          <div className="bg-[#0e1115] border-t border-[#232933] px-3 sm:px-4 py-2 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-3 shrink-0 z-30 min-h-[56px]">
             
             {/* Transport & Playlist Controls */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {/* Song List Dropdown / Popup */}
               <SongListPopover align="left" />
 
-              <div className="h-6 w-[1px] bg-white/10 mx-0.5" />
+              <div className="h-5 w-[1px] bg-[#232933] mx-1" />
 
               {/* Previous Track Button */}
               <button
+                type="button"
                 onClick={previousTrack}
-                className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 active:scale-95"
+                className="p-1.5 text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26] transition-colors cursor-pointer shrink-0 rounded"
                 title="Previous Track"
               >
-                <SkipBack size={16} />
+                <SkipBack size={15} />
               </button>
 
               {/* Circular Play / Pause Button */}
               <button
+                type="button"
                 onClick={() => setIsPlaying(!isPlaying)}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer shrink-0"
+                className="w-8 h-8 rounded bg-[#00e676] hover:bg-[#00c853] text-[#0a0c0f] flex items-center justify-center transition-colors cursor-pointer shrink-0"
                 title={isPlaying ? "Pause" : "Play"}
               >
-                {isPlaying ? <Pause size={18} fill="black" /> : <Play size={18} fill="black" className="ml-0.5" />}
+                {isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" className="ml-0.5" />}
               </button>
 
               {/* Next Track Button */}
               <button
+                type="button"
                 onClick={nextTrack}
-                className="p-1.5 sm:p-2 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 rounded-lg hover:bg-white/5 active:scale-95"
+                className="p-1.5 text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26] transition-colors cursor-pointer shrink-0 rounded"
                 title="Next Track"
               >
-                <SkipForward size={16} />
+                <SkipForward size={15} />
               </button>
 
               {/* Looping / Repeat Button */}
               <button
+                type="button"
                 onClick={() => setIsLooping(!isLooping)}
-                style={
+                className={cn(
+                  "p-1.5 rounded transition-colors cursor-pointer shrink-0 relative",
                   isLooping
-                    ? {
-                        backgroundColor: `${activeColor}20`,
-                        borderColor: `${activeColor}40`,
-                        color: activeColor,
-                        boxShadow: `0 0 12px ${activeColor}30`
-                      }
-                    : undefined
-                }
-                className={`p-1.5 sm:p-2 rounded-lg transition-all cursor-pointer shrink-0 relative active:scale-95 ${
-                  isLooping
-                    ? 'border font-bold'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                }`}
+                    ? "bg-[#181d26] border border-[#00e676] text-[#00e676]"
+                    : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]"
+                )}
                 title={isLooping ? "Disable Loop" : "Enable Loop (Repeat Current Song)"}
               >
-                <Repeat size={15} />
+                <Repeat size={14} />
                 {isLooping && (
-                  <span
-                    className="absolute -top-1 -right-1 w-3.5 h-3.5 text-black text-[9px] font-black rounded-full flex items-center justify-center shadow"
-                    style={{ backgroundColor: activeColor }}
-                  >
+                  <span className="absolute -top-1 -right-1 w-3 h-3 text-[#0a0c0f] text-[8px] font-bold rounded-full bg-[#00e676] flex items-center justify-center">
                     1
                   </span>
                 )}
@@ -603,27 +612,26 @@ export function LyricsVideoLayout() {
             {/* Visualizer Range Display Timeline Scrubber */}
             <div 
               onClick={handleWaveformScrub}
-              className="flex-1 min-w-[160px] h-11 sm:h-12 bg-black/80 rounded-xl border border-white/10 px-3 flex items-center gap-2.5 sm:gap-3 cursor-pointer relative group overflow-hidden select-none"
+              className="flex-1 min-w-[160px] h-10 bg-[#0a0c0f] rounded border border-[#232933] px-2.5 flex items-center gap-2.5 cursor-pointer relative group overflow-hidden select-none"
             >
               {/* AUD Badge */}
-              <div className="flex items-center gap-1 font-mono text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded border border-emerald-500/40 shrink-0 shadow">
-                <Music size={11} className="text-emerald-400" />
+              <div className="flex items-center gap-1 font-mono text-[10px] font-bold text-[#00e676] bg-[#12161c] px-1.5 py-0.5 rounded border border-[#232933] shrink-0">
+                <Music size={11} className="text-[#00e676]" />
                 <span>AUD</span>
               </div>
 
               {/* Waveform Bars Container */}
-              <div className="flex-1 h-7 sm:h-8 flex items-center gap-[2px] relative">
+              <div className="flex-1 h-6 flex items-center gap-[2px] relative">
                 {WAVEFORM_BARS.map((height, idx) => {
                   const barRatio = idx / WAVEFORM_BARS.length;
                   const isPlayed = barRatio <= playbackProgress;
                   return (
                     <div
                       key={idx}
-                      className="flex-1 rounded-sm transition-colors duration-75"
+                      className="flex-1 rounded-xs transition-colors duration-75"
                       style={{
                         height: `${height * 100}%`,
-                        backgroundColor: isPlayed ? activeColor : 'rgba(255, 255, 255, 0.15)',
-                        boxShadow: isPlayed ? `0 0 6px ${activeColor}80` : 'none'
+                        backgroundColor: isPlayed ? '#00e676' : '#232933',
                       }}
                     />
                   );
@@ -631,7 +639,7 @@ export function LyricsVideoLayout() {
               </div>
 
               {/* Time readout */}
-              <div className="text-[10px] sm:text-[11px] font-mono font-bold text-slate-300 bg-black/60 px-2 sm:px-2.5 py-1 rounded border border-white/10 shrink-0">
+              <div className="text-[10px] sm:text-[11px] font-mono font-semibold text-[#c4cad4] bg-[#12161c] px-2 py-0.5 rounded border border-[#232933] shrink-0">
                 {formatTime(currentTime)} / {formatTime(audioDuration)}
               </div>
             </div>

@@ -33,26 +33,26 @@ export function MVSettingsPanel() {
   }, []);
 
   return (
-    <div className="w-full h-full bg-[#060608] flex flex-col relative overflow-hidden">
+    <div className="w-full h-full bg-[#0e1115] text-[#f0f3f6] flex flex-col relative overflow-hidden select-none font-mono">
       {/* Panel Header */}
-      <div className="p-4 border-b border-white/10 shrink-0">
-        <span className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-1.5">
-          <Sliders size={14} style={{ color: activeColor }} />
+      <div className="p-3 border-b border-[#232933] shrink-0">
+        <span className="text-xs font-semibold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
+          <Sliders size={13} className="text-[#00e676]" />
           <span>Music Video Settings</span>
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 relative z-10">
-        <div className="mv-settings-anim space-y-6">
+        <div className="mv-settings-anim space-y-5">
           
           {/* 1. Video Style */}
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest block">Video Style Theme</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider block">Video Style Theme</label>
             <Select value={style} onValueChange={setStyle}>
-              <SelectTrigger className="bg-white/[0.03] border-white/10 hover:border-white/20 transition-glass uppercase font-bold tracking-wider text-xs">
+              <SelectTrigger className="bg-[#161b22] hover:bg-[#1c222b] border-[#232933] hover:border-[#303846] text-[#f0f3f6] uppercase font-semibold tracking-wider text-xs h-8">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#0b0b0b]/90 backdrop-blur-xl border-white/10 uppercase text-xs font-bold tracking-wider">
+              <SelectContent className="bg-[#0e1115] border-[#232933] text-[#f0f3f6] uppercase text-xs font-semibold tracking-wider shadow-[0_12px_36px_rgba(0,0,0,0.85)]">
                 <SelectItem value="Cinematic">Cinematic</SelectItem>
                 <SelectItem value="Cyberpunk">Cyberpunk</SelectItem>
                 <SelectItem value="Phonk">Phonk / Hardcore</SelectItem>
@@ -64,13 +64,13 @@ export function MVSettingsPanel() {
           </div>
 
           {/* 2. Editing Pacing */}
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest block">Editing Pacing</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider block">Editing Pacing</label>
             <Select value={pacing} onValueChange={setPacing}>
-              <SelectTrigger className="bg-white/[0.03] border-white/10 hover:border-white/20 transition-glass uppercase font-bold tracking-wider text-xs">
+              <SelectTrigger className="bg-[#161b22] hover:bg-[#1c222b] border-[#232933] hover:border-[#303846] text-[#f0f3f6] uppercase font-semibold tracking-wider text-xs h-8">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#0b0b0b]/90 backdrop-blur-xl border-white/10 uppercase text-xs font-bold tracking-wider">
+              <SelectContent className="bg-[#0e1115] border-[#232933] text-[#f0f3f6] uppercase text-xs font-semibold tracking-wider shadow-[0_12px_36px_rgba(0,0,0,0.85)]">
                 <SelectItem value="Slow">Slow / Chill</SelectItem>
                 <SelectItem value="Balanced">Balanced pacing</SelectItem>
                 <SelectItem value="Fast">Fast / Intense</SelectItem>
@@ -80,13 +80,13 @@ export function MVSettingsPanel() {
           </div>
 
           {/* 3. Beat Sync Strength */}
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest block">Beat Sync Strength</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider block">Beat Sync Strength</label>
             <Select value={beatSync} onValueChange={setBeatSync}>
-              <SelectTrigger className="bg-white/[0.03] border-white/10 hover:border-white/20 transition-glass uppercase font-bold tracking-wider text-xs">
+              <SelectTrigger className="bg-[#161b22] hover:bg-[#1c222b] border-[#232933] hover:border-[#303846] text-[#f0f3f6] uppercase font-semibold tracking-wider text-xs h-8">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#0b0b0b]/90 backdrop-blur-xl border-white/10 uppercase text-xs font-bold tracking-wider">
+              <SelectContent className="bg-[#0e1115] border-[#232933] text-[#f0f3f6] uppercase text-xs font-semibold tracking-wider shadow-[0_12px_36px_rgba(0,0,0,0.85)]">
                 <SelectItem value="None">None (Unsynced)</SelectItem>
                 <SelectItem value="Subtle">Subtle alignment</SelectItem>
                 <SelectItem value="Strong">Strong cut on beat</SelectItem>
@@ -95,55 +95,55 @@ export function MVSettingsPanel() {
           </div>
 
           {/* 4. Edit Seed */}
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest block">Edit Seed (Timeline Seed)</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider block">Edit Seed (Timeline Seed)</label>
             <div className="flex gap-2">
               <input
                 type="number"
                 value={editSeed}
                 onChange={(e) => setEditSeed(parseInt(e.target.value) || 42)}
-                className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white outline-none font-mono focus:border-white/25 transition-glass"
+                className="flex-1 bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded px-3 py-1.5 text-xs text-[#f0f3f6] font-mono outline-none transition-colors"
               />
               <button
                 onClick={() => setEditSeed(Math.floor(Math.random() * 900000) + 100000)}
-                className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white text-xs font-bold flex items-center gap-1 transition-all"
+                className="px-3 py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] text-[#c9d1d9] hover:text-[#f0f3f6] text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
               >
-                <Wand2 size={13} />
-                <span>Rand</span>
+                <Wand2 size={12} className="text-[#00e676]" />
+                <span>RAND</span>
               </button>
             </div>
-            <p className="text-[9px] text-slate-400 leading-normal">
+            <p className="text-[10px] text-[#7e8999] font-sans leading-normal">
               Determines clip selection order and transition patterns during automatic generation.
             </p>
           </div>
 
           {/* 5. AI Copilot Integration */}
-          <div className="pt-4 border-t border-white/5 space-y-4">
+          <div className="pt-3 border-t border-[#232933] space-y-3">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-amber-400" />
+                <span className="text-xs font-semibold text-[#f0f3f6] flex items-center gap-1.5 font-mono">
+                  <Sparkles size={13} className="text-[#00e676]" />
                   <span>Gemini Copilot</span>
                 </span>
-                <p className="text-[9px] text-slate-400">Use AI to select matching clips based on lyrics.</p>
+                <p className="text-[10px] text-[#7e8999] font-sans">Use AI to select matching clips based on lyrics.</p>
               </div>
               <button
                 onClick={() => setUseGemini(!useGemini)}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  useGemini ? 'bg-amber-500' : 'bg-white/10'
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-[#232933] transition-colors duration-200 ease-in-out focus:outline-none ${
+                  useGemini ? 'bg-[#00e676]' : 'bg-[#161b22]'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    useGemini ? 'translate-x-4' : 'translate-x-0'
+                  className={`pointer-events-none inline-block h-3.5 w-3.5 mt-0.5 transform rounded-full transition duration-200 ease-in-out ${
+                    useGemini ? 'translate-x-4 bg-[#0a0c0f]' : 'translate-x-0.5 bg-[#7e8999]'
                   }`}
                 />
               </button>
             </div>
 
             {useGemini && (
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest flex items-center gap-1 block">
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider flex items-center gap-1 block">
                   <Key size={11} />
                   <span>Gemini API Key</span>
                 </label>
@@ -152,7 +152,7 @@ export function MVSettingsPanel() {
                   value={geminiKey}
                   onChange={(e) => setGeminiKey(e.target.value)}
                   placeholder="AI Studio API Key..."
-                  className="w-full bg-white/[0.03] border border-white/10 rounded-md p-2.5 text-xs text-white outline-none font-mono focus:border-white/20 transition-glass"
+                  className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-[#00e676] rounded p-2 text-xs text-[#f0f3f6] outline-none font-mono transition-colors"
                 />
               </div>
             )}
