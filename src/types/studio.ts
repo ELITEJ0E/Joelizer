@@ -36,6 +36,8 @@ export interface AlignmentOptions {
   rawLyrics?: string;
   language?: string;
   signal?: AbortSignal;
+  duration?: number;
+  existingLines?: { text: string; startTime?: number; endTime?: number }[];
 }
 
 export interface TranscriptionResult {

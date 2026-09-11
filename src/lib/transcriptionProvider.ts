@@ -160,7 +160,9 @@ export class GeminiServerProvider implements TranscriptionProvider {
         audioBase64: base64Audio,
         mimeType,
         rawLyrics,
-        language: options?.language
+        language: options?.language,
+        duration: options?.duration,
+        existingLines: options?.existingLines
       })
     });
 

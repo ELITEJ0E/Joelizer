@@ -100,7 +100,7 @@ export default function App() {
         className="flex-1 bg-[#0e1115] overflow-hidden relative flex flex-col"
       >
         {activeTab === 'lrc' && (
-          <div className="flex-1 overflow-hidden relative animate-in fade-in duration-150">
+          <div className="flex-1 h-full w-full min-h-0 overflow-hidden relative animate-in fade-in duration-150 flex flex-col">
             <StudioLayout />
           </div>
         )}

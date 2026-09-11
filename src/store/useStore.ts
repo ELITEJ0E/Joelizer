@@ -230,7 +230,7 @@ export const useStore = create<ProjectState>((set, get) => ({
   activeTab: 'lrc',
 
   selectedStudioLineId: null,
-  studioZoom: 1.0,
+  studioZoom: 2.0,
   studioScrollOffset: 0,
   
   exportRangeStart: 0,

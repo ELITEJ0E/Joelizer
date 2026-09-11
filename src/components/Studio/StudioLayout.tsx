@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStore, LyricLine } from '../../store/useStore';
 import { 
   Upload, Music, FileText, Play, Pause, RotateCcw, Download, Sparkles, 
-  Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight,
+  Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight, ChevronLeft,
   Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, SlidersHorizontal, Activity, AudioLines, ArrowUpRight, ListMusic, XCircle,
   Copy, Check, Package, X, PanelLeftClose, PanelLeftOpen, Link2, Globe,
   SkipBack, SkipForward, Repeat
@@ -51,6 +51,7 @@ export function StudioLayout() {
   const setZoom = useStore(s => s.setStudioZoom);
   const scrollOffset = useStore(s => s.studioScrollOffset);
   const setScrollOffset = useStore(s => s.setStudioScrollOffset);
+  const [isFollowingPlayhead, setIsFollowingPlayhead] = useState(false);
 
   // Local Studio State
   const [lines, setLines] = useState<LyricLineWithWords[]>([]);
@@ -252,26 +253,27 @@ export function StudioLayout() {
     );
   }, [waveformData, currentTime, zoom, scrollOffset, lines, activeColor, selectedLineId, hoveredLineId]);
 
-  // Non-passive Wheel Listener for smooth Trackpad Pinch & Zoom in both directions and horizontal pan
+  // Non-passive Wheel Listener for smooth Trackpad Pinch & Zoom and horizontal pan
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (e.ctrlKey || e.metaKey || e.shiftKey) {
-        // Continuous exponential scale based on deltaY:
-        // Spreading fingers (zooming in): deltaY < 0 => -deltaY > 0 => factor > 1
-        // Pinching fingers (zooming out): deltaY > 0 => -deltaY < 0 => factor < 1
+      if (e.ctrlKey || e.metaKey) {
+        // Smooth exponential zoom
         const zoomFactor = Math.pow(1.002, -e.deltaY);
-        setZoom(z => Math.min(30, Math.max(0.2, z * zoomFactor)));
+        setZoom(z => Math.min(16, Math.max(0.5, Number((z * zoomFactor).toFixed(2)))));
       } else {
-        // Pan horizontally with trackpad swipe / scroll
-        const panFactor = e.deltaX * 0.05 || e.deltaY * 0.05;
-        if (waveformData) {
-          const visibleWindow = waveformData.duration / zoom;
-          setScrollOffset(prev => Math.min(Math.max(0, waveformData.duration - visibleWindow), Math.max(0, prev + panFactor)));
-        }
+        // Smooth horizontal scrolling left/right completely unrestricted by playhead
+        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        const totalDuration = waveformData?.duration || audioDuration || 180;
+        const visibleWindow = totalDuration / zoom;
+        const maxScroll = Math.max(0, totalDuration - visibleWindow);
+        // Pan smoothly proportional to visible window
+        const panSeconds = (delta / 200) * Math.max(1, visibleWindow * 0.15);
+        setIsFollowingPlayhead(false);
+        setScrollOffset(prev => Math.min(maxScroll, Math.max(0, prev + panSeconds)));
       }
     };
 
@@ -279,7 +281,7 @@ export function StudioLayout() {
     return () => {
       canvas.removeEventListener('wheel', handleWheel);
     };
-  }, [waveformData, zoom]);
+  }, [waveformData, audioDuration, zoom]);
 
   // Studio Specific Keyboard Shortcuts (Undo, Redo, Line Marking, Line Selection)
   useEffect(() => {
@@ -350,17 +352,19 @@ export function StudioLayout() {
     }
   }, [selectedLineId]);
 
-  // Auto-scroll waveform playhead
+  // Auto-scroll waveform playhead smoothly only if actively playing and follow-playhead is enabled
   useEffect(() => {
-    if (waveformData) {
-      const visibleWindow = waveformData.duration / zoom;
-      if (currentTime > scrollOffset + visibleWindow * 0.8) {
-        setScrollOffset(Math.min(waveformData.duration - visibleWindow, currentTime - visibleWindow * 0.2));
+    if (isPlaying && isFollowingPlayhead) {
+      const totalDuration = waveformData?.duration || audioDuration || 180;
+      const visibleWindow = totalDuration / zoom;
+      const maxScroll = Math.max(0, totalDuration - visibleWindow);
+      if (currentTime > scrollOffset + visibleWindow * 0.85) {
+        setScrollOffset(Math.min(maxScroll, currentTime - visibleWindow * 0.15));
       } else if (currentTime < scrollOffset) {
         setScrollOffset(Math.max(0, currentTime - 1));
       }
     }
-  }, [currentTime, zoom, scrollOffset, waveformData]);
+  }, [currentTime, isPlaying, isFollowingPlayhead, zoom, scrollOffset, waveformData, audioDuration]);
 
   // Handle Play/Pause
   const togglePlay = () => {
@@ -640,6 +644,19 @@ export function StudioLayout() {
       endTime: Math.max(0, l.endTime + offsetSec)
     }));
     updateLinesWithHistory(updated);
+  };
+
+  const handleInsertSpaceLine = () => {
+    const insertTime = Number(currentTime.toFixed(2));
+    const newLine: LyricLineWithWords = {
+      id: `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      startTime: insertTime,
+      endTime: insertTime + 2.5,
+      text: ''
+    };
+    const newLines = [...lines, newLine].sort((a, b) => a.startTime - b.startTime);
+    updateLinesWithHistory(newLines);
+    setSelectedLineId(newLine.id);
   };
 
   // Export handlers
@@ -1135,94 +1152,230 @@ export function StudioLayout() {
               })()}
             </div>
           </div>
+
+          {/* Interactive Timeline Scrubber & Pan Controls Strip */}
+          <div className="h-8 bg-[#0e1115] border-t border-[#232933] px-3 flex items-center justify-between gap-3 select-none shrink-0">
+            {/* Pan Left / Center Playhead / Pan Right */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const totalDuration = waveformData?.duration || audioDuration || 180;
+                  const visibleWindow = totalDuration / zoom;
+                  setIsFollowingPlayhead(false);
+                  setScrollOffset(prev => Math.max(0, prev - visibleWindow * 0.4));
+                }}
+                className="p-1 bg-[#13171e] hover:bg-[#181d26] border border-[#232933] rounded text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                title="Pan Timeline Left"
+              >
+                <ChevronLeft size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const totalDuration = waveformData?.duration || audioDuration || 180;
+                  const visibleWindow = totalDuration / zoom;
+                  const maxScroll = Math.max(0, totalDuration - visibleWindow);
+                  setIsFollowingPlayhead(false);
+                  setScrollOffset(prev => Math.min(maxScroll, prev + visibleWindow * 0.4));
+                }}
+                className="p-1 bg-[#13171e] hover:bg-[#181d26] border border-[#232933] rounded text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                title="Pan Timeline Right"
+              >
+                <ChevronRight size={13} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const totalDuration = waveformData?.duration || audioDuration || 180;
+                  const visibleWindow = totalDuration / zoom;
+                  const maxScroll = Math.max(0, totalDuration - visibleWindow);
+                  setIsFollowingPlayhead(true);
+                  setScrollOffset(Math.min(maxScroll, Math.max(0, currentTime - visibleWindow * 0.3)));
+                }}
+                className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-mono transition-colors cursor-pointer border",
+                  isFollowingPlayhead 
+                    ? "bg-accent/15 border-accent text-accent font-bold" 
+                    : "bg-[#13171e] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6]"
+                )}
+                title="Center timeline on current playhead"
+              >
+                Center Playhead
+              </button>
+            </div>
+
+            {/* Visual Timeline Range Slider Track */}
+            <div 
+              className="flex-1 relative h-3 bg-[#13171e] rounded border border-[#232933] overflow-hidden flex items-center cursor-pointer"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                const totalDuration = waveformData?.duration || audioDuration || 180;
+                const visibleWindow = totalDuration / zoom;
+                const maxScroll = Math.max(0, totalDuration - visibleWindow);
+                setIsFollowingPlayhead(false);
+                setScrollOffset(Math.min(maxScroll, Math.max(0, ratio * totalDuration - visibleWindow / 2)));
+              }}
+            >
+              {/* Overall song playhead indicator */}
+              {audioDuration > 0 && (
+                <div 
+                  className="absolute top-0 bottom-0 w-0.5 bg-accent z-10 pointer-events-none"
+                  style={{ left: `${Math.min(100, Math.max(0, (currentTime / (waveformData?.duration || audioDuration || 180)) * 100))}%` }}
+                />
+              )}
+
+              {/* Viewport Window Thumb */}
+              {(() => {
+                const total = waveformData?.duration || audioDuration || 180;
+                const visibleWindow = total / zoom;
+                const leftPct = Math.min(100, Math.max(0, (scrollOffset / total) * 100));
+                const widthPct = Math.min(100 - leftPct, Math.max(3, (visibleWindow / total) * 100));
+                return (
+                  <div
+                    className="absolute top-0.5 bottom-0.5 bg-[#2b3544] hover:bg-[#384558] border border-accent/40 rounded transition-colors"
+                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                  />
+                );
+              })()}
+            </div>
+
+            {/* Zoom shortcuts in timeline */}
+            <div className="flex items-center gap-1 text-[9px] font-mono text-[#7e8999] shrink-0">
+              <span>Zoom:</span>
+              {[1, 2, 4, 8].map(z => (
+                <button
+                  key={z}
+                  type="button"
+                  onClick={() => setZoom(z)}
+                  className={cn(
+                    "px-1.5 py-0.5 rounded cursor-pointer transition-colors",
+                    zoom === z ? "bg-[#1f2631] text-accent font-bold border border-[#2b3442]" : "hover:text-[#f0f3f6]"
+                  )}
+                >
+                  {z}x
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* RIGHT PANEL: EDITABLE LYRIC LINE TIMELINE & HISTORY */}
-        <div className={cn("w-full md:w-[320px] lg:w-[360px] bg-[#111418] border-l border-[#232933] flex-col shrink-0 overflow-hidden", mobileStudioTab === 'lyrics' ? "flex flex-1 w-full h-full" : "hidden md:flex")}>
+        <div className={cn("w-full md:w-[380px] lg:w-[420px] xl:w-[440px] bg-[#111418] border-l border-[#232933] flex flex-col shrink-0 h-full min-h-0 overflow-hidden", mobileStudioTab === 'lyrics' ? "flex flex-1 w-full h-full" : "hidden md:flex")}>
           
           {/* Header Bar */}
-          <div className="p-3 bg-[#13171e] border-b border-[#232933] flex items-center justify-between gap-3">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#9aa2ae] shrink-0">
-              Synced Lines ({lines.length})
-            </span>
+          <div className="px-3 py-2 bg-[#13171e] border-b border-[#232933] flex flex-col gap-2 shrink-0">
+            {/* Top row: Title + Undo / Redo + Clear */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#9aa2ae] flex items-center gap-1.5 shrink-0">
+                <span>Synced Lines</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-[#181d26] text-accent text-[10px] font-bold border border-[#2b3442]">{lines.length}</span>
+              </span>
 
-            {/* Actions: Clear All, Undo, Redo, Global Offset */}
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={handleClearAllLines}
-                disabled={lines.length === 0}
-                className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-30 rounded text-[10px] font-mono font-semibold text-rose-400 hover:text-rose-300 cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
-                title="Clear all synchronized lines"
-              >
-                <Trash2 size={11} />
-                <span>Clear</span>
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Undo / Redo buttons */}
+                <div className="flex items-center gap-0.5 bg-[#0e1115] border border-[#232933] rounded p-0.5">
+                  <button 
+                    type="button"
+                    onClick={undo} 
+                    disabled={historyIndex <= 0} 
+                    className="p-1 hover:bg-[#1f2631] disabled:opacity-25 rounded text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo2 size={12} />
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={redo} 
+                    disabled={historyIndex >= history.length - 1} 
+                    className="p-1 hover:bg-[#1f2631] disabled:opacity-25 rounded text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                    title="Redo (Ctrl+Y)"
+                  >
+                    <Redo2 size={12} />
+                  </button>
+                </div>
 
-              <div className="h-3.5 w-px bg-[#232933]" />
-
-              <div className="flex items-center gap-1">
-                <button 
+                {/* Clear button */}
+                <button
                   type="button"
-                  onClick={undo} 
-                  disabled={historyIndex <= 0} 
-                  className="p-1 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] disabled:opacity-30 rounded text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer"
-                  title="Undo"
+                  onClick={handleClearAllLines}
+                  disabled={lines.length === 0}
+                  className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-25 rounded text-[10px] font-mono font-semibold text-rose-400 hover:text-rose-300 cursor-pointer flex items-center gap-1 transition-colors shrink-0"
+                  title="Clear all synchronized lines"
                 >
-                  <Undo2 size={12} />
-                </button>
-
-                <button 
-                  type="button"
-                  onClick={redo} 
-                  disabled={historyIndex >= history.length - 1} 
-                  className="p-1 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] disabled:opacity-30 rounded text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer"
-                  title="Redo"
-                >
-                  <Redo2 size={12} />
+                  <Trash2 size={11} />
+                  <span>Clear</span>
                 </button>
               </div>
+            </div>
 
-              <div className="h-3.5 w-px bg-[#232933]" />
-
-              <div className="flex items-center gap-1">
+            {/* Sub toolbar: Global Nudge & Space line */}
+            <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-[#1b212a] text-[10px] font-mono">
+              <div className="flex items-center gap-1 text-[#7e8999]">
+                <span className="text-[9px] uppercase font-bold text-[#5e6877] mr-0.5">Shift All:</span>
                 <button
                   type="button"
                   onClick={() => shiftAllTimestamps(-0.5)}
-                  className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[10px] font-mono font-semibold text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
-                  title="Shift All Lyrics -0.5s"
+                  className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                  title="Shift all lines -0.5s"
                 >
                   -0.5s
                 </button>
-
+                <button
+                  type="button"
+                  onClick={() => shiftAllTimestamps(-0.1)}
+                  className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                  title="Shift all lines -0.1s"
+                >
+                  -0.1s
+                </button>
+                <button
+                  type="button"
+                  onClick={() => shiftAllTimestamps(0.1)}
+                  className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                  title="Shift all lines +0.1s"
+                >
+                  +0.1s
+                </button>
                 <button
                   type="button"
                   onClick={() => shiftAllTimestamps(0.5)}
-                  className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[10px] font-mono font-semibold text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
-                  title="Shift All Lyrics +0.5s"
+                  className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#9aa2ae] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                  title="Shift all lines +0.5s"
                 >
                   +0.5s
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={handleInsertSpaceLine}
+                className="px-2 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-accent hover:text-[#f0f3f6] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+                title="Insert empty lyric space at playhead"
+              >
+                <Plus size={10} />
+                <span>Space</span>
+              </button>
             </div>
           </div>
 
           {/* Hotkey Helper Bar */}
-          <div className="px-3 py-1.5 bg-[#0e1115] border-b border-[#232933] text-[9px] font-mono text-[#7e8999] flex items-center justify-between overflow-x-auto no-scrollbar gap-2">
-            <span className="flex items-center gap-1.5 font-bold text-[#9aa2ae] shrink-0">
+          <div className="px-3 py-1.5 bg-[#0e1115] border-b border-[#232933] text-[9px] font-mono text-[#7e8999] flex items-center justify-between overflow-x-auto no-scrollbar gap-2 shrink-0">
+            <span className="flex items-center gap-1 font-bold text-[#9aa2ae] shrink-0">
               <Zap size={10} className="text-accent" /> Quick Sync:
             </span>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">Space</kbd> Play</span>
               <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">Enter</kbd> Next</span>
-              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">[</kbd> Mark Start</span>
-              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">]</kbd> Mark End</span>
-              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">Ctrl+Z</kbd> Undo</span>
+              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">[</kbd> Start</span>
+              <span><kbd className="px-1 py-0.5 bg-[#181d26] border border-[#2b3442] rounded text-[#c4cad4]">]</kbd> End</span>
             </div>
           </div>
 
           {/* Editable Line List */}
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+          <div className="flex-1 min-h-0 h-0 overflow-y-auto p-2.5 space-y-2 overscroll-contain">
             {lines.length === 0 ? (
               <div className="text-center text-[#5e6877] font-mono text-xs py-12">
                 No lyric lines generated yet. <br />

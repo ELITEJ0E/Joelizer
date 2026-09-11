@@ -302,34 +302,33 @@ export function drawStudioWaveform(
     });
   }
 
-  // 3. Draw Lyric Timestamps (Interactive Pins & Badges)
+  // 3. Draw Lyric Timestamps (Clean, Compact Pins)
   lines.forEach((line, idx) => {
     const lTime = line.startTime;
     if (lTime >= startSec && lTime <= endSec) {
       const lx = ((lTime - startSec) / visibleDuration) * width;
       const isSelected = selectedLineId === line.id;
       const isHovered = hoveredLineId === line.id;
-
       const pinColor = isSelected ? '#ffffff' : (isHovered ? '#ffffff' : activeColor);
 
-      // Vertical line
+      // Vertical dashed marker line
       ctx.strokeStyle = pinColor;
       ctx.lineWidth = isSelected || isHovered ? 1.5 : 1;
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.moveTo(lx, 0);
+      ctx.moveTo(lx, 16);
       ctx.lineTo(lx, height);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Top Pin Badge with Line Number
+      // Compact Pin Badge with Line Number
       const badgeText = `#${idx + 1}`;
       ctx.font = 'bold 9px monospace';
       const textWidth = ctx.measureText(badgeText).width;
       const badgeW = textWidth + 8;
       const badgeH = 15;
-      const badgeX = Math.min(Math.max(0, lx - badgeW / 2), width - badgeW);
-      const badgeY = 16; // Just below the time header
+      const badgeX = Math.min(Math.max(2, lx - badgeW / 2), width - badgeW - 2);
+      const badgeY = 16;
 
       ctx.fillStyle = isSelected ? '#ffffff' : '#12161c';
       ctx.strokeStyle = pinColor;

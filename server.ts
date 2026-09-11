@@ -1087,21 +1087,28 @@ Return strictly JSON:
   // 3. Forced Alignment endpoint (Audio + Provided Lyrics -> Precise Synchronized LRC JSON)
   app.post('/api/align', async (req, res) => {
     try {
-      const { audioBase64, mimeType = 'audio/mp3', rawLyrics, language } = req.body;
+      const { audioBase64, mimeType = 'audio/mp3', rawLyrics, language, existingLines, duration } = req.body;
       if (!audioBase64 || !rawLyrics) {
         return res.status(400).json({ error: 'Audio data and raw lyrics text are required' });
       }
 
       const ai = getGeminiClient(req);
-      const candidateModels = ['gemini-2.5-flash', 'gemini-3.7-flash'];
+      const candidateModels = ['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.1-pro-preview'];
+
+      let existingContext = '';
+      if (Array.isArray(existingLines) && existingLines.length > 0) {
+        existingContext = `\nExisting Line Sequence and Reference Timestamps (use these as reference anchors, then align precisely to the actual audible vocal articulations in the audio track):\n` +
+          existingLines.map((l: any, i: number) => `Line ${i + 1} [approx start: ${typeof l.startTime === 'number' ? l.startTime.toFixed(2) : '0.00'}s${typeof l.endTime === 'number' ? `, end: ${l.endTime.toFixed(2)}s` : ''}]: ${l.text}`).join('\n');
+      }
 
       const systemPrompt = `You are an expert audio engineer and precision multilingual forced audio alignment system.
 You are given an audio track and the exact, user-provided lyrics.
-Your objective: Align the provided lyrics line-by-line and word-by-word with the actual vocals in the audio recording to produce millisecond-accurate timestamps.
+Your objective: Perform ultra-precise acoustic forced alignment. Listen to the vocals in the audio recording and align the provided lyrics line-by-line and word-by-word with the actual vocal articulations to produce millisecond-accurate timestamps.
 
 User Provided Lyrics:
 ${rawLyrics}
-
+${existingContext}
+${typeof duration === 'number' && duration > 0 ? `Total Audio Duration: ${duration.toFixed(2)} seconds.` : ''}
 Target Language Preference: ${language || 'Auto-detect'}
 
 CRITICAL FORCED ALIGNMENT RULES:
@@ -1110,13 +1117,14 @@ CRITICAL FORCED ALIGNMENT RULES:
    - Do NOT omit any line from the user's provided lyrics. Every single line in the input must appear in the output "lines" array with its corresponding timestamp.
    - If a line repeats (e.g. repeated chorus), find its distinct chronological occurrence in the audio.
 
-2. PRECISION ACOUSTIC ONSET & OFFSET:
-   - startTime: The EXACT second (floating point, e.g. 14.25) where the singer articulates the first audible syllable of the line. If there is an instrumental intro, DO NOT start at 0.00s.
+2. PRECISION ACOUSTIC ONSET & VOCAL DETECTION:
+   - Identify the actual singing vocals in the audio recording.
+   - startTime: The EXACT second (floating point, e.g. 14.25) where the singer articulates the first audible syllable of the line. If there is an instrumental intro (e.g. 10s), do NOT start at 0.00s! Start where singing begins.
    - endTime: The EXACT second (e.g. 17.80) where the vocal sound decay ends or the phrase finishes.
-   - For instrumental solos, breaks, and pauses between verses, do NOT place timestamps during silence.
+   - For instrumental solos, breaks, and pauses between verses, do NOT place timestamps during silence. Ensure distinct gaps between phrases.
 
-3. WORD-LEVEL TIMESTAMPS:
-   - For each line, break it down into words and provide the start and end timestamp for each word in the "words" array:
+3. PRECISE WORD-LEVEL TIMESTAMPS:
+   - For each line, break it down into words and provide the start and end timestamp for each word in the "words" array matching vocal articulations:
      words: [
        { "word": "First", "startTime": 14.25, "endTime": 14.70 },
        { "word": "word", "startTime": 14.75, "endTime": 15.60 }
@@ -1125,6 +1133,7 @@ CRITICAL FORCED ALIGNMENT RULES:
 4. STRICT CHRONOLOGICAL MONOTONICITY:
    - All lines must follow ascending chronological order: line[0].startTime <= line[1].startTime ...
    - For every line and word: startTime < endTime.
+   - All timestamps must be non-negative and within the audio track duration.
 
 5. MULTILINGUAL ACCURACY:
    - Accurately align Korean Hangul (한국어, K-pop vocal chops & melisma), Chinese (中文 / 國語 / 粵語), Japanese (日本語), English, Spanish, and mixed-language rap/vocals.
@@ -1169,6 +1178,7 @@ Schema required:
             ],
             config: {
               maxOutputTokens: 8192,
+              temperature: 0.1,
               responseMimeType: 'application/json',
               responseSchema: {
                 type: 'OBJECT',
@@ -1236,10 +1246,10 @@ Schema required:
                   const wEnd = typeof w.endTime === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.endTime)) : (typeof w.end === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.end)) : Math.min(rawEnd, wStart + 0.4));
                   return {
                     word: String(w.word || '').trim(),
-                    startTime: wStart,
-                    endTime: wEnd,
-                    start: wStart,
-                    end: wEnd
+                    startTime: Number(wStart.toFixed(2)),
+                    endTime: Number(wEnd.toFixed(2)),
+                    start: Number(wStart.toFixed(2)),
+                    end: Number(wEnd.toFixed(2))
                   };
                 }).filter((w: any) => w.word.length > 0)
               : [];
@@ -1278,11 +1288,32 @@ Schema required:
         });
       }
 
-      // Fallback alignment algorithm if Gemini API fails
+      // If Gemini fails, check if existingLines with timestamps are available
+      if (Array.isArray(existingLines) && existingLines.length > 0 && existingLines.some((l: any) => l.startTime > 0)) {
+        return res.json({
+          text: req.body.rawLyrics,
+          lines: existingLines.map((l: any, idx: number) => ({
+            id: `align-exist-${idx}`,
+            startTime: l.startTime || idx * 4,
+            endTime: l.endTime || (l.startTime ? l.startTime + 3.5 : (idx + 1) * 4),
+            text: l.text,
+            words: []
+          })),
+          bpm: 120,
+          key: 'C Major'
+        });
+      }
+
+      // Proportional fallback alignment based on duration if available
       const rawLines = (req.body.rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+      const totalDur = typeof duration === 'number' && duration > 10 ? duration : (rawLines.length * 4 + 10);
+      const introTime = 4.0;
+      const availableDur = Math.max(10, totalDur - introTime - 2);
+      const lineInterval = availableDur / Math.max(1, rawLines.length);
+
       const lines = rawLines.map((l: string, idx: number) => {
-        const st = idx * 4 + 2;
-        const et = st + 3.5;
+        const st = Number((introTime + idx * lineInterval).toFixed(2));
+        const et = Number((st + Math.min(3.5, lineInterval * 0.9)).toFixed(2));
         const tokens = l.split(/\s+/).filter(Boolean);
         const wDur = (et - st) / Math.max(1, tokens.length);
         const words = tokens.map((t: string, ti: number) => ({
@@ -1311,9 +1342,14 @@ Schema required:
     } catch (err: any) {
       console.error('Alignment API Error:', err);
       const rawLines = (req.body.rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+      const totalDur = typeof req.body.duration === 'number' && req.body.duration > 10 ? req.body.duration : (rawLines.length * 4 + 10);
+      const introTime = 4.0;
+      const availableDur = Math.max(10, totalDur - introTime - 2);
+      const lineInterval = availableDur / Math.max(1, rawLines.length);
+
       const lines = rawLines.map((l: string, idx: number) => {
-        const st = idx * 4 + 2;
-        const et = st + 3.5;
+        const st = Number((introTime + idx * lineInterval).toFixed(2));
+        const et = Number((st + Math.min(3.5, lineInterval * 0.9)).toFixed(2));
         const tokens = l.split(/\s+/).filter(Boolean);
         const wDur = (et - st) / Math.max(1, tokens.length);
         const words = tokens.map((t: string, ti: number) => ({
