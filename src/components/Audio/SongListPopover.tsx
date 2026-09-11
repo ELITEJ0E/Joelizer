@@ -124,12 +124,7 @@ export function SongListPopover({ align = 'left', compact = false }: SongListPop
             style={{ color: isOpen ? activeColor : undefined }}
             className={isOpen ? "" : "text-zinc-400 group-hover:text-white transition-colors"}
           />
-          {isPlaying && (
-            <span
-              className="absolute -top-1 -right-1 w-2 h-2 rounded-full animate-ping"
-              style={{ backgroundColor: activeColor }}
-            />
-          )}
+          
         </div>
 
         {!compact && (

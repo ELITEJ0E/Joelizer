@@ -11,6 +11,7 @@ import { cn, formatTime } from '../../lib/utils';
 import { SongListSection } from './SongListSection';
 import { SongListPopover } from '../Audio/SongListPopover';
 import { VideoSlider } from '../ui/video-slider';
+import { AppColorPicker } from '../ui/color-picker';
 import { audioManager } from '../../lib/audio';
 import {
   Play, Pause, Check, Upload, RotateCcw, RotateCw, Maximize2,
@@ -522,26 +523,16 @@ export function LyricsVideoLayout() {
 
                 {/* Accent Color Swatches */}
                 <div className="space-y-1">
-                  <span className="text-[11px] font-semibold text-[#7e8999]">Accent Color</span>
-                  <div className="flex items-center gap-2 bg-[#0e1115] p-2 rounded border border-[#232933] flex-wrap">
-                    {colorSwatches.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setVisualizerColor(c)}
-                        className={cn(
-                          "w-6 h-6 rounded-full border transition-transform cursor-pointer relative",
-                          activeColor.toLowerCase() === c.toLowerCase()
-                            ? "border-[#f0f3f6] scale-105"
-                            : "border-transparent hover:scale-105"
-                        )}
-                        style={{ backgroundColor: c }}
-                      >
-                        {activeColor.toLowerCase() === c.toLowerCase() && (
-                          <Check size={11} className="text-black absolute inset-0 m-auto" strokeWidth={3} />
-                        )}
-                      </button>
-                    ))}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-[#7e8999]">Accent Color</span>
+                    <span className="text-[10px] font-mono text-[#4a5568]">{activeColor}</span>
+                  </div>
+                  <div className="bg-[#0e1115] p-2 rounded border border-[#232933]">
+                    <AppColorPicker
+                      value={activeColor}
+                      onChange={(c) => setVisualizerColor(c)}
+                      boxShadow={`0 0 15px ${activeColor}30`}
+                    />
                   </div>
                 </div>
               </div>

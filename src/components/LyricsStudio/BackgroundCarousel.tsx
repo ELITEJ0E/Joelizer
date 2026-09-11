@@ -38,7 +38,7 @@ export function BackgroundCarousel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0e1115] text-[#f0f3f6] p-3.5 gap-4 overflow-y-auto">
+    <div className="flex flex-col h-full bg-[#0e1115] text-[#f0f3f6] p-3.5 gap-4 overflow-y-auto scrollbar-thin scrollbar-thumb-[#4a5568] scrollbar-track-transparent">
       
       {/* Upload Custom Background Section */}
       <div className="bg-[#12161c] border border-[#232933] rounded-xl p-3 flex flex-col gap-2.5">

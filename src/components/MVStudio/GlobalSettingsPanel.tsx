@@ -46,6 +46,12 @@ function VisualizerSettingsPanel() {
       </div>
       <div>
         <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Primary Color Theme</label>
+        <AppColorPicker 
+          value={activeColor}
+          onChange={val => updateSettings({ color: val })}
+          className="mb-3"
+          boxShadow={`0 0 15px ${activeColor}30`}
+        />
         <div className="grid grid-cols-3 gap-2">
           {COLOR_THEMES.map(theme => (
             <button

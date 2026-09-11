@@ -187,6 +187,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
           // Fetch real-time audio frequency data to power the visualizer combined with the lyrics video
           const freqData = audioManager.getFrequencyData();
+          const timeData = audioManager.getTimeDomainData();
 
           renderLyricsVideoFrame(
             ctx,
@@ -212,7 +213,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               watermarkText: 'Made with Joelizer',
               showSafeArea: lyricsVideoState.showSafeArea
             },
-            freqData
+            freqData,
+            timeData
           );
 
           animFrameId = requestAnimationFrame(render);
