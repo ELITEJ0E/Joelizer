@@ -385,11 +385,12 @@ export function StudioLayout() {
       audio.onloadedmetadata = () => {
         setAudio(file, url, audio.duration, null);
       };
-      // Clear transcriptions and synchronized lines for the new song
-      updateLinesWithHistory([]);
-      setSelectedLineId(null);
-      setRawUploadedLyrics('');
-      setUploadedLyricsFileName(null);
+      // Non-destructive: Preserve existing lyrics if user already has them
+      if (lines.length === 0) {
+        setSelectedLineId(null);
+        setRawUploadedLyrics('');
+        setUploadedLyricsFileName(null);
+      }
     }
   };
 
@@ -413,8 +414,20 @@ export function StudioLayout() {
 
   // Run AI Transcription or Alignment
   const runAITranscription = async (forcedAlignmentMode = false) => {
-    if (!audioFile) {
-      alert("Please upload an audio file first.");
+    let targetAudio: File | Blob | null = audioFile;
+    if (!targetAudio && audioUrl) {
+      try {
+        const resp = await fetch(audioUrl);
+        if (resp.ok) {
+          targetAudio = await resp.blob();
+        }
+      } catch (e) {
+        console.warn("Could not fetch audio blob from audioUrl:", e);
+      }
+    }
+
+    if (!targetAudio) {
+      alert("Please upload or select an audio track first.");
       return;
     }
 
@@ -439,21 +452,61 @@ export function StudioLayout() {
 
     try {
       if (forcedAlignmentMode || rawUploadedLyrics.trim()) {
-        setProgress({ stage: 'aligning', message: 'Performing AI Forced Alignment against uploaded lyrics...', percentage: 60 });
-        const result = await provider.align(audioFile, rawUploadedLyrics || lines.map(l => l.text).join('\n'), { language: selectedLanguage, signal: controller.signal });
+        const existingEditorLines = lines.filter(l => l.text && l.text.trim().length > 0);
+        
+        // Priority 1: User's existing lines currently in the editor so edits aren't lost
+        // Priority 2: Raw uploaded lyrics text
+        let lyricsToAlign = '';
+        if (existingEditorLines.length > 0) {
+          lyricsToAlign = existingEditorLines.map(l => l.text.trim()).join('\n');
+        } else if (rawUploadedLyrics.trim()) {
+          lyricsToAlign = rawUploadedLyrics.trim();
+        }
+
+        if (!lyricsToAlign) {
+          alert("Please enter or upload lyrics before running Align Lyrics, or use Transcribe Audio to automatically generate lyrics from the song.");
+          return;
+        }
+
+        setProgress({ stage: 'aligning', message: 'Performing acoustic forced alignment with Google AI Studio...', percentage: 55 });
+        
+        const devApiKey = localStorage.getItem('gemini_api_key') || localStorage.getItem('google_ai_key') || '';
+        const result = await provider.align(
+          targetAudio,
+          lyricsToAlign,
+          {
+            language: selectedLanguage,
+            signal: controller.signal,
+            duration: audioDuration || waveformData?.duration,
+            existingLines: existingEditorLines.length > 0
+              ? existingEditorLines.map(l => ({ id: l.id, text: l.text, startTime: l.startTime, endTime: l.endTime, words: l.words }))
+              : undefined,
+            apiKey: devApiKey || undefined
+          }
+        );
         
         if (controller.signal.aborted) return;
 
-        setProgress({ stage: 'finalizing', message: 'Structuring timestamp alignment...', percentage: 90 });
+        setProgress({ stage: 'finalizing', message: 'Locking acoustic timestamp boundaries...', percentage: 90 });
         if (result.lines && result.lines.length > 0) {
-          updateLinesWithHistory(result.lines);
+          const syncedLines = result.lines.map((al, idx) => ({
+            id: (existingEditorLines[idx] && existingEditorLines[idx].id) || al.id || `line-${idx}-${Date.now()}`,
+            startTime: al.startTime,
+            endTime: al.endTime,
+            text: al.text,
+            words: al.words || []
+          }));
+          updateLinesWithHistory(syncedLines);
         }
         if (result.language) {
           setAnalysis(prev => ({ ...prev, language: result.language, bpm: result.bpm || prev.bpm, key: result.key || prev.key }));
         }
       } else {
         setProgress({ stage: 'transcribing', message: 'Joelizing...', percentage: 65 });
-        const result = await provider.transcribe(audioFile, { language: selectedLanguage, signal: controller.signal });
+        const result = await provider.transcribe(targetAudio, {
+          language: selectedLanguage,
+          signal: controller.signal
+        });
         
         if (controller.signal.aborted) return;
 
@@ -474,6 +527,7 @@ export function StudioLayout() {
         return;
       }
       console.error("AI Error:", err);
+      // Even on error, NEVER clear the existing lyrics!
       setProgress({ stage: 'error', message: 'Processing Error', percentage: 100, error: err.message });
     } finally {
       if (abortControllerRef.current === controller) {
@@ -529,11 +583,17 @@ export function StudioLayout() {
         let newWords = l.words;
         if (l.words && l.words.length > 0) {
           const delta = newStart - l.startTime;
-          newWords = l.words.map(w => ({
-            ...w,
-            start: Math.max(0, w.start + delta),
-            end: Math.max(0, w.end + delta)
-          }));
+          newWords = l.words.map(w => {
+            const s = typeof w.startTime === 'number' ? w.startTime : ((w as any).start ?? 0);
+            const e = typeof w.endTime === 'number' ? w.endTime : ((w as any).end ?? 0.1);
+            return {
+              ...w,
+              startTime: Math.max(0, Number((s + delta).toFixed(2))),
+              endTime: Math.max(0.05, Number((e + delta).toFixed(2))),
+              start: Math.max(0, Number((s + delta).toFixed(2))),
+              end: Math.max(0.05, Number((e + delta).toFixed(2)))
+            };
+          });
         }
 
         return {
@@ -621,6 +681,46 @@ export function StudioLayout() {
     updateLinesWithHistory(newLines);
   };
 
+  const handleDuplicateLine = (index: number) => {
+    const line = lines[index];
+    if (!line) return;
+
+    const duration = Math.max(1.0, (line.endTime || (line.startTime + 2.5)) - line.startTime);
+    const nextLine = lines[index + 1];
+
+    // Position duplicate immediately after current line or with slight stagger
+    let newStart = Number(((line.endTime || line.startTime + 2.5) + 0.1).toFixed(2));
+    let newEnd = Number((newStart + duration).toFixed(2));
+
+    if (nextLine && newStart >= nextLine.startTime) {
+      newStart = Number((line.startTime + 0.25).toFixed(2));
+      newEnd = Number((newStart + duration).toFixed(2));
+    }
+
+    const timeDelta = newStart - line.startTime;
+    const duplicatedWords = line.words?.map(w => ({
+      ...w,
+      startTime: Number((w.startTime + timeDelta).toFixed(2)),
+      endTime: Number((w.endTime + timeDelta).toFixed(2))
+    }));
+
+    const duplicatedLine: LyricLineWithWords = {
+      id: `dup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      startTime: newStart,
+      endTime: newEnd,
+      text: line.text,
+      words: duplicatedWords,
+      speaker: line.speaker,
+      section: line.section
+    };
+
+    const newLines = [...lines];
+    newLines.splice(index + 1, 0, duplicatedLine);
+    newLines.sort((a, b) => a.startTime - b.startTime);
+    updateLinesWithHistory(newLines);
+    setSelectedLineId(duplicatedLine.id);
+  };
+
   const handleMergeLine = (index: number) => {
     if (index >= lines.length - 1) return;
     const current = lines[index];
@@ -640,8 +740,19 @@ export function StudioLayout() {
   const shiftAllTimestamps = (offsetSec: number) => {
     const updated = lines.map(l => ({
       ...l,
-      startTime: Math.max(0, l.startTime + offsetSec),
-      endTime: Math.max(0, l.endTime + offsetSec)
+      startTime: Math.max(0, Number((l.startTime + offsetSec).toFixed(2))),
+      endTime: Math.max(0.1, Number((l.endTime + offsetSec).toFixed(2))),
+      words: l.words?.map(w => {
+        const s = typeof w.startTime === 'number' ? w.startTime : ((w as any).start ?? 0);
+        const e = typeof w.endTime === 'number' ? w.endTime : ((w as any).end ?? 0.1);
+        return {
+          ...w,
+          startTime: Math.max(0, Number((s + offsetSec).toFixed(2))),
+          endTime: Math.max(0.05, Number((e + offsetSec).toFixed(2))),
+          start: Math.max(0, Number((s + offsetSec).toFixed(2))),
+          end: Math.max(0.05, Number((e + offsetSec).toFixed(2)))
+        };
+      })
     }));
     updateLinesWithHistory(updated);
   };
@@ -697,22 +808,22 @@ export function StudioLayout() {
         {/* Center: AI Synchronization & Alignment Tools */}
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Target Language Selector */}
-          <div className="flex items-center gap-1 bg-[#13171e] border border-[#232933] hover:border-[#323b49] rounded px-2 py-1 text-[10px] font-mono transition-colors">
+          <div className="flex items-center gap-1.5 bg-[#13171e] border border-[#232933] hover:border-[#323b49] rounded px-2 py-0.5 text-[10px] font-mono transition-colors">
             <Globe size={11} className="text-[#7e8999] shrink-0" />
-            <select
-              value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="bg-transparent text-[#f0f3f6] focus:outline-none cursor-pointer font-medium text-[10px]"
-              title="Target Lyric Language"
-            >
-              <option value="Auto" className="bg-[#12161c] text-[#f0f3f6]">Auto Detect</option>
-              <option value="English" className="bg-[#12161c] text-[#f0f3f6]">English</option>
-              <option value="Korean" className="bg-[#12161c] text-[#f0f3f6]">Korean (한국어)</option>
-              <option value="Japanese" className="bg-[#12161c] text-[#f0f3f6]">Japanese (日本語)</option>
-              <option value="Chinese" className="bg-[#12161c] text-[#f0f3f6]">Chinese (中文)</option>
-              <option value="Spanish" className="bg-[#12161c] text-[#f0f3f6]">Spanish</option>
-              <option value="French" className="bg-[#12161c] text-[#f0f3f6]">French</option>
-            </select>
+            <Select value={selectedLanguage} onValueChange={(val) => setSelectedLanguage(val)}>
+              <SelectTrigger className="h-6 border-0 bg-transparent p-0 text-[10px] text-[#f0f3f6] focus:ring-0 focus:outline-none shadow-none gap-1 hover:bg-transparent">
+                <SelectValue placeholder="Auto Detect" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#12161c] border-[#232933] text-[#f0f3f6]">
+                <SelectItem value="Auto">Auto Detect</SelectItem>
+                <SelectItem value="English">English</SelectItem>
+                <SelectItem value="Korean">Korean (한국어)</SelectItem>
+                <SelectItem value="Japanese">Japanese (日本語)</SelectItem>
+                <SelectItem value="Chinese">Chinese (中文)</SelectItem>
+                <SelectItem value="Spanish">Spanish</SelectItem>
+                <SelectItem value="French">French</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {progress && progress.stage !== 'complete' && (
@@ -1353,10 +1464,10 @@ export function StudioLayout() {
                 type="button"
                 onClick={handleInsertSpaceLine}
                 className="px-2 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-accent hover:text-[#f0f3f6] flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-                title="Insert empty lyric space at playhead"
+                title="Insert a clean instrumental / silence spacer line at current playhead"
               >
                 <Plus size={10} />
-                <span>Space</span>
+                <span>Space Line</span>
               </button>
             </div>
           </div>
@@ -1467,6 +1578,7 @@ export function StudioLayout() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime - 0.5); }}
                           className="px-1 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#232933] rounded text-[#9aa2ae] cursor-pointer"
+                          title="Nudge line -0.5s"
                         >
                           -0.5s
                         </button>
@@ -1474,6 +1586,7 @@ export function StudioLayout() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime - 0.1); }}
                           className="px-1 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#232933] rounded text-[#9aa2ae] cursor-pointer"
+                          title="Nudge line -0.1s"
                         >
                           -0.1s
                         </button>
@@ -1481,6 +1594,7 @@ export function StudioLayout() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime + 0.1); }}
                           className="px-1 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#232933] rounded text-[#9aa2ae] cursor-pointer"
+                          title="Nudge line +0.1s"
                         >
                           +0.1s
                         </button>
@@ -1488,6 +1602,7 @@ export function StudioLayout() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleLineTimeChange(line.id, line.startTime + 0.5); }}
                           className="px-1 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#232933] rounded text-[#9aa2ae] cursor-pointer"
+                          title="Nudge line +0.5s"
                         >
                           +0.5s
                         </button>
@@ -1502,6 +1617,15 @@ export function StudioLayout() {
                           title="Split line into two"
                         >
                           <Split size={12} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDuplicateLine(idx); }}
+                          className="p-1 hover:bg-[#1f2631] rounded text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                          title="Duplicate lyric line"
+                        >
+                          <Copy size={12} />
                         </button>
 
                         <button

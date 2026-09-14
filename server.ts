@@ -5,6 +5,7 @@ import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import { jsonrepair } from 'jsonrepair';
 import { generateMusic } from './server/aceStep';
 import { startExportJob, getExportJob, runAutomatedRenderTest } from './server/renderEngine';
 import { createGenerationJob, getGenerationJob, cancelGenerationJob, getAllGenerationJobs, localProviderInstance, cloudProviderInstance } from './server/engines/aceStep';
@@ -40,48 +41,139 @@ async function startServer() {
 
   // Initialize Gemini AI Client lazily
   function getGeminiClient(req?: express.Request) {
+    // 1. Prioritize the Google AI Studio Developer API key FIRST as requested
+    const devKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     const headerKey = req ? (req.headers['x-gemini-api-key'] || req.headers['x-gemini-key'] || req.headers['authorization']) : undefined;
     const bodyKey = req && req.body ? req.body.apiKey : undefined;
-    
-    // In Vercel deploy or custom client-side override, use the client key or custom header key.
-    // Otherwise, default to process.env.GEMINI_API_KEY (AI Studio Developer Testing key).
-    const apiKey = (typeof headerKey === 'string' ? headerKey : undefined) || 
-                   (typeof bodyKey === 'string' ? bodyKey : undefined) || 
-                   process.env.GEMINI_API_KEY;
+    const cleanHeader = typeof headerKey === 'string' ? headerKey.replace(/^Bearer\s+/i, '').trim() : undefined;
+    const cleanBody = typeof bodyKey === 'string' ? bodyKey.trim() : undefined;
+
+    // Use Google AI Studio developer API key first
+    const apiKey = devKey || cleanHeader || cleanBody;
 
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY environment variable is not configured.");
+      throw new Error("Google AI Studio developer GEMINI_API_KEY is not configured.");
     }
     return new GoogleGenAI({ apiKey });
   }
 
-  // Helper function for ultra-robust JSON extraction from Gemini output
-  function safeExtractJson(text: string) {
-    if (!text) return null;
-    let clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  // Helper function for ultra-robust JSON extraction and repair from Gemini output
+  function safeExtractJson(text: string): any {
+    if (!text || typeof text !== 'string') return null;
 
-    const firstBrace = clean.indexOf('{');
-    const lastBrace = clean.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      clean = clean.substring(firstBrace, lastBrace + 1);
-    }
+    let clean = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
 
-    // Clean trailing commas before brackets/braces
-    clean = clean.replace(/,\s*([}\]])/g, '$1');
-
+    // 1. Try direct parse first
     try {
       return JSON.parse(clean);
-    } catch (e) {
-      console.warn("First JSON parse attempt failed, trying relaxed string cleanup...", e);
-      try {
-        // Fix potential raw unescaped newlines within JSON string values
-        const relaxed = clean.replace(/\r?\n/g, '\\n').replace(/\t/g, '\\t');
-        return JSON.parse(relaxed);
-      } catch (err) {
-        console.error("All JSON parse attempts failed on text:", text.slice(0, 300));
-        return null;
+    } catch (_) {}
+
+    // 2. Find start of JSON structure
+    const firstObj = clean.indexOf('{');
+    const firstArr = clean.indexOf('[');
+    const startIdx = (firstObj !== -1 && firstArr !== -1)
+      ? Math.min(firstObj, firstArr)
+      : (firstObj !== -1 ? firstObj : firstArr);
+
+    if (startIdx > 0) {
+      clean = clean.substring(startIdx);
+    }
+
+    // 3. Try jsonrepair (repairs unquoted keys, trailing commas, unclosed brackets/braces, unescaped newlines/chars)
+    try {
+      const repaired = jsonrepair(clean);
+      return JSON.parse(repaired);
+    } catch (_) {}
+
+    // 4. Try recovery by trimming up to the last balanced/valid closing brace in truncated output
+    try {
+      const lastBrace = clean.lastIndexOf('}');
+      if (lastBrace > 0) {
+        const candidate = clean.substring(0, lastBrace + 1);
+        const repaired = jsonrepair(candidate);
+        return JSON.parse(repaired);
+      }
+    } catch (_) {}
+
+    // 5. Fallback regex line extractor for semi-structured lyric arrays
+    try {
+      const extractedLines: any[] = [];
+      const lineRegex = /\{\s*"?(?:id)"?\s*:\s*"?[^",}]*"?\s*,\s*"?(?:startTime|start)"?\s*:\s*([0-9.]+)\s*,\s*"?(?:endTime|end)"?\s*:\s*([0-9.]+)\s*,\s*"?(?:text)"?\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/gi;
+      let match;
+      while ((match = lineRegex.exec(clean)) !== null) {
+        extractedLines.push({
+          startTime: parseFloat(match[1]),
+          endTime: parseFloat(match[2]),
+          text: match[3].replace(/\\"/g, '"')
+        });
+      }
+
+      if (extractedLines.length > 0) {
+        const bpmMatch = clean.match(/"bpm"\s*:\s*(\d+)/i);
+        const keyMatch = clean.match(/"key"\s*:\s*"([^"]+)"/i);
+        const langMatch = clean.match(/"language"\s*:\s*"([^"]+)"/i);
+        return {
+          lines: extractedLines,
+          bpm: bpmMatch ? parseInt(bpmMatch[1], 10) : 120,
+          key: keyMatch ? keyMatch[1] : 'C Major',
+          language: langMatch ? langMatch[1] : 'Auto-detect'
+        };
+      }
+    } catch (_) {}
+
+    console.warn("[safeExtractJson] Could not reconstruct JSON from output, returning null. Length:", text.length);
+    return null;
+  }
+
+  // Robust Gemini content generation with multi-model fallback and exponential backoff on 503/429
+  async function executeWithCandidateModels(
+    ai: any,
+    candidateModels: string[],
+    requestFactory: (model: string) => any,
+    operationName: string
+  ): Promise<any> {
+    let lastError: any = null;
+
+    for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
+      const model = candidateModels[mIdx];
+      const maxRetries = 2;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const reqPayload = requestFactory(model);
+          const response = await ai.models.generateContent(reqPayload);
+          if (response && response.text) {
+            return response;
+          }
+        } catch (err: any) {
+          lastError = err;
+          const isDemandSpikeOrQuota =
+            err?.status === 503 ||
+            err?.code === 503 ||
+            err?.status === 429 ||
+            err?.code === 429 ||
+            err?.message?.includes('503') ||
+            err?.message?.includes('high demand') ||
+            err?.message?.includes('UNAVAILABLE') ||
+            err?.message?.includes('quota') ||
+            err?.message?.includes('RESOURCE_EXHAUSTED');
+
+          if (isDemandSpikeOrQuota && attempt < maxRetries - 1) {
+            const waitMs = 1200 * (attempt + 1) + Math.random() * 400;
+            console.warn(`[${operationName}] Model ${model} encountered transient high demand/rate limit. Retrying in ${Math.round(waitMs)}ms...`);
+            await new Promise(r => setTimeout(r, waitMs));
+            continue;
+          }
+
+          console.warn(`[${operationName}] Model ${model} unavailable (attempt ${attempt + 1}/${maxRetries}):`, err?.message || err);
+          break; // Move to next candidate model
+        }
       }
     }
+
+    if (lastError) {
+      throw lastError;
+    }
+    throw new Error(`All candidate models failed for ${operationName}`);
   }
 
   // --- API ENDPOINTS ---
@@ -884,13 +976,13 @@ async function startServer() {
   // 2. Audio Transcription endpoint (Audio -> Synchronized LRC JSON)
   app.post('/api/transcribe', async (req, res) => {
     try {
-      const { audioBase64, mimeType = 'audio/mp3', language, prompt } = req.body;
+      const { audioBase64, mimeType = 'audio/mp3', language, prompt, onsetOffset = -0.5 } = req.body;
       if (!audioBase64) {
         return res.status(400).json({ error: 'Audio data is required' });
       }
 
       const ai = getGeminiClient(req);
-      const candidateModels = ['gemini-2.5-flash', 'gemini-3.7-flash'];
+      const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
 
       const systemPrompt = `You are a high-precision music transcription and lyrics synchronization engine.
 You specialize in English, Korean (한국어 / Hangul, K-Pop, melisma), Chinese (中文 / Mandarin, Cantonese, Traditional & Simplified Hanzi characters), Japanese, and mixed multilingual lyrics.
@@ -930,95 +1022,91 @@ Return strictly JSON:
   ]
 }`;
 
-      let aiResponse: any = null;
-      let lastError: any = null;
-
-      for (const model of candidateModels) {
-        try {
-          aiResponse = await ai.models.generateContent({
-            model,
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  { inlineData: { data: audioBase64, mimeType } },
-                  { text: systemPrompt }
-                ]
-              }
-            ],
-            config: {
-              maxOutputTokens: 8192,
-              responseMimeType: 'application/json',
-              responseSchema: {
-                type: 'OBJECT',
-                properties: {
-                  text: { type: 'STRING' },
-                  language: { type: 'STRING' },
-                  bpm: { type: 'NUMBER' },
-                  key: { type: 'STRING' },
-                  lines: {
-                    type: 'ARRAY',
-                    items: {
-                      type: 'OBJECT',
-                      properties: {
-                        id: { type: 'STRING' },
-                        startTime: { type: 'NUMBER' },
-                        endTime: { type: 'NUMBER' },
-                        text: { type: 'STRING' },
-                        words: {
-                          type: 'ARRAY',
-                          items: {
-                            type: 'OBJECT',
-                            properties: {
-                              word: { type: 'STRING' },
-                              startTime: { type: 'NUMBER' },
-                              endTime: { type: 'NUMBER' }
-                            },
-                            required: ['word', 'startTime', 'endTime']
-                          }
-                        }
-                      },
-                      required: ['startTime', 'endTime', 'text']
-                    }
-                  }
-                },
-                required: ['lines']
-              }
+      const aiResponse = await executeWithCandidateModels(
+        ai,
+        candidateModels,
+        (model) => ({
+          model,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { inlineData: { data: audioBase64, mimeType } },
+                { text: systemPrompt }
+              ]
             }
-          });
-          if (aiResponse && aiResponse.text) {
-            break;
+          ],
+          config: {
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                text: { type: 'STRING' },
+                language: { type: 'STRING' },
+                bpm: { type: 'NUMBER' },
+                key: { type: 'STRING' },
+                lines: {
+                  type: 'ARRAY',
+                  items: {
+                    type: 'OBJECT',
+                    properties: {
+                      id: { type: 'STRING' },
+                      startTime: { type: 'NUMBER' },
+                      endTime: { type: 'NUMBER' },
+                      text: { type: 'STRING' },
+                      words: {
+                        type: 'ARRAY',
+                        items: {
+                          type: 'OBJECT',
+                          properties: {
+                            word: { type: 'STRING' },
+                            startTime: { type: 'NUMBER' },
+                            endTime: { type: 'NUMBER' }
+                          },
+                          required: ['word', 'startTime', 'endTime']
+                        }
+                      }
+                    },
+                    required: ['startTime', 'endTime', 'text']
+                  }
+                }
+              },
+              required: ['lines']
+            }
           }
-        } catch (err: any) {
-          console.warn(`[Transcription] Model ${model} failed, trying next fallback:`, err.message || err);
-          lastError = err;
-        }
-      }
-
-      if (!aiResponse && lastError) {
-        throw lastError;
-      }
+        }),
+        'Transcription'
+      );
 
       const responseText = aiResponse?.text || '';
       const parsedData = safeExtractJson(responseText);
 
       if (parsedData && Array.isArray(parsedData.lines) && parsedData.lines.length > 0) {
+        const compensation = (typeof onsetOffset === 'number' && !isNaN(onsetOffset)) ? onsetOffset : -0.5;
         const sortedLines = parsedData.lines
           .map((l: any, idx: number) => {
-            const rawStart = typeof l.startTime === 'number' && !isNaN(l.startTime) ? Math.max(0, l.startTime) : idx * 4;
-            const rawEnd = typeof l.endTime === 'number' && !isNaN(l.endTime) && l.endTime > rawStart ? l.endTime : rawStart + 3.5;
+            const origStart = typeof l.startTime === 'number' && !isNaN(l.startTime) ? l.startTime : idx * 4;
+            const origEnd = typeof l.endTime === 'number' && !isNaN(l.endTime) && l.endTime > origStart ? l.endTime : origStart + 3.5;
             const lineText = String(l.text || '').trim();
+
+            const rawStart = Math.max(0, Number((origStart + compensation).toFixed(2)));
+            const rawEnd = Math.max(rawStart + 0.3, Number((origEnd + compensation).toFixed(2)));
 
             let words = Array.isArray(l.words) && l.words.length > 0
               ? l.words.map((w: any) => {
-                  const wStart = typeof w.startTime === 'number' ? Math.max(rawStart, w.startTime) : (typeof w.start === 'number' ? Math.max(rawStart, w.start) : rawStart);
-                  const wEnd = typeof w.endTime === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.endTime)) : (typeof w.end === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.end)) : Math.min(rawEnd, wStart + 0.4));
+                  const wOrigStart = typeof w.startTime === 'number' ? w.startTime : (typeof w.start === 'number' ? w.start : origStart);
+                  const wOrigEnd = typeof w.endTime === 'number' ? w.endTime : (typeof w.end === 'number' ? w.end : wOrigStart + 0.4);
+                  const compStart = Math.max(0, Number((wOrigStart + compensation).toFixed(2)));
+                  const compEnd = Math.max(compStart + 0.05, Number((wOrigEnd + compensation).toFixed(2)));
+                  const wStart = Math.max(rawStart, compStart);
+                  const wEnd = Math.max(wStart + 0.05, Math.min(rawEnd, compEnd));
                   return {
                     word: String(w.word || '').trim(),
-                    startTime: wStart,
-                    endTime: wEnd,
-                    start: wStart,
-                    end: wEnd
+                    startTime: Number(wStart.toFixed(2)),
+                    endTime: Number(wEnd.toFixed(2)),
+                    start: Number(wStart.toFixed(2)),
+                    end: Number(wEnd.toFixed(2))
                   };
                 }).filter((w: any) => w.word.length > 0)
               : [];
@@ -1070,9 +1158,9 @@ Return strictly JSON:
         ]
       });
     } catch (err: any) {
-      console.error('Transcription API Error:', err);
+      console.warn('Transcription Notice (fallback generated):', err?.message || err);
       res.json({
-        error: err.message || 'Failed to process audio transcription',
+        warning: err?.message || 'High demand encountered. Fallback synchronized lines generated.',
         language: 'English',
         bpm: 120,
         key: 'C Major',
@@ -1086,164 +1174,137 @@ Return strictly JSON:
 
   // 3. Forced Alignment endpoint (Audio + Provided Lyrics -> Precise Synchronized LRC JSON)
   app.post('/api/align', async (req, res) => {
+    const { audioBase64, mimeType = 'audio/mp3', rawLyrics, language, existingLines, duration, onsetOffset = -0.5 } = req.body;
     try {
-      const { audioBase64, mimeType = 'audio/mp3', rawLyrics, language, existingLines, duration } = req.body;
       if (!audioBase64 || !rawLyrics) {
         return res.status(400).json({ error: 'Audio data and raw lyrics text are required' });
       }
 
       const ai = getGeminiClient(req);
-      const candidateModels = ['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.1-pro-preview'];
+      const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
 
-      let existingContext = '';
-      if (Array.isArray(existingLines) && existingLines.length > 0) {
-        existingContext = `\nExisting Line Sequence and Reference Timestamps (use these as reference anchors, then align precisely to the actual audible vocal articulations in the audio track):\n` +
-          existingLines.map((l: any, i: number) => `Line ${i + 1} [approx start: ${typeof l.startTime === 'number' ? l.startTime.toFixed(2) : '0.00'}s${typeof l.endTime === 'number' ? `, end: ${l.endTime.toFixed(2)}s` : ''}]: ${l.text}`).join('\n');
-      }
+      const systemPrompt = `You are a high-precision music transcription and lyrics synchronization engine.
+You specialize in English, Korean (한국어 / Hangul, K-Pop, melisma), Chinese (中文 / Mandarin, Cantonese, Traditional & Simplified Hanzi characters), Japanese, and mixed multilingual lyrics.
 
-      const systemPrompt = `You are an expert audio engineer and precision multilingual forced audio alignment system.
-You are given an audio track and the exact, user-provided lyrics.
-Your objective: Perform ultra-precise acoustic forced alignment. Listen to the vocals in the audio recording and align the provided lyrics line-by-line and word-by-word with the actual vocal articulations to produce millisecond-accurate timestamps.
+Target Song Language: ${language || 'Auto-detect'}.
 
-User Provided Lyrics:
+REFERENCE LYRICS TO SYNCHRONIZE:
+The user has provided the following lyrics for this song.
+Synchronize each of these exact lines to the audible singing voice in the audio track:
+"""
 ${rawLyrics}
-${existingContext}
-${typeof duration === 'number' && duration > 0 ? `Total Audio Duration: ${duration.toFixed(2)} seconds.` : ''}
-Target Language Preference: ${language || 'Auto-detect'}
+"""
 
-CRITICAL FORCED ALIGNMENT RULES:
-1. STRICT TEXT FIDELITY & PRESERVATION:
-   - Match the provided lyrics text line-by-line without altering, replacing, misspelling, or translating words.
-   - Do NOT omit any line from the user's provided lyrics. Every single line in the input must appear in the output "lines" array with its corresponding timestamp.
-   - If a line repeats (e.g. repeated chorus), find its distinct chronological occurrence in the audio.
+Rules for High-Accuracy Transcription & Alignment:
+1. Listen carefully to the singing vocals and speech in the audio.
+2. Synchronize each provided lyric line with the exact moment it is sung in the audio track.
+3. Keep the user's provided lyric text for each line intact.
+4. Exact Acoustic Boundaries:
+   - startTime: The EXACT second where vocal articulation begins for the line. If there is an intro, do NOT start at 0.00s.
+   - endTime: The EXACT second where vocal sound finishes decaying or pauses.
+5. Word-Level Timings: Provide word-level start and end timestamps in the "words" array for each line.
+6. Ensure timestamps are strictly chronological (startTime < endTime and sorted ascending).
 
-2. PRECISION ACOUSTIC ONSET & VOCAL DETECTION:
-   - Identify the actual singing vocals in the audio recording.
-   - startTime: The EXACT second (floating point, e.g. 14.25) where the singer articulates the first audible syllable of the line. If there is an instrumental intro (e.g. 10s), do NOT start at 0.00s! Start where singing begins.
-   - endTime: The EXACT second (e.g. 17.80) where the vocal sound decay ends or the phrase finishes.
-   - For instrumental solos, breaks, and pauses between verses, do NOT place timestamps during silence. Ensure distinct gaps between phrases.
-
-3. PRECISE WORD-LEVEL TIMESTAMPS:
-   - For each line, break it down into words and provide the start and end timestamp for each word in the "words" array matching vocal articulations:
-     words: [
-       { "word": "First", "startTime": 14.25, "endTime": 14.70 },
-       { "word": "word", "startTime": 14.75, "endTime": 15.60 }
-     ]
-
-4. STRICT CHRONOLOGICAL MONOTONICITY:
-   - All lines must follow ascending chronological order: line[0].startTime <= line[1].startTime ...
-   - For every line and word: startTime < endTime.
-   - All timestamps must be non-negative and within the audio track duration.
-
-5. MULTILINGUAL ACCURACY:
-   - Accurately align Korean Hangul (한국어, K-pop vocal chops & melisma), Chinese (中文 / 國語 / 粵語), Japanese (日本語), English, Spanish, and mixed-language rap/vocals.
-
-Schema required:
+Return strictly JSON:
 {
-  "text": ${JSON.stringify(rawLyrics)},
-  "language": "${language || 'Auto'}",
+  "text": "Full plain text transcription",
+  "language": "Detected primary language (e.g. Korean, Chinese, English, Mixed)",
   "bpm": 120,
   "key": "C Major",
   "lines": [
     {
       "id": "line-1",
-      "startTime": 4.50,
-      "endTime": 8.20,
-      "text": "Exact lyric text line",
+      "startTime": 4.25,
+      "endTime": 7.80,
+      "text": "Exact provided lyric line",
       "words": [
-        { "word": "Exact", "startTime": 4.50, "endTime": 5.20 },
-        { "word": "lyric", "startTime": 5.25, "endTime": 6.10 },
-        { "word": "text", "startTime": 6.15, "endTime": 7.00 },
-        { "word": "line", "startTime": 7.05, "endTime": 8.20 }
+        { "word": "Lyric", "startTime": 4.25, "endTime": 5.10 },
+        { "word": "text", "startTime": 5.15, "endTime": 6.20 },
+        { "word": "line", "startTime": 6.25, "endTime": 7.80 }
       ]
     }
   ]
 }`;
 
-      let aiResponse: any = null;
-      let lastError: any = null;
-
-      for (const model of candidateModels) {
-        try {
-          aiResponse = await ai.models.generateContent({
-            model,
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  { inlineData: { data: audioBase64, mimeType } },
-                  { text: systemPrompt }
-                ]
-              }
-            ],
-            config: {
-              maxOutputTokens: 8192,
-              temperature: 0.1,
-              responseMimeType: 'application/json',
-              responseSchema: {
-                type: 'OBJECT',
-                properties: {
-                  text: { type: 'STRING' },
-                  language: { type: 'STRING' },
-                  bpm: { type: 'NUMBER' },
-                  key: { type: 'STRING' },
-                  lines: {
-                    type: 'ARRAY',
-                    items: {
-                      type: 'OBJECT',
-                      properties: {
-                        id: { type: 'STRING' },
-                        startTime: { type: 'NUMBER' },
-                        endTime: { type: 'NUMBER' },
-                        text: { type: 'STRING' },
-                        words: {
-                          type: 'ARRAY',
-                          items: {
-                            type: 'OBJECT',
-                            properties: {
-                              word: { type: 'STRING' },
-                              startTime: { type: 'NUMBER' },
-                              endTime: { type: 'NUMBER' }
-                            },
-                            required: ['word', 'startTime', 'endTime']
-                          }
-                        }
-                      },
-                      required: ['startTime', 'endTime', 'text']
-                    }
-                  }
-                },
-                required: ['lines']
-              }
+      const aiResponse = await executeWithCandidateModels(
+        ai,
+        candidateModels,
+        (model) => ({
+          model,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { inlineData: { data: audioBase64, mimeType } },
+                { text: systemPrompt }
+              ]
             }
-          });
-          if (aiResponse && aiResponse.text) {
-            break;
+          ],
+          config: {
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                text: { type: 'STRING' },
+                language: { type: 'STRING' },
+                bpm: { type: 'NUMBER' },
+                key: { type: 'STRING' },
+                lines: {
+                  type: 'ARRAY',
+                  items: {
+                    type: 'OBJECT',
+                    properties: {
+                      id: { type: 'STRING' },
+                      startTime: { type: 'NUMBER' },
+                      endTime: { type: 'NUMBER' },
+                      text: { type: 'STRING' },
+                      words: {
+                        type: 'ARRAY',
+                        items: {
+                          type: 'OBJECT',
+                          properties: {
+                            word: { type: 'STRING' },
+                            startTime: { type: 'NUMBER' },
+                            endTime: { type: 'NUMBER' }
+                          },
+                          required: ['word', 'startTime', 'endTime']
+                        }
+                      }
+                    },
+                    required: ['startTime', 'endTime', 'text']
+                  }
+                }
+              },
+              required: ['lines']
+            }
           }
-        } catch (err: any) {
-          console.warn(`[Alignment] Model ${model} failed, trying next fallback:`, err.message || err);
-          lastError = err;
-        }
-      }
-
-      if (!aiResponse && lastError) {
-        throw lastError;
-      }
+        }),
+        'Alignment'
+      );
 
       const responseText = aiResponse?.text || '';
       const parsedData = safeExtractJson(responseText);
 
       if (parsedData && Array.isArray(parsedData.lines) && parsedData.lines.length > 0) {
+        const compensation = (typeof onsetOffset === 'number' && !isNaN(onsetOffset)) ? onsetOffset : -0.5;
         const sortedLines = parsedData.lines
           .map((l: any, idx: number) => {
-            const rawStart = typeof l.startTime === 'number' && !isNaN(l.startTime) ? Math.max(0, l.startTime) : idx * 4;
-            const rawEnd = typeof l.endTime === 'number' && !isNaN(l.endTime) && l.endTime > rawStart ? l.endTime : rawStart + 3.5;
+            const origStart = typeof l.startTime === 'number' && !isNaN(l.startTime) ? l.startTime : idx * 4;
+            const origEnd = typeof l.endTime === 'number' && !isNaN(l.endTime) && l.endTime > origStart ? l.endTime : origStart + 3.5;
             const lineText = String(l.text || '').trim();
+
+            const rawStart = Math.max(0, Number((origStart + compensation).toFixed(2)));
+            const rawEnd = Math.max(rawStart + 0.3, Number((origEnd + compensation).toFixed(2)));
 
             let words = Array.isArray(l.words) && l.words.length > 0
               ? l.words.map((w: any) => {
-                  const wStart = typeof w.startTime === 'number' ? Math.max(rawStart, w.startTime) : (typeof w.start === 'number' ? Math.max(rawStart, w.start) : rawStart);
-                  const wEnd = typeof w.endTime === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.endTime)) : (typeof w.end === 'number' ? Math.max(wStart + 0.05, Math.min(rawEnd, w.end)) : Math.min(rawEnd, wStart + 0.4));
+                  const wOrigStart = typeof w.startTime === 'number' ? w.startTime : (typeof w.start === 'number' ? w.start : origStart);
+                  const wOrigEnd = typeof w.endTime === 'number' ? w.endTime : (typeof w.end === 'number' ? w.end : wOrigStart + 0.4);
+                  const compStart = Math.max(0, Number((wOrigStart + compensation).toFixed(2)));
+                  const compEnd = Math.max(compStart + 0.05, Number((wOrigEnd + compensation).toFixed(2)));
+                  const wStart = Math.max(rawStart, compStart);
+                  const wEnd = Math.max(wStart + 0.05, Math.min(rawEnd, compEnd));
                   return {
                     word: String(w.word || '').trim(),
                     startTime: Number(wStart.toFixed(2)),
@@ -1271,8 +1332,13 @@ Schema required:
               });
             }
 
+            let matchedId = l.id;
+            if (Array.isArray(existingLines) && existingLines[idx] && existingLines[idx].id) {
+              matchedId = existingLines[idx].id;
+            }
+
             return {
-              id: l.id || `align-${idx}-${Date.now()}`,
+              id: matchedId || `line-${idx}-${Date.now()}`,
               startTime: Number(rawStart.toFixed(2)),
               endTime: Number(rawEnd.toFixed(2)),
               text: lineText,
@@ -1282,22 +1348,43 @@ Schema required:
           .filter((l: any) => l.text.length > 0)
           .sort((a: any, b: any) => a.startTime - b.startTime);
 
+        const processedLines = sortedLines;
+
+        // If existingLines had more lines that Gemini missed, preserve them non-destructively!
+        if (Array.isArray(existingLines) && existingLines.length > processedLines.length) {
+          const remainingExisting = existingLines.slice(processedLines.length);
+          let prevEnd = processedLines.length > 0 ? processedLines[processedLines.length - 1].endTime : 0;
+          for (let ri = 0; ri < remainingExisting.length; ri++) {
+            const el = remainingExisting[ri];
+            const start = typeof el.startTime === 'number' && el.startTime > 0 ? el.startTime : Number((prevEnd + 0.2).toFixed(2));
+            const end = typeof el.endTime === 'number' && el.endTime > start ? el.endTime : Number((start + 3.0).toFixed(2));
+            prevEnd = end;
+            processedLines.push({
+              id: el.id || `align-remain-${ri}-${Date.now()}`,
+              startTime: start,
+              endTime: end,
+              text: el.text || '',
+              words: Array.isArray(el.words) ? el.words : []
+            });
+          }
+        }
+
         return res.json({
           ...parsedData,
-          lines: sortedLines
+          lines: processedLines
         });
       }
 
-      // If Gemini fails, check if existingLines with timestamps are available
-      if (Array.isArray(existingLines) && existingLines.length > 0 && existingLines.some((l: any) => l.startTime > 0)) {
+      // If Gemini response didn't produce lines, check if existingLines are available
+      if (Array.isArray(existingLines) && existingLines.length > 0) {
         return res.json({
-          text: req.body.rawLyrics,
+          text: rawLyrics,
           lines: existingLines.map((l: any, idx: number) => ({
-            id: `align-exist-${idx}`,
-            startTime: l.startTime || idx * 4,
-            endTime: l.endTime || (l.startTime ? l.startTime + 3.5 : (idx + 1) * 4),
-            text: l.text,
-            words: []
+            id: l.id || `align-exist-${idx}`,
+            startTime: typeof l.startTime === 'number' ? l.startTime : idx * 3.5,
+            endTime: typeof l.endTime === 'number' && l.endTime > l.startTime ? l.endTime : (typeof l.startTime === 'number' ? l.startTime + 3.0 : (idx + 1) * 3.5),
+            text: l.text || '',
+            words: Array.isArray(l.words) ? l.words : []
           })),
           bpm: 120,
           key: 'C Major'
@@ -1305,13 +1392,13 @@ Schema required:
       }
 
       // Proportional fallback alignment based on duration if available
-      const rawLines = (req.body.rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+      const rawLines = (rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
       const totalDur = typeof duration === 'number' && duration > 10 ? duration : (rawLines.length * 4 + 10);
       const introTime = 4.0;
       const availableDur = Math.max(10, totalDur - introTime - 2);
       const lineInterval = availableDur / Math.max(1, rawLines.length);
 
-      const lines = rawLines.map((l: string, idx: number) => {
+      const fallbackLines = rawLines.map((l: string, idx: number) => {
         const st = Number((introTime + idx * lineInterval).toFixed(2));
         const et = Number((st + Math.min(3.5, lineInterval * 0.9)).toFixed(2));
         const tokens = l.split(/\s+/).filter(Boolean);
@@ -1334,20 +1421,37 @@ Schema required:
       });
 
       res.json({
-        text: req.body.rawLyrics,
-        lines,
+        text: rawLyrics,
+        lines: fallbackLines,
         bpm: 120,
         key: 'C Major'
       });
     } catch (err: any) {
-      console.error('Alignment API Error:', err);
-      const rawLines = (req.body.rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
-      const totalDur = typeof req.body.duration === 'number' && req.body.duration > 10 ? req.body.duration : (rawLines.length * 4 + 10);
+      console.warn('Alignment fallback triggered gracefully:', err?.message || err);
+      // Non-destructive preservation: Never clear or discard existing lines on error!
+      if (Array.isArray(existingLines) && existingLines.length > 0) {
+        return res.json({
+          text: rawLyrics,
+          lines: existingLines.map((l: any, idx: number) => ({
+            id: l.id || `align-exist-${idx}`,
+            startTime: typeof l.startTime === 'number' ? l.startTime : idx * 3.5,
+            endTime: typeof l.endTime === 'number' && l.endTime > l.startTime ? l.endTime : (typeof l.startTime === 'number' ? l.startTime + 3.0 : (idx + 1) * 3.5),
+            text: l.text || '',
+            words: Array.isArray(l.words) ? l.words : []
+          })),
+          bpm: 120,
+          key: 'C Major',
+          warning: err.message
+        });
+      }
+
+      const rawLines = (rawLyrics || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+      const totalDur = typeof duration === 'number' && duration > 10 ? duration : (rawLines.length * 4 + 10);
       const introTime = 4.0;
       const availableDur = Math.max(10, totalDur - introTime - 2);
       const lineInterval = availableDur / Math.max(1, rawLines.length);
 
-      const lines = rawLines.map((l: string, idx: number) => {
+      const fallbackLines = rawLines.map((l: string, idx: number) => {
         const st = Number((introTime + idx * lineInterval).toFixed(2));
         const et = Number((st + Math.min(3.5, lineInterval * 0.9)).toFixed(2));
         const tokens = l.split(/\s+/).filter(Boolean);
@@ -1370,10 +1474,11 @@ Schema required:
       });
 
       res.json({
-        text: req.body.rawLyrics,
-        lines,
+        text: rawLyrics,
+        lines: fallbackLines,
         bpm: 120,
-        key: 'C Major'
+        key: 'C Major',
+        warning: err.message
       });
     }
   });
@@ -1387,7 +1492,7 @@ Schema required:
       }
 
       const ai = getGeminiClient(req);
-      const model = 'gemini-2.5-flash';
+      const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
 
       const systemPrompt = `Analyze the audio file and determine:
 1. Estimated tempo in BPM (beats per minute)
@@ -1407,26 +1512,31 @@ Return strictly valid JSON:
   ]
 }`;
 
-      const aiResponse = await ai.models.generateContent({
-        model,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  data: audioBase64,
-                  mimeType
-                }
-              },
-              { text: systemPrompt }
-            ]
+      const aiResponse = await executeWithCandidateModels(
+        ai,
+        candidateModels,
+        (model) => ({
+          model,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  inlineData: {
+                    data: audioBase64,
+                    mimeType
+                  }
+                },
+                { text: systemPrompt }
+              ]
+            }
+          ],
+          config: {
+            responseMimeType: 'application/json'
           }
-        ],
-        config: {
-          responseMimeType: 'application/json'
-        }
-      });
+        }),
+        'AudioAnalysis'
+      );
 
       const responseText = aiResponse.text || '';
       const parsedData = safeExtractJson(responseText);
@@ -1446,7 +1556,7 @@ Return strictly valid JSON:
         ]
       });
     } catch (err: any) {
-      console.error('Analyze API Error:', err);
+      console.warn('Analyze API Notice (Using fallback audio structure):', err?.message || err);
       res.json({
         bpm: 120,
         key: 'C Major',

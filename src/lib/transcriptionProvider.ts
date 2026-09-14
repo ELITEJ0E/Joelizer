@@ -115,15 +115,17 @@ export class GeminiServerProvider implements TranscriptionProvider {
     const base64Audio = await fileToBase64(audioFile);
     const mimeType = audioFile.type || 'audio/mp3';
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const response = await fetch('/api/transcribe', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       signal: options?.signal,
       body: JSON.stringify({
         audioBase64: base64Audio,
         mimeType,
         language: options?.language,
-        prompt: options?.prompt
+        prompt: options?.prompt,
+        onsetOffset: typeof options?.onsetOffset === 'number' ? options.onsetOffset : -0.5
       })
     });
 
@@ -152,9 +154,14 @@ export class GeminiServerProvider implements TranscriptionProvider {
     const base64Audio = await fileToBase64(audioFile);
     const mimeType = audioFile.type || 'audio/mp3';
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (options?.apiKey) {
+      headers['x-gemini-api-key'] = options.apiKey;
+    }
+
     const response = await fetch('/api/align', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       signal: options?.signal,
       body: JSON.stringify({
         audioBase64: base64Audio,
@@ -162,7 +169,8 @@ export class GeminiServerProvider implements TranscriptionProvider {
         rawLyrics,
         language: options?.language,
         duration: options?.duration,
-        existingLines: options?.existingLines
+        existingLines: options?.existingLines,
+        onsetOffset: typeof options?.onsetOffset === 'number' ? options.onsetOffset : -0.5
       })
     });
 

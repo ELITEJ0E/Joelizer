@@ -30,6 +30,7 @@ export interface TranscriptionOptions {
   prompt?: string;
   provider?: 'gemini' | 'whisperx' | 'faster_whisper' | 'openai';
   signal?: AbortSignal;
+  onsetOffset?: number;
 }
 
 export interface AlignmentOptions {
@@ -37,7 +38,9 @@ export interface AlignmentOptions {
   language?: string;
   signal?: AbortSignal;
   duration?: number;
-  existingLines?: { text: string; startTime?: number; endTime?: number }[];
+  existingLines?: { text: string; startTime?: number; endTime?: number; id?: string; words?: WordTiming[] }[];
+  apiKey?: string;
+  onsetOffset?: number;
 }
 
 export interface TranscriptionResult {
