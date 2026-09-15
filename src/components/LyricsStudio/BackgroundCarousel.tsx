@@ -6,6 +6,9 @@ import { useStore } from '../../store/useStore';
 
 export function BackgroundCarousel() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+  const currentTrack = useStore(s => s.tracks[s.currentTrackIndex]);
+  const globalAlbumArt = useStore(s => s.albumArt);
+  const albumArtUrl = currentTrack?.albumArt || globalAlbumArt;
   const selectedPresetId = useLyricsVideoStore(s => s.selectedBackgroundPresetId);
   const customBackground = useLyricsVideoStore(s => s.customBackground);
   const setSelectedBackgroundPresetId = useLyricsVideoStore(s => s.setSelectedBackgroundPresetId);
@@ -136,6 +139,85 @@ export function BackgroundCarousel() {
                 <span className="text-[9px] font-mono font-medium text-white/80 uppercase tracking-wider bg-black/60 px-1.5 py-0.5 rounded border border-white/10 w-fit z-10">
                   {preset.category}
                 </span>
+
+                {/* Actual background visual elements matching the canvas */}
+                {/* 1. Blurred Album Art for 'cover' & 'glass' */}
+                {(preset.id === 'cover' || preset.id === 'glass') && albumArtUrl && (
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <img
+                      src={albumArtUrl}
+                      alt=""
+                      className="w-full h-full object-cover scale-150 filter blur-[8px] brightness-75 opacity-80"
+                    />
+                    {preset.id === 'glass' && (
+                      <div className="absolute inset-0 bg-white/10 backdrop-blur-[1px]">
+                        <div className="w-full h-full opacity-20 bg-[linear-gradient(to_bottom,transparent_50%,rgba(255,255,255,0.4)_50%)] bg-[length:100%_4px]" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/30" />
+                  </div>
+                )}
+
+                {/* 2. Frosted Glass without album art fallback */}
+                {preset.id === 'glass' && !albumArtUrl && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute inset-0 bg-white/15 backdrop-blur-[1px]">
+                      <div className="w-full h-full opacity-25 bg-[linear-gradient(to_bottom,transparent_50%,rgba(255,255,255,0.4)_50%)] bg-[length:100%_4px]" />
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Waveform preview for 'waveform' and 'cyberpunk' */}
+                {(preset.id === 'waveform' || preset.id === 'cyberpunk') && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
+                    <svg viewBox="0 0 120 40" className="w-full h-10 px-1">
+                      <path
+                        d="M 0 20 Q 15 8 30 20 T 60 20 T 90 20 T 120 20"
+                        fill="none"
+                        stroke={preset.id === 'cyberpunk' ? '#ef4444' : '#00e5ff'}
+                        strokeWidth="2"
+                        className="drop-shadow-[0_0_4px_currentColor]"
+                      />
+                      {preset.id === 'cyberpunk' && (
+                        <path
+                          d="M 0 20 Q 20 26 40 20 T 80 20 T 120 20"
+                          fill="none"
+                          stroke="#fbbf24"
+                          strokeWidth="1.2"
+                          strokeOpacity="0.6"
+                        />
+                      )}
+                    </svg>
+                  </div>
+                )}
+
+                {/* 4. Particle dots for 'cyber', 'matrix', 'starfield' */}
+                {preset.id === 'cyber' && (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute top-2 left-6 w-1.5 h-1.5 rounded-full bg-[#00e5ff] shadow-[0_0_6px_#00e5ff]" />
+                    <div className="absolute bottom-3 right-8 w-2 h-2 rounded-full bg-[#ec4899] shadow-[0_0_8px_#ec4899]" />
+                    <div className="absolute top-7 right-5 w-1 h-1 rounded-full bg-[#00e5ff] shadow-[0_0_4px_#00e5ff]" />
+                    <div className="absolute bottom-2 left-10 w-1.5 h-1.5 rounded-full bg-[#ec4899] shadow-[0_0_6px_#ec4899]" />
+                  </div>
+                )}
+
+                {preset.id === 'matrix' && (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute top-3 left-4 w-1.5 h-1.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_#22c55e]" />
+                    <div className="absolute bottom-3 right-5 w-1.5 h-1.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_#22c55e]" />
+                    <div className="absolute top-6 left-12 w-1 h-1 rounded-full bg-[#4ade80] shadow-[0_0_5px_#4ade80]" />
+                    <div className="absolute top-4 right-10 w-1 h-1 rounded-full bg-[#22c55e] shadow-[0_0_5px_#22c55e]" />
+                  </div>
+                )}
+
+                {preset.id === 'starfield' && (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute top-2 left-8 w-1.5 h-1.5 rounded-full bg-[#c084fc] shadow-[0_0_6px_#c084fc]" />
+                    <div className="absolute bottom-4 right-6 w-1.5 h-1.5 rounded-full bg-[#ffffff] shadow-[0_0_6px_#ffffff]" />
+                    <div className="absolute top-6 right-12 w-1 h-1 rounded-full bg-[#e9d5ff] shadow-[0_0_4px_#e9d5ff]" />
+                    <div className="absolute bottom-2 left-6 w-1 h-1 rounded-full bg-[#ffffff] opacity-80" />
+                  </div>
+                )}
 
                 {/* Subtle dark vignette */}
                 <div className="absolute inset-0 bg-black/25 pointer-events-none" />

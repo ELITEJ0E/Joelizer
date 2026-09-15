@@ -16,7 +16,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Abstract',
     type: 'blurred-artwork',
     value: '',
-    previewGradient: 'linear-gradient(135deg, #4c1d95 0%, #06b6d4 100%)',
+    previewGradient: 'radial-gradient(circle at 30% 30%, #701a75 0%, #1e1b4b 50%, #070810 100%)',
     isDefault: true
   },
   {
@@ -25,7 +25,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #431407 0%, #9a3412 50%, #312e81 100%)',
-    previewGradient: 'linear-gradient(135deg, #f97316 0%, #b91c1c 50%, #4c1d95 100%)',
+    previewGradient: 'linear-gradient(135deg, #431407 0%, #9a3412 50%, #312e81 100%)',
     duration: '00:05'
   },
   {
@@ -34,7 +34,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Animated',
     type: 'particles',
     value: '#083344',
-    previewGradient: 'linear-gradient(135deg, #06b6d4 0%, #083344 50%, #ec4899 100%)',
+    previewGradient: 'linear-gradient(135deg, #02151c 0%, #042838 50%, #0c071a 100%)',
     duration: '00:03'
   },
   {
@@ -43,7 +43,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #2e1065 0%, #701a75 50%, #1e1b4b 100%)',
-    previewGradient: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #3b82f6 100%)',
+    previewGradient: 'linear-gradient(135deg, #2e1065 0%, #701a75 50%, #1e1b4b 100%)',
     duration: '00:04'
   },
   {
@@ -52,7 +52,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Cinematic',
     type: 'color',
     value: '#050508',
-    previewGradient: 'linear-gradient(180deg, #27272a 0%, #09090b 100%)',
+    previewGradient: 'linear-gradient(180deg, #18191f 0%, #050508 100%)',
     duration: '00:10'
   },
   {
@@ -61,7 +61,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #022c22 100%)',
-    previewGradient: 'linear-gradient(135deg, #0d9488 0%, #115e59 50%, #022c22 100%)',
+    previewGradient: 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #022c22 100%)',
     duration: '00:06'
   },
   {
@@ -70,7 +70,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #4c0519 0%, #881337 50%, #110105 100%)',
-    previewGradient: 'linear-gradient(135deg, #dc2626 0%, #7f1d1d 50%, #450a0a 100%)',
+    previewGradient: 'linear-gradient(135deg, #4c0519 0%, #881337 50%, #110105 100%)',
     duration: '00:06'
   },
   {
@@ -79,7 +79,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #451a03 0%, #78350f 50%, #170701 100%)',
-    previewGradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 50%, #78350f 100%)',
+    previewGradient: 'linear-gradient(135deg, #451a03 0%, #78350f 50%, #170701 100%)',
     duration: '00:08'
   },
   {
@@ -88,7 +88,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Animated',
     type: 'waveform',
     value: '#111317',
-    previewGradient: 'linear-gradient(135deg, #3b82f6 0%, #1e293b 50%, #111827 100%)',
+    previewGradient: 'linear-gradient(180deg, #181b22 0%, #111317 100%)',
     duration: '00:03'
   },
   {
@@ -97,7 +97,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(135deg, #831843 0%, #4c1d95 50%, #0f172a 100%)',
-    previewGradient: 'linear-gradient(135deg, #ff007f 0%, #701a75 50%, #0f172a 100%)',
+    previewGradient: 'linear-gradient(135deg, #831843 0%, #4c1d95 50%, #0f172a 100%)',
     duration: '00:04'
   },
   {
@@ -106,7 +106,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(135deg, #1e1b4b 0%, #831843 60%, #0f172a 100%)',
-    previewGradient: 'linear-gradient(135deg, #2e1065 0%, #be185d 60%, #030712 100%)',
+    previewGradient: 'linear-gradient(135deg, #1e1b4b 0%, #831843 60%, #0f172a 100%)',
     duration: '00:05'
   },
   {
@@ -115,7 +115,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #022c22 0%, #065f46 50%, #042f2e 100%)',
-    previewGradient: 'linear-gradient(135deg, #10b981 0%, #047857 50%, #064e3b 100%)',
+    previewGradient: 'linear-gradient(135deg, #022c22 0%, #065f46 50%, #042f2e 100%)',
     duration: '00:06'
   },
   {
@@ -124,7 +124,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #3b0764 0%, #6b21a8 50%, #1e1b4b 100%)',
-    previewGradient: 'linear-gradient(135deg, #c084fc 0%, #7e22ce 50%, #3b0764 100%)',
+    previewGradient: 'linear-gradient(135deg, #3b0764 0%, #6b21a8 50%, #1e1b4b 100%)',
     duration: '00:05'
   },
   {
@@ -133,7 +133,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #7c2d12 0%, #ea580c 50%, #431407 100%)',
-    previewGradient: 'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #7c2d12 100%)',
+    previewGradient: 'linear-gradient(135deg, #7c2d12 0%, #ea580c 50%, #431407 100%)',
     duration: '00:06'
   },
   {
@@ -142,7 +142,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Gradient',
     type: 'gradient',
     value: 'linear-gradient(135deg, #082f49 0%, #0284c7 50%, #0f172a 100%)',
-    previewGradient: 'linear-gradient(135deg, #38bdf8 0%, #0284c7 50%, #0369a1 100%)',
+    previewGradient: 'linear-gradient(135deg, #082f49 0%, #0284c7 50%, #0f172a 100%)',
     duration: '00:05'
   },
   {
@@ -151,7 +151,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Animated',
     type: 'particles',
     value: '#011c10',
-    previewGradient: 'linear-gradient(135deg, #22c55e 0%, #052e16 60%, #022c22 100%)',
+    previewGradient: 'linear-gradient(135deg, #000402 0%, #01160a 50%, #000402 100%)',
     duration: '00:04'
   },
   {
@@ -160,7 +160,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(135deg, #2e0854 0%, #11053b 50%, #03020c 100%)',
-    previewGradient: 'linear-gradient(135deg, #8b5cf6 0%, #4c1d95 60%, #1e1b4b 100%)',
+    previewGradient: 'linear-gradient(135deg, #2e0854 0%, #11053b 50%, #03020c 100%)',
     duration: '00:07'
   },
   {
@@ -169,7 +169,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(135deg, #5c182c 0%, #881337 50%, #1f050e 100%)',
-    previewGradient: 'linear-gradient(135deg, #f43f5e 0%, #9f1239 50%, #4c0519 100%)',
+    previewGradient: 'linear-gradient(135deg, #5c182c 0%, #881337 50%, #1f050e 100%)',
     duration: '00:05'
   },
   {
@@ -178,7 +178,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Animated',
     type: 'particles',
     value: '#050510',
-    previewGradient: 'linear-gradient(135deg, #c084fc 0%, #1e1b4b 60%, #030712 100%)',
+    previewGradient: 'radial-gradient(circle at center, #0e0b25 0%, #020205 100%)',
     duration: '00:04'
   },
   {
@@ -187,7 +187,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Cinematic',
     type: 'gradient',
     value: 'linear-gradient(180deg, #07090e 0%, #010204 100%)',
-    previewGradient: 'linear-gradient(180deg, #334155 0%, #0f172a 60%, #020617 100%)',
+    previewGradient: 'linear-gradient(180deg, #07090e 0%, #010204 100%)',
     duration: '00:10'
   },
   {
@@ -196,7 +196,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(180deg, #151518 0%, #202024 50%, #07070a 100%)',
-    previewGradient: 'linear-gradient(180deg, #4b5563 0%, #1f2937 50%, #111827 100%)',
+    previewGradient: 'linear-gradient(180deg, #151518 0%, #202024 50%, #07070a 100%)',
     duration: '00:04'
   },
   {
@@ -205,7 +205,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Abstract',
     type: 'blurred-artwork',
     value: 'glass',
-    previewGradient: 'linear-gradient(135deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 100%), linear-gradient(135deg, #6366f1 0%, #312e81 100%)',
+    previewGradient: 'radial-gradient(circle at 30% 30%, #701a75 0%, #1e1b4b 50%, #070810 100%)',
     duration: '00:06'
   },
   {
@@ -214,7 +214,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Theme',
     type: 'gradient',
     value: 'linear-gradient(135deg, #0f172a 0%, #0369a1 50%, #4c1d95 100%)',
-    previewGradient: 'linear-gradient(135deg, #06b6d4 0%, #4f46e5 50%, #312e81 100%)',
+    previewGradient: 'linear-gradient(135deg, #0f172a 0%, #0369a1 50%, #4c1d95 100%)',
     duration: '00:04'
   },
   {
@@ -223,7 +223,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     category: 'Animated',
     type: 'waveform',
     value: '#450a0a',
-    previewGradient: 'linear-gradient(135deg, #ef4444 0%, #7f1d1d 60%, #450a0a 100%)',
+    previewGradient: 'radial-gradient(circle at center, #2b0202 0%, #070000 100%)',
     duration: '00:03'
   }
 ];
@@ -251,22 +251,27 @@ export function drawBackgroundCanvas(
     ctx.fillRect(0, 0, W, H);
   } else if (bgSettings.type === 'gradient') {
     const val = bgSettings.value || '';
-    const colorMatches = val.match(/(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\))/g);
-    if (colorMatches && colorMatches.length >= 2) {
-      const grad = ctx.createLinearGradient(0, 0, W, H);
-      colorMatches.forEach((color, idx) => {
-        const stop = idx / (colorMatches.length - 1);
+    const isVertical = val.includes('180deg');
+    const grad = isVertical ? ctx.createLinearGradient(0, 0, 0, H) : ctx.createLinearGradient(0, 0, W, H);
+    
+    // Match colors and optional percentage stop (e.g. '#831843 60%')
+    const stopRegex = /(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\))(?:\s+(\d+)%)?/g;
+    const matches = Array.from(val.matchAll(stopRegex));
+    if (matches.length >= 2) {
+      matches.forEach((m, idx) => {
+        const color = m[1];
+        const stop = m[2] !== undefined ? Math.max(0, Math.min(1, parseInt(m[2], 10) / 100)) : idx / (matches.length - 1);
         grad.addColorStop(stop, color);
       });
       ctx.fillStyle = grad;
     } else if (val.startsWith('#')) {
       ctx.fillStyle = val;
     } else {
-      const grad = ctx.createLinearGradient(0, 0, W, H);
-      grad.addColorStop(0, '#0f172a');
-      grad.addColorStop(0.5, '#1e1b4b');
-      grad.addColorStop(1, '#0f172a');
-      ctx.fillStyle = grad;
+      const fallbackGrad = ctx.createLinearGradient(0, 0, W, H);
+      fallbackGrad.addColorStop(0, '#0f172a');
+      fallbackGrad.addColorStop(0.5, '#1e1b4b');
+      fallbackGrad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = fallbackGrad;
     }
     ctx.fillRect(0, 0, W, H);
   } else if (bgSettings.type === 'image') {

@@ -53,6 +53,7 @@ export interface RenderLyricsVideoOptions {
   elementPositions?: CanvasElementPositions;
   watermarkText?: string;
   showSafeArea?: boolean;
+  showBackgroundVisualizer?: boolean;
 }
 
 // Media cache to avoid reconstructing elements every frame
@@ -733,15 +734,24 @@ function renderLyrics(
 
   ctx.save();
   const isPortrait = H > W;
+  const visibleCount = options.visibleLineCount || 1;
 
-  // Find active line or nearest
+  // Find active line or upcoming line
   let activeIndex = lyricsLines.findIndex(
     (l) => currentTime >= l.startTime && currentTime <= l.endTime
   );
+
   if (activeIndex === -1) {
-    activeIndex = lyricsLines.findIndex((l) => l.startTime > currentTime);
-    if (activeIndex !== -1 && activeIndex > 0 && currentTime < lyricsLines[activeIndex].startTime) {
-      activeIndex = activeIndex - 1;
+    const nextIdx = lyricsLines.findIndex((l) => l.startTime > currentTime);
+    if (nextIdx !== -1) {
+      // Allow a smooth 0.3s trail fade-out for the previous line before shifting active index
+      if (nextIdx > 0 && currentTime < lyricsLines[nextIdx - 1].endTime + 0.3) {
+        activeIndex = nextIdx - 1;
+      } else {
+        activeIndex = nextIdx;
+      }
+    } else {
+      activeIndex = lyricsLines.length - 1;
     }
   }
 
@@ -751,17 +761,37 @@ function renderLyrics(
     return;
   }
 
-  // Cross-fade opacity computation
+  // Cross-fade opacity computation for the active line ONLY
   const lineDuration = Math.max(0.4, activeLine.endTime - activeLine.startTime);
   const elapsed = currentTime - activeLine.startTime;
   const remaining = activeLine.endTime - currentTime;
-  const transitionDuration = Math.min(0.25, lineDuration * 0.25);
+  const transitionDuration = Math.min(0.28, Math.max(0.15, lineDuration * 0.2));
 
-  const rawFadeIn = Math.max(0, Math.min(1, elapsed / transitionDuration));
-  const rawFadeOut = Math.max(0, Math.min(1, remaining / transitionDuration));
-  const smoothIn = rawFadeIn * rawFadeIn * (3 - 2 * rawFadeIn);
-  const smoothOut = rawFadeOut * rawFadeOut * (3 - 2 * rawFadeOut);
-  const lineOpacity = Math.min(smoothIn, smoothOut);
+  let activeLineOpacity = 1.0;
+  if (visibleCount === 1) {
+    const rawFadeIn = Math.max(0, Math.min(1, (currentTime - (activeLine.startTime - 0.25)) / 0.25));
+    const rawFadeOut = Math.max(0, Math.min(1, remaining / transitionDuration));
+    const smoothIn = rawFadeIn * rawFadeIn * (3 - 2 * rawFadeIn);
+    const smoothOut = rawFadeOut * rawFadeOut * (3 - 2 * rawFadeOut);
+    activeLineOpacity = Math.min(smoothIn, smoothOut);
+  } else {
+    // Multi-line / 2-line mode:
+    // When waiting before line start: steady preview opacity (0.55)
+    // When line starts singing: smooth transition up to 1.0
+    // When line is finishing: ONLY this active line fades out smoothly (1.0 -> 0)
+    if (currentTime < activeLine.startTime) {
+      activeLineOpacity = 0.55;
+    } else if (currentTime > activeLine.endTime) {
+      const trail = Math.max(0, Math.min(1, (activeLine.endTime + 0.3 - currentTime) / 0.3));
+      activeLineOpacity = trail * trail;
+    } else {
+      const rawFadeIn = Math.max(0, Math.min(1, elapsed / transitionDuration));
+      const rawFadeOut = Math.max(0, Math.min(1, remaining / transitionDuration));
+      const smoothIn = rawFadeIn * rawFadeIn * (3 - 2 * rawFadeIn);
+      const smoothOut = rawFadeOut * rawFadeOut * (3 - 2 * rawFadeOut);
+      activeLineOpacity = (0.55 + 0.45 * smoothIn) * smoothOut;
+    }
+  }
 
   // Typography settings
   const fontFamily =
@@ -850,101 +880,155 @@ function renderLyrics(
   }
 
   const lineHeight = fontSize * 1.35;
-  const totalBlockHeight = (sublines.length - 1) * lineHeight;
-  const startY = posY - totalBlockHeight / 2;
 
-  ctx.globalAlpha = lineOpacity;
-
-  // Previous line preview when visibleLineCount > 1
-  const visibleCount = options.visibleLineCount || 1;
-  if (visibleCount > 1 && activeIndex > 0) {
-    const prevLine = lyricsLines[activeIndex - 1];
-    ctx.save();
-    ctx.globalAlpha = lineOpacity * 0.35;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = textColor;
-    ctx.fillText(truncateWithEllipsis(ctx, prevLine.text, maxLineWidth), posX, startY - lineHeight);
-    ctx.restore();
+  // Compute vertical layout based on visibleCount
+  let startY = posY - ((sublines.length - 1) * lineHeight) / 2;
+  if (visibleCount === 2) {
+    const hasNextLine = activeIndex < lyricsLines.length - 1;
+    const totalLines = sublines.length + (hasNextLine ? 1 : 0);
+    startY = posY - ((totalLines - 1) * lineHeight) / 2;
+  } else if (visibleCount > 2) {
+    const hasPrev = activeIndex > 0;
+    const hasNext = activeIndex < lyricsLines.length - 1;
+    const totalLines =
+      sublines.length +
+      (hasPrev ? (visibleCount >= 5 && activeIndex > 1 ? 2 : 1) : 0) +
+      (hasNext ? (visibleCount >= 5 && activeIndex < lyricsLines.length - 2 ? 2 : 1) : 0);
+    const prevCount = hasPrev ? (visibleCount >= 5 && activeIndex > 1 ? 2 : 1) : 0;
+    startY = posY - ((totalLines - 1) * lineHeight) / 2 + prevCount * lineHeight;
   }
 
-  // Active line rendering
-  if (isKaraoke) {
-    sublines.forEach((sublineWords, sIdx) => {
-      const lineY = startY + sIdx * lineHeight;
-      const wordMetrics: TimedWordMetric[] = sublineWords.map((w) => ({
-        word: w.word,
-        width: ctx.measureText(w.word).width,
-        startTime: w.startTime,
-        endTime: w.endTime
-      }));
-
-      const sweepResult = computeContinuousLineSweep(wordMetrics, spaceWidth, currentTime);
-      const sublineStartX = posX - sweepResult.totalWidth / 2;
-
-      // Inactive base text pass
+  // 1. Previous line(s) preview ONLY when visibleLineCount > 2
+  if (visibleCount > 2) {
+    if (visibleCount >= 5 && activeIndex > 1) {
+      const prev2Line = lyricsLines[activeIndex - 2];
       ctx.save();
+      ctx.globalAlpha = 0.2;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = inactiveWordColor;
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillText(truncateWithEllipsis(ctx, prev2Line.text, maxLineWidth), posX, startY - 2 * lineHeight);
+      ctx.restore();
+    }
+    if (activeIndex > 0) {
+      const prevLine = lyricsLines[activeIndex - 1];
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.textAlign = 'center';
       ctx.fillStyle = inactiveWordColor;
       ctx.shadowBlur = 6;
       ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-      let curX = sublineStartX;
-      for (let i = 0; i < wordMetrics.length; i++) {
-        ctx.fillText(wordMetrics[i].word, curX, lineY);
-        curX += wordMetrics[i].width + spaceWidth;
-      }
+      ctx.fillText(truncateWithEllipsis(ctx, prevLine.text, maxLineWidth), posX, startY - lineHeight);
       ctx.restore();
-
-      // Liquid highlight sweep pass
-      if (sweepResult.highlightX > 0 && sweepResult.totalWidth > 0) {
-        ctx.save();
-        const totalW = sweepResult.totalWidth;
-        const hx = sweepResult.highlightX;
-        const spread = Math.min(18, Math.max(8, fontSize * 0.35));
-        const gradStart = Math.max(0, Math.min(0.999, (hx - spread) / totalW));
-        const gradEnd = Math.max(gradStart + 0.001, Math.min(1, (hx + spread) / totalW));
-
-        const grad = ctx.createLinearGradient(sublineStartX, 0, sublineStartX + totalW, 0);
-        if (gradStart > 0) grad.addColorStop(0, activeWordColor);
-        grad.addColorStop(gradStart, activeWordColor);
-        grad.addColorStop(gradEnd, 'rgba(255, 255, 255, 0)');
-        if (gradEnd < 1) grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-        ctx.fillStyle = grad;
-        ctx.shadowColor = activeWordColor;
-        ctx.shadowBlur = sweepResult.highlightProgress < 1 ? 16 : 4;
-
-        let curHx = sublineStartX;
-        for (let i = 0; i < wordMetrics.length; i++) {
-          ctx.fillText(wordMetrics[i].word, curHx, lineY);
-          curHx += wordMetrics[i].width + spaceWidth;
-        }
-        ctx.restore();
-      }
-    });
-  } else {
-    // Smooth crossfade mode
-    ctx.fillStyle = textColor;
-    sublines.forEach((sublineWords, sIdx) => {
-      const lineY = startY + sIdx * lineHeight;
-      const fullText = sublineWords.map((w) => w.word).join(' ');
-      const textW = ctx.measureText(fullText).width;
-      const textX = posX - textW / 2;
-      ctx.fillText(fullText, textX, lineY);
-    });
+    }
   }
 
-  // Next line preview when visibleLineCount > 1
+  // 2. Active line rendering (Line 1 in 2-line mode) with individual opacity
+  if (activeLineOpacity > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = activeLineOpacity;
+
+    if (isKaraoke) {
+      sublines.forEach((sublineWords, sIdx) => {
+        const lineY = startY + sIdx * lineHeight;
+        const wordMetrics: TimedWordMetric[] = sublineWords.map((w) => ({
+          word: w.word,
+          width: ctx.measureText(w.word).width,
+          startTime: w.startTime,
+          endTime: w.endTime
+        }));
+
+        const sweepResult = computeContinuousLineSweep(wordMetrics, spaceWidth, currentTime);
+        const sublineStartX = posX - sweepResult.totalWidth / 2;
+
+        // Inactive base text pass
+        ctx.save();
+        ctx.fillStyle = inactiveWordColor;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        let curX = sublineStartX;
+        for (let i = 0; i < wordMetrics.length; i++) {
+          ctx.fillText(wordMetrics[i].word, curX, lineY);
+          curX += wordMetrics[i].width + spaceWidth;
+        }
+        ctx.restore();
+
+        // Liquid highlight sweep pass
+        if (sweepResult.highlightX > 0 && sweepResult.totalWidth > 0) {
+          ctx.save();
+          const totalW = sweepResult.totalWidth;
+          const hx = sweepResult.highlightX;
+          const spread = Math.min(18, Math.max(8, fontSize * 0.35));
+          const gradStart = Math.max(0, Math.min(0.999, (hx - spread) / totalW));
+          const gradEnd = Math.max(gradStart + 0.001, Math.min(1, (hx + spread) / totalW));
+
+          const grad = ctx.createLinearGradient(sublineStartX, 0, sublineStartX + totalW, 0);
+          if (gradStart > 0) grad.addColorStop(0, activeWordColor);
+          grad.addColorStop(gradStart, activeWordColor);
+          grad.addColorStop(gradEnd, 'rgba(255, 255, 255, 0)');
+          if (gradEnd < 1) grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+          ctx.fillStyle = grad;
+          ctx.shadowColor = activeWordColor;
+          ctx.shadowBlur = sweepResult.highlightProgress < 1 ? 16 : 4;
+
+          let curHx = sublineStartX;
+          for (let i = 0; i < wordMetrics.length; i++) {
+            ctx.fillText(wordMetrics[i].word, curHx, lineY);
+            curHx += wordMetrics[i].width + spaceWidth;
+          }
+          ctx.restore();
+        }
+      });
+    } else {
+      // Smooth crossfade mode
+      ctx.fillStyle = textColor;
+      sublines.forEach((sublineWords, sIdx) => {
+        const lineY = startY + sIdx * lineHeight;
+        const fullText = sublineWords.map((w) => w.word).join(' ');
+        const textW = ctx.measureText(fullText).width;
+        const textX = posX - textW / 2;
+        ctx.fillText(fullText, textX, lineY);
+      });
+    }
+
+    ctx.restore();
+  }
+
+  // 3. Next line preview (Line 2 in 2-line mode, steady opacity independent of active line)
   if (visibleCount > 1 && activeIndex < lyricsLines.length - 1) {
     const nextLine = lyricsLines[activeIndex + 1];
     ctx.save();
-    ctx.globalAlpha = lineOpacity * 0.35;
+    // Steady, calm opacity that does not fade out when Line 1 fades
+    ctx.globalAlpha = 0.55;
     ctx.textAlign = 'center';
-    ctx.fillStyle = textColor;
+    ctx.fillStyle = inactiveWordColor;
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
     ctx.fillText(
       truncateWithEllipsis(ctx, nextLine.text, maxLineWidth),
       posX,
       startY + sublines.length * lineHeight
     );
     ctx.restore();
+
+    // Additional upcoming line in 5-line mode
+    if (visibleCount >= 5 && activeIndex < lyricsLines.length - 2) {
+      const next2Line = lyricsLines[activeIndex + 2];
+      ctx.save();
+      ctx.globalAlpha = 0.25;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = inactiveWordColor;
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillText(
+        truncateWithEllipsis(ctx, next2Line.text, maxLineWidth),
+        posX,
+        startY + (sublines.length + 1) * lineHeight
+      );
+      ctx.restore();
+    }
   }
 
   ctx.restore();
@@ -1112,9 +1196,10 @@ export function renderLyricsVideoFrame(
     audioFrequencyData
   );
 
-  // Background Full Visualizer layer if enabled
+  // Background Full Visualizer layer if enabled (only when in MV Studio if explicitly needed)
   const visSettings = useStore.getState().visualizerSettings;
   if (
+    options.showBackgroundVisualizer &&
     visSettings &&
     (visSettings.style === 'particles' ||
       visSettings.style === 'waveform' ||

@@ -211,7 +211,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               animationOverride: lyricsVideoState.animationOverride,
               elementPositions: lyricsVideoState.elementPositions,
               watermarkText: 'Made with Joelizer',
-              showSafeArea: lyricsVideoState.showSafeArea
+              showSafeArea: lyricsVideoState.showSafeArea,
+              showBackgroundVisualizer: activeVideoMode === 'music-video' && !!isVisualizerScene
             },
             freqData,
             timeData
