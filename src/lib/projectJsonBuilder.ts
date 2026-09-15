@@ -168,7 +168,7 @@ export async function buildCanonicalProjectJson(options?: {
     },
     lyrics: {
       lines: canonicalLines,
-      fontFamily: typo.fontFamily || 'Inter',
+      fontFamily: typo.fontFamily || 'Outfit',
       fontWeight: typo.fontWeight || '700',
       fontSizeScale: typo.fontSizeScale || 1.0,
       textColor: typo.textColor || '#ffffff',
@@ -200,7 +200,8 @@ export async function buildCanonicalProjectJson(options?: {
       glitchIntensity: vis.glitchIntensity || 0,
       shakeIntensity: vis.shakeIntensity || 0,
       showGrain: vis.showGrain || false,
-      showScanlines: vis.showScanlines || false
+      showScanlines: vis.showScanlines || false,
+      scale: vis.scale ?? 1.0
     },
     videoClips: canonicalClips,
     effects: {

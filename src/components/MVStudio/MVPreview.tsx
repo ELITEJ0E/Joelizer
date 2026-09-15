@@ -7,7 +7,7 @@ import { renderLyricsVideoFrame } from '../../lib/lyricsEngine';
 import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
 import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay';
-import { Play, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, Pause, Maximize2, Minimize2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 
 export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
@@ -533,17 +533,29 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             />
           )}
 
-          {/* Play/Pause Overlay Toggle on Click */}
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className={`absolute inset-0 bg-transparent flex items-center justify-center group cursor-pointer z-10 ${showOverlay ? 'pointer-events-none [&>*]:pointer-events-auto' : ''}`}
-          >
-            {!isPlaying && (
-              <div className="w-12 h-12 rounded-full bg-[#0e1115]/90 border border-[#232933] hover:border-accent flex items-center justify-center text-[#f0f3f6] hover:text-accent backdrop-blur-sm group-hover:scale-105 transition-all cursor-pointer shadow-xl">
-                <Play size={18} className="ml-0.5" />
-              </div>
-            )}
-          </button>
+          {/* Play/Pause Central Floating Control - always clickable */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPlaying(!isPlaying);
+              }}
+              className={`w-14 h-14 rounded-full bg-[#0e1115]/90 border border-[#232933] hover:border-accent flex items-center justify-center text-[#f0f3f6] hover:text-accent backdrop-blur-md transition-all cursor-pointer shadow-2xl pointer-events-auto group ${
+                isPlaying 
+                  ? 'opacity-0 hover:opacity-100 focus:opacity-100 hover:scale-105 bg-[#0e1115]/70' 
+                  : 'opacity-100 scale-100 hover:scale-110 ring-2 ring-accent/20'
+              }`}
+              title={isPlaying ? "Pause playback" : "Start playback"}
+              aria-label={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? (
+                <Pause size={22} className="text-[#f0f3f6] group-hover:text-accent transition-colors" />
+              ) : (
+                <Play size={22} className="ml-1 text-accent group-hover:text-accent transition-colors fill-accent/20" />
+              )}
+            </button>
+          </div>
 
           {/* Timecode Overlay */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-20 pointer-events-none">

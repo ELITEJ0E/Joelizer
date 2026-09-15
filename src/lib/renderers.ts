@@ -70,41 +70,63 @@ export function renderVisualizer(
   
   if (style === 'bars') {
     const isVertical = width < height;
-    const barCount = isVertical ? 32 : 64;
+    // Choose chunky bar count (smaller, thicker type: 16 bars for compact, up to 24 for wide)
+    let barCount = 16;
+    if (width > 640) {
+      barCount = isVertical ? 20 : 24;
+    } else if (width > 360) {
+      barCount = isVertical ? 16 : 18;
+    } else {
+      barCount = 16;
+    }
     
-    const visualWidth = width * 0.94;
+    const visualWidth = width * 0.92;
     const padding = (width - visualWidth) / 2;
-    const barWidth = (visualWidth / barCount) * 0.75;
-    const spacing = (visualWidth / barCount) * 0.25;
+    // Thicker bar ratio: ~68% bar width, ~32% spacing for chunky rounded capsule bars
+    const barWidth = Math.max(5, (visualWidth / barCount) * 0.68);
+    const spacing = Math.max(2.5, (visualWidth / barCount) * 0.32);
     
     for (let i = 0; i < barCount; i++) {
       const rawValue = getMusicalFrequency(i, barCount, frequencyData);
       const value = rawValue * scaledSensitivity;
       const percent = Math.min(value / 255, 1);
       
-      const heightMultiplier = isVertical ? 0.65 : 0.48;
-      // Smooth linear-exponential scaling for pop vocals & music
-      const punchyPercent = Math.pow(percent, 1.05); 
-      const barHeight = height * heightMultiplier * punchyPercent;
+      const heightMultiplier = isVertical ? 0.85 : 0.78;
+      // Smooth punchy exponential curve for musical beats
+      const punchyPercent = Math.pow(percent, 1.15); 
+      // Ensure minimum height is at least barWidth so bars form neat rounded circles/capsules even when quiet
+      const barHeight = Math.max(barWidth, height * heightMultiplier * punchyPercent);
       
       const x = padding + i * (barWidth + spacing);
       const y = height / 2 - barHeight / 2; // Center vertically
       
       ctx.beginPath();
-      ctx.roundRect(x, y, barWidth, Math.max(4, barHeight), barWidth / 2);
+      if (ctx.roundRect) {
+        ctx.roundRect(x, y, barWidth, barHeight, barWidth / 2);
+      } else {
+        ctx.fillRect(x, y, barWidth, barHeight);
+      }
       
-      // True neon bar rendering
-      ctx.shadowBlur = 25;
+      // True neon glow suited for thick bars
+      ctx.shadowBlur = Math.min(16, Math.max(6, barWidth * 1.5));
       ctx.shadowColor = color;
       ctx.fillStyle = color;
       ctx.fill();
       
-      // White core
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = getRGBA('#ffffff', 0.8);
-      ctx.beginPath();
-      ctx.roundRect(x + barWidth * 0.25, y + 2, barWidth * 0.5, Math.max(1, barHeight - 4), barWidth / 4);
-      ctx.fill();
+      // White/lighter core highlight for thick capsule bars
+      if (barHeight > barWidth + 3) {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = getRGBA('#ffffff', 0.68);
+        ctx.beginPath();
+        const coreW = Math.max(2, Math.round(barWidth * 0.36));
+        const coreH = Math.max(2, barHeight - 4);
+        if (ctx.roundRect) {
+          ctx.roundRect(x + (barWidth - coreW) / 2, y + 2, coreW, coreH, coreW / 2);
+        } else {
+          ctx.fillRect(x + (barWidth - coreW) / 2, y + 2, coreW, coreH);
+        }
+        ctx.fill();
+      }
     }
   } else if (style === 'waveform') {
     ctx.beginPath();

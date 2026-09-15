@@ -7,6 +7,7 @@ import { GlobalSettingsPanel } from '../MVStudio/GlobalSettingsPanel';
 import { InteractiveStageOverlay } from './InteractiveStageOverlay';
 import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { BACKGROUND_PRESETS } from '../../lib/lyricsBackgrounds';
+import { CURATED_FONTS, FONT_OPTIONS } from '../../lib/curatedFonts';
 import { cn, formatTime } from '../../lib/utils';
 import { SongListSection } from './SongListSection';
 import { SongListPopover } from '../Audio/SongListPopover';
@@ -487,15 +488,28 @@ export function LyricsVideoLayout() {
 
                 {/* Font Family Selector */}
                 <div className="space-y-1">
-                  <span className="text-[11px] font-semibold text-[#7e8999]">Font Family</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-[#7e8999]">Font Family</span>
+                    <span className="text-[10px] font-mono text-accent">{typographyOverride.fontFamily}</span>
+                  </div>
                   <select
                     value={typographyOverride.fontFamily}
                     onChange={(e) => updateTypographyOverride({ fontFamily: e.target.value })}
                     className="w-full bg-[#0e1115] border border-[#232933] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] font-medium cursor-pointer outline-none hover:border-[#2b3442] focus:border-accent transition-colors"
                   >
-                    {fontOptions.map(f => (
-                      <option key={f} value={f} className="bg-[#12161c] text-[#f0f3f6]">{f}</option>
-                    ))}
+                    {['Modern Sans', 'Display / Urban', 'Retro / Synth', 'Serif & Luxury', 'Bold Poster'].map(groupName => {
+                      const groupFonts = CURATED_FONTS.filter(f => f.category === groupName);
+                      if (groupFonts.length === 0) return null;
+                      return (
+                        <optgroup key={groupName} label={groupName} className="bg-[#12161c] text-[#7e8999] font-bold">
+                          {groupFonts.map(f => (
+                            <option key={f.family} value={f.family} className="bg-[#161b22] text-[#f0f3f6] font-normal">
+                              {f.family} — {f.previewText}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
                 </div>
 

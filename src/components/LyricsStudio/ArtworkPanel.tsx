@@ -191,21 +191,26 @@ export function ArtworkPanel() {
         </div>
       </div>
 
-      {/* Scale Slider */}
-      <div className="flex flex-col gap-1.5 pt-3 border-t border-[#232933]">
+      {/* Canvas Drag-to-Resize Indicator & Reset */}
+      <div className="flex flex-col gap-2 pt-3 border-t border-[#232933]">
         <div className="flex items-center justify-between text-[11px] font-mono">
-          <span className="text-[#7e8999]">Object Scale</span>
-          <span className="text-[#f0f3f6] font-semibold">{Math.round(artwork.sizeScale * 100)}%</span>
+          <span className="text-[#7e8999]">Canvas Size</span>
+          <span className="text-accent font-bold tabular-nums">{Math.round(artwork.sizeScale * 100)}%</span>
         </div>
-        <input
-          type="range"
-          min="0.5"
-          max="1.5"
-          step="0.05"
-          value={artwork.sizeScale}
-          onChange={(e) => updateArtwork({ sizeScale: parseFloat(e.target.value) })}
-          className="w-full accent-accent bg-[#12161c] rounded h-1.5 cursor-pointer border border-[#232933]"
-        />
+        <div className="p-2.5 rounded-lg bg-[#12161c] border border-[#232933] text-[10px] text-[#7e8999] flex flex-col gap-1.5">
+          <p className="leading-relaxed">
+            <strong className="text-[#f0f3f6]">Canva / PPT Style Resizing:</strong> Select the vinyl or artwork directly on the stage to drag corner handles and resize interactively.
+          </p>
+          {artwork.sizeScale !== 1.0 && (
+            <button
+              type="button"
+              onClick={() => updateArtwork({ sizeScale: 1.0 })}
+              className="self-start text-[9px] font-mono text-accent hover:underline cursor-pointer"
+            >
+              Reset to 100%
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

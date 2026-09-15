@@ -65,6 +65,7 @@ export interface CanonicalVisualizerConfig {
   shakeIntensity: number;
   showGrain: boolean;
   showScanlines: boolean;
+  scale?: number;
 }
 
 export interface CanonicalVideoClip {

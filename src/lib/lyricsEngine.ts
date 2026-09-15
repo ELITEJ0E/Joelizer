@@ -685,7 +685,8 @@ function renderSongMeta(
   H: number,
   metadata: LyricsVideoMetadata,
   template: LyricVideoTemplate,
-  pos?: ElementPos
+  pos?: ElementPos,
+  options?: RenderLyricsVideoOptions
 ) {
   ctx.save();
   const isPortrait = H > W;
@@ -694,12 +695,13 @@ function renderSongMeta(
   const posX = pos ? pos.x * W : (isPortrait ? W / 2 : W * 0.28);
   const posY = pos ? pos.y * H : (isPortrait ? H * 0.12 : H * 0.72);
   const maxWidth = isPortrait ? W * 0.85 : W * 0.4;
+  const fontFamily = options?.typographyOverride?.fontFamily || template.typography.fontFamily || 'Outfit';
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
   if (metadata.title) {
-    ctx.font = `700 ${fontSize}px sans-serif`;
+    ctx.font = `700 ${fontSize}px ${fontFamily}, system-ui, sans-serif`;
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
     ctx.shadowBlur = 8;
@@ -709,7 +711,7 @@ function renderSongMeta(
 
   if (metadata.artist) {
     const artistSize = Math.round(fontSize * 0.78);
-    ctx.font = `500 ${artistSize}px sans-serif`;
+    ctx.font = `500 ${artistSize}px ${fontFamily}, system-ui, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.70)';
     ctx.shadowBlur = 4;
     const artistText = truncateWithEllipsis(ctx, metadata.artist, maxWidth);
@@ -1051,6 +1053,13 @@ export function renderSegmentDots(
 
   const visSettings = useStore.getState().visualizerSettings;
   const themeColor = visSettings?.color || '#00e676';
+  const visScale = Math.max(0.2, visSettings?.scale ?? 1.0);
+
+  // Thicker capsule visualizer box dimensions (scaled and responsive)
+  const baseW = isVertical ? Math.min(W * 0.62, 280) : Math.min(W * 0.28, 300);
+  const baseH = Math.min(H * 0.082, 52);
+  const boxW = Math.round(baseW * visScale);
+  const boxH = Math.round(baseH * visScale);
 
   if (
     visSettings &&
@@ -1058,29 +1067,27 @@ export function renderSegmentDots(
     audioFrequencyData.length > 0 &&
     audioTimeData
   ) {
-    const boxW = Math.max(300, W * 0.35);
-    const boxH = Math.max(100, H * 0.15);
-
     ctx.translate(posX - boxW / 2, posY - boxH / 2);
     renderVisualizer(ctx, audioFrequencyData, audioTimeData, visSettings, boxW, boxH);
   } else if (audioFrequencyData && audioFrequencyData.length > 0) {
-    // Compact spectrum bars
+    // Compact spectrum bars (smaller, thicker capsule type)
     const barCount = 16;
-    const barWidth = Math.max(3, Math.round(W * 0.008));
-    const barGap = Math.max(2, Math.round(W * 0.004));
-    const totalW = barCount * (barWidth + barGap) - barGap;
-    const startX = posX - totalW / 2;
-    const maxBarHeight = Math.max(15, H * 0.07);
+    const totalW = boxW * 0.92;
+    const barWidth = Math.max(5, Math.round((totalW / barCount) * 0.68));
+    const barGap = Math.max(2.5, Math.round((totalW / barCount) * 0.32));
+    const actualTotalW = barCount * (barWidth + barGap) - barGap;
+    const startX = posX - actualTotalW / 2;
+    const maxBarHeight = boxH * 0.85;
 
     ctx.save();
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = Math.min(16, barWidth * 1.5);
     ctx.shadowColor = themeColor;
     ctx.fillStyle = themeColor;
 
     for (let i = 0; i < barCount; i++) {
       const rawValue = audioFrequencyData[i % audioFrequencyData.length];
       const percent = rawValue / 255;
-      const barHeight = Math.max(3, maxBarHeight * Math.pow(percent, 1.25));
+      const barHeight = Math.max(barWidth, maxBarHeight * Math.pow(percent, 1.15));
 
       const bx = startX + i * (barWidth + barGap);
       const by = posY - barHeight / 2;
@@ -1092,14 +1099,29 @@ export function renderSegmentDots(
         ctx.fillRect(bx, by, barWidth, barHeight);
       }
       ctx.fill();
+
+      // White inner core when tall
+      if (barHeight > barWidth + 3) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        const coreW = Math.max(2, Math.round(barWidth * 0.36));
+        const coreH = Math.max(2, barHeight - 4);
+        if (ctx.roundRect) {
+          ctx.roundRect(bx + (barWidth - coreW) / 2, by + 2, coreW, coreH, coreW / 2);
+        } else {
+          ctx.fillRect(bx + (barWidth - coreW) / 2, by + 2, coreW, coreH);
+        }
+        ctx.fill();
+        ctx.fillStyle = themeColor;
+      }
     }
     ctx.restore();
   } else {
     // Passive dot pattern fallback
     const dotCount = 8;
-    const dotRadius = Math.max(1.5, Math.round(H * 0.0035));
-    const dotGap = Math.max(8, Math.round(H * 0.015));
-    const totalW = 7 * dotGap;
+    const dotRadius = Math.max(2.5, Math.round(boxH * 0.08));
+    const dotGap = Math.max(8, Math.round(boxW * 0.06));
+    const totalW = (dotCount - 1) * dotGap;
     const startX = posX - totalW / 2;
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
@@ -1244,7 +1266,7 @@ export function renderLyricsVideoFrame(
 
   // 4. Render Song Title & Artist
   if (template.layout.showSongTitle || template.layout.showArtist) {
-    renderSongMeta(ctx, W, H, metadata, template, metaPos);
+    renderSongMeta(ctx, W, H, metadata, template, metaPos, options);
   }
 
   // 5. Render Lyrics

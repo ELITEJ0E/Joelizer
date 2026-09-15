@@ -22,6 +22,7 @@ export interface VisualizerSettings {
   shakeIntensity: number; // intensity of beat-synced shake
   showGrain: boolean; // toggle grain overlay
   showScanlines: boolean; // toggle scanlines overlay
+  scale?: number; // visualizer size scale multiplier (default 1.0)
 }
 
 export interface BackgroundSettings {
@@ -181,6 +182,7 @@ const defaultVisualizerSettings: VisualizerSettings = {
   shakeIntensity: 0,
   showGrain: false,
   showScanlines: false,
+  scale: 1.0,
 };
 
 // Initial state starts with stored lyrics if available
@@ -203,7 +205,7 @@ export const useStore = create<ProjectState>((set, get) => ({
   
   lyricsSettings: {
     lines: initialLyrics,
-    font: 'Inter',
+    font: 'Outfit',
     color: '#ffffff',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     animationStyle: 'karaoke',
