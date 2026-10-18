@@ -12,6 +12,7 @@ export async function getBestAvailableRenderer(preferred?: RendererType): Promis
     if (await localRenderer.isAvailable()) return localRenderer;
   } else if (preferred === 'server') {
     if (await serverRenderer.isAvailable()) return serverRenderer;
+    return browserRenderer;
   } else if (preferred === 'browser') {
     if (await browserRenderer.isAvailable()) return browserRenderer;
   }

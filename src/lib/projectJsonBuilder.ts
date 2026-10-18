@@ -36,10 +36,16 @@ export async function buildCanonicalProjectJson(options?: {
   let stagedAudioUrl: string | null = rawAudioUrl;
 
   if (!options?.skipStaging) {
-    if (mainStore.audioFile) {
-      stagedAudioUrl = await stageAssetIfNeeded(mainStore.audioFile, 'track_audio');
-    } else if (rawAudioUrl) {
-      stagedAudioUrl = await stageAssetIfNeeded(rawAudioUrl, 'track_audio');
+    try {
+      if (mainStore.audioFile) {
+        const staged = await stageAssetIfNeeded(mainStore.audioFile, 'track_audio');
+        if (staged) stagedAudioUrl = staged;
+      } else if (rawAudioUrl) {
+        const staged = await stageAssetIfNeeded(rawAudioUrl, 'track_audio');
+        if (staged) stagedAudioUrl = staged;
+      }
+    } catch (stagingErr) {
+      console.warn('[projectJsonBuilder] Audio staging fallback notice:', stagingErr);
     }
   }
 

@@ -28,7 +28,19 @@ async function startServer() {
   const stageStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, STAGED_DIR),
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || '.bin';
+      let ext = path.extname(file.originalname);
+      if (!ext || ext === '.bin') {
+        const mime = (file.mimetype || '').toLowerCase();
+        if (mime.includes('mpeg') || mime.includes('mp3')) ext = '.mp3';
+        else if (mime.includes('wav')) ext = '.wav';
+        else if (mime.includes('m4a') || mime.includes('mp4') || mime.includes('aac')) ext = '.m4a';
+        else if (mime.includes('ogg')) ext = '.ogg';
+        else if (mime.includes('webm')) ext = '.webm';
+        else if (mime.includes('png')) ext = '.png';
+        else if (mime.includes('jpeg') || mime.includes('jpg')) ext = '.jpg';
+        else if (mime.includes('webp')) ext = '.webp';
+        else ext = '.mp3';
+      }
       const uniqueName = `staged-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
       cb(null, uniqueName);
     }

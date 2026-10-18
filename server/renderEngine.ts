@@ -82,12 +82,15 @@ async function prepareAudioForMuxing(
       }
     }
 
-    // 2. Staged local file
-    if (audioSource.startsWith('/staged/')) {
-      const filename = path.basename(audioSource);
+    // 2. Staged local file (relative or absolute URL)
+    if (audioSource.includes('/staged/')) {
+      const stagedIdx = audioSource.indexOf('/staged/');
+      const relPath = audioSource.substring(stagedIdx);
+      const filename = path.basename(relPath);
       const stagedDiskPath = path.join(STAGED_DIR, filename);
       if (fs.existsSync(stagedDiskPath)) {
-        const ext = path.extname(stagedDiskPath) || '.mp3';
+        let ext = path.extname(stagedDiskPath) || '.mp3';
+        if (ext === '.bin' || !ext) ext = '.mp3';
         const p = path.join(EXPORT_DIR, `temp-audio-${jobId}${ext}`);
         fs.copyFileSync(stagedDiskPath, p);
         return { audioPath: p, hasAudio: true };
@@ -364,7 +367,8 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       inputProps: { projectJson: remotionProjectJson },
       codec: 'h264',
       muted: true,
-      concurrency: 2,
+      concurrency: 1, // Single concurrency to prevent container OOM
+      timeoutInMilliseconds: 60000,
       onProgress: ({ progress }) => {
         // Map Remotion render progress from 25% to 75%
         const currentPct = 25 + progress * 50;
@@ -373,20 +377,33 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
     });
 
     // STAGE 3: ENCODING & AUDIO MUXING WITH FFMPEG
-    updateProgress('encoding', 'Muxing pristine audio track and encoding H.264/AAC with FFmpeg...', 80);
+    updateProgress('encoding', 'Muxing audio track and encoding H.264/AAC with FFmpeg...', 80);
 
-    if (hasAudio && fs.existsSync(audioPath)) {
-      const startTime = projectJson.exportRange?.start || 0;
+    const hasValidAudio = hasAudio && fs.existsSync(audioPath) && fs.statSync(audioPath).size > 0;
+    if (hasValidAudio) {
+      const startTime = Math.max(0, projectJson.exportRange?.start || 0);
       const duration = projectJson.exportRange?.duration || (composition.durationInFrames / composition.fps);
 
-      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
+      // Try stream-copy mux first (fastest) with optional audio stream map
+      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0? -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
       
       try {
         await execAsync(ffmpegCmd);
       } catch (muxErr) {
         console.warn('[RenderEngine] Stream copy mux failed, trying re-encode pass:', muxErr);
-        const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -preset fast -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
-        await execAsync(fallbackCmd);
+        try {
+          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0? -c:v libx264 -pix_fmt yuv420p -preset fast -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
+          await execAsync(fallbackCmd);
+        } catch (reEncodeErr) {
+          console.warn('[RenderEngine] Re-encode mux failed, salvaging clean video file:', reEncodeErr);
+          // If muxing fails completely, salvage the rendered video stream so the export NEVER fails
+          const copyCmd = `ffmpeg -y -i "${tempRawVideoPath}" -c:v copy -movflags +faststart "${finalMp4Path}"`;
+          try {
+            await execAsync(copyCmd);
+          } catch (_) {
+            fs.copyFileSync(tempRawVideoPath, finalMp4Path);
+          }
+        }
       }
 
       // Cleanup temp audio file
@@ -397,7 +414,7 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       try {
         await execAsync(copyCmd);
       } catch (_) {
-        fs.renameSync(tempRawVideoPath, finalMp4Path);
+        fs.copyFileSync(tempRawVideoPath, finalMp4Path);
       }
     }
 

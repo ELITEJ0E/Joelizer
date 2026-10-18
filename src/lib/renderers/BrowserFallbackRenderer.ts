@@ -1,7 +1,10 @@
 import { VideoRenderer, RenderProgress, RendererType } from './types';
 import { CanonicalProjectJson } from '../../types/projectJson';
 import { useStore } from '../../store/useStore';
+import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { audioManager } from '../audio';
+import { renderLyricsVideoFrame } from '../lyricsEngine';
+import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import fixWebmDuration from 'fix-webm-duration';
 
 export class BrowserFallbackRenderer implements VideoRenderer {
@@ -22,10 +25,62 @@ export class BrowserFallbackRenderer implements VideoRenderer {
       progress: 5
     });
 
-    // Locate preview canvas element
-    const canvas = (document.getElementById('visualizer-canvas') || document.querySelector('canvas')) as HTMLCanvasElement;
+    // 1. Locate preview canvas element or instantiate dedicated offscreen canvas
+    let canvas = (document.getElementById('visualizer-canvas') || document.querySelector('canvas#visualizer-canvas')) as HTMLCanvasElement | null;
+    let customRenderLoop: number | null = null;
+
     if (!canvas) {
-      throw new Error('Preview canvas element not found. Please ensure the visualizer or lyrics video preview is loaded.');
+      // Offscreen rendering canvas for tabs where visualizer is not currently mounted (e.g. LRC studio or DAW)
+      const offscreenCanvas = document.createElement('canvas');
+      const targetW = project.width || 1280;
+      const targetH = project.height || 720;
+      offscreenCanvas.width = targetW;
+      offscreenCanvas.height = targetH;
+      canvas = offscreenCanvas;
+
+      const ctx = offscreenCanvas.getContext('2d');
+      if (ctx) {
+        const storeState = useStore.getState();
+        const lyricsVideoState = useLyricsVideoStore.getState();
+        const currentTrack = storeState.tracks[storeState.currentTrackIndex];
+        const tmpl = LYRIC_VIDEO_TEMPLATES[lyricsVideoState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES['vinyl'];
+
+        const renderFrame = () => {
+          const curTime = audioManager.getPreciseCurrentTime() || useStore.getState().currentTime;
+          const freqData = audioManager.getFrequencyData();
+          const timeData = audioManager.getTimeDomainData();
+
+          renderLyricsVideoFrame(
+            ctx,
+            targetW,
+            targetH,
+            curTime,
+            useStore.getState().lyricsSettings?.lines || [],
+            {
+              title: currentTrack?.name || useStore.getState().name || 'Production Video',
+              artist: currentTrack?.artist || 'Joelizer Studio',
+              albumArtUrl: currentTrack?.albumArt || useStore.getState().albumArt
+            },
+            {
+              template: tmpl,
+              aspectRatio: useStore.getState().aspectRatio,
+              animationStyle: lyricsVideoState.animationStyle,
+              visibleLineCount: lyricsVideoState.visibleLineCount,
+              customBackground: lyricsVideoState.customBackground,
+              typographyOverride: lyricsVideoState.typographyOverride,
+              artworkOverride: lyricsVideoState.artworkOverride,
+              animationOverride: lyricsVideoState.animationOverride,
+              elementPositions: lyricsVideoState.elementPositions,
+              watermarkText: 'Made with Joelizer',
+              showSafeArea: false
+            },
+            freqData,
+            timeData
+          );
+          customRenderLoop = requestAnimationFrame(renderFrame);
+        };
+        customRenderLoop = requestAnimationFrame(renderFrame);
+      }
     }
 
     onProgress({
@@ -102,6 +157,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
       };
 
       mediaRecorder.onerror = (err: any) => {
+        if (customRenderLoop) cancelAnimationFrame(customRenderLoop);
         useStore.getState().setIsPlaying(false);
         useStore.getState().setCurrentTime(originalTime);
         reject(new Error(`MediaRecorder error: ${err.message || 'Recording stream failed'}`));
@@ -112,6 +168,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
 
       mediaRecorder.onstop = async () => {
         if (timer) clearInterval(timer);
+        if (customRenderLoop) cancelAnimationFrame(customRenderLoop);
         useStore.getState().setIsPlaying(false);
         useStore.getState().setCurrentTime(originalTime);
 

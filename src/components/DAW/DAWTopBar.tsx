@@ -96,7 +96,8 @@ export function DAWTopBar() {
       setExportNotice('WAV Render downloaded!');
       setTimeout(() => setExportNotice(null), 3000);
     } catch (err: any) {
-      alert(`WAV Render Failed: ${err?.message || err}`);
+      setExportNotice(`WAV Render Failed: ${err?.message || err}`);
+      setTimeout(() => setExportNotice(null), 4000);
     } finally {
       setIsExporting(false);
       setShowExportMenu(false);
@@ -135,7 +136,8 @@ export function DAWTopBar() {
         setActiveTab('mv-studio');
       }, 1000);
     } catch (err: any) {
-      alert(`Export to MV failed: ${err?.message || err}`);
+      setExportNotice(`Export to MV failed: ${err?.message || err}`);
+      setTimeout(() => setExportNotice(null), 4000);
     } finally {
       setIsExporting(false);
       setShowExportMenu(false);
