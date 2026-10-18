@@ -144,11 +144,31 @@ export function MVTimeline() {
         // Toggle snapping
         e.preventDefault();
         setSnappingEnabled(prev => !prev);
+      } else if ((e.key === '[' || (!e.shiftKey && e.code === 'BracketLeft')) && !isInput && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (selectedClipId) {
+          e.preventDefault();
+          const clip = timelineClips.find(c => c.id === selectedClipId);
+          if (clip) {
+            const newStart = Math.min(currentTime, clip.endTime - 0.2);
+            updateTimelineClip(selectedClipId, { startTime: newStart });
+            recordSnapshot('Trim Clip In-Point [');
+          }
+        }
+      } else if ((e.key === ']' || (!e.shiftKey && e.code === 'BracketRight')) && !isInput && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (selectedClipId) {
+          e.preventDefault();
+          const clip = timelineClips.find(c => c.id === selectedClipId);
+          if (clip) {
+            const newEnd = Math.max(currentTime, clip.startTime + 0.2);
+            updateTimelineClip(selectedClipId, { endTime: newEnd });
+            recordSnapshot('Trim Clip Out-Point ]');
+          }
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, selectedClipId, selectedLyricId, selectedWordKey, removeTimelineClip, setSelectedClipId, recordSnapshot]);
+  }, [undo, redo, selectedClipId, selectedLyricId, selectedWordKey, removeTimelineClip, setSelectedClipId, recordSnapshot, timelineClips, currentTime, updateTimelineClip]);
 
   // Non-passive Wheel Listener for smooth Zoom around cursor/playhead
   useEffect(() => {

@@ -58,6 +58,17 @@ export function StudioLayout() {
   const [history, setHistory] = useState<LyricLineWithWords[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
+  // Real-time synchronization HUD feedback toast for '[' and ']' shortcuts
+  const [syncNotice, setSyncNotice] = useState<{ message: string; type: 'start' | 'end'; id: number } | null>(null);
+
+  useEffect(() => {
+    if (!syncNotice) return;
+    const timer = setTimeout(() => {
+      setSyncNotice(null);
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, [syncNotice?.id]);
+
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
 
   const [rawUploadedLyrics, setRawUploadedLyrics] = useState<string>('');
@@ -283,7 +294,7 @@ export function StudioLayout() {
     };
   }, [waveformData, audioDuration, zoom]);
 
-  // Studio Specific Keyboard Shortcuts (Undo, Redo, Line Marking, Line Selection)
+  // Studio Specific Keyboard Shortcuts (Undo, Redo, Line Marking with [ and ], Line Selection)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing inside text input / textarea / contenteditable
@@ -301,6 +312,71 @@ export function StudioLayout() {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         redo();
+      } else if ((e.key === '[' || (!e.shiftKey && e.code === 'BracketLeft')) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // [ Shortcut: Stamp Start Time on current/selected line
+        e.preventDefault();
+        if (lines.length === 0) {
+          const newLine: LyricLineWithWords = {
+            id: `line-${Date.now()}`,
+            startTime: Number(currentTime.toFixed(2)),
+            endTime: Number((currentTime + 3.0).toFixed(2)),
+            text: 'New Lyric Line'
+          };
+          updateLinesWithHistory([newLine]);
+          setSelectedLineId(newLine.id);
+          setSyncNotice({
+            message: `[ Marked Start: Line #1 at ${formatTime(currentTime)}`,
+            type: 'start',
+            id: Date.now()
+          });
+          return;
+        }
+
+        let targetIdx = lines.findIndex(l => l.id === selectedLineId);
+        if (targetIdx === -1) {
+          targetIdx = lines.findIndex(l => l.startTime <= currentTime && (l.endTime ? l.endTime >= currentTime : l.startTime + 4 >= currentTime));
+        }
+        if (targetIdx === -1) {
+          targetIdx = lines.findIndex(l => l.startTime >= currentTime);
+        }
+        if (targetIdx === -1) {
+          targetIdx = 0;
+        }
+
+        const targetLine = lines[targetIdx];
+        if (targetLine) {
+          handleMarkStart(targetLine.id, currentTime);
+          setSelectedLineId(targetLine.id);
+          setSyncNotice({
+            message: `[ Marked Start: Line #${targetIdx + 1} at ${formatTime(currentTime)}`,
+            type: 'start',
+            id: Date.now()
+          });
+        }
+      } else if ((e.key === ']' || (!e.shiftKey && e.code === 'BracketRight')) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // ] Shortcut: Stamp End Time on current/selected line & auto-advance to next line
+        e.preventDefault();
+        if (lines.length === 0) return;
+
+        let targetIdx = lines.findIndex(l => l.id === selectedLineId);
+        if (targetIdx === -1) {
+          targetIdx = lines.findIndex(l => l.startTime <= currentTime && (l.endTime ? l.endTime >= currentTime : l.startTime + 4 >= currentTime));
+        }
+        if (targetIdx === -1) {
+          targetIdx = 0;
+        }
+
+        const targetLine = lines[targetIdx];
+        if (targetLine) {
+          const nextIdx = targetIdx < lines.length - 1 ? targetIdx + 1 : targetIdx;
+          const nextId = lines[nextIdx]?.id;
+          handleMarkEnd(targetLine.id, currentTime, nextId);
+          setSyncNotice({
+            message: `] Marked End: Line #${targetIdx + 1} at ${formatTime(currentTime)}${nextIdx !== targetIdx ? ` → Line #${nextIdx + 1} selected` : ''}`,
+            type: 'end',
+            id: Date.now()
+          });
+        }
       } else if (e.code === 'Enter' || e.key === 'Enter') {
         e.preventDefault();
         if (lines.length === 0) return;
@@ -310,11 +386,22 @@ export function StudioLayout() {
         if (targetLine) {
           if (e.shiftKey) {
             handleMarkEnd(targetLine.id, currentTime);
+            setSyncNotice({
+              message: `] Marked End: Line #${targetIdx + 1} at ${formatTime(currentTime)}`,
+              type: 'end',
+              id: Date.now()
+            });
           } else {
             handleMarkStart(targetLine.id, currentTime);
-            if (targetIdx < lines.length - 1) {
-              setSelectedLineId(lines[targetIdx + 1].id);
+            const nextIdx = targetIdx < lines.length - 1 ? targetIdx + 1 : targetIdx;
+            if (nextIdx !== targetIdx) {
+              setSelectedLineId(lines[nextIdx].id);
             }
+            setSyncNotice({
+              message: `[ Marked Start: Line #${targetIdx + 1} at ${formatTime(currentTime)}`,
+              type: 'start',
+              id: Date.now()
+            });
           }
         }
       } else if (e.code === 'ArrowUp') {
@@ -338,8 +425,8 @@ export function StudioLayout() {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [selectedLineId, lines, currentTime, isPlaying, audioDuration, historyIndex, history, undo, redo]);
 
   // Auto-scroll selected lyric line into view
@@ -618,13 +705,13 @@ export function StudioLayout() {
     updateLinesWithHistory(updated);
   };
 
-  const handleMarkEnd = (id: string, newTimeSec: number) => {
+  const handleMarkEnd = (id: string, newTimeSec: number, nextSelectId?: string) => {
     const targetIdx = lines.findIndex(l => l.id === id);
     if (targetIdx === -1) return;
 
     const updated = lines.map((l, idx) => {
       if (idx === targetIdx) {
-        const newEnd = Math.max(l.startTime + 0.2, newTimeSec);
+        const newEnd = Math.max(Number((l.startTime + 0.2).toFixed(2)), Number(newTimeSec.toFixed(2)));
         return {
           ...l,
           endTime: newEnd
@@ -633,7 +720,7 @@ export function StudioLayout() {
       return l;
     });
 
-    setSelectedLineId(id);
+    setSelectedLineId(nextSelectId || id);
     updateLinesWithHistory(updated);
   };
 
@@ -1549,23 +1636,37 @@ export function StudioLayout() {
                           onClick={(e) => {
                             e.stopPropagation();
                             handleMarkStart(line.id, currentTime);
+                            setSyncNotice({
+                              message: `[ Marked Start: Line #${idx + 1} at ${formatTime(currentTime)}`,
+                              type: 'start',
+                              id: Date.now()
+                            });
                           }}
-                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-accent hover:text-white cursor-pointer transition-colors"
+                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] hover:border-accent/40 rounded text-[9px] font-mono font-semibold text-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1"
                           title="Set start time to current playhead position (Shortcut: '[')"
                         >
-                          Mark Start [
+                          <span>Mark Start</span>
+                          <kbd className="text-[8px] bg-black/60 px-1 py-0.5 rounded border border-accent/40 text-accent font-bold">[</kbd>
                         </button>
 
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleMarkEnd(line.id, currentTime);
+                            const nextIdx = idx < lines.length - 1 ? idx + 1 : idx;
+                            const nextId = lines[nextIdx]?.id;
+                            handleMarkEnd(line.id, currentTime, nextId);
+                            setSyncNotice({
+                              message: `] Marked End: Line #${idx + 1} at ${formatTime(currentTime)}${nextIdx !== idx ? ` → Line #${nextIdx + 1} selected` : ''}`,
+                              type: 'end',
+                              id: Date.now()
+                            });
                           }}
-                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors"
+                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] hover:border-white/40 rounded text-[9px] font-mono font-semibold text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors flex items-center gap-1"
                           title="Set end time to current playhead position (Shortcut: ']')"
                         >
-                          Mark End ]
+                          <span>Mark End</span>
+                          <kbd className="text-[8px] bg-black/60 px-1 py-0.5 rounded border border-white/20 text-[#c4cad4] font-bold">]</kbd>
                         </button>
                       </div>
                     </div>
@@ -2000,6 +2101,27 @@ export function StudioLayout() {
           </div>
         </div>
       )}
+
+      {/* Real-time Shortcut Stamp HUD Feedback for [ and ] */}
+      {syncNotice && (
+        <div 
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex items-center gap-2.5 px-4 py-2 bg-[#090b0e]/95 border border-white/20 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.85)] backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150"
+        >
+          <span 
+            className="w-2.5 h-2.5 rounded-full animate-ping"
+            style={{ backgroundColor: syncNotice.type === 'start' ? activeColor : '#38bdf8' }}
+          />
+          <span className="font-mono text-xs font-bold text-white tracking-wide">
+            {syncNotice.message}
+          </span>
+          <span className="text-[10px] font-mono font-bold text-slate-300 bg-white/10 px-1.5 py-0.5 rounded border border-white/10">
+            {syncNotice.type === 'start' ? '[' : ']'}
+          </span>
+        </div>
+      )}
+
       {/* Audio Source Modal (File upload & URL paste) */}
       <AudioSourceModal
         isOpen={isAudioModalOpen}

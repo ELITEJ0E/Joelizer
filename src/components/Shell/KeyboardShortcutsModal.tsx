@@ -22,8 +22,13 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
     ]},
     { category: 'LRC Synchronization', items: [
       { keys: ['['], label: 'Stamp current line start time' },
-      { keys: [']'], label: 'Stamp current line end time' },
+      { keys: [']'], label: 'Stamp current line end time & advance' },
+      { keys: ['Enter'], label: 'Stamp start time (Shift+Enter for end)' },
       { keys: ['↑', '↓'], label: 'Navigate through lyric lines' },
+    ]},
+    { category: 'MV Studio & DAW', items: [
+      { keys: ['['], label: 'Trim clip in-point / Set loop start' },
+      { keys: [']'], label: 'Trim clip out-point / Set loop end' },
     ]},
     { category: 'Project & Export', items: [
       { keys: ['⌘', 'E'], label: 'Open Export production modal' },

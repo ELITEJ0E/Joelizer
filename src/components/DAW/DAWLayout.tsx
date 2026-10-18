@@ -25,6 +25,9 @@ export function DAWLayout() {
   const splitClip = useDAWStore(s => s.splitClip);
   const selectedClipId = useDAWStore(s => s.selectedClipId);
   const removeClip = useDAWStore(s => s.removeClip);
+  const setLoopRegion = useDAWStore(s => s.setLoopRegion);
+  const loopStart = useDAWStore(s => s.loopStart);
+  const loopEnd = useDAWStore(s => s.loopEnd);
 
   const [inputLevel, setInputLevel] = useState(0);
 
@@ -91,11 +94,23 @@ export function DAWLayout() {
         e.preventDefault();
         redo();
       }
+
+      // [ : Set Loop Region Start
+      if ((e.key === '[' || (!e.shiftKey && e.code === 'BracketLeft')) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setLoopRegion(currentTime, Math.max(currentTime + 0.5, loopEnd));
+      }
+
+      // ] : Set Loop Region End
+      if ((e.key === ']' || (!e.shiftKey && e.code === 'BracketRight')) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setLoopRegion(Math.min(loopStart, Math.max(0, currentTime - 0.5)), currentTime);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, isRecording, play, pause, startRecording, stopRecording, selectedClipId, currentTime, splitClip, removeClip, undo, redo]);
+  }, [isPlaying, isRecording, play, pause, startRecording, stopRecording, selectedClipId, currentTime, splitClip, removeClip, undo, redo, setLoopRegion, loopStart, loopEnd]);
 
   const armedTrack = tracks.find(t => t.id === armedTrackId);
   const recordingDuration = Math.max(0, currentTime - recordingStartTime);
