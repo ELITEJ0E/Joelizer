@@ -5,7 +5,7 @@ import {
   Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight, ChevronLeft,
   Layers, Volume2, VolumeX, Eye, Radio, RefreshCw, Undo2, Redo2, Sliders, SlidersHorizontal, Activity, AudioLines, ArrowUpRight, ListMusic, XCircle,
   Copy, Check, Package, X, PanelLeftClose, PanelLeftOpen, Link2, Globe,
-  SkipBack, SkipForward, Repeat
+  SkipBack, SkipForward, Repeat, Film
 } from 'lucide-react';
 import { cn, formatTime } from '../../lib/utils';
 import { Scrubber } from '../ui/scrubber';
@@ -962,9 +962,20 @@ export function StudioLayout() {
             type="button"
             onClick={() => setShowExportMenu(true)}
             className="px-2.5 py-1 bg-[#181d24] hover:bg-[#202731] border border-[#262c37] hover:border-[#384252] text-[#f0f3f6] font-semibold text-[10px] rounded flex items-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+            title="Export lyrics data: LRC, Enhanced LRC, SRT, ASS, JSON, or ZIP"
           >
             <Download size={11} className="text-accent" />
             <span>Export LRC</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-export-modal'))}
+            className="px-2.5 py-1 bg-[#181d24] hover:bg-[#202731] border border-[#262c37] hover:border-[#384252] text-[#f0f3f6] font-semibold text-[10px] rounded flex items-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+            title="Open Production Export Studio for MP4 Video & Master Audio"
+          >
+            <Film size={11} className="text-accent" />
+            <span className="hidden sm:inline">Export Video</span>
           </button>
 
           <button
@@ -1984,6 +1995,20 @@ export function StudioLayout() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {/* Switch to Video Export */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCloseExportMenu();
+                    window.dispatchEvent(new CustomEvent('open-export-modal'));
+                  }}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-[#181d26] hover:bg-[#222935] border border-[#2b3442] text-[#c4cad4] hover:text-[#f0f3f6] rounded text-xs font-semibold transition-colors cursor-pointer"
+                  title="Open Production Export Studio for Video MP4 and Master Audio"
+                >
+                  <Film size={13} className="text-accent" />
+                  <span>Video Export</span>
+                </button>
+
                 {/* Download All as ZIP button */}
                 <button
                   type="button"

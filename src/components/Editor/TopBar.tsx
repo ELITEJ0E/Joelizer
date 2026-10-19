@@ -50,9 +50,9 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
       className="h-11 bg-[#0b0d10] border-b border-[#232933] flex items-center justify-between px-3 z-30 shrink-0 select-none text-[#f0f3f6]"
     >
       {/* LEFT: Branding + Studio Switcher Tabs */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Joelizer Wordmark */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Audio Waveform Emblem */}
           <div className="w-5 h-5 rounded bg-[#161a20] border border-[#262c37] flex items-center justify-center p-0.5">
             <svg viewBox="0 0 24 24" className="w-full h-full" style={{ color: activeColor }} fill="currentColor">
@@ -64,12 +64,12 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
             </svg>
           </div>
 
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex items-baseline gap-1">
             <span className="font-display font-bold text-xs tracking-wider text-[#f0f3f6]">
               JOELIZER
             </span>
             <span 
-              className="text-[9px] font-mono font-semibold tracking-widest hidden sm:inline"
+              className="text-[9px] font-mono font-semibold tracking-widest hidden md:inline"
               style={{ color: activeColor }}
             >
               PRO
@@ -77,7 +77,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
           </div>
         </div>
 
-        <div className="h-4 w-[1px] bg-[#232933]" />
+        <div className="h-4 w-[1px] bg-[#232933] hidden xs:block" />
 
         {/* Studio Switcher Tabs (LRC Studio, Lyrics Video, MV Studio) */}
         <nav aria-label="Studio Navigation" className="flex items-center bg-[#12161c] border border-[#232933] rounded p-0.5 gap-0.5">
@@ -93,7 +93,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
                 onClick={() => setActiveTab(ws.id)}
                 title={ws.title}
                 className={cn(
-                  "h-7 px-3 rounded text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer",
+                  "h-7 px-2 sm:px-3 rounded text-[11px] font-semibold flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer",
                   isActive
                     ? "bg-[#181d24] text-[#f0f3f6] shadow-sm border"
                     : "text-[#7e8999] hover:text-[#c4cad4] hover:bg-[#151a21] border border-transparent"
@@ -102,11 +102,14 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
               >
                 <Icon
                   size={13}
-                  className="transition-colors"
+                  className="transition-colors shrink-0"
                   style={isActive ? { color: activeColor } : undefined}
                   strokeWidth={isActive ? 2.2 : 1.8}
                 />
-                <span className="font-medium tracking-wide">{ws.label}</span>
+                <span className="font-medium tracking-wide">
+                  <span className="sm:hidden">{ws.id === 'lrc' ? 'LRC' : ws.id === 'lyrics' ? 'Lyrics' : 'MV'}</span>
+                  <span className="hidden sm:inline">{ws.label}</span>
+                </span>
               </button>
             );
           })}
@@ -114,13 +117,13 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
       </div>
 
       {/* RIGHT: Aspect Ratio, Audio Modal Trigger, Shortcuts, and Export */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Aspect Ratio Selector Dropdown */}
         <div className="flex items-center">
           <Select value={aspectRatio} onValueChange={(val: AspectRatio) => setAspectRatio(val)}>
             <SelectTrigger
               id="topbar-aspect-ratio-select"
-              className="h-7 px-2.5 bg-[#12161c] hover:bg-[#1a2028] border border-[#232933] hover:border-[#323b49] text-[10px] font-mono font-semibold text-[#c4cad4] hover:text-[#f0f3f6] flex items-center gap-1.5 transition-colors cursor-pointer rounded"
+              className="h-7 px-2 sm:px-2.5 bg-[#12161c] hover:bg-[#1a2028] border border-[#232933] hover:border-[#323b49] text-[10px] font-mono font-semibold text-[#c4cad4] hover:text-[#f0f3f6] flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer rounded"
               title="Change Canvas Aspect Ratio"
             >
               <Monitor size={12} style={{ color: activeColor }} />
@@ -145,7 +148,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
             if (onOpenAudioModal) onOpenAudioModal();
             else setIsAudioModalOpen(true);
           }}
-          className="h-7 px-2.5 rounded bg-[#12161c] hover:bg-[#1a2028] border border-[#232933] hover:border-[#323b49] text-[10px] font-semibold text-[#c4cad4] hover:text-[#f0f3f6] flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="h-7 px-2 sm:px-2.5 rounded bg-[#12161c] hover:bg-[#1a2028] border border-[#232933] hover:border-[#323b49] text-[10px] font-semibold text-[#c4cad4] hover:text-[#f0f3f6] flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer"
           title="Open Audio & Track Library"
         >
           <Music size={12} style={{ color: activeColor }} />
@@ -171,7 +174,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
           id="topbar-export-btn"
           type="button"
           onClick={onExport}
-          className="h-7 px-3 rounded text-[#080a0d] text-[11px] font-bold tracking-wide flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+          className="h-7 px-2.5 sm:px-3 rounded text-[#080a0d] text-[11px] font-bold tracking-wide flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
           style={{ backgroundColor: activeColor }}
           title="Export Video / Audio Production"
         >
