@@ -52,11 +52,12 @@ try {
   assert.equal(new Set(topControls.map(c => c.radius)).size, 1,
     'Global toolbar actions must use one shared border radius');
   await topExport.click();
-  await page.waitForTimeout(150);
-  assert.ok(await page.getByText('Export Video', { exact: false }).count() > 0 ||
-    await page.locator('[id*="export"]').count() > 1,
+  const exportDialog = page.locator('.export-modal-card');
+  await exportDialog.waitFor({ state: 'visible' });
+  assert.equal(await exportDialog.getByText('Production Export Studio').count(), 1,
     'Global Export control must open the shared export workflow');
-  await page.keyboard.press('Escape');
+  await exportDialog.locator('button').first().click();
+  await exportDialog.waitFor({ state: 'detached' });
 
 
   for (const [name, ratio] of [
