@@ -5,7 +5,7 @@ import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { 
   X, Loader2, Download, CheckCircle2, Film, Music2,
-  AlertCircle, FileText, Copy, Check, Package, Disc
+  AlertCircle, FileText, Copy, Check, Package
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
@@ -645,154 +645,76 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           </>
         )}
 
-        {/* -------------------- TAB 2: LYRICS & SUBTITLES EXPORT -------------------- */}
+        {/* Lyrics export */}
         {activeExportTab === 'lyrics' && (
-          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-3.5 pr-1 py-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-xs font-mono font-bold uppercase text-white block">
-                  Export Lyrics & Subtitles
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {lyricsLines.length} synchronized lyric lines ready
-                </span>
-              </div>
-
-              {/* Download all formats as ZIP */}
-              <button
-                type="button"
-                onClick={handleDownloadZipPack}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1">
+            <label className="block space-y-1.5">
+              <span className="block text-xs font-medium text-slate-300">Format</span>
+              <select value={selectedLyricFormat}
+                onChange={e => setSelectedLyricFormat(e.target.value as LyricFormatType)}
+                className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-3 text-sm text-white outline-none focus:border-accent">
+                <option value="lrc">LRC · Synced lyrics</option>
+                <option value="enhanced-lrc">Enhanced LRC · Word timing</option>
+                <option value="srt">SRT · Subtitles</option>
+                <option value="ass">ASS · Styled subtitles</option>
+                <option value="txt">TXT · Plain text</option>
+                <option value="json">JSON · Data</option>
+              </select>
+            </label>
+            <p className="text-xs text-slate-400">{lyricsLines.length} lyric lines</p>
+            <button type="button" disabled={lyricsLines.length === 0}
+              onClick={() => handleDownloadLyrics(selectedLyricFormat)}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-[#07120d] hover:brightness-110 disabled:opacity-50">
+              <Download size={16} /> Download lyrics
+            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => handleCopyLyrics(selectedLyricFormat)}
+                disabled={lyricsLines.length === 0}
+                className="flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-slate-200 hover:bg-white/10 disabled:opacity-50">
+                {hasCopiedLyrics ? <Check size={14} /> : <Copy size={14} />}
+                {hasCopiedLyrics ? 'Copied' : 'Copy'}
+              </button>
+              <button type="button" onClick={handleDownloadZipPack}
                 disabled={isZipping || lyricsLines.length === 0}
-                className="px-2.5 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {isZipping ? <Loader2 size={12} className="animate-spin" /> : <Package size={12} />}
-                <span>Download All (ZIP)</span>
+                className="flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-slate-200 hover:bg-white/10 disabled:opacity-50">
+                {isZipping ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
+                Download all formats
               </button>
             </div>
-
-            {/* Format selection chips */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-              {[
-                { id: 'lrc' as LyricFormatType, label: 'LRC', desc: 'Standard' },
-                { id: 'enhanced-lrc' as LyricFormatType, label: 'Enhanced', desc: 'Word Sync' },
-                { id: 'srt' as LyricFormatType, label: 'SRT', desc: 'Subtitles' },
-                { id: 'ass' as LyricFormatType, label: 'ASS', desc: 'Styled' },
-                { id: 'json' as LyricFormatType, label: 'JSON', desc: 'Raw Data' },
-                { id: 'txt' as LyricFormatType, label: 'TXT', desc: 'Plain' },
-              ].map(fmt => (
-                <button
-                  key={fmt.id}
-                  type="button"
-                  onClick={() => setSelectedLyricFormat(fmt.id)}
-                  className={cn(
-                    "py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center",
-                    selectedLyricFormat === fmt.id
-                      ? "bg-white/15 border-white/40 text-white"
-                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
-                  )}
-                  style={selectedLyricFormat === fmt.id ? { borderColor: `${activeColor}80` } : {}}
-                >
-                  <span className="text-[10px] font-mono font-bold uppercase">{fmt.label}</span>
-                  <span className="text-[8px] text-slate-400 font-mono">{fmt.desc}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Preview Box */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 px-1">
-                <span>FORMAT PREVIEW (.{(selectedLyricFormat === 'enhanced-lrc' ? 'lrc' : selectedLyricFormat).toUpperCase()})</span>
-                <span>{getLyricsPreviewContent(selectedLyricFormat).split('\n').length} lines</span>
-              </div>
-              <div className="h-44 bg-black/60 border border-white/10 rounded-xl p-3 overflow-y-auto custom-scrollbar font-mono text-[11px] text-slate-300 whitespace-pre leading-relaxed select-text">
-                {lyricsLines.length === 0 ? (
-                  <span className="text-slate-500 italic">No lyrics loaded in studio.</span>
-                ) : (
-                  getLyricsPreviewContent(selectedLyricFormat)
-                )}
-              </div>
-            </div>
-
-            {/* Actions for Lyrics */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => handleCopyLyrics(selectedLyricFormat)}
-                disabled={lyricsLines.length === 0}
-                className="py-2.5 px-3 bg-white/10 hover:bg-white/15 border border-white/20 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {hasCopiedLyrics ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                <span>{hasCopiedLyrics ? 'Copied to Clipboard!' : 'Copy to Clipboard'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDownloadLyrics(selectedLyricFormat)}
-                disabled={lyricsLines.length === 0}
-                className="py-2.5 px-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
-              >
-                <Download size={14} />
-                <span>Download .{selectedLyricFormat === 'enhanced-lrc' ? 'lrc' : selectedLyricFormat}</span>
-              </button>
-            </div>
+            <details className="rounded-lg border border-white/10">
+              <summary className="cursor-pointer px-3 py-2.5 text-xs text-slate-400">Preview</summary>
+              <pre className="max-h-44 overflow-auto border-t border-white/10 p-3 text-xs text-slate-300 whitespace-pre-wrap select-text">
+                {getLyricsPreviewContent(selectedLyricFormat)}
+              </pre>
+            </details>
           </div>
         )}
 
-        {/* -------------------- TAB 3: AUDIO MASTER EXPORT -------------------- */}
+        {/* Audio export */}
         {activeExportTab === 'audio' && (
-          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-3.5 pr-1 py-1">
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-2">
-              <div className="flex items-center gap-2">
-                <Disc size={18} className="text-emerald-400" />
-                <div>
-                  <h3 className="text-xs font-mono font-bold uppercase text-white">Multitrack Master Mixdown</h3>
-                  <span className="text-[10px] text-slate-400 font-mono">Pristine 48kHz 24-bit Lossless WAV Audio</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-300 font-mono">
-                Bounces all active tracks, stems, effects, and timeline pans into a production master WAV file.
-              </p>
-
-              <button
-                type="button"
-                onClick={handleBounceWavMaster}
-                disabled={isAudioBouncing}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50 mt-1"
-              >
-                {isAudioBouncing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                <span>{isAudioBouncing ? 'Bouncing Audio Master...' : 'Download Master Mix (WAV)'}</span>
-              </button>
-
-              {audioBounceNotice && (
-                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] font-mono text-center">
-                  {audioBounceNotice}
-                </div>
-              )}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-white">Audio master</h3>
+              <p className="text-xs text-slate-400">WAV · 48 kHz · 24-bit</p>
             </div>
-
-            {/* Project JSON Backup */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-2">
-              <div className="flex items-center gap-2">
-                <FileText size={16} className="text-purple-400" />
-                <div>
-                  <h3 className="text-xs font-mono font-bold uppercase text-white">Full Project Data (JSON)</h3>
-                  <span className="text-[10px] text-slate-400 font-mono">Complete backup of lyrics, timing, styles & clips</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={async () => {
+            <button type="button" onClick={handleBounceWavMaster} disabled={isAudioBouncing}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-[#07120d] hover:brightness-110 disabled:opacity-50">
+              {isAudioBouncing ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {isAudioBouncing ? 'Exporting audio…' : 'Download WAV'}
+            </button>
+            {audioBounceNotice && <p className="text-xs text-slate-300">{audioBounceNotice}</p>}
+            <details className="rounded-lg border border-white/10">
+              <summary className="cursor-pointer px-3 py-2.5 text-xs text-slate-400">Project backup</summary>
+              <div className="border-t border-white/10 p-3">
+                <button type="button" onClick={async () => {
                   const projectJson = await buildCanonicalProjectJson({ skipStaging: true });
                   const blob = new Blob([JSON.stringify(projectJson, null, 2)], { type: 'application/json' });
                   downloadFile(blob, `${(projectName || 'Joelizer').replace(/[^a-zA-Z0-9_-]/g, '_')}.project.json`, 'application/json');
-                }}
-                className="w-full py-2.5 bg-white/10 hover:bg-white/15 text-white font-mono font-bold uppercase text-xs rounded-xl flex items-center justify-center gap-2 transition-all border border-white/20 cursor-pointer"
-              >
-                <Download size={14} />
-                <span>Export Canonical Project JSON</span>
-              </button>
-            </div>
+                }} className="flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-slate-200 hover:bg-white/10">
+                  <Download size={14} /> Download project JSON
+                </button>
+              </div>
+            </details>
           </div>
         )}
 
