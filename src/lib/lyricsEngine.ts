@@ -1212,7 +1212,7 @@ export function renderLyricsVideoFrame(
       type: bgType,
       value: bgValue,
       videoElement: videoElem,
-      imageElement: albumArtImg
+      imageElement: options.customBackground?.imageElement || albumArtImg
     },
     albumArtImg,
     audioFrequencyData
