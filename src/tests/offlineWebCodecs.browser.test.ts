@@ -19,7 +19,7 @@ try {
     await sleep(500);
   }
   assert.ok(ready, 'Vite failed to start: ' + log);
-  browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
+  browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
   const page = await browser.newPage();
   page.setDefaultTimeout(120000);
   page.on('console', msg => { if (msg.type() === 'error') process.stderr.write('Browser console: ' + msg.text() + '\n'); });
