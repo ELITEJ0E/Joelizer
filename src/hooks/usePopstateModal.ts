@@ -1,40 +1,38 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 /**
- * Custom hook to manage modal/dialog dismissal via browser back button (popstate).
- * When the modal is opened, it pushes a entry into window.history.
- * If the user presses Back or swipes back, popstate fires and closes the modal instead of navigating away.
+ * Back-button handling for overlays.
+ *
+ * StrictMode replays useEffect cleanup/setup in development. The previous
+ * implementation called history.back() from that cleanup, so a newly opened
+ * export dialog could immediately close on its first render. Lifecycle cleanup
+ * now only detaches the listener; browser history is traversed on an explicit
+ * modal close or on a real user Back.
  */
 export function usePopstateModal(isOpen: boolean, onClose: () => void) {
   const hasPushedStateRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!isOpen) {
-      hasPushedStateRef.current = false;
-      return;
+    if (!isOpen) return;
+
+    // Only push once per open lifecycle, even if StrictMode replays the effect.
+    if (!hasPushedStateRef.current) {
+      window.history.pushState({ ...(window.history.state || {}), modalOpen: true }, '');
+      hasPushedStateRef.current = true;
     }
 
-    // Push history state when modal opens
-    window.history.pushState({ modalOpen: true }, '');
-    hasPushedStateRef.current = true;
-
     const handlePopState = () => {
-      // Browser back button pressed
+      if (!hasPushedStateRef.current) return;
       hasPushedStateRef.current = false;
-      onClose();
+      onCloseRef.current();
     };
 
     window.addEventListener('popstate', handlePopState);
-
     return () => {
+      // Do not mutate history here: StrictMode effects are replayed.
       window.removeEventListener('popstate', handlePopState);
-      // If modal unmounts while history was pushed, pop the history state
-      if (hasPushedStateRef.current) {
-        hasPushedStateRef.current = false;
-        try {
-          window.history.back();
-        } catch (_) {}
-      }
     };
   }, [isOpen]);
 
@@ -43,10 +41,12 @@ export function usePopstateModal(isOpen: boolean, onClose: () => void) {
       hasPushedStateRef.current = false;
       try {
         window.history.back();
-      } catch (_) {}
+      } catch (_) {
+        // Closing the dialog must not depend on browser history permissions.
+      }
     }
-    onClose();
-  }, [onClose]);
+    onCloseRef.current();
+  }, []);
 
   return { handleClose };
 }
