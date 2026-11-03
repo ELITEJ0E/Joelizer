@@ -100,7 +100,11 @@ try {
     console.log(`Desktop ${name} preview contained: ${Math.round(bounds.width)}x${Math.round(bounds.height)}`);
   }
 
-  await canvas.hover();
+  // Move near the canvas edge rather than its center, where the intentionally
+  // interactive playback overlay receives pointer events.
+  const hoverBounds = await canvas.boundingBox();
+  assert.ok(hoverBounds);
+  await page.mouse.move(hoverBounds.x + 12, hoverBounds.y + 12);
   await page.waitForTimeout(200);
   const play = page.locator('button[aria-label="Play video"], button[aria-label="Pause video"]');
   assert.equal(await play.count(), 1);
