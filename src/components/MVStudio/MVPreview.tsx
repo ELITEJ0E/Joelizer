@@ -281,7 +281,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
               const targetVideoTime = activeClip.trimStart + (curTime - activeClip.startTime);
               const clipChanged = lastActiveVideoClipRef.current !== activeClip.id;
-              lastActiveVideoClipRef.current = activeClip.id;
+              // A pending seek can overlap a cut. Keep clipChanged pending
+              // until the decoder accepts its new trim offset.
+              if (!videoEl.seeking) lastActiveVideoClipRef.current = activeClip.id;
               const sync = getVideoSyncDecision({
                 targetTime: targetVideoTime,
                 actualTime: videoEl.currentTime,
