@@ -22,3 +22,10 @@ jobs:
       - run: npm run lint
       - run: npx tsx src/tests/browserExportClock.test.ts
       - run: npm run build
+      - name: Generate moving video and short soundtrack fixtures
+        run: |
+          mkdir -p public/staged
+          ffmpeg -y -v error -f lavfi -i testsrc2=size=320x180:rate=30 -t 6 -c:v libx264 -preset ultrafast -pix_fmt yuv420p public/staged/smoke-video.mp4
+          ffmpeg -y -v error -f lavfi -i sine=frequency=440:sample_rate=44100 -t 2 -c:a pcm_s16le public/staged/smoke-audio.wav
+      - name: Render and inspect lyrics + MV exports
+        run: npx tsx src/tests/videoExportSmoke.test.ts
