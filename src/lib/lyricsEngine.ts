@@ -54,13 +54,14 @@ export interface RenderLyricsVideoOptions {
   watermarkText?: string;
   showSafeArea?: boolean;
   showBackgroundVisualizer?: boolean;
+  offlineExport?: boolean;
 }
 
 // Media cache to avoid reconstructing elements every frame
 const imageCache = new Map<string, HTMLImageElement>();
 const videoCache = new Map<string, HTMLVideoElement>();
 
-function getOrLoadImage(url?: string): HTMLImageElement | null {
+export function getOrLoadImage(url?: string): HTMLImageElement | null {
   if (!url) return null;
   let img = imageCache.get(url);
   if (!img) {
@@ -1192,7 +1193,7 @@ export function renderLyricsVideoFrame(
   audioTimeData?: Uint8Array | null
 ) {
   const { template } = options;
-  const isPlaying = useStore.getState().isPlaying;
+  const isPlaying = options.offlineExport || useStore.getState().isPlaying;
 
   // Background Settings Resolution
   const bgType = options.customBackground?.type || template.defaultBackground.type;
@@ -1200,7 +1201,7 @@ export function renderLyricsVideoFrame(
   const bgVideoUrl = options.customBackground?.videoUrl;
 
   const albumArtImg = getOrLoadImage(metadata.albumArtUrl);
-  const videoElem = bgVideoUrl ? getOrLoadVideo(bgVideoUrl) : null;
+  const videoElem = options.customBackground?.videoElement || (bgVideoUrl ? getOrLoadVideo(bgVideoUrl) : null);
 
   // 1. Draw Canvas Background
   drawBackgroundCanvas(
@@ -1212,7 +1213,7 @@ export function renderLyricsVideoFrame(
       type: bgType,
       value: bgValue,
       videoElement: videoElem,
-      imageElement: albumArtImg
+      imageElement: options.customBackground?.imageElement || albumArtImg
     },
     albumArtImg,
     audioFrequencyData

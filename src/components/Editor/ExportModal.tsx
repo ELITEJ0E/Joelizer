@@ -15,6 +15,7 @@ import { ExportRangeSlider } from './ExportRangeSlider';
 import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
 import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
 import { ServerRemotionRenderer } from '../../lib/renderers/ServerRemotionRenderer';
+import { OfflineWebCodecsRenderer } from '../../lib/renderers/OfflineWebCodecsRenderer';
 import { renderApiUrl } from '../../lib/renderBackend';
 import { AspectRatioType, ExportResolutionType, ExportModeType } from '../../types/projectJson';
 import { 
@@ -36,9 +37,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   // Video Export Engine: Server Remotion vs Fast Browser Engine
   // Browser capture works immediately on Vercel. Upgrade to independent MP4 rendering
   // only after a real persistent Remotion backend responds to /api/health.
-  const [engineChoice, setEngineChoice] = useState<'server' | 'browser'>('browser');
+  const [engineChoice, setEngineChoice] = useState<'server' | 'browser' | 'offline'>('browser');
   const manuallySelectedEngine = useRef(false);
-  const chooseEngine = (engine: 'server' | 'browser') => {
+  const chooseEngine = (engine: 'server' | 'browser' | 'offline') => {
     manuallySelectedEngine.current = true;
     setEngineChoice(engine);
   };
@@ -49,6 +50,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [stageMessage, setStageMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadExtension, setDownloadExtension] = useState<'mp4' | 'webm'>('webm');
   const [fileSize, setFileSize] = useState<number | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [activeRendererName, setActiveRendererName] = useState<string>('');
@@ -59,15 +61,24 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   // Prefer reliable 30fps capture unless the user explicitly selects 60fps.
   const [fps, setFps] = useState<30 | 60>(30);
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
+  const [offlineAvailable, setOfflineAvailable] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
-    new ServerRemotionRenderer().isAvailable().then(available => {
-      if (alive) {
-        setServerAvailable(available);
-        if (!manuallySelectedEngine.current) {
-          setEngineChoice(available ? 'server' : 'browser');
-        }
+    Promise.all([
+      new ServerRemotionRenderer().isAvailable(),
+      new OfflineWebCodecsRenderer().isAvailable()
+    ]).then(([server, offline]) => {
+      if (!alive) return;
+      setServerAvailable(server);
+      setOfflineAvailable(offline);
+      if (!manuallySelectedEngine.current) {
+        setEngineChoice(server ? 'server' : offline ? 'offline' : 'browser');
       }
+    }).catch(() => {
+      if (!alive) return;
+      setServerAvailable(false);
+      setOfflineAvailable(false);
+      if (!manuallySelectedEngine.current) setEngineChoice('browser');
     });
     return () => { alive = false; };
   }, []);
@@ -254,7 +265,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   // Unified Production Export (Server Remotion or Fast Browser MediaRecorder)
-  const handleStartExport = async (forcedEngine?: 'server' | 'browser') => {
+  const handleStartExport = async (forcedEngine?: 'server' | 'browser' | 'offline') => {
     const targetEngine = forcedEngine || engineChoice;
 
     try {
@@ -272,13 +283,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setActiveRendererName(renderer.name);
       setStageMessage(renderer.type === 'server'
         ? 'Uploading assets to the background-safe Remotion engine...'
-        : 'Preparing real-time browser recording (keep tab visible)...');
+        : renderer.type === 'offline'
+          ? 'Preparing frame-by-frame browser MP4 (not live recording)...'
+          : 'Preparing real-time browser recording (keep tab visible)...');
       setProgress(12);
       const projectJson = await buildCanonicalProjectJson({
         resolution,
         fps,
         modeOverride: exportMode,
-        skipStaging: renderer.type === 'browser'
+        skipStaging: renderer.type === 'browser' || renderer.type === 'offline'
       });
 
       const result = await renderer.render(projectJson, (prog) => {
@@ -290,6 +303,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       });
 
       if (result.outputUrl) {
+        setDownloadExtension(renderer.type === 'browser' ? 'webm' : 'mp4');
         setDownloadUrl(result.outputUrl);
         setFileSize(result.fileSize || null);
         setExportStage('ready');
@@ -510,7 +524,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
                     <a
                       href={downloadUrl || '#'}
-                      download={`${(projectName || 'Joelizer-Video').replace(/[^a-zA-Z0-9_-]/g, '_')}.${downloadUrl?.startsWith('blob:') ? 'webm' : 'mp4'}`}
+                      download={`${(projectName || 'Joelizer-Video').replace(/[^a-zA-Z0-9_-]/g, '_')}.${downloadExtension}`}
                       className="w-full py-3.5 px-6 rounded-xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 text-black transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl cursor-pointer mt-2"
                       style={{
                         background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
@@ -518,7 +532,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       }}
                     >
                       <Download size={16} />
-                      <span>Download {downloadUrl?.startsWith('blob:') ? 'Video (WebM)' : 'Production MP4'}</span>
+                      <span>Download {downloadExtension === 'mp4' ? 'Frame-Accurate MP4' : 'Video (WebM)'}</span>
                     </a>
 
                     <button
@@ -675,7 +689,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
                     Render Engine
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => chooseEngine('server')}
@@ -697,6 +711,27 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                         </div>
                         <span className="text-[9px] text-slate-400 block font-mono mt-0.5 leading-tight">
                           Best quality · works with other windows open
+                        </span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => chooseEngine('offline')}
+                      disabled={offlineAvailable !== true}
+                      title={offlineAvailable ? 'Frame-by-frame MP4 without any server' : 'Requires WebCodecs H264 + AAC support'}
+                      className={cn(
+                        "py-2.5 px-2 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed",
+                        engineChoice === 'offline'
+                          ? "bg-white/10 border-white/40 text-white"
+                          : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
+                      )}
+                    >
+                      <Film size={16} className={engineChoice === 'offline' ? 'text-emerald-400' : 'text-slate-400'} />
+                      <div>
+                        <span className="text-[11px] font-bold uppercase font-mono block">Offline MP4</span>
+                        <span className="text-[9px] text-slate-400 block font-mono mt-0.5 leading-tight">
+                          Exact frames, no real-time capture
                         </span>
                       </div>
                     </button>
@@ -733,8 +768,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       : serverAvailable === null
                         ? 'Checking high-quality renderer availability...'
                         : <span className="text-amber-300">High-quality server mode is not connected. Browser export is available now without extra setup. For focus-independent MP4, connect a persistent Node render service using VITE_RENDER_SERVER_URL.</span>
+                  ) : engineChoice === 'offline' ? (
+                    <span className="text-emerald-300">Offline MP4 encodes each timestamped frame before moving on. It may take longer than the song duration and does not require a server. Audio must support AAC in this browser; clip decoding depends on browser/media support.</span>
                   ) : (
-                    <span className="text-amber-300">Browser video export is available now for lyrics and music videos. Keep this tab visible until recording finishes; browsers throttle hidden tabs. When a rendering server is connected, select Server Remotion for background-safe MP4.</span>
+                    <span className="text-amber-300">Legacy real-time WebM recording. Keep this tab visible; use Offline MP4 for fixed frame pacing when supported.</span>
                   )}
                 </div>
 
@@ -926,7 +963,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 >
                   <Download size={16} /> 
                   <span>
-                    Export {engineChoice === 'browser' ? 'Video' : 'MP4'} ({resolution} • {fps} FPS • {engineChoice === 'browser' ? 'Foreground Browser' : 'High-Quality Server'})
+                    Export {engineChoice === 'browser' ? 'WebM' : 'MP4'} ({resolution} • {fps} FPS • {engineChoice === 'browser' ? 'Real-time' : engineChoice === 'offline' ? 'Offline WebCodecs' : 'Server'})
                   </span>
                 </button>
               </div>
