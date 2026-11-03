@@ -38,3 +38,27 @@ jobs:
         run: npx playwright install --with-deps chrome
       - name: Render offline WebCodecs MP4 in Chromium
         run: npx tsx src/tests/offlineWebCodecs.browser.test.ts
+
+  offline-windows:
+    name: Verify WebCodecs H264/AAC on Windows Chrome
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install --no-package-lock --no-audit --no-fund
+      - name: Install Chrome browser
+        run: npx playwright install chrome
+      - name: Install FFmpeg for fixture generation and file inspection
+        run: choco install ffmpeg -y --no-progress
+      - name: Generate a real moving source video and audio
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path public/staged | Out-Null
+          ffmpeg -y -v error -f lavfi -i testsrc2=size=320x180:rate=60 -t 3 -c:v libx264 -preset ultrafast -pix_fmt yuv420p public/staged/smoke-video.mp4
+          ffmpeg -y -v error -f lavfi -i sine=frequency=440:sample_rate=48000 -t 2 -c:a pcm_s16le public/staged/smoke-audio.wav
+      - name: Test exact-frame browser H264 MP4 and AAC audio
+        run: npx tsx src/tests/offlineWebCodecs.browser.test.ts
