@@ -91,13 +91,17 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   const maxMVClipEnd = mvTimelineClips.reduce((max, clip) => Math.max(max, clip.endTime), 0);
   const maxLyricEnd = lyricsLines.reduce((max, line) => Math.max(max, line.endTime || 0), 0);
-  const effectiveAudioDuration = audioDuration || maxMVClipEnd || maxLyricEnd || 15;
+  const effectiveAudioDuration = Math.max(audioDuration || 0, maxMVClipEnd, maxLyricEnd) || 15;
   const hasAudio = !!audioFile || !!audioUrl || mvTimelineClips.length > 0 || allowSilentExport;
 
   const exportRangeStart = useStore(s => s.exportRangeStart) || 0;
   const rawExportRangeEnd = useStore(s => s.exportRangeEnd);
-  const exportRangeEnd = (rawExportRangeEnd !== null && rawExportRangeEnd > exportRangeStart) 
-    ? rawExportRangeEnd 
+  const inheritedAudioEnd = exportMode === 'music-video'
+    && maxMVClipEnd > (audioDuration || 0)
+    && rawExportRangeEnd !== null
+    && Math.abs(rawExportRangeEnd - (audioDuration || 0)) < 0.02;
+  const exportRangeEnd = (rawExportRangeEnd !== null && rawExportRangeEnd > exportRangeStart && !inheritedAudioEnd)
+    ? rawExportRangeEnd
     : effectiveAudioDuration;
   const setExportRange = useStore(s => s.setExportRange);
 
@@ -508,7 +512,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                     </div>
 
                     {/* SMART FALLBACK: 1-Click Browser Video Engine Export */}
-                    {!(exportMode === 'music-video' && mvTimelineClips.some(c => c.type === 'video' || c.type === 'image')) && (
                     <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-left space-y-2">
                       <div className="flex items-center gap-2 text-emerald-300">
                         <Zap size={14} />
@@ -526,7 +529,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                         <span>Export with Fast Browser Engine Now</span>
                       </button>
                     </div>
-                    )}
 
                     <div className="flex items-center justify-center gap-2 pt-1">
                       <button
