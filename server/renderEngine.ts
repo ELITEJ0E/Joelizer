@@ -26,12 +26,15 @@ const activeJobs = new Map<string, ExportJob>();
 let cachedBundleLocation: string | null = null;
 let isBundling = false;
 
-const EXPORT_DIR = path.resolve('./public/exports');
+const RENDER_DATA_DIR = process.env.RENDER_DATA_DIR
+  ? path.resolve(process.env.RENDER_DATA_DIR)
+  : path.resolve('./public');
+const EXPORT_DIR = path.join(RENDER_DATA_DIR, 'exports');
 if (!fs.existsSync(EXPORT_DIR)) {
   fs.mkdirSync(EXPORT_DIR, { recursive: true });
 }
 
-const STAGED_DIR = path.resolve('./public/staged');
+const STAGED_DIR = path.join(RENDER_DATA_DIR, 'staged');
 if (!fs.existsSync(STAGED_DIR)) {
   fs.mkdirSync(STAGED_DIR, { recursive: true });
 }
@@ -402,6 +405,13 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       outputLocation: tempRawVideoPath,
       inputProps: { projectJson: remotionProjectJson },
       codec: 'h264',
+      // Deterministic, high-detail H.264. Slow preset affects render time,
+      // not playback smoothness; constant frame rate comes from Remotion.
+      crf: 16,
+      x264Preset: 'slow',
+      pixelFormat: 'yuv420p',
+      colorSpace: 'bt709',
+      imageFormat: 'png',
       muted: true,
       concurrency: 1, // Single concurrency to prevent container OOM
       timeoutInMilliseconds: 60000,
@@ -421,14 +431,14 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       const duration = projectJson.exportRange?.duration || (composition.durationInFrames / composition.fps);
 
       // Try stream-copy mux first (fastest) with optional audio stream map
-      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
+      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 320k -ar 48000 -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
       
       try {
         await execAsync(ffmpegCmd);
       } catch (muxErr) {
         console.warn('[RenderEngine] Stream copy mux failed, trying re-encode pass:', muxErr);
         try {
-          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -preset fast -c:a aac -b:a 192k -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
+          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -preset slow -crf 16 -c:a aac -b:a 320k -ar 48000 -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
           await execAsync(fallbackCmd);
         } catch (reEncodeErr) {
           // Do not report success with a silent MP4 when the requested audio failed to mux.
