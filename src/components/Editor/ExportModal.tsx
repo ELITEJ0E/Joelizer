@@ -91,13 +91,17 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   const maxMVClipEnd = mvTimelineClips.reduce((max, clip) => Math.max(max, clip.endTime), 0);
   const maxLyricEnd = lyricsLines.reduce((max, line) => Math.max(max, line.endTime || 0), 0);
-  const effectiveAudioDuration = audioDuration || maxMVClipEnd || maxLyricEnd || 15;
+  const effectiveAudioDuration = Math.max(audioDuration || 0, maxMVClipEnd, maxLyricEnd) || 15;
   const hasAudio = !!audioFile || !!audioUrl || mvTimelineClips.length > 0 || allowSilentExport;
 
   const exportRangeStart = useStore(s => s.exportRangeStart) || 0;
   const rawExportRangeEnd = useStore(s => s.exportRangeEnd);
-  const exportRangeEnd = (rawExportRangeEnd !== null && rawExportRangeEnd > exportRangeStart) 
-    ? rawExportRangeEnd 
+  const inheritedAudioEnd = exportMode === 'music-video'
+    && maxMVClipEnd > (audioDuration || 0)
+    && rawExportRangeEnd !== null
+    && Math.abs(rawExportRangeEnd - (audioDuration || 0)) < 0.02;
+  const exportRangeEnd = (rawExportRangeEnd !== null && rawExportRangeEnd > exportRangeStart && !inheritedAudioEnd)
+    ? rawExportRangeEnd
     : effectiveAudioDuration;
   const setExportRange = useStore(s => s.setExportRange);
 

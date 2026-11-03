@@ -263,6 +263,7 @@ export async function getRemotionBundle(): Promise<string> {
 
     const bundleLocation = await bundle({
       entryPoint,
+      publicDir: path.resolve('./public'),
       webpackOverride: (config) => config
     });
 
@@ -271,6 +272,37 @@ export async function getRemotionBundle(): Promise<string> {
     return bundleLocation;
   } finally {
     isBundling = false;
+  }
+}
+
+/**
+ * Remotion serves media from its isolated bundle directory, not the Express
+ * public directory. New uploads arrive after the bundle is cached, so copying
+ * public/ once at bundle time is not sufficient.
+ */
+function synchronizeStagedMedia(bundleLocation: string, project: CanonicalProjectJson): void {
+  const urls = [
+    ...(project.videoClips || []).map(clip => clip.url),
+    project.background?.value,
+    project.background?.videoUrl,
+    project.audio?.albumArt
+  ];
+  for (const url of urls) {
+    if (!url || !url.startsWith('/staged/')) continue;
+    const filename = path.basename(url.split(/[?#]/)[0]);
+    if (!filename || filename === '.' || filename === '..') {
+      throw new Error('Invalid staged media filename');
+    }
+    const source = path.join(STAGED_DIR, filename);
+    if (!fs.existsSync(source)) {
+      throw new Error(`Video export asset not found: ${filename}. Please reimport this clip and retry.`);
+    }
+    const destinationDir = path.join(bundleLocation, 'staged');
+    fs.mkdirSync(destinationDir, { recursive: true });
+    const destination = path.join(destinationDir, filename);
+    if (!fs.existsSync(destination) || fs.statSync(destination).size !== fs.statSync(source).size) {
+      fs.copyFileSync(source, destination);
+    }
   }
 }
 
@@ -325,10 +357,14 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
     // STAGE 1: PREPARING ASSETS & COMPOSITION
     updateProgress('preparing', 'Resolving media assets and bundling components...', 10);
     const bundleLocation = await getRemotionBundle();
+    synchronizeStagedMedia(bundleLocation, projectJson);
 
     // 1a. Extract audio to disk for FFmpeg muxing
     const audioSource = projectJson.audio?.audioDataUri || projectJson.audio?.url;
     const { audioPath, hasAudio } = await prepareAudioForMuxing(audioSource, jobId);
+    if (audioSource && !hasAudio) {
+      throw new Error('Audio export failed: the selected soundtrack could not be loaded for muxing.');
+    }
 
     // 1b. Sanitize album artwork to base64 data URI (bypasses 403s & cross-origin network errors)
     const sanitizedAlbumArt = await resolveAlbumArtDataUri(projectJson.audio?.albumArt);
@@ -385,24 +421,19 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       const duration = projectJson.exportRange?.duration || (composition.durationInFrames / composition.fps);
 
       // Try stream-copy mux first (fastest) with optional audio stream map
-      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0? -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
+      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
       
       try {
         await execAsync(ffmpegCmd);
       } catch (muxErr) {
         console.warn('[RenderEngine] Stream copy mux failed, trying re-encode pass:', muxErr);
         try {
-          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0? -c:v libx264 -pix_fmt yuv420p -preset fast -c:a aac -b:a 192k -shortest -movflags +faststart "${finalMp4Path}"`;
+          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -preset fast -c:a aac -b:a 192k -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
           await execAsync(fallbackCmd);
         } catch (reEncodeErr) {
-          console.warn('[RenderEngine] Re-encode mux failed, salvaging clean video file:', reEncodeErr);
-          // If muxing fails completely, salvage the rendered video stream so the export NEVER fails
-          const copyCmd = `ffmpeg -y -i "${tempRawVideoPath}" -c:v copy -movflags +faststart "${finalMp4Path}"`;
-          try {
-            await execAsync(copyCmd);
-          } catch (_) {
-            fs.copyFileSync(tempRawVideoPath, finalMp4Path);
-          }
+          // Do not report success with a silent MP4 when the requested audio failed to mux.
+          throw new Error('Video frames rendered but soundtrack muxing failed: ' +
+            (reEncodeErr instanceof Error ? reEncodeErr.message : String(reEncodeErr)));
         }
       }
 
@@ -433,6 +464,29 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
     const stats = fs.statSync(finalMp4Path);
     if (stats.size === 0) {
       throw new Error('Exported video file is empty (0 bytes)');
+    }
+
+    // A non-empty MP4 can still contain a single frame or a truncated stream.
+    // Probe the actual encoded duration before exposing a download to the user.
+    const expectedDuration = composition.durationInFrames / composition.fps;
+    const { stdout: probeOutput } = await execAsync(
+      `ffprobe -v error -show_entries stream=codec_type,duration,nb_frames -show_entries format=duration -of json "${finalMp4Path}"`,
+      { timeout: 30000 }
+    );
+    const probe = JSON.parse(probeOutput);
+    const videoStream = probe.streams?.find((stream: any) => stream.codec_type === 'video');
+    if (hasValidAudio && !probe.streams?.some((stream: any) => stream.codec_type === 'audio')) {
+      throw new Error('Export verification failed: requested soundtrack is absent from the final MP4');
+    }
+    if (!videoStream) throw new Error('Export verification failed: MP4 contains no video stream');
+    const actualDuration = Number(videoStream.duration || probe.format?.duration);
+    const minimumDuration = Math.max(0, expectedDuration - Math.max(0.2, 2 / composition.fps));
+    if (!Number.isFinite(actualDuration) || actualDuration < minimumDuration) {
+      throw new Error(`Export verification failed: expected ${expectedDuration.toFixed(2)}s of video, got ${actualDuration.toFixed(2)}s`);
+    }
+    const frameCount = Number(videoStream.nb_frames);
+    if (Number.isFinite(frameCount) && frameCount > 0 && frameCount < Math.floor(minimumDuration * composition.fps)) {
+      throw new Error(`Export verification failed: only ${frameCount} video frames encoded`);
     }
 
     job.fileSize = stats.size;

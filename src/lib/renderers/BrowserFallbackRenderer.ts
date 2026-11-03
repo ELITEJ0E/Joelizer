@@ -6,6 +6,7 @@ import { audioManager } from '../audio';
 import { renderLyricsVideoFrame } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import fixWebmDuration from 'fix-webm-duration';
+import { getBrowserExportTime, startBrowserExportClock, stopBrowserExportClock, validateBrowserExportVideo } from '../browserExportClock';
 
 export class BrowserFallbackRenderer implements VideoRenderer {
   name = 'Client Browser Video Engine';
@@ -28,6 +29,10 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     // 1. Locate preview canvas element or instantiate dedicated offscreen canvas
     let canvas = (document.getElementById('visualizer-canvas') || document.querySelector('canvas#visualizer-canvas')) as HTMLCanvasElement | null;
     let customRenderLoop: number | null = null;
+    // A media timeline must be rendered by MVPreview, never by the lyrics-only fallback canvas.
+    if (project.exportMode === 'music-video' && canvas?.dataset.joelizerStage !== 'mv') {
+      throw new Error('Open the Music Video Studio preview before exporting timeline clips in your browser.');
+    }
 
     if (!canvas) {
       // Offscreen rendering canvas for tabs where visualizer is not currently mounted (e.g. LRC studio or DAW)
@@ -46,7 +51,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
         const tmpl = LYRIC_VIDEO_TEMPLATES[lyricsVideoState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES['vinyl'];
 
         const renderFrame = () => {
-          const curTime = audioManager.getPreciseCurrentTime() || useStore.getState().currentTime;
+          const curTime = getBrowserExportTime() ?? (audioManager.getPreciseCurrentTime() || useStore.getState().currentTime);
           const freqData = audioManager.getFrequencyData();
           const timeData = audioManager.getTimeDomainData();
 
@@ -110,8 +115,8 @@ export class BrowserFallbackRenderer implements VideoRenderer {
 
     // Determine highest quality supported MIME type
     const supportedTypes = [
-      'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp9,opus',
       'video/webm;codecs=h264,opus',
       'video/webm',
       'video/mp4'
@@ -126,16 +131,25 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     }
 
     const duration = project.exportRange?.duration || 10;
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error('Invalid export range duration');
     const startTimeOffset = project.exportRange?.start || 0;
     const durationMs = duration * 1000;
 
     // Position timeline to start of export range and ensure playback is active
     const originalTime = useStore.getState().currentTime;
     const wasPlaying = useStore.getState().isPlaying;
-    
+    const originalAudioTime = audioManager.currentTime;
+
+    useStore.getState().setIsPlaying(false);
     useStore.getState().setCurrentTime(startTimeOffset);
     audioManager.seek(startTimeOffset);
-    useStore.getState().setIsPlaying(true);
+    const restorePlayback = () => {
+      stopBrowserExportClock();
+      if (customRenderLoop) cancelAnimationFrame(customRenderLoop);
+      useStore.getState().setIsPlaying(wasPlaying);
+      useStore.getState().setCurrentTime(originalTime);
+      audioManager.seek(originalAudioTime);
+    };
 
     return new Promise((resolve, reject) => {
       let mediaRecorder: MediaRecorder;
@@ -157,9 +171,9 @@ export class BrowserFallbackRenderer implements VideoRenderer {
       };
 
       mediaRecorder.onerror = (err: any) => {
-        if (customRenderLoop) cancelAnimationFrame(customRenderLoop);
-        useStore.getState().setIsPlaying(false);
-        useStore.getState().setCurrentTime(originalTime);
+        if (timer) clearInterval(timer);
+        restorePlayback();
+        combinedStream.getTracks().forEach(track => track.stop());
         reject(new Error(`MediaRecorder error: ${err.message || 'Recording stream failed'}`));
       };
 
@@ -168,11 +182,10 @@ export class BrowserFallbackRenderer implements VideoRenderer {
 
       mediaRecorder.onstop = async () => {
         if (timer) clearInterval(timer);
-        if (customRenderLoop) cancelAnimationFrame(customRenderLoop);
-        useStore.getState().setIsPlaying(false);
-        useStore.getState().setCurrentTime(originalTime);
-
         try {
+          if (project.exportMode === 'music-video') {
+            validateBrowserExportVideo(project.videoClips, startTimeOffset, startTimeOffset + duration);
+          }
           if (chunks.length === 0) {
             throw new Error('Recorded 0 video frames. Please ensure audio and canvas playback are running.');
           }
@@ -216,11 +229,18 @@ export class BrowserFallbackRenderer implements VideoRenderer {
           });
         } catch (postErr: any) {
           reject(postErr);
+        } finally {
+          restorePlayback();
+          // Only stop tracks created by canvas.captureStream; the audio track belongs to the global player.
+          canvasStream.getTracks().forEach(track => track.stop());
         }
       };
 
       // Request data chunks every 250ms so data is continuously buffered
       mediaRecorder.start(250);
+      startBrowserExportClock(startTimeOffset);
+      useStore.getState().setIsPlaying(true);
+      audioManager.play();
 
       onProgress({
         stage: 'rendering',

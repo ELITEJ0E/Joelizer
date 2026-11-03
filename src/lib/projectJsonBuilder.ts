@@ -30,7 +30,12 @@ export async function buildCanonicalProjectJson(options?: {
 
   // Audio track info
   const currentTrack = mainStore.tracks[mainStore.currentTrackIndex];
-  const audioDuration = mainStore.audioDuration || currentTrack?.duration || 10;
+  const audioDuration = mainStore.audioDuration || currentTrack?.duration || 0;
+  const maxMVClipEnd = exportMode === 'music-video'
+    ? Math.max(0, ...mvStore.timelineClips.map(clip => clip.endTime))
+    : 0;
+  const maxLyricEnd = Math.max(0, ...(mainStore.lyricsSettings.lines || []).map(line => line.endTime || 0));
+  const projectEnd = Math.max(audioDuration, maxMVClipEnd, maxLyricEnd) || 10;
   
   let rawAudioUrl = mainStore.audioUrl || currentTrack?.url || null;
   let stagedAudioUrl: string | null = rawAudioUrl;
@@ -49,10 +54,17 @@ export async function buildCanonicalProjectJson(options?: {
     }
   }
 
-  const rangeStart = mainStore.exportRangeStart || 0;
+  const rangeStart = Math.max(0, mainStore.exportRangeStart || 0);
   const rawRangeEnd = mainStore.exportRangeEnd;
-  const rangeEnd = (rawRangeEnd !== null && rawRangeEnd > rangeStart) ? rawRangeEnd : audioDuration;
-  const duration = Math.max(1, rangeEnd - rangeStart);
+  // The default range created when loading audio must not silently truncate a longer MV timeline.
+  const inheritedAudioEnd = exportMode === 'music-video' && maxMVClipEnd > audioDuration
+    && rawRangeEnd !== null && Math.abs(rawRangeEnd - audioDuration) < 0.02;
+  const rangeEnd = (rawRangeEnd !== null && rawRangeEnd > rangeStart && !inheritedAudioEnd)
+    ? rawRangeEnd : projectEnd;
+  if (!Number.isFinite(rangeEnd) || rangeEnd <= rangeStart) {
+    throw new Error('Export end must be greater than the start time');
+  }
+  const duration = Math.max(1 / fps, rangeEnd - rangeStart);
 
   // Process lyrics lines and word-level timestamps
   const rawLines = mainStore.lyricsSettings.lines || [];
