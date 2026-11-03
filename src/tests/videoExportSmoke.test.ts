@@ -6,15 +6,15 @@ import { startExportJob, getExportJob } from '../../server/renderEngine';
 import { defaultSampleProjectJson } from '../remotion/Root';
 import type { CanonicalProjectJson } from '../types/projectJson';
 
-async function renderAndValidate(mode: 'lyrics-video' | 'music-video') {
+async function renderAndValidate(mode: 'lyrics-video' | 'music-video', fps: 30 | 60) {
   const project: CanonicalProjectJson = {
     ...defaultSampleProjectJson,
-    projectName: `Joelizer CI smoke ${mode}`,
+    projectName: `Joelizer CI smoke ${mode} ${fps}fps`,
     exportMode: mode,
     width: 640,
     height: 360,
     resolution: '360p',
-    fps: 30,
+    fps,
     exportRange: { start: 1, end: 4, duration: 3 },
     background: { type: 'color', value: '#08080b', blurAlbumArt: false },
     audio: {
@@ -54,7 +54,7 @@ async function renderAndValidate(mode: 'lyrics-video' | 'music-video') {
   const video = metadata.streams?.find((s: any) => s.codec_type === 'video');
   assert.ok(video, 'MP4 must have a video stream');
   assert.ok(Number(video.duration) >= 2.8, 'MP4 must contain at least 2.8 seconds of video');
-  assert.ok(Number(video.nb_frames) >= 85, 'MP4 must contain at least 85 frames');
+  assert.ok(Number(video.nb_frames) >= Math.floor(2.8 * fps), `MP4 must contain at least ${Math.floor(2.8 * fps)} frames for ${fps}fps`);
   if (mode === 'music-video') {
     assert.ok(metadata.streams?.some((s: any) => s.codec_type === 'audio'), 'MV must include audio');
   }
@@ -67,8 +67,10 @@ async function renderAndValidate(mode: 'lyrics-video' | 'music-video') {
     .map(line => line.split(',').at(-1)?.trim());
   assert.ok(new Set(frameHashes).size >= 2, `${mode} must contain visibly changing frames (not a frozen frame)`);
 
-  console.log(`${mode} smoke render passed: ${video.nb_frames} frames, ${video.duration}s, ${new Set(frameHashes).size} distinct sampled frames`);
+  console.log(`${mode} ${fps}fps smoke render passed: ${video.nb_frames} frames, ${video.duration}s, ${new Set(frameHashes).size} distinct sampled frames`);
 }
 
-await renderAndValidate('lyrics-video');
-await renderAndValidate('music-video');
+await renderAndValidate('lyrics-video', 30);
+await renderAndValidate('music-video', 30);
+await renderAndValidate('lyrics-video', 60);
+await renderAndValidate('music-video', 60);
