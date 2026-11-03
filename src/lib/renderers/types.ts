@@ -18,7 +18,7 @@ export interface RenderProgress {
   fileSize?: number;
 }
 
-export type RendererType = 'server' | 'local' | 'browser';
+export type RendererType = 'server' | 'local' | 'browser' | 'offline';
 
 export interface VideoRenderer {
   name: string;
