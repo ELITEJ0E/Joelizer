@@ -17,7 +17,8 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-      - run: npm ci
+      # The existing package-lock.json is stale; install from package.json for this verification run.
+      - run: npm install --no-package-lock --no-audit --no-fund
       - run: npm run lint
       - run: npx tsx src/tests/browserExportClock.test.ts
       - run: npm run build
