@@ -508,6 +508,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                     </div>
 
                     {/* SMART FALLBACK: 1-Click Browser Video Engine Export */}
+                    {!(exportMode === 'music-video' && mvTimelineClips.some(c => c.type === 'video' || c.type === 'image')) && (
                     <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-left space-y-2">
                       <div className="flex items-center gap-2 text-emerald-300">
                         <Zap size={14} />
@@ -525,6 +526,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                         <span>Export with Fast Browser Engine Now</span>
                       </button>
                     </div>
+                    )}
 
                     <div className="flex items-center justify-center gap-2 pt-1">
                       <button
