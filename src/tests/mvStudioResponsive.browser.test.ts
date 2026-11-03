@@ -34,6 +34,31 @@ try {
   const canvas = page.locator('canvas#visualizer-canvas');
   await canvas.waitFor({ state: 'visible' });
 
+  // All workspaces share the same top-level Export action. MV Studio must
+  // not introduce another Export button beneath the navbar.
+  const topExport = page.locator('#topbar-export-btn');
+  assert.equal(await topExport.count(), 1, 'Global navbar must contain one Export action');
+  assert.equal(await page.getByRole('button', { name: 'Export', exact: true }).count(), 1,
+    'MV Studio must not duplicate the topbar Export action');
+  const topControls = await page.evaluate(() => {
+    const controls = ['topbar-export-btn', 'topbar-audio-btn', 'topbar-shortcuts-btn'];
+    return controls.map(id => {
+      const el = document.getElementById(id)!;
+      const style = getComputedStyle(el);
+      return { id, height: el.getBoundingClientRect().height, radius: style.borderRadius };
+    });
+  });
+  assert.ok(topControls.every(c => c.height === 32), 'Global toolbar actions must use universal 32px height');
+  assert.equal(new Set(topControls.map(c => c.radius)).size, 1,
+    'Global toolbar actions must use one shared border radius');
+  await topExport.click();
+  await page.waitForTimeout(150);
+  assert.ok(await page.getByText('Export Video', { exact: false }).count() > 0 ||
+    await page.locator('[id*="export"]').count() > 1,
+    'Global Export control must open the shared export workflow');
+  await page.keyboard.press('Escape');
+
+
   for (const [name, ratio] of [
     ['16:9', 16/9], ['9:16', 9/16], ['1:1', 1], ['4:5', 4/5], ['3:4', 3/4], ['4:3', 4/3]
   ] as const) {
