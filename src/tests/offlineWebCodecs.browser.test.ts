@@ -27,7 +27,8 @@ try {
 
   for (const mode of ['lyrics-video', 'music-video']) {
     const result = await page.evaluate(async mode => {
-      const { OfflineWebCodecsRenderer } = await import('/src/lib/renderers/OfflineWebCodecsRenderer.ts');
+      const modulePath = '/src/lib/renderers/OfflineWebCodecsRenderer.ts';
+      const { OfflineWebCodecsRenderer } = await import(/* @vite-ignore */ modulePath);
       const renderer = new OfflineWebCodecsRenderer();
       const project = {
         version: '1.0', projectName: 'offline-browser-smoke', exportMode: mode,
