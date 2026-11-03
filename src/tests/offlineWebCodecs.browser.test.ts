@@ -66,15 +66,17 @@ try {
       return (await Audio.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 256000 })).supported;
     } catch { return false; }
   });
-  const modes = ['lyrics-video', 'music-video', ...(AACsupported ? ['music-video-with-audio'] : [])];
+  const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps',
+    ...(AACsupported ? ['music-video-with-audio'] : [])];
   for (const mode of (h264 ? modes : [])) {
-    const result = await page.evaluate(async mode => {
+    const fps = mode.endsWith('-60fps') ? 60 : 30;
+    const result = await page.evaluate(async ({ mode, fps }) => {
       const modulePath = '/src/lib/renderers/OfflineWebCodecsRenderer.ts';
       const { OfflineWebCodecsRenderer } = await import(/* @vite-ignore */ modulePath);
       const renderer = new OfflineWebCodecsRenderer();
       const project = {
-        version: '1.0', projectName: 'offline-browser-smoke', exportMode: mode === 'music-video-with-audio' ? 'music-video' : mode,
-        width: 320, height: 180, fps: 30, resolution: '360p', aspectRatio: '16:9',
+        version: '1.0', projectName: 'offline-browser-smoke', exportMode: mode.startsWith('lyrics-video') ? 'lyrics-video' : 'music-video',
+        width: 320, height: 180, fps, resolution: '360p', aspectRatio: '16:9',
         exportRange: { start: 0, end: 1, duration: 1 },
         audio: { url: mode === 'music-video-with-audio' ? '/staged/smoke-audio.wav' : null,
           albumArt: null, title: 'Sample', artist: 'CI', duration: 1 },
@@ -84,7 +86,7 @@ try {
           textColor: '#fff', activeWordColor: '#fde047', inactiveWordColor: '#aaa',
           glowColor: '#fde047', showContainerPill: true, pillBgColor: '#111',
           animationStyle: 'karaoke' },
-        videoClips: mode !== 'lyrics-video' ? [
+        videoClips: !mode.startsWith('lyrics-video') ? [
           { id: 'v1', assetId: 'v1', url: '/staged/smoke-video.mp4', type: 'video',
             startTime: 0, endTime: 1, duration: 1, trimStart: 0, trimEnd: 1, effect: 'none', transition: 'cut' }
         ] : [],
@@ -111,7 +113,7 @@ try {
       const buffer = await response.arrayBuffer();
       URL.revokeObjectURL(result.outputUrl);
       return Array.from(new Uint8Array(buffer));
-    }, mode);
+    }, { mode, fps });
     const path = join(tmpdir(), `joelizer-offline-${mode}.mp4`);
     writeFileSync(path, Buffer.from(result));
     const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error',
@@ -121,7 +123,7 @@ try {
     if (mode === 'music-video-with-audio') {
       assert.ok(probe.streams.some(s => s.codec_type === 'audio'), 'AAC track missing from offline MP4');
     }
-    assert.equal(Number(video.nb_frames), 30, 'Offline MP4 must have exactly 30 encoded video frames');
+    assert.equal(Number(video.nb_frames), fps, `Offline MP4 must contain exactly ${fps} encoded video frames`);
     assert.ok(Number(video.duration) >= 0.95, 'Offline MP4 must not be truncated');
     const md5 = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-vf', 'fps=10,scale=80:45', '-f', 'framemd5', '-'],
       { encoding: 'utf8' }).split('\n').filter(line => line && !line.startsWith('#'));
