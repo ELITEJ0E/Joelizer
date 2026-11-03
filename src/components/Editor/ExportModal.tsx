@@ -4,18 +4,17 @@ import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { 
-  X, Loader2, Download, Zap, CheckCircle2, Film, Music2, 
-  Monitor, AlertCircle, FileText, Copy, Check, Package, Upload, Play, Disc
+  X, Loader2, Download, CheckCircle2, Film, Music2,
+  AlertCircle, FileText, Copy, Check, Package
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
-import { animate, stagger } from 'animejs';
+import { animate } from 'animejs';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { ExportRangeSlider } from './ExportRangeSlider';
 import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
 import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
 import { ServerRemotionRenderer } from '../../lib/renderers/ServerRemotionRenderer';
-import { renderApiUrl } from '../../lib/renderBackend';
 import { AspectRatioType, ExportResolutionType, ExportModeType } from '../../types/projectJson';
 import { 
   generateLRC, generateEnhancedLRC, generateSRT, generateASS, 
@@ -71,7 +70,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     });
     return () => { alive = false; };
   }, []);
-  const [aspectRatio, setAspectRatioState] = useState<AspectRatioType>('16:9');
+  const currentAspectRatio = useStore(s => s.aspectRatio);
+  const [aspectRatio, setAspectRatioState] = useState<AspectRatioType>(currentAspectRatio as AspectRatioType);
   const [exportMode, setExportMode] = useState<ExportModeType>('lyrics-video');
   const [allowSilentExport, setAllowSilentExport] = useState(false);
 
@@ -85,8 +85,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [audioBounceNotice, setAudioBounceNotice] = useState<string | null>(null);
 
   // Render Engine Health Test State
-  const [isTestRunning, setIsTestRunning] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<any>(null);
@@ -148,13 +147,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       easing: 'easeOutBack'
     });
     
-    animate('.export-modal-item-anim', {
-      opacity: [0, 1],
-      translateY: [12, 0],
-      delay: stagger(30, { start: 60 }),
-      duration: 400,
-      easing: 'easeOutQuart'
-    });
+
 
     return () => {
       if (pollIntervalRef.current) {
@@ -171,49 +164,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const handleModeChange = (mode: ExportModeType) => {
     setExportMode(mode);
     setLyricsVideoMode(mode);
-  };
-
-  // Run 10-second automated render test
-  const handleRunRenderTest = async () => {
-    setIsTestRunning(true);
-    setTestResult(null);
-    try {
-      const available = await new ServerRemotionRenderer().isAvailable();
-      if (!available) {
-        setTestResult({ success: false, message: 'No persistent Remotion renderer available. Configure VITE_RENDER_SERVER_URL (or run the Node server) for focus-independent MP4 export.' });
-        return;
-      }
-      const res = await fetch(renderApiUrl('/api/render-test'));
-      const contentType = res.headers.get('content-type') || '';
-      
-      if (contentType.includes('application/json')) {
-        const data = await res.json().catch(() => null);
-        if (data) {
-          setTestResult(data);
-          return;
-        }
-      }
-
-      if (res.ok) {
-        setTestResult({
-          success: true,
-          message: 'Render engine test succeeded.'
-        });
-      } else {
-        const rawText = await res.text().catch(() => '');
-        setTestResult({
-          success: false,
-          message: rawText.slice(0, 120) || `Render test returned status ${res.status}`
-        });
-      }
-    } catch (err: any) {
-      setTestResult({
-        success: false,
-        message: err.message || 'Failed to execute render test endpoint'
-      });
-    } finally {
-      setIsTestRunning(false);
-    }
   };
 
   const handleCancelExport = () => {
@@ -240,17 +190,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setAudio(file, url, audio.duration, undefined, { name: file.name.replace(/\.[^/.]+$/, "") });
       setAllowSilentExport(false);
     };
-  };
-
-  // Load sample demo track
-  const handleLoadDemoTrack = () => {
-    const demoUrl = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3';
-    const demoTrackName = 'Lofi Evening Chill';
-    setAudio(null, demoUrl, 140, 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400&auto=format&fit=crop', {
-      name: demoTrackName,
-      artist: 'Joelizer Studio'
-    });
-    setAllowSilentExport(false);
   };
 
   // Unified Production Export (Server Remotion or Fast Browser MediaRecorder)
@@ -393,7 +332,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       }}
       className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200"
     >
-      <div className="export-modal-card bg-[#0d0f12] border border-white/15 rounded-2xl p-4 sm:p-6 w-full max-w-xl shadow-2xl relative overflow-hidden flex flex-col max-h-[92vh] my-auto">
+      <div className="export-modal-card bg-[#101419] border border-white/15 rounded-2xl p-4 sm:p-5 w-full max-w-lg shadow-2xl relative overflow-hidden flex flex-col max-h-[92dvh] my-auto">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         
         {/* Glow accent */}
@@ -413,9 +352,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <h2 className="text-xs font-mono uppercase tracking-widest font-black" style={{ color: activeColor }}>
-                Production Export Studio
+                Export
               </h2>
-              <span className="text-[9px] text-slate-400 font-mono block">Video MP4 • Sync Lyrics • Master Audio</span>
+              
             </div>
           </div>
           
@@ -442,7 +381,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               )}
             >
               <Film size={13} style={activeExportTab === 'video' ? { color: activeColor } : {}} />
-              <span>Video (MP4)</span>
+              <span>Video</span>
             </button>
 
             <button
@@ -456,12 +395,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               )}
             >
               <FileText size={13} style={activeExportTab === 'lyrics' ? { color: activeColor } : {}} />
-              <span>Lyrics Data</span>
-              {lyricsLines.length > 0 && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300">
-                  {lyricsLines.length}
-                </span>
-              )}
+              <span>Lyrics</span>
+
             </button>
 
             <button
@@ -475,7 +410,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
               )}
             >
               <Music2 size={13} style={activeExportTab === 'audio' ? { color: activeColor } : {}} />
-              <span>Audio Master</span>
+              <span>Audio</span>
             </button>
           </div>
         )}
@@ -491,9 +426,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       <CheckCircle2 size={26} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Video Export Complete!</h3>
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Export complete</h3>
                       <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {resolution} @ {fps}fps {fileSize ? `• ${formatFileSize(fileSize)}` : ''} • Engine: {activeRendererName || 'Remotion'}
+                        {resolution} · {fps} FPS {fileSize ? `· ${formatFileSize(fileSize)}` : ''}
                       </p>
                     </div>
 
@@ -535,29 +470,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       <AlertCircle size={24} />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-rose-300 uppercase tracking-wider font-mono">Export Encountered An Issue</h4>
+                      <h4 className="text-xs font-bold text-rose-300 uppercase tracking-wider font-mono">Export failed</h4>
                       <p className="text-[11px] text-slate-400 font-mono mt-1 px-4 leading-relaxed">
                         {exportError || 'Server Remotion pipeline was interrupted.'}
                       </p>
-                    </div>
-
-                    {/* SMART FALLBACK: 1-Click Browser Video Engine Export */}
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-left space-y-2">
-                      <div className="flex items-center gap-2 text-emerald-300">
-                        <Zap size={14} />
-                        <span className="text-xs font-bold font-mono uppercase">Instant Browser Export Fallback</span>
-                      </div>
-                      <p className="text-[10px] text-slate-300 font-mono">
-                        Browser video export works without a separate render server. Keep this tab visible until recording is finished; switching tabs/minimizing interrupts live capture.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleStartExport('browser')}
-                        className="w-full py-2.5 px-3 bg-emerald-400 hover:bg-emerald-300 text-black font-black uppercase text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
-                      >
-                        <Zap size={14} />
-                        <span>Export with Fast Browser Engine Now</span>
-                      </button>
                     </div>
 
                     <div className="flex items-center justify-center gap-2 pt-1">
@@ -566,7 +482,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                         onClick={() => handleStartExport('server')}
                         className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-mono font-bold uppercase transition-all cursor-pointer"
                       >
-                        Retry Server Render
+                        Retry
                       </button>}
                       <button
                         type="button"
@@ -601,10 +517,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       />
                     </div>
 
-                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 font-bold px-1">
-                      <span>STAGE: {exportStage} • {activeRendererName || engineChoice}</span>
-                      <span className="tabular-nums text-white">{Math.round(progress)}%</span>
-                    </div>
+                    <div className="text-right text-xs tabular-nums text-slate-300">{Math.round(progress)}%</div>
 
                     {/* Cancel button */}
                     <div className="pt-2 flex justify-center">
@@ -621,294 +534,98 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 )}
               </div>
             ) : (
-              <div className="overflow-y-auto custom-scrollbar flex-1 space-y-3.5 pr-1 py-1">
+              <div className="overflow-y-auto custom-scrollbar flex-1 space-y-4 pr-1 py-1">
                 
-                {/* Notice banner if audio is not loaded */}
                 {!hasAudio && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
-                    <div className="flex items-center gap-2 text-amber-300">
-                      <AlertCircle size={15} />
-                      <span className="text-xs font-bold font-mono uppercase">No Audio File Loaded</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 font-mono">
-                      Attach an audio track or choose a quick option below to enable video export:
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <input 
-                        ref={fileInputRef} 
-                        type="file" 
-                        accept="audio/*" 
-                        onChange={handleAudioFileUpload} 
-                        className="hidden" 
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Upload size={13} />
-                        <span>Upload Audio File</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleLoadDemoTrack}
-                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Play size={13} className="text-emerald-400" />
-                        <span>Load Demo Track</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setAllowSilentExport(true)}
-                        className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg text-[11px] font-mono underline cursor-pointer"
-                      >
-                        Export with Silent Audio
-                      </button>
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs text-amber-200">Add audio or export without sound.</span>
+                      <div className="flex flex-wrap gap-2">
+                        <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleAudioFileUpload} className="hidden" />
+                        <button type="button" onClick={() => fileInputRef.current?.click()}
+                          className="rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-500/10">
+                          Add audio
+                        </button>
+                        <button type="button" onClick={() => setAllowSilentExport(true)}
+                          className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white hover:bg-white/10">
+                          No audio
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Engine Selector: Server Remotion vs Fast Browser Engine */}
-                <div className="export-modal-item-anim space-y-1">
-                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
-                    Render Engine
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-300">Video type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { id: 'lyrics-video' as ExportModeType, label: 'Lyrics video' },
+                      { id: 'music-video' as ExportModeType, label: 'Music video' }
+                    ]).map(mode => (
+                      <button key={mode.id} type="button" onClick={() => handleModeChange(mode.id)}
+                        aria-pressed={exportMode === mode.id}
+                        className={cn(
+                          'min-h-10 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                          exportMode === mode.id
+                            ? 'border-accent bg-accent/10 text-white'
+                            : 'border-white/15 bg-white/[0.03] text-slate-400 hover:bg-white/10 hover:text-white'
+                        )}>
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="min-w-0 space-y-1">
+                    <span className="block text-xs font-medium text-slate-300">Aspect ratio</span>
+                    <select value={aspectRatio}
+                      onChange={e => handleAspectRatioChange(e.target.value as AspectRatioType)}
+                      className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-2.5 text-xs text-white outline-none focus:border-accent">
+                      {(['16:9', '9:16', '1:1', '4:5', '3:4', '4:3'] as AspectRatioType[]).map(value =>
+                        <option key={value} value={value}>{value}</option>)}
+                    </select>
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => chooseEngine('server')}
-                      disabled={serverAvailable !== true}
-                      title={serverAvailable === true ? 'Use independent background-safe MP4 rendering' : 'Requires a connected persistent Remotion render service'}
-                      className={cn(
-                        "py-2.5 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed",
-                        engineChoice === 'server'
-                          ? "bg-white/10 border-white/40 text-white"
-                          : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
-                      )}
-                      style={engineChoice === 'server' ? { borderColor: `${activeColor}80` } : {}}
-                    >
-                      <Film size={16} className={engineChoice === 'server' ? 'text-emerald-400' : 'text-slate-400'} />
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs font-bold uppercase font-mono">Server Remotion</span>
-                          <span className="text-[8px] px-1 rounded bg-emerald-500/20 text-emerald-300 font-mono">MP4</span>
-                        </div>
-                        <span className="text-[9px] text-slate-400 block font-mono mt-0.5 leading-tight">
-                          Best quality · works with other windows open
-                        </span>
-                      </div>
-                    </button>
+                  <label className="min-w-0 space-y-1">
+                    <span className="block text-xs font-medium text-slate-300">Resolution</span>
+                    <select value={resolution} onChange={e => setResolution(e.target.value as ExportResolutionType)}
+                      className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-2.5 text-xs text-white outline-none focus:border-accent">
+                      <option value="1080p">1080p</option>
+                      <option value="720p">720p</option>
+                      <option value="360p">360p</option>
+                    </select>
+                  </label>
+                  <label className="min-w-0 space-y-1">
+                    <span className="block text-xs font-medium text-slate-300">Frame rate</span>
+                    <select value={fps} onChange={e => setFps(Number(e.target.value) as 30 | 60)}
+                      className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-2.5 text-xs text-white outline-none focus:border-accent">
+                      <option value={30}>30 FPS</option>
+                      <option value={60}>60 FPS</option>
+                    </select>
+                  </label>
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => chooseEngine('browser')}
-                      className={cn(
-                        "py-2.5 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5",
-                        engineChoice === 'browser'
-                          ? "bg-white/10 border-white/40 text-white"
-                          : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
-                      )}
-                      style={engineChoice === 'browser' ? { borderColor: `${activeColor}80` } : {}}
-                    >
-                      <Zap size={16} className={engineChoice === 'browser' ? 'text-amber-400' : 'text-slate-400'} />
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs font-bold uppercase font-mono">Fast Browser</span>
-                          <span className="text-[8px] px-1 rounded bg-amber-500/20 text-amber-300 font-mono">Instant</span>
-                        </div>
-                        <span className="text-[9px] text-slate-400 block font-mono mt-0.5 leading-tight">
-                          Real-time only · keep this tab visible
-                        </span>
-                      </div>
-                    </button>
+                <label className="block space-y-1">
+                  <span className="block text-xs font-medium text-slate-300">File name</span>
+                  <input type="text" value={projectName}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Untitled video"
+                    className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-3 text-sm text-white outline-none focus:border-accent" />
+                </label>
+
+                <details className="group rounded-lg border border-white/10 bg-white/[0.02]">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-xs text-slate-300 marker:hidden">
+                    <span>Trim video <span className="text-slate-500">(optional)</span></span>
+                    <span className="text-slate-400">
+                      {Math.max(0, exportRangeEnd - exportRangeStart).toFixed(1)}s
+                    </span>
+                  </summary>
+                  <div className="border-t border-white/10 p-3">
+                    <ExportRangeSlider duration={effectiveAudioDuration}
+                      start={exportRangeStart} end={exportRangeEnd}
+                      onChange={setExportRange} activeColor={activeColor} />
                   </div>
-                </div>
-
-                <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-mono leading-relaxed text-slate-300">
-                  {engineChoice === 'server' ? (
-                    serverAvailable === true
-                      ? <span className="text-emerald-300">Frame-by-frame MP4 renderer online. You can use other windows while the server renders.</span>
-                      : serverAvailable === null
-                        ? 'Checking high-quality renderer availability...'
-                        : <span className="text-amber-300">High-quality server mode is not connected. Browser export is available now without extra setup. For focus-independent MP4, connect a persistent Node render service using VITE_RENDER_SERVER_URL.</span>
-                  ) : (
-                    <span className="text-amber-300">Browser video export is available now for lyrics and music videos. Keep this tab visible until recording finishes; browsers throttle hidden tabs. When a rendering server is connected, select Server Remotion for background-safe MP4.</span>
-                  )}
-                </div>
-
-                {/* Video Mode Selection */}
-                <div className="export-modal-item-anim space-y-1">
-                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Video Mode</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleModeChange('lyrics-video')}
-                      className={cn(
-                        "py-2 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2",
-                        exportMode === 'lyrics-video'
-                          ? "bg-emerald-500/15 border-emerald-500/80 text-white"
-                          : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
-                      )}
-                    >
-                      <Music2 size={16} className={exportMode === 'lyrics-video' ? 'text-emerald-400' : 'text-slate-400'} />
-                      <div>
-                        <span className="text-xs font-bold uppercase block font-mono">Lyrics Video</span>
-                        <span className="text-[9px] text-slate-400 block font-mono">Vinyl & Kinetic Typography</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleModeChange('music-video')}
-                      className={cn(
-                        "py-2 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2",
-                        exportMode === 'music-video'
-                          ? "bg-purple-500/15 border-purple-500/80 text-white"
-                          : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
-                      )}
-                    >
-                      <Film size={16} className={exportMode === 'music-video' ? 'text-purple-400' : 'text-slate-400'} />
-                      <div>
-                        <span className="text-xs font-bold uppercase block font-mono">Music Video</span>
-                        <span className="text-[9px] text-slate-400 block font-mono">Timeline Clips & Cuts</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Range Selection */}
-                <div className="export-modal-item-anim">
-                  <ExportRangeSlider
-                    duration={effectiveAudioDuration}
-                    start={exportRangeStart}
-                    end={exportRangeEnd}
-                    onChange={setExportRange}
-                    activeColor={activeColor}
-                  />
-                </div>
-
-                {/* Aspect Ratio Selection */}
-                <div className="export-modal-item-anim space-y-1">
-                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Aspect Ratio</label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[
-                      { id: '16:9' as AspectRatioType, label: '16:9', desc: 'YouTube' },
-                      { id: '9:16' as AspectRatioType, label: '9:16', desc: 'Shorts/TikTok' },
-                      { id: '1:1' as AspectRatioType, label: '1:1', desc: 'Square' },
-                      { id: '4:5' as AspectRatioType, label: '4:5', desc: 'Social' }
-                    ].map(item => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleAspectRatioChange(item.id)}
-                        className={cn(
-                          "py-2 px-1 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5",
-                          aspectRatio === item.id
-                            ? "bg-white/10 border-white/40 text-white"
-                            : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
-                        )}
-                        style={aspectRatio === item.id ? { borderColor: `${activeColor}80` } : {}}
-                      >
-                        <span className="text-[10px] font-bold uppercase font-mono">{item.label}</span>
-                        <span className="text-[8px] text-slate-400 font-mono">{item.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Resolution Preset */}
-                <div className="export-modal-item-anim space-y-1">
-                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Resolution & Quality</label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { id: '1080p' as ExportResolutionType, label: '1080p Full HD', tag: 'Production' },
-                      { id: '720p' as ExportResolutionType, label: '720p HD', tag: 'Fast' },
-                      { id: '360p' as ExportResolutionType, label: '360p Draft', tag: 'Test' }
-                    ].map(item => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setResolution(item.id)}
-                        className={cn(
-                          "py-2 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5",
-                          resolution === item.id
-                            ? "bg-white/10 border-white/40 text-white"
-                            : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
-                        )}
-                        style={resolution === item.id ? { borderColor: `${activeColor}80` } : {}}
-                      >
-                        <span className="text-[10px] font-bold uppercase font-mono">{item.label}</span>
-                        <span className="text-[8px] text-slate-400 font-mono">{item.tag}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="export-modal-item-anim space-y-1">
-                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Output Frame Rate</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {([30, 60] as const).map(rate => (
-                      <button
-                        key={rate}
-                        type="button"
-                        onClick={() => setFps(rate)}
-                        className={cn(
-                          'rounded-lg border py-2 text-xs font-mono font-bold transition-all',
-                          fps === rate ? 'border-emerald-400/70 bg-emerald-500/15 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'
-                        )}
-                      >
-                        {rate} FPS {rate === 60 ? '· High motion (fast devices)' : '· Stable browser default'}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[9px] text-slate-400">For browser export, 30 FPS is often smoother than overloaded 60 FPS. Use 60 FPS only when your source footage and device can sustain it; it does not add new motion to 30 FPS source.</p>
-                </div>
-
-                {/* Filename Input */}
-                <div className="export-modal-item-anim space-y-1">
-                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Project Filename</label>
-                  <input 
-                    type="text"
-                    value={projectName}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Name your video file..."
-                    className="w-full bg-black/50 border border-white/15 focus:border-white/40 px-3 py-2 rounded-lg text-white text-xs font-bold uppercase tracking-wider outline-none font-mono"
-                  />
-                </div>
-
-                {/* Engine Health Verification */}
-                <div className="export-modal-item-anim pt-1 border-t border-white/10">
-                  <div className="bg-white/[0.02] border border-white/10 p-2.5 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Monitor size={14} className="text-emerald-400" />
-                      <div>
-                        <span className="text-[10px] font-mono font-bold text-white uppercase block">10s Engine Health Test</span>
-                        <span className="text-[9px] text-slate-400 font-mono block">Verify Remotion & FFmpeg pipeline</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleRunRenderTest}
-                      disabled={isTestRunning}
-                      className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 rounded text-[10px] font-mono font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1"
-                    >
-                      {isTestRunning ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
-                      <span>{isTestRunning ? 'Testing...' : 'Run Test'}</span>
-                    </button>
-                  </div>
-
-                  {testResult && (
-                    <div className={cn(
-                      "mt-2 p-2 rounded-lg text-[10px] font-mono border",
-                      testResult.success ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                    )}>
-                      {testResult.message}
-                    </div>
-                  )}
-                </div>
+                </details>
 
                 {/* Primary Export Action */}
                 <button
@@ -916,172 +633,88 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   onClick={() => handleStartExport()}
                   disabled={!hasAudio}
                   className={cn(
-                    "export-modal-item-anim w-full py-3.5 text-black font-black uppercase tracking-wider text-xs rounded-xl transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer mt-3",
-                    !hasAudio ? "opacity-50 cursor-not-allowed" : "hover:brightness-110 active:scale-95"
+                    "w-full min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-[#07120d] transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50",
+                    !hasAudio && "cursor-not-allowed"
                   )}
-                  style={{
-                    background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
-                    boxShadow: `0 0 25px ${activeColor}40`
-                  }}
                 >
-                  <Download size={16} /> 
-                  <span>
-                    Export {engineChoice === 'browser' ? 'Video' : 'MP4'} ({resolution} • {fps} FPS • {engineChoice === 'browser' ? 'Foreground Browser' : 'High-Quality Server'})
-                  </span>
+                  <Download size={16} className="inline mr-2" />
+                  Export video
                 </button>
               </div>
             )}
           </>
         )}
 
-        {/* -------------------- TAB 2: LYRICS & SUBTITLES EXPORT -------------------- */}
+        {/* Lyrics export */}
         {activeExportTab === 'lyrics' && (
-          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-3.5 pr-1 py-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-xs font-mono font-bold uppercase text-white block">
-                  Export Lyrics & Subtitles
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {lyricsLines.length} synchronized lyric lines ready
-                </span>
-              </div>
-
-              {/* Download all formats as ZIP */}
-              <button
-                type="button"
-                onClick={handleDownloadZipPack}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1">
+            <label className="block space-y-1.5">
+              <span className="block text-xs font-medium text-slate-300">Format</span>
+              <select value={selectedLyricFormat}
+                onChange={e => setSelectedLyricFormat(e.target.value as LyricFormatType)}
+                className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-3 text-sm text-white outline-none focus:border-accent">
+                <option value="lrc">LRC · Synced lyrics</option>
+                <option value="enhanced-lrc">Enhanced LRC · Word timing</option>
+                <option value="srt">SRT · Subtitles</option>
+                <option value="ass">ASS · Styled subtitles</option>
+                <option value="txt">TXT · Plain text</option>
+                <option value="json">JSON · Data</option>
+              </select>
+            </label>
+            <p className="text-xs text-slate-400">{lyricsLines.length} lyric lines</p>
+            <button type="button" disabled={lyricsLines.length === 0}
+              onClick={() => handleDownloadLyrics(selectedLyricFormat)}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-[#07120d] hover:brightness-110 disabled:opacity-50">
+              <Download size={16} /> Download lyrics
+            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => handleCopyLyrics(selectedLyricFormat)}
+                disabled={lyricsLines.length === 0}
+                className="flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-slate-200 hover:bg-white/10 disabled:opacity-50">
+                {hasCopiedLyrics ? <Check size={14} /> : <Copy size={14} />}
+                {hasCopiedLyrics ? 'Copied' : 'Copy'}
+              </button>
+              <button type="button" onClick={handleDownloadZipPack}
                 disabled={isZipping || lyricsLines.length === 0}
-                className="px-2.5 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {isZipping ? <Loader2 size={12} className="animate-spin" /> : <Package size={12} />}
-                <span>Download All (ZIP)</span>
+                className="flex min-h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-slate-200 hover:bg-white/10 disabled:opacity-50">
+                {isZipping ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
+                Download all formats
               </button>
             </div>
-
-            {/* Format selection chips */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-              {[
-                { id: 'lrc' as LyricFormatType, label: 'LRC', desc: 'Standard' },
-                { id: 'enhanced-lrc' as LyricFormatType, label: 'Enhanced', desc: 'Word Sync' },
-                { id: 'srt' as LyricFormatType, label: 'SRT', desc: 'Subtitles' },
-                { id: 'ass' as LyricFormatType, label: 'ASS', desc: 'Styled' },
-                { id: 'json' as LyricFormatType, label: 'JSON', desc: 'Raw Data' },
-                { id: 'txt' as LyricFormatType, label: 'TXT', desc: 'Plain' },
-              ].map(fmt => (
-                <button
-                  key={fmt.id}
-                  type="button"
-                  onClick={() => setSelectedLyricFormat(fmt.id)}
-                  className={cn(
-                    "py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center",
-                    selectedLyricFormat === fmt.id
-                      ? "bg-white/15 border-white/40 text-white"
-                      : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
-                  )}
-                  style={selectedLyricFormat === fmt.id ? { borderColor: `${activeColor}80` } : {}}
-                >
-                  <span className="text-[10px] font-mono font-bold uppercase">{fmt.label}</span>
-                  <span className="text-[8px] text-slate-400 font-mono">{fmt.desc}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Preview Box */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 px-1">
-                <span>FORMAT PREVIEW (.{(selectedLyricFormat === 'enhanced-lrc' ? 'lrc' : selectedLyricFormat).toUpperCase()})</span>
-                <span>{getLyricsPreviewContent(selectedLyricFormat).split('\n').length} lines</span>
-              </div>
-              <div className="h-44 bg-black/60 border border-white/10 rounded-xl p-3 overflow-y-auto custom-scrollbar font-mono text-[11px] text-slate-300 whitespace-pre leading-relaxed select-text">
-                {lyricsLines.length === 0 ? (
-                  <span className="text-slate-500 italic">No lyrics loaded in studio.</span>
-                ) : (
-                  getLyricsPreviewContent(selectedLyricFormat)
-                )}
-              </div>
-            </div>
-
-            {/* Actions for Lyrics */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => handleCopyLyrics(selectedLyricFormat)}
-                disabled={lyricsLines.length === 0}
-                className="py-2.5 px-3 bg-white/10 hover:bg-white/15 border border-white/20 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {hasCopiedLyrics ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                <span>{hasCopiedLyrics ? 'Copied to Clipboard!' : 'Copy to Clipboard'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDownloadLyrics(selectedLyricFormat)}
-                disabled={lyricsLines.length === 0}
-                className="py-2.5 px-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
-              >
-                <Download size={14} />
-                <span>Download .{selectedLyricFormat === 'enhanced-lrc' ? 'lrc' : selectedLyricFormat}</span>
-              </button>
-            </div>
+            <details className="rounded-lg border border-white/10">
+              <summary className="cursor-pointer px-3 py-2.5 text-xs text-slate-400">Preview</summary>
+              <pre className="max-h-44 overflow-auto border-t border-white/10 p-3 text-xs text-slate-300 whitespace-pre-wrap select-text">
+                {getLyricsPreviewContent(selectedLyricFormat)}
+              </pre>
+            </details>
           </div>
         )}
 
-        {/* -------------------- TAB 3: AUDIO MASTER EXPORT -------------------- */}
+        {/* Audio export */}
         {activeExportTab === 'audio' && (
-          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-3.5 pr-1 py-1">
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-2">
-              <div className="flex items-center gap-2">
-                <Disc size={18} className="text-emerald-400" />
-                <div>
-                  <h3 className="text-xs font-mono font-bold uppercase text-white">Multitrack Master Mixdown</h3>
-                  <span className="text-[10px] text-slate-400 font-mono">Pristine 48kHz 24-bit Lossless WAV Audio</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-300 font-mono">
-                Bounces all active tracks, stems, effects, and timeline pans into a production master WAV file.
-              </p>
-
-              <button
-                type="button"
-                onClick={handleBounceWavMaster}
-                disabled={isAudioBouncing}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50 mt-1"
-              >
-                {isAudioBouncing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                <span>{isAudioBouncing ? 'Bouncing Audio Master...' : 'Download Master Mix (WAV)'}</span>
-              </button>
-
-              {audioBounceNotice && (
-                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] font-mono text-center">
-                  {audioBounceNotice}
-                </div>
-              )}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-white">Audio master</h3>
+              <p className="text-xs text-slate-400">WAV · 48 kHz · 24-bit</p>
             </div>
-
-            {/* Project JSON Backup */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-2">
-              <div className="flex items-center gap-2">
-                <FileText size={16} className="text-purple-400" />
-                <div>
-                  <h3 className="text-xs font-mono font-bold uppercase text-white">Full Project Data (JSON)</h3>
-                  <span className="text-[10px] text-slate-400 font-mono">Complete backup of lyrics, timing, styles & clips</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={async () => {
+            <button type="button" onClick={handleBounceWavMaster} disabled={isAudioBouncing}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-[#07120d] hover:brightness-110 disabled:opacity-50">
+              {isAudioBouncing ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {isAudioBouncing ? 'Exporting audio…' : 'Download WAV'}
+            </button>
+            {audioBounceNotice && <p className="text-xs text-slate-300">{audioBounceNotice}</p>}
+            <details className="rounded-lg border border-white/10">
+              <summary className="cursor-pointer px-3 py-2.5 text-xs text-slate-400">Project backup</summary>
+              <div className="border-t border-white/10 p-3">
+                <button type="button" onClick={async () => {
                   const projectJson = await buildCanonicalProjectJson({ skipStaging: true });
                   const blob = new Blob([JSON.stringify(projectJson, null, 2)], { type: 'application/json' });
                   downloadFile(blob, `${(projectName || 'Joelizer').replace(/[^a-zA-Z0-9_-]/g, '_')}.project.json`, 'application/json');
-                }}
-                className="w-full py-2.5 bg-white/10 hover:bg-white/15 text-white font-mono font-bold uppercase text-xs rounded-xl flex items-center justify-center gap-2 transition-all border border-white/20 cursor-pointer"
-              >
-                <Download size={14} />
-                <span>Export Canonical Project JSON</span>
-              </button>
-            </div>
+                }} className="flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-slate-200 hover:bg-white/10">
+                  <Download size={14} /> Download project JSON
+                </button>
+              </div>
+            </details>
           </div>
         )}
 
