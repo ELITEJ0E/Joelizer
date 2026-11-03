@@ -75,8 +75,7 @@ export async function stageAssetIfNeeded(
         const file = new File([blob], `${fallbackName}.${ext}`, { type: blob.type || 'audio/mpeg' });
         return await uploadFileToStaging(file, fallbackName);
       } catch (e) {
-        console.warn('[AssetStaging] Failed to fetch blob URL for staging:', source, e);
-        return source;
+        throw new Error(`Unable to upload local media to the render server: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
 
@@ -85,8 +84,7 @@ export async function stageAssetIfNeeded(
       return await uploadFileToStaging(source as Blob, fallbackName);
     }
   } catch (err) {
-    console.warn('[AssetStaging] Staging error, falling back to original source:', err);
-    if (typeof source === 'string') return source;
+    throw new Error(`Media staging failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   return null;
