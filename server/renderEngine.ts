@@ -329,6 +329,9 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
     // 1a. Extract audio to disk for FFmpeg muxing
     const audioSource = projectJson.audio?.audioDataUri || projectJson.audio?.url;
     const { audioPath, hasAudio } = await prepareAudioForMuxing(audioSource, jobId);
+    if (audioSource && !hasAudio) {
+      throw new Error('Audio export failed: the selected soundtrack could not be loaded for muxing.');
+    }
 
     // 1b. Sanitize album artwork to base64 data URI (bypasses 403s & cross-origin network errors)
     const sanitizedAlbumArt = await resolveAlbumArtDataUri(projectJson.audio?.albumArt);
@@ -385,24 +388,19 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       const duration = projectJson.exportRange?.duration || (composition.durationInFrames / composition.fps);
 
       // Try stream-copy mux first (fastest) with optional audio stream map
-      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0? -c:v copy -c:a aac -b:a 192k -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
+      const ffmpegCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
       
       try {
         await execAsync(ffmpegCmd);
       } catch (muxErr) {
         console.warn('[RenderEngine] Stream copy mux failed, trying re-encode pass:', muxErr);
         try {
-          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0? -c:v libx264 -pix_fmt yuv420p -preset fast -c:a aac -b:a 192k -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
+          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -preset fast -c:a aac -b:a 192k -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
           await execAsync(fallbackCmd);
         } catch (reEncodeErr) {
-          console.warn('[RenderEngine] Re-encode mux failed, salvaging clean video file:', reEncodeErr);
-          // If muxing fails completely, salvage the rendered video stream so the export NEVER fails
-          const copyCmd = `ffmpeg -y -i "${tempRawVideoPath}" -c:v copy -movflags +faststart "${finalMp4Path}"`;
-          try {
-            await execAsync(copyCmd);
-          } catch (_) {
-            fs.copyFileSync(tempRawVideoPath, finalMp4Path);
-          }
+          // Do not report success with a silent MP4 when the requested audio failed to mux.
+          throw new Error('Video frames rendered but soundtrack muxing failed: ' +
+            (reEncodeErr instanceof Error ? reEncodeErr.message : String(reEncodeErr)));
         }
       }
 
@@ -439,11 +437,14 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
     // Probe the actual encoded duration before exposing a download to the user.
     const expectedDuration = composition.durationInFrames / composition.fps;
     const { stdout: probeOutput } = await execAsync(
-      `ffprobe -v error -select_streams v:0 -show_entries stream=duration,nb_frames -show_entries format=duration -of json "${finalMp4Path}"`,
+      `ffprobe -v error -show_entries stream=codec_type,duration,nb_frames -show_entries format=duration -of json "${finalMp4Path}"`,
       { timeout: 30000 }
     );
     const probe = JSON.parse(probeOutput);
-    const videoStream = probe.streams?.[0];
+    const videoStream = probe.streams?.find((stream: any) => stream.codec_type === 'video');
+    if (hasValidAudio && !probe.streams?.some((stream: any) => stream.codec_type === 'audio')) {
+      throw new Error('Export verification failed: requested soundtrack is absent from the final MP4');
+    }
     if (!videoStream) throw new Error('Export verification failed: MP4 contains no video stream');
     const actualDuration = Number(videoStream.duration || probe.format?.duration);
     const minimumDuration = Math.max(0, expectedDuration - Math.max(0.2, 2 / composition.fps));
