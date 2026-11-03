@@ -1,3 +1,4 @@
+import { getRenderServerOrigin, renderApiUrl } from './renderBackend';
 /**
  * AssetStaging Layer
  * Uploads local Blobs, Files, and blob: URLs to /api/stage-asset
@@ -49,6 +50,18 @@ export async function stageAssetIfNeeded(
       if (source.startsWith('http://') || source.startsWith('https://') || source.startsWith('/staged/')) {
         return source;
       }
+      // The dedicated render service must receive local API assets as real
+      // files, not references to endpoints hosted on the Vercel frontend.
+      if (getRenderServerOrigin() && source.startsWith('/') && !source.startsWith('//')) {
+        const response = await fetch(source);
+        if (!response.ok) throw new Error(`Cannot fetch render asset ${source}: HTTP ${response.status}`);
+        const blob = await response.blob();
+        const extension = getCleanExtension(blob.type, source.split('?')[0], 'bin');
+        return await uploadFileToStaging(
+          new File([blob], `${fallbackName}.${extension}`, { type: blob.type }),
+          fallbackName
+        );
+      }
       // Relative paths that are static assets
       if (!source.startsWith('blob:') && !source.startsWith('data:')) {
         return source;
@@ -89,7 +102,7 @@ async function uploadFileToStaging(fileOrBlob: Blob | File, defaultName = 'media
   const formData = new FormData();
   formData.append('file', fileOrBlob, filename);
 
-  const res = await fetch('/api/stage-asset', {
+  const res = await fetch(renderApiUrl('/api/stage-asset'), {
     method: 'POST',
     body: formData
   });
@@ -99,7 +112,7 @@ async function uploadFileToStaging(fileOrBlob: Blob | File, defaultName = 'media
   }
 
   const data = await res.json();
-  if (!data.success || !data.url) {
+  if (!data.success || !data.url || !data.url.startsWith('/staged/')) {
     throw new Error(data.error || 'Server did not return staged asset URL');
   }
 
