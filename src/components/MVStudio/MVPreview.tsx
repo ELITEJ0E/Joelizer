@@ -1,3 +1,4 @@
+import { getVideoSyncDecision } from '../../lib/videoPlaybackSync';
 import { getBrowserExportTime, sampleBrowserExportVideo } from '../../lib/browserExportClock';
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
@@ -71,6 +72,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
   // Asset element caches to avoid re-creating elements and avoid black frames on transitions
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const lastActiveVideoClipRef = useRef<string | null>(null);
   const imageElementsRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
   // Keep asset caches updated with crossOrigin = 'anonymous' for clean canvas rendering
@@ -177,7 +179,21 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         // 2. Find Active Timeline Clip at current time
         const clips = mvState.timelineClips;
         const assets = mvState.videoAssets;
-        const activeClip = clips.find(c => curTime >= c.startTime && curTime <= c.endTime);
+        const activeClip = clips.find(c => curTime >= c.startTime && curTime < c.endTime);
+        // Inactive HTML video sources must not keep decoding in the background.
+        // Otherwise each transition consumes an additional decoder and the
+        // canvas recording drops frames progressively as the edit gets longer.
+        const activeAsset = activeClip ? assets.find(a => a.id === activeClip.assetId) : null;
+        const activeVideoUrl = activeClip?.type === 'video' || activeAsset?.type === 'video'
+          ? activeAsset?.url
+          : null;
+        for (const [url, video] of videoElementsRef.current) {
+          if (url !== activeVideoUrl && !video.paused) {
+            video.pause();
+            video.playbackRate = 1;
+          }
+        }
+        if (!activeVideoUrl) lastActiveVideoClipRef.current = null;
 
         const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
         const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
@@ -264,12 +280,24 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               }
 
               const targetVideoTime = activeClip.trimStart + (curTime - activeClip.startTime);
-              
-              // Sync video playback
-              if (Math.abs(videoEl.currentTime - targetVideoTime) > 0.2) {
-                try { videoEl.currentTime = targetVideoTime; } catch (_) {}
+              const clipChanged = lastActiveVideoClipRef.current !== activeClip.id;
+              lastActiveVideoClipRef.current = activeClip.id;
+              const sync = getVideoSyncDecision({
+                targetTime: targetVideoTime,
+                actualTime: videoEl.currentTime,
+                clipChanged,
+                playing,
+                seeking: videoEl.seeking
+              });
+              // Avoid repeatedly seeking for ~200ms audio/video clock jitter.
+              // Seek on timeline cuts and large desync only; small drift is
+              // absorbed by slightly altering source playback speed.
+              if (sync.seekTo !== null && !videoEl.seeking) {
+                try { videoEl.currentTime = sync.seekTo; } catch (_) {}
               }
-
+              if (Math.abs(videoEl.playbackRate - sync.playbackRate) > 0.005) {
+                videoEl.playbackRate = sync.playbackRate;
+              }
               if (playing && videoEl.paused) {
                 videoEl.play().catch(() => {});
               } else if (!playing && !videoEl.paused) {
@@ -501,7 +529,14 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
     };
 
     animFrameId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animFrameId);
+    return () => {
+      cancelAnimationFrame(animFrameId);
+      for (const video of videoElementsRef.current.values()) {
+        video.pause();
+        video.playbackRate = 1;
+      }
+      lastActiveVideoClipRef.current = null;
+    };
   }, [aspectRatio]);
 
   return (
