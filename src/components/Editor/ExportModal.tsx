@@ -4,18 +4,17 @@ import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { 
-  X, Loader2, Download, Zap, CheckCircle2, Film, Music2, 
-  Monitor, AlertCircle, FileText, Copy, Check, Package, Upload, Play, Disc
+  X, Loader2, Download, CheckCircle2, Film, Music2,
+  AlertCircle, FileText, Copy, Check, Package, Disc
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
-import { animate, stagger } from 'animejs';
+import { animate } from 'animejs';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { ExportRangeSlider } from './ExportRangeSlider';
 import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
 import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
 import { ServerRemotionRenderer } from '../../lib/renderers/ServerRemotionRenderer';
-import { renderApiUrl } from '../../lib/renderBackend';
 import { AspectRatioType, ExportResolutionType, ExportModeType } from '../../types/projectJson';
 import { 
   generateLRC, generateEnhancedLRC, generateSRT, generateASS, 
@@ -71,7 +70,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     });
     return () => { alive = false; };
   }, []);
-  const [aspectRatio, setAspectRatioState] = useState<AspectRatioType>('16:9');
+  const currentAspectRatio = useStore(s => s.aspectRatio);
+  const [aspectRatio, setAspectRatioState] = useState<AspectRatioType>(currentAspectRatio as AspectRatioType);
   const [exportMode, setExportMode] = useState<ExportModeType>('lyrics-video');
   const [allowSilentExport, setAllowSilentExport] = useState(false);
 
@@ -85,8 +85,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [audioBounceNotice, setAudioBounceNotice] = useState<string | null>(null);
 
   // Render Engine Health Test State
-  const [isTestRunning, setIsTestRunning] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<any>(null);
@@ -148,13 +147,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       easing: 'easeOutBack'
     });
     
-    animate('.export-modal-item-anim', {
-      opacity: [0, 1],
-      translateY: [12, 0],
-      delay: stagger(30, { start: 60 }),
-      duration: 400,
-      easing: 'easeOutQuart'
-    });
+
 
     return () => {
       if (pollIntervalRef.current) {
@@ -171,49 +164,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const handleModeChange = (mode: ExportModeType) => {
     setExportMode(mode);
     setLyricsVideoMode(mode);
-  };
-
-  // Run 10-second automated render test
-  const handleRunRenderTest = async () => {
-    setIsTestRunning(true);
-    setTestResult(null);
-    try {
-      const available = await new ServerRemotionRenderer().isAvailable();
-      if (!available) {
-        setTestResult({ success: false, message: 'No persistent Remotion renderer available. Configure VITE_RENDER_SERVER_URL (or run the Node server) for focus-independent MP4 export.' });
-        return;
-      }
-      const res = await fetch(renderApiUrl('/api/render-test'));
-      const contentType = res.headers.get('content-type') || '';
-      
-      if (contentType.includes('application/json')) {
-        const data = await res.json().catch(() => null);
-        if (data) {
-          setTestResult(data);
-          return;
-        }
-      }
-
-      if (res.ok) {
-        setTestResult({
-          success: true,
-          message: 'Render engine test succeeded.'
-        });
-      } else {
-        const rawText = await res.text().catch(() => '');
-        setTestResult({
-          success: false,
-          message: rawText.slice(0, 120) || `Render test returned status ${res.status}`
-        });
-      }
-    } catch (err: any) {
-      setTestResult({
-        success: false,
-        message: err.message || 'Failed to execute render test endpoint'
-      });
-    } finally {
-      setIsTestRunning(false);
-    }
   };
 
   const handleCancelExport = () => {
@@ -240,17 +190,6 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setAudio(file, url, audio.duration, undefined, { name: file.name.replace(/\.[^/.]+$/, "") });
       setAllowSilentExport(false);
     };
-  };
-
-  // Load sample demo track
-  const handleLoadDemoTrack = () => {
-    const demoUrl = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3';
-    const demoTrackName = 'Lofi Evening Chill';
-    setAudio(null, demoUrl, 140, 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400&auto=format&fit=crop', {
-      name: demoTrackName,
-      artist: 'Joelizer Studio'
-    });
-    setAllowSilentExport(false);
   };
 
   // Unified Production Export (Server Remotion or Fast Browser MediaRecorder)
@@ -487,9 +426,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       <CheckCircle2 size={26} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Video Export Complete!</h3>
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Export complete</h3>
                       <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {resolution} @ {fps}fps {fileSize ? `• ${formatFileSize(fileSize)}` : ''} • Engine: {activeRendererName || 'Remotion'}
+                        {resolution} · {fps} FPS {fileSize ? `· ${formatFileSize(fileSize)}` : ''}
                       </p>
                     </div>
 
@@ -531,29 +470,10 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       <AlertCircle size={24} />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-rose-300 uppercase tracking-wider font-mono">Export Encountered An Issue</h4>
+                      <h4 className="text-xs font-bold text-rose-300 uppercase tracking-wider font-mono">Export failed</h4>
                       <p className="text-[11px] text-slate-400 font-mono mt-1 px-4 leading-relaxed">
                         {exportError || 'Server Remotion pipeline was interrupted.'}
                       </p>
-                    </div>
-
-                    {/* SMART FALLBACK: 1-Click Browser Video Engine Export */}
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-left space-y-2">
-                      <div className="flex items-center gap-2 text-emerald-300">
-                        <Zap size={14} />
-                        <span className="text-xs font-bold font-mono uppercase">Instant Browser Export Fallback</span>
-                      </div>
-                      <p className="text-[10px] text-slate-300 font-mono">
-                        Browser video export works without a separate render server. Keep this tab visible until recording is finished; switching tabs/minimizing interrupts live capture.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleStartExport('browser')}
-                        className="w-full py-2.5 px-3 bg-emerald-400 hover:bg-emerald-300 text-black font-black uppercase text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
-                      >
-                        <Zap size={14} />
-                        <span>Export with Fast Browser Engine Now</span>
-                      </button>
                     </div>
 
                     <div className="flex items-center justify-center gap-2 pt-1">
@@ -562,7 +482,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                         onClick={() => handleStartExport('server')}
                         className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-mono font-bold uppercase transition-all cursor-pointer"
                       >
-                        Retry Server Render
+                        Retry
                       </button>}
                       <button
                         type="button"
@@ -597,10 +517,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       />
                     </div>
 
-                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 font-bold px-1">
-                      <span>STAGE: {exportStage} • {activeRendererName || engineChoice}</span>
-                      <span className="tabular-nums text-white">{Math.round(progress)}%</span>
-                    </div>
+                    <div className="text-right text-xs tabular-nums text-slate-300">{Math.round(progress)}%</div>
 
                     {/* Cancel button */}
                     <div className="pt-2 flex justify-center">
