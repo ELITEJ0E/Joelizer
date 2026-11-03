@@ -97,6 +97,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     const compositor = new OfflineFrameCompositor(project);
     const totalFrames = Math.max(1, Math.ceil(project.exportRange.duration * project.fps));
     const audioBuffer = await decodeSoundtrack(project);
+    compositor.setAudioBuffer(audioBuffer);
     const muxer = new Muxer({
       target: new ArrayBufferTarget(),
       video: { codec: 'avc', width: project.width, height: project.height, frameRate: project.fps },
