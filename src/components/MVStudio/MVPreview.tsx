@@ -1,3 +1,4 @@
+import { getBrowserExportTime, sampleBrowserExportVideo } from '../../lib/browserExportClock';
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
@@ -127,8 +128,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         // Determine active video mode: prop takes priority over store
         const activeVideoMode = mode || lyricsVideoState.videoMode;
 
-        const playing = storeState.isPlaying;
-        const curTime = playing ? audioManager.getPreciseCurrentTime() : storeState.currentTime;
+        // Use a monotonic export clock when audio is missing, ends early or stalls.
+        const exportTime = getBrowserExportTime();
+        const playing = storeState.isPlaying || exportTime !== null;
+        const curTime = exportTime ?? (playing ? audioManager.getPreciseCurrentTime() : storeState.currentTime);
         const resOverride = storeState.exportResolutionOverride;
 
         // 1. Calculate Target Canvas Resolution
@@ -288,6 +291,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
                 try {
                   ctx.drawImage(videoEl, cx, cy, drawW, drawH);
                   drewFrame = true;
+                  sampleBrowserExportVideo(activeClip.id, videoEl.currentTime);
                 } catch (e) {
                   drewFrame = false;
                 }
@@ -521,6 +525,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           {/* Main Canvas Element - Used by ExportModal via id="visualizer-canvas" */}
           <canvas
             id="visualizer-canvas"
+            data-joelizer-stage="mv"
             ref={canvasRef}
             className="w-full h-full object-contain block"
           />
