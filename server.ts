@@ -13,14 +13,36 @@ import { createGenerationJob, getGenerationJob, cancelGenerationJob, getAllGener
 dotenv.config();
 
 // Ensure public staged directory exists
-const STAGED_DIR = path.resolve('./public/staged');
+const RENDER_DATA_DIR = process.env.RENDER_DATA_DIR
+  ? path.resolve(process.env.RENDER_DATA_DIR)
+  : path.resolve('./public');
+const STAGED_DIR = path.join(RENDER_DATA_DIR, 'staged');
+const EXPORT_DIR = path.join(RENDER_DATA_DIR, 'exports');
 if (!fs.existsSync(STAGED_DIR)) {
   fs.mkdirSync(STAGED_DIR, { recursive: true });
 }
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
+  const allowedOrigins = (process.env.RENDER_ALLOWED_ORIGINS || '')
+    .split(',').map(origin => origin.trim()).filter(Boolean);
+  // Explicit opt-in only: a cross-origin render server must be configured
+  // to accept uploads from a known Joelizer frontend origin.
+  app.use('/api', (req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Max-Age', '86400');
+    }
+    if (req.method === 'OPTIONS') {
+      return res.status(origin && allowedOrigins.includes(origin) ? 204 : 403).end();
+    }
+    next();
+  });
 
   // Serve staged media files statically
   app.use('/staged', express.static(STAGED_DIR));
@@ -192,7 +214,7 @@ async function startServer() {
 
   // 1. Health check
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', time: new Date().toISOString() });
+    res.json({ status: 'ok', hasRemotion: true, platform: 'node', time: new Date().toISOString() });
   });
 
   // 1b. Asset Staging Endpoint (Converts local Blobs/Files into server-renderable URLs)
@@ -254,7 +276,7 @@ async function startServer() {
     const { jobId } = req.params;
     const job = getExportJob(jobId);
     
-    const exportPath = path.resolve('./public/exports', `${jobId}.mp4`);
+    const exportPath = path.join(EXPORT_DIR, `${jobId}.mp4`);
     if (!fs.existsSync(exportPath)) {
       return res.status(404).send('Export video file not found or still processing.');
     }
