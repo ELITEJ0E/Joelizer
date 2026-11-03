@@ -53,9 +53,9 @@ export function MVDialogPortal({
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
-      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+      const focusable = (Array.from(dialogRef.current.querySelectorAll(
         'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-      )).filter(el => el.getClientRects().length > 0);
+      )) as HTMLElement[]).filter(el => el.getClientRects().length > 0);
       if (!focusable.length) {
         event.preventDefault();
         dialogRef.current.focus();
