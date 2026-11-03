@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
@@ -21,7 +21,9 @@ const panels: Array<{ id: Exclude<StudioPanel, 'none'>; label: string; descripti
 export function MVStudioLayout() {
   const rehydrateMVAssets = useMVStore(s => s.rehydrateMVAssets);
   const setVideoMode = useLyricsVideoStore(s => s.setVideoMode);
-  const aspectRatio = useStore(s => s.aspectRatio);
+  const editorRef = useRef<HTMLElement>(null);
+  const [timelineHeight, setTimelineHeight] = useState<number | null>(null);
+  const [isResizingTimeline, setIsResizingTimeline] = useState(false);
   const [activePanel, setActivePanel] = useState<StudioPanel>(() =>
     typeof window !== 'undefined' && window.innerWidth < 1024 ? 'none' : 'media'
   );
@@ -47,6 +49,50 @@ export function MVStudioLayout() {
 
   const togglePanel = (panel: Exclude<StudioPanel, 'none'>) =>
     setActivePanel(current => current === panel ? 'none' : panel);
+
+  // More room for editing by default, without losing the preview. Users can
+  // resize the vertical split by dragging its divider or using arrow keys.
+  const boundTimelineHeight = useCallback((height: number) => {
+    const available = editorRef.current?.clientHeight || 700;
+    const minimum = Math.min(190, Math.floor(available * 0.38));
+    const maximum = Math.max(minimum, Math.min(Math.floor(available * 0.68), available - 160));
+    return Math.round(Math.max(minimum, Math.min(maximum, height)));
+  }, []);
+
+  const startTimelineResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const editor = editorRef.current;
+    if (!editor) return;
+    const startY = event.clientY;
+    const startHeight = timelineHeight ?? editor.clientHeight * 0.4;
+    setIsResizingTimeline(true);
+    const move = (moveEvent: PointerEvent) => {
+      setTimelineHeight(boundTimelineHeight(startHeight + startY - moveEvent.clientY));
+    };
+    const stop = () => {
+      setIsResizingTimeline(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop, { once: true });
+    window.addEventListener('pointercancel', stop, { once: true });
+  };
+
+  const onTimelineResizeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown' && event.key !== 'Home') return;
+    event.preventDefault();
+    if (event.key === 'Home') {
+      setTimelineHeight(null);
+      return;
+    }
+    setTimelineHeight(current => boundTimelineHeight(
+      (current ?? (editorRef.current?.clientHeight || 700) * 0.4) +
+      (event.key === 'ArrowUp' ? 24 : -24)
+    ));
+  };
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#080b10] text-[#e6e9ed]">
@@ -135,20 +181,32 @@ export function MVStudioLayout() {
           </>
         )}
 
-        {/* Preview occupies the remaining space and always contains its true AR. */}
-        <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b10]">
-          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-[#232d38] bg-[#0f151c] px-3 sm:px-4">
-            <div className="flex min-w-0 items-center gap-2">
-              <Film size={15} className="shrink-0 text-[#a3adbd]" />
-              <span className="truncate text-xs font-semibold text-[#f0f3f6]">Video preview</span>
-              <span className="rounded-md border border-[#293440] px-1.5 py-0.5 font-mono text-[10px] text-[#9fa9b7]">{aspectRatio}</span>
-            </div>
-
-          </header>
-          <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-1.5 sm:p-2">
+        {/* No redundant preview toolbar. The video has its own on-hover controls. */}
+        <main ref={editorRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b10]">
+          <div data-mv-preview-area className="relative flex min-h-[120px] flex-1 items-center justify-center overflow-hidden p-2 sm:p-3">
             <MVPreview mode="music-video" />
           </div>
-          <div className="h-[clamp(160px,30vh,256px)] shrink-0 overflow-hidden border-t border-[#293440] bg-[#0f151c]">
+
+          <div
+            role="separator"
+            tabIndex={0}
+            aria-label="Resize video preview and timeline"
+            aria-orientation="horizontal"
+            aria-valuetext="Drag up to expand timeline, or down to enlarge video preview"
+            title="Drag to resize timeline · Double-click to reset"
+            onPointerDown={startTimelineResize}
+            onKeyDown={onTimelineResizeKeyDown}
+            onDoubleClick={() => setTimelineHeight(null)}
+            className={`group relative z-10 flex h-3 shrink-0 cursor-row-resize touch-none items-center justify-center border-y border-[#28313c] bg-[#10161d] outline-none transition-colors hover:bg-[#18242e] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${isResizingTimeline ? 'bg-[#193128]' : ''}`}
+          >
+            <div className="h-[3px] w-12 rounded-full bg-[#4b5969] transition-colors group-hover:bg-accent group-focus-visible:bg-accent" />
+          </div>
+
+          <div
+            data-mv-timeline-area
+            className="min-h-0 shrink-0 overflow-hidden bg-[#0f151c]"
+            style={{ height: timelineHeight === null ? 'clamp(220px, 40%, 480px)' : `${timelineHeight}px` }}
+          >
             <MVTimeline />
           </div>
         </main>
