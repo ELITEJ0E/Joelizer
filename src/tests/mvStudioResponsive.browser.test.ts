@@ -37,6 +37,39 @@ try {
   const canvas = page.locator('canvas#visualizer-canvas');
   await canvas.waitFor({ state: 'visible' });
 
+  // The removed preview toolbar must not consume space above the canvas.
+  assert.equal(await page.getByText('Video preview', { exact: true }).count(), 0,
+    'No redundant Video preview header should remain');
+  const timeline = page.locator('[data-mv-timeline-area]');
+  const previewArea = page.locator('[data-mv-preview-area]');
+  const resizer = page.getByRole('separator', { name: 'Resize video preview and timeline' });
+  const initialTimeline = await timeline.boundingBox();
+  const initialPreview = await previewArea.boundingBox();
+  assert.ok(initialTimeline && initialPreview);
+  assert.ok(initialTimeline.height >= 290,
+    'Timeline must open with significantly more editing space on desktop');
+  assert.ok(initialPreview.height >= 180,
+    'Preview must retain usable height with the expanded timeline');
+
+  const handle = await resizer.boundingBox();
+  assert.ok(handle);
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 85, { steps: 6 });
+  await page.mouse.up();
+  const expanded = await timeline.boundingBox();
+  assert.ok(expanded && expanded.height >= initialTimeline.height + 65,
+    'Dragging the divider up must make the timeline taller');
+  await resizer.focus();
+  await page.keyboard.press('ArrowDown');
+  const contracted = await timeline.boundingBox();
+  assert.ok(contracted && contracted.height <= expanded.height - 20,
+    'Keyboard resize must work without a mouse');
+  await resizer.dblclick();
+  const resetTimeline = await timeline.boundingBox();
+  assert.ok(resetTimeline && Math.abs(resetTimeline.height - initialTimeline.height) <= 2,
+    'Double-clicking the divider must restore default timeline size');
+
   // All workspaces share the same top-level Export action. MV Studio must
   // not introduce another Export button beneath the navbar.
   const topExport = page.locator('#topbar-export-btn');
