@@ -5,7 +5,8 @@ import {
   AbsoluteFill, 
   Audio, 
   Img, 
-  Video 
+  Video,
+  Sequence
 } from 'remotion';
 import { CanonicalProjectJson, CanonicalLyricLine, CanonicalVideoClip } from '../types/projectJson';
 import { getDefaultPositions } from '../lib/lyricsLayout';
@@ -73,7 +74,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       
       {/* 1. BACKGROUND LAYER */}
       {isMediaClip ? (
-        <BackgroundClipLayer clip={activeClip} currentTime={currentTime} width={width} height={height} />
+        <BackgroundClipLayer clip={activeClip} currentTime={currentTime} exportStart={projectJson.exportRange?.start || 0} width={width} height={height} />
       ) : (
         <BackgroundLayer bg={background} albumArt={audio?.albumArt || null} width={width} height={height} currentTime={currentTime} />
       )}
@@ -177,7 +178,8 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
 }
 
 /* Background Clip Layer for Music Video Mode */
-function BackgroundClipLayer({ clip, currentTime, width, height }: { clip: CanonicalVideoClip; currentTime: number; width: number; height: number }) {
+function BackgroundClipLayer({ clip, currentTime, exportStart, width, height }: { clip: CanonicalVideoClip; currentTime: number; exportStart: number; width: number; height: number }) {
+  const { fps } = useVideoConfig();
   const clipProgress = (currentTime - clip.startTime) / clip.duration;
   
   let transform = 'scale(1)';
@@ -194,11 +196,15 @@ function BackgroundClipLayer({ clip, currentTime, width, height }: { clip: Canon
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       {clip.type === 'video' ? (
-        <Video 
-          src={clip.url} 
-          style={{ width: '100%', height: '100%', objectFit: 'cover', transform }} 
-          startFrom={Math.round(clip.trimStart * 30)}
-        />
+        <Sequence from={Math.round((clip.startTime - exportStart) * fps)} layout="none">
+          <Video
+            src={clip.url}
+            muted
+            style={{ width: '100%', height: '100%', objectFit: 'cover', transform }}
+            startFrom={Math.round(clip.trimStart * fps)}
+            endAt={Math.round((clip.trimStart + clip.duration) * fps)}
+          />
+        </Sequence>
       ) : (
         <Img 
           src={clip.url} 
