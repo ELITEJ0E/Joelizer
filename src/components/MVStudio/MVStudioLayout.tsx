@@ -52,7 +52,7 @@ export function MVStudioLayout() {
       <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
 
         {/* Compact tab bar for small screens; keeps editing options discoverable. */}
-        <nav aria-label="Music video tools" className="z-20 flex shrink-0 items-center gap-1 overflow-x-auto border-b border-[#28303c] bg-[#10151c] px-2 py-2 lg:hidden">
+        <nav aria-label="Music video tools" className="z-20 flex h-[52px] shrink-0 items-center gap-1 overflow-x-auto border-b border-[#28303c] bg-[#10151c] px-2 py-1.5 lg:hidden">
           <button
             type="button"
             onClick={() => setActivePanel('none')}
@@ -100,11 +100,11 @@ export function MVStudioLayout() {
               type="button"
               aria-label="Close editor panel"
               onClick={() => setActivePanel('none')}
-              className="absolute inset-0 top-[53px] z-30 bg-black/70 backdrop-blur-[2px] lg:hidden"
+              className="absolute inset-x-0 top-[52px] bottom-0 z-30 bg-black/70 backdrop-blur-[2px] lg:hidden"
             />
             <aside
               aria-label={panels.find(p => p.id === activePanel)?.description}
-              className="absolute inset-y-[53px] left-0 z-40 flex w-[min(90vw,370px)] min-w-0 flex-col overflow-hidden border-r border-[#303846] bg-[#111820] shadow-[15px_0_50px_rgba(0,0,0,0.4)] lg:relative lg:inset-auto lg:z-10 lg:w-[300px] xl:w-[340px] lg:shrink-0 lg:shadow-none"
+              className="absolute top-[52px] bottom-0 left-0 z-40 flex w-[min(90vw,370px)] min-w-0 flex-col overflow-hidden border-r border-[#303846] bg-[#111820] shadow-[15px_0_50px_rgba(0,0,0,0.4)] lg:relative lg:inset-auto lg:z-10 lg:w-[300px] xl:w-[340px] lg:shrink-0 lg:shadow-none"
             >
               <div className="flex shrink-0 items-center justify-between border-b border-[#303846] bg-[#10151c] px-3 py-2.5">
                 <div className="min-w-0">
