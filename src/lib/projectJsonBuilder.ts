@@ -50,7 +50,7 @@ export async function buildCanonicalProjectJson(options?: {
         if (staged) stagedAudioUrl = staged;
       }
     } catch (stagingErr) {
-      console.warn('[projectJsonBuilder] Audio staging fallback notice:', stagingErr);
+      throw new Error(`Cannot prepare soundtrack for server rendering: ${stagingErr instanceof Error ? stagingErr.message : String(stagingErr)}`);
     }
   }
 
