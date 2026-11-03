@@ -86,7 +86,7 @@ try {
 
   await page.setViewportSize({ width: 375, height: 740 });
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
-  await page.getByRole('button', { name: 'Media', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Music video tools' }).getByRole('button', { name: 'Media', exact: true }).click();
   await page.getByRole('button', { name: 'Import Media', exact: true }).first().click();
   const mobileDialog = page.getByRole('dialog', { name: 'Import local media' });
   await mobileDialog.waitFor();
