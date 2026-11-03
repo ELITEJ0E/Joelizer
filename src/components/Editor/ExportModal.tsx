@@ -34,7 +34,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [activeExportTab, setActiveExportTab] = useState<ExportTabType>('video');
 
   // Video Export Engine: Server Remotion vs Fast Browser Engine
-  const [engineChoice, setEngineChoice] = useState<'server' | 'browser'>('server');
+  // Browser capture works immediately on Vercel. Upgrade to independent MP4 rendering
+  // only after a real persistent Remotion backend responds to /api/health.
+  const [engineChoice, setEngineChoice] = useState<'server' | 'browser'>('browser');
+  const manuallySelectedEngine = useRef(false);
+  const chooseEngine = (engine: 'server' | 'browser') => {
+    manuallySelectedEngine.current = true;
+    setEngineChoice(engine);
+  };
 
   // Video Export State
   const [isExporting, setIsExporting] = useState(false);
@@ -53,7 +60,12 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     let alive = true;
     new ServerRemotionRenderer().isAvailable().then(available => {
-      if (alive) setServerAvailable(available);
+      if (alive) {
+        setServerAvailable(available);
+        if (!manuallySelectedEngine.current) {
+          setEngineChoice(available ? 'server' : 'browser');
+        }
+      }
     });
     return () => { alive = false; };
   }, []);
@@ -534,7 +546,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                         <span className="text-xs font-bold font-mono uppercase">Instant Browser Export Fallback</span>
                       </div>
                       <p className="text-[10px] text-slate-300 font-mono">
-                        You can export immediately using the Fast Client Browser Engine. It records video in real-time with zero server wait!
+                        Browser video export works without a separate render server. Keep this tab visible until recording is finished; switching tabs/minimizing interrupts live capture.
                       </p>
                       <button
                         type="button"
@@ -547,13 +559,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                     </div>
 
                     <div className="flex items-center justify-center gap-2 pt-1">
-                      <button
+                      {serverAvailable === true && <button
                         type="button"
                         onClick={() => handleStartExport('server')}
                         className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-mono font-bold uppercase transition-all cursor-pointer"
                       >
                         Retry Server Render
-                      </button>
+                      </button>}
                       <button
                         type="button"
                         onClick={handleCancelExport}
@@ -664,9 +676,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setEngineChoice('server')}
+                      onClick={() => chooseEngine('server')}
+                      disabled={serverAvailable !== true}
+                      title={serverAvailable === true ? 'Use independent background-safe MP4 rendering' : 'Requires a connected persistent Remotion render service'}
                       className={cn(
-                        "py-2.5 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5",
+                        "py-2.5 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed",
                         engineChoice === 'server'
                           ? "bg-white/10 border-white/40 text-white"
                           : "bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/[0.05]"
@@ -687,7 +701,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
                     <button
                       type="button"
-                      onClick={() => setEngineChoice('browser')}
+                      onClick={() => chooseEngine('browser')}
                       className={cn(
                         "py-2.5 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5",
                         engineChoice === 'browser'
@@ -716,9 +730,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       ? <span className="text-emerald-300">Frame-by-frame MP4 renderer online. You can use other windows while the server renders.</span>
                       : serverAvailable === null
                         ? 'Checking high-quality renderer availability...'
-                        : <span className="text-amber-300">High-quality renderer offline. On Vercel, configure VITE_RENDER_SERVER_URL pointing to a persistent Node render service. Browser recording is not a background-safe replacement.</span>
+                        : <span className="text-amber-300">High-quality server mode is not connected. Browser export is available now without extra setup. For focus-independent MP4, connect a persistent Node render service using VITE_RENDER_SERVER_URL.</span>
                   ) : (
-                    <span className="text-amber-300">Browser capture runs in real time. Switching tabs/minimizing can freeze frames, so this recording stops with an error if the page becomes hidden. Select Server Remotion to work in other windows.</span>
+                    <span className="text-amber-300">Browser video export is available now for lyrics and music videos. Keep this tab visible until recording finishes; browsers throttle hidden tabs. When a rendering server is connected, select Server Remotion for background-safe MP4.</span>
                   )}
                 </div>
 
