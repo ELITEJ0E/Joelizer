@@ -1,5 +1,5 @@
 import { CanonicalProjectJson, CanonicalVideoClip } from '../../types/projectJson';
-import { renderLyricsVideoFrame } from '../lyricsEngine';
+import { renderLyricsVideoFrame, getOrLoadImage } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useMVStore } from '../../store/useMVStore';
@@ -128,6 +128,12 @@ export class OfflineFrameCompositor {
       ...[...videoUrls].map(async url => this.videos.set(url, { element: await loadVideo(url), lastFrame: NaN })),
       ...[...imageUrls].map(async url => this.images.set(url, await loadImage(url)))
     ]);
+    if (project.audio.albumArt) {
+      const album = getOrLoadImage(project.audio.albumArt);
+      if (album && (!album.complete || !album.naturalWidth)) {
+        await waitForEvent(album, 'load', 'error');
+      }
+    }
     this.loaded = true;
   }
 
@@ -145,7 +151,7 @@ export class OfflineFrameCompositor {
     if (project.exportMode === 'lyrics-video' || clip?.type === 'vinyl-lyrics') {
       const lyricsState = useLyricsVideoStore.getState();
       const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
-      const bg = { ...lyricsState.customBackground };
+      const bg: typeof lyricsState.customBackground & { videoElement?: HTMLVideoElement } = { ...lyricsState.customBackground };
       // The shared lyrics drawing engine can use a pre-decoded background
       // instead of starting an unclocked HTML video during export.
       const bgVideo = project.background.videoUrl && this.videos.get(project.background.videoUrl);
