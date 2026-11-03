@@ -63,8 +63,20 @@ try {
   })));
   const exportDialog = page.locator('.export-modal-card');
   await exportDialog.waitFor({ state: 'visible' });
-  assert.equal(await exportDialog.getByText('Production Export Studio').count(), 1,
-    'Global Export control must open the shared export workflow');
+  assert.equal(await exportDialog.locator('h2', { hasText: 'Export' }).count(), 1,
+    'Global Export control must open the compact export dialog');
+  assert.equal(await exportDialog.getByText('Render Engine').count(), 0,
+    'Engine diagnostics must not clutter the default dialog');
+  assert.equal(await exportDialog.getByText('10s Engine Health Test').count(), 0,
+    'Hidden technical tests must not appear in the export flow');
+  assert.equal(await exportDialog.getByText('Trim video').count(), 1);
+  assert.equal(await exportDialog.getByText('Video type').count(), 1);
+  assert.equal(await exportDialog.getByText('Frame rate').count(), 1);
+  assert.equal(await exportDialog.getByRole('button', { name: 'Export video' }).count(), 1);
+  await exportDialog.getByRole('button', { name: 'Lyrics', exact: true }).click();
+  assert.equal(await exportDialog.getByRole('button', { name: 'Download lyrics' }).count(), 1);
+  await exportDialog.getByRole('button', { name: 'Audio', exact: true }).click();
+  assert.equal(await exportDialog.getByRole('button', { name: 'Download WAV' }).count(), 1);
   await exportDialog.locator('button').first().click();
   await exportDialog.waitFor({ state: 'detached' });
 
