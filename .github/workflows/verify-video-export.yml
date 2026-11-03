@@ -22,6 +22,10 @@ jobs:
       - run: npm run lint
       - run: npx tsx src/tests/browserExportClock.test.ts
       - run: npm run build
+      - name: Install FFmpeg for MP4 validation
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
       - name: Generate moving video and short soundtrack fixtures
         run: |
           mkdir -p public/staged
