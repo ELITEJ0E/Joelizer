@@ -1,0 +1,23 @@
+name: Verify Video Export
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, fix/video-export-timeline-freeze-20261103]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsx src/tests/browserExportClock.test.ts
+      - run: npm run build
