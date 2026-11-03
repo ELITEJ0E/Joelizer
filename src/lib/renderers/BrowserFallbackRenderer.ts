@@ -20,9 +20,12 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     project: CanonicalProjectJson,
     onProgress: (progress: RenderProgress) => void
   ): Promise<{ outputUrl: string; fileSize?: number }> {
+    if (document.hidden) {
+      throw new Error('Browser recording needs a visible tab. Use Server Remotion for focus-independent, highest-quality export.');
+    }
     onProgress({
       stage: 'preparing',
-      stageMessage: 'Preparing Client Video Recorder...',
+      stageMessage: 'Preparing foreground-only browser recorder...',
       progress: 5
     });
 
@@ -95,8 +98,19 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     });
 
     const fps = project.fps || 30;
+    const oldResolution = useStore.getState().exportResolutionOverride;
+    useStore.getState().setExportResolutionOverride(project.resolution);
+    // Wait for the preview render loop to resize the canvas before capture.
+    if (project.exportMode === 'music-video') {
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      if (canvas.width !== project.width || canvas.height !== project.height) {
+        useStore.getState().setExportResolutionOverride(oldResolution);
+        throw new Error('Preview canvas has the wrong export resolution. Reopen MV Studio or use the server render engine.');
+      }
+    }
     const canvasStream = canvas.captureStream ? canvas.captureStream(fps) : (canvas as any).mozCaptureStream?.(fps);
     if (!canvasStream) {
+      useStore.getState().setExportResolutionOverride(oldResolution);
       throw new Error('Browser does not support canvas video stream capture.');
     }
 
@@ -145,6 +159,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     audioManager.seek(startTimeOffset);
     const restorePlayback = () => {
       stopBrowserExportClock();
+      useStore.getState().setExportResolutionOverride(oldResolution);
       if (customRenderLoop) cancelAnimationFrame(customRenderLoop);
       useStore.getState().setIsPlaying(wasPlaying);
       useStore.getState().setCurrentTime(originalTime);
@@ -152,11 +167,20 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     };
 
     return new Promise((resolve, reject) => {
+      let interruptedByVisibility = false;
       let mediaRecorder: MediaRecorder;
+      const handleVisibilityChange = () => {
+        if (!document.hidden) return;
+        interruptedByVisibility = true;
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
       try {
+        const bitrate = Math.max(8_000_000, Math.round(project.width * project.height * fps * 0.25));
         mediaRecorder = new MediaRecorder(combinedStream, {
           mimeType: chosenMime,
-          videoBitsPerSecond: 8_000_000 // 8 Mbps high quality
+          videoBitsPerSecond: Math.min(35_000_000, bitrate),
+          audioBitsPerSecond: 320_000
         });
       } catch (err: any) {
         mediaRecorder = new MediaRecorder(combinedStream);
@@ -172,8 +196,9 @@ export class BrowserFallbackRenderer implements VideoRenderer {
 
       mediaRecorder.onerror = (err: any) => {
         if (timer) clearInterval(timer);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
         restorePlayback();
-        combinedStream.getTracks().forEach(track => track.stop());
+        canvasStream.getTracks().forEach(track => track.stop());
         reject(new Error(`MediaRecorder error: ${err.message || 'Recording stream failed'}`));
       };
 
@@ -183,6 +208,9 @@ export class BrowserFallbackRenderer implements VideoRenderer {
       mediaRecorder.onstop = async () => {
         if (timer) clearInterval(timer);
         try {
+          if (interruptedByVisibility) {
+            throw new Error('Browser recording was interrupted when the tab/window became hidden. No damaged file was delivered. Use Server Remotion to export while working in other windows.');
+          }
           if (project.exportMode === 'music-video') {
             validateBrowserExportVideo(project.videoClips, startTimeOffset, startTimeOffset + duration);
           }
@@ -230,6 +258,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
         } catch (postErr: any) {
           reject(postErr);
         } finally {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
           restorePlayback();
           // Only stop tracks created by canvas.captureStream; the audio track belongs to the global player.
           canvasStream.getTracks().forEach(track => track.stop());

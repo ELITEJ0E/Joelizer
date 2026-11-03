@@ -12,12 +12,12 @@ export async function getBestAvailableRenderer(preferred?: RendererType): Promis
     if (await localRenderer.isAvailable()) return localRenderer;
   } else if (preferred === 'server') {
     if (await serverRenderer.isAvailable()) return serverRenderer;
-    return browserRenderer;
+    throw new Error('Frame-accurate background-safe MP4 export is unavailable. Configure a persistent Node render service (VITE_RENDER_SERVER_URL) or run Joelizer on a local Node server. Browser export is a foreground-only fallback.');
   } else if (preferred === 'browser') {
     if (await browserRenderer.isAvailable()) return browserRenderer;
   }
 
-  // Priority order: Server -> Local -> Browser
+  // Priority order: independent server -> local FFmpeg -> foreground-only browser
   if (await serverRenderer.isAvailable()) {
     return serverRenderer;
   }
