@@ -71,7 +71,7 @@ try {
       const { OfflineWebCodecsRenderer } = await import(/* @vite-ignore */ modulePath);
       const renderer = new OfflineWebCodecsRenderer();
       const project = {
-        version: '1.0', projectName: 'offline-browser-smoke', exportMode: mode,
+        version: '1.0', projectName: 'offline-browser-smoke', exportMode: mode === 'music-video-with-audio' ? 'music-video' : mode,
         width: 320, height: 180, fps: 30, resolution: '360p', aspectRatio: '16:9',
         exportRange: { start: 0, end: 1, duration: 1 },
         audio: { url: mode === 'music-video-with-audio' ? '/staged/smoke-audio.wav' : null,
