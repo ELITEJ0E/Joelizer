@@ -55,7 +55,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   // Video Settings
   const [resolution, setResolution] = useState<ExportResolutionType>('1080p');
-  const [fps, setFps] = useState<30 | 60>(60);
+  // Browser MediaRecorder often drops frames at 1080p/60 on midrange hardware.
+  // Prefer reliable 30fps capture unless the user explicitly selects 60fps.
+  const [fps, setFps] = useState<30 | 60>(30);
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
@@ -857,11 +859,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                           fps === rate ? 'border-emerald-400/70 bg-emerald-500/15 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'
                         )}
                       >
-                        {rate} FPS {rate === 60 ? '· Smooth (best for 60fps source)' : '· Standard'}
+                        {rate} FPS {rate === 60 ? '· High motion (fast devices)' : '· Stable browser default'}
                       </button>
                     ))}
                   </div>
-                  <p className="text-[9px] text-slate-400">60 FPS cannot add genuine motion frames to source videos recorded at 30 FPS.</p>
+                  <p className="text-[9px] text-slate-400">For browser export, 30 FPS is often smoother than overloaded 60 FPS. Use 60 FPS only when your source footage and device can sustain it; it does not add new motion to 30 FPS source.</p>
                 </div>
 
                 {/* Filename Input */}
