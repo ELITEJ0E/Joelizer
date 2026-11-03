@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
 const port = 4174;
-const server = spawn('npx', ['vite', '--host', '127.0.0.1', '--port', String(port)], {
-  env: process.env, stdio: 'pipe'
+const server = spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx',
+  ['vite', '--host', '127.0.0.1', '--port', String(port)], {
+  env: process.env, stdio: 'pipe', shell: process.platform === 'win32'
 });
 let log = '';
 server.stdout.on('data', d => { log += String(d); });
@@ -49,7 +52,20 @@ try {
   console.log('Chrome WebCodecs encoder support:', JSON.stringify(encoderSupport));
 
 
-  for (const mode of ['lyrics-video', 'music-video']) {
+  const h264 = encoderSupport.configs?.some((probe: any) =>
+    probe.codec.startsWith('avc1.') && probe.supported === true);
+  if (!h264) {
+    console.log('SKIP offline MP4 browser integration: this CI Chrome build has no H.264 VideoEncoder. Server-side MP4 tests still verify exported files.');
+  }
+  const AACsupported = await page.evaluate(async () => {
+    const Audio = (globalThis as any).AudioEncoder;
+    if (!Audio) return false;
+    try {
+      return (await Audio.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 256000 })).supported;
+    } catch { return false; }
+  });
+  const modes = ['lyrics-video', 'music-video', ...(AACsupported ? ['music-video-with-audio'] : [])];
+  for (const mode of (h264 ? modes : [])) {
     const result = await page.evaluate(async mode => {
       const modulePath = '/src/lib/renderers/OfflineWebCodecsRenderer.ts';
       const { OfflineWebCodecsRenderer } = await import(/* @vite-ignore */ modulePath);
@@ -58,14 +74,15 @@ try {
         version: '1.0', projectName: 'offline-browser-smoke', exportMode: mode,
         width: 320, height: 180, fps: 30, resolution: '360p', aspectRatio: '16:9',
         exportRange: { start: 0, end: 1, duration: 1 },
-        audio: { url: null, albumArt: null, title: 'Sample', artist: 'CI', duration: 1 },
+        audio: { url: mode === 'music-video-with-audio' ? '/staged/smoke-audio.wav' : null,
+          albumArt: null, title: 'Sample', artist: 'CI', duration: 1 },
         background: { type: 'color', value: '#111111', blurAlbumArt: false },
         lyrics: { lines: [{ id: '1', startTime: 0, endTime: 1, text: 'Test lyrics' }],
           fontFamily: 'Outfit', fontWeight: '700', fontSizeScale: 1,
           textColor: '#fff', activeWordColor: '#fde047', inactiveWordColor: '#aaa',
           glowColor: '#fde047', showContainerPill: true, pillBgColor: '#111',
           animationStyle: 'karaoke' },
-        videoClips: mode === 'music-video' ? [
+        videoClips: mode !== 'lyrics-video' ? [
           { id: 'v1', assetId: 'v1', url: '/staged/smoke-video.mp4', type: 'video',
             startTime: 0, endTime: 1, duration: 1, trimStart: 0, trimEnd: 1, effect: 'none', transition: 'cut' }
         ] : [],
@@ -82,12 +99,15 @@ try {
       URL.revokeObjectURL(result.outputUrl);
       return Array.from(new Uint8Array(buffer));
     }, mode);
-    const path = `/tmp/joelizer-offline-${mode}.mp4`;
+    const path = join(tmpdir(), `joelizer-offline-${mode}.mp4`);
     writeFileSync(path, Buffer.from(result));
     const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error',
       '-show_entries', 'stream=codec_type,duration,nb_frames', '-of', 'json', path], { encoding: 'utf8' }));
     const video = probe.streams.find(s => s.codec_type === 'video');
     assert.ok(video, 'H264 stream missing');
+    if (mode === 'music-video-with-audio') {
+      assert.ok(probe.streams.some(s => s.codec_type === 'audio'), 'AAC track missing from offline MP4');
+    }
     assert.equal(Number(video.nb_frames), 30, 'Offline MP4 must have exactly 30 encoded video frames');
     assert.ok(Number(video.duration) >= 0.95, 'Offline MP4 must not be truncated');
     const md5 = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-vf', 'fps=10,scale=80:45', '-f', 'framemd5', '-'],
