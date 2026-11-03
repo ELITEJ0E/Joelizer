@@ -90,7 +90,9 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     const Video = videoEncoderClass(), Audio = audioEncoderClass();
     const videoConfig = await findVideoConfig(project);
     if (!Video || !videoConfig) throw new Error('H.264 offline encoding is unsupported at these dimensions and FPS. Try 720p/30 FPS or Fast Browser.');
-    if (!Audio || !await supportsAAC()) throw new Error('AAC offline encoding is unsupported in this browser. Use Fast Browser or a supported Chromium/Edge browser.');
+    if ((project.audio.url || project.audio.audioDataUri) && (!Audio || !await supportsAAC())) {
+      throw new Error('AAC offline encoding is unsupported in this browser. Use Fast Browser or a supported Chromium/Edge browser.');
+    }
     const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
     const compositor = new OfflineFrameCompositor(project);
     const totalFrames = Math.max(1, Math.ceil(project.exportRange.duration * project.fps));
