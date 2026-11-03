@@ -49,7 +49,11 @@ async function atTime(media: StageMedia, seconds: number): Promise<void> {
   const video = media.element;
   const target = Math.max(0, Math.min(seconds, Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.001) : seconds));
   // Once decoded, reusing a frame at the exact same source timestamp avoids extra seeks.
-  if (Math.abs(media.lastFrame - target) < 0.0001 && video.readyState >= 2) return;
+  if ((Math.abs(media.lastFrame - target) < 0.0001 ||
+      Math.abs(video.currentTime - target) < 0.0001) && video.readyState >= 2) {
+    media.lastFrame = target;
+    return;
+  }
   const ready = waitForEvent(video, 'seeked', 'error', 25000);
   video.currentTime = target;
   await ready;
@@ -160,7 +164,14 @@ export class OfflineFrameCompositor {
         bg.videoElement = bgVideo.element;
         bg.videoUrl = undefined;
       }
-      renderLyricsVideoFrame(ctx, W, H, time, project.lyrics.lines as any, {
+      if (project.background.type === 'image') {
+        bg.imageElement = this.images.get(project.background.value);
+      }
+      const adaptedLines = project.lyrics.lines.map(line => ({
+        ...line,
+        words: line.words?.map(w => ({ word: w.word, start: w.startTime, end: w.endTime }))
+      }));
+      renderLyricsVideoFrame(ctx, W, H, time, adaptedLines as any, {
         title: project.audio.title,
         artist: project.audio.artist,
         albumArtUrl: project.audio.albumArt || undefined
@@ -170,10 +181,10 @@ export class OfflineFrameCompositor {
         animationStyle: project.lyrics.animationStyle,
         visibleLineCount: lyricsState.visibleLineCount,
         customBackground: bg,
-        typographyOverride: lyricsState.typographyOverride,
-        artworkOverride: lyricsState.artworkOverride,
+        typographyOverride: project.lyrics,
+        artworkOverride: project.artwork,
         animationOverride: lyricsState.animationOverride,
-        elementPositions: lyricsState.elementPositions,
+        elementPositions: project.elementPositions,
         watermarkText: project.watermarkText,
         showSafeArea: false
       }, new Uint8Array(1024), new Uint8Array(1024).fill(128));
