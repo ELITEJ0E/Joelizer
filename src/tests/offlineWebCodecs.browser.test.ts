@@ -25,7 +25,7 @@ try {
   browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
   const page = await browser.newPage();
   page.setDefaultTimeout(120000);
-  page.on('console', msg => { if (msg.type() === 'error') process.stderr.write('Browser console: ' + msg.text() + '\n'); });
+  page.on('console', msg => { process.stderr.write('Browser ' + msg.type() + ': ' + msg.text() + '\n'); });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
   const encoderSupport = await page.evaluate(async () => {
     const Encoder = (globalThis as any).VideoEncoder;
@@ -93,7 +93,18 @@ try {
         effects: { showGrain: false, showScanlines: false, glow: false, vignette: false },
         safeArea: false, templateId: 'vinyl'
       };
-      const result = await renderer.render(project, () => {});
+      let lastLogged = '';
+      const result = await Promise.race([
+        renderer.render(project, (progress) => {
+          const label = progress.stage + ' ' + Math.floor(progress.progress / 10) * 10 + '%';
+          if (label !== lastLogged) {
+            console.log('Offline MP4 test progress', mode, label, progress.stageMessage);
+            lastLogged = label;
+          }
+        }),
+        new Promise<never>((_resolve, reject) =>
+          setTimeout(() => reject(new Error('Offline WebCodecs render exceeded 90 seconds: check video seek/decode or encoder flush')), 90000))
+      ]);
       const response = await fetch(result.outputUrl);
       const buffer = await response.arrayBuffer();
       URL.revokeObjectURL(result.outputUrl);
