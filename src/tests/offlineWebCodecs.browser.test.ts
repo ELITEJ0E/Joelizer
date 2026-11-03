@@ -7,9 +7,11 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
 const port = 4174;
-const server = spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx',
-  ['vite', '--host', '127.0.0.1', '--port', String(port)], {
-  env: process.env, stdio: 'pipe', shell: process.platform === 'win32'
+// Spawn Vite directly rather than via npx/cmd. Shell wrappers leave orphan
+// child processes and keep CI alive long after the browser test has ended.
+const server = spawn(process.execPath,
+  ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port)], {
+  env: process.env, stdio: 'pipe'
 });
 let log = '';
 server.stdout.on('data', d => { log += String(d); });
@@ -130,4 +132,6 @@ try {
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
+  server.stdout.destroy();
+  server.stderr.destroy();
 }
