@@ -7,7 +7,7 @@
  * Same-origin is used when no dedicated service is configured.
  */
 export function getRenderServerOrigin(): string {
-  const value = (import.meta.env.VITE_RENDER_SERVER_URL || '').trim();
+  const value = (import.meta.env?.VITE_RENDER_SERVER_URL || '').trim();
   if (!value) return '';
   try {
     const url = new URL(value);
