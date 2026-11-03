@@ -14,6 +14,8 @@ import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { ExportRangeSlider } from './ExportRangeSlider';
 import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
 import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
+import { ServerRemotionRenderer } from '../../lib/renderers/ServerRemotionRenderer';
+import { renderApiUrl } from '../../lib/renderBackend';
 import { AspectRatioType, ExportResolutionType, ExportModeType } from '../../types/projectJson';
 import { 
   generateLRC, generateEnhancedLRC, generateSRT, generateASS, 
@@ -46,7 +48,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   // Video Settings
   const [resolution, setResolution] = useState<ExportResolutionType>('1080p');
-  const [fps, setFps] = useState<30 | 60>(30);
+  const [fps, setFps] = useState<30 | 60>(60);
+  const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    new ServerRemotionRenderer().isAvailable().then(available => {
+      if (alive) setServerAvailable(available);
+    });
+    return () => { alive = false; };
+  }, []);
   const [aspectRatio, setAspectRatioState] = useState<AspectRatioType>('16:9');
   const [exportMode, setExportMode] = useState<ExportModeType>('lyrics-video');
   const [allowSilentExport, setAllowSilentExport] = useState(false);
@@ -154,7 +164,12 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setIsTestRunning(true);
     setTestResult(null);
     try {
-      const res = await fetch('/api/render-test');
+      const available = await new ServerRemotionRenderer().isAvailable();
+      if (!available) {
+        setTestResult({ success: false, message: 'No persistent Remotion renderer available. Configure VITE_RENDER_SERVER_URL (or run the Node server) for focus-independent MP4 export.' });
+        return;
+      }
+      const res = await fetch(renderApiUrl('/api/render-test'));
       const contentType = res.headers.get('content-type') || '';
       
       if (contentType.includes('application/json')) {
@@ -237,19 +252,20 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setExportError(null);
       setDownloadUrl(null);
 
-      // 1. Build canonical JSON with staging
+      // Check engine first: Vercel has no server-rendering process. Never
+      // upload assets or silently downgrade quality to a foreground recorder.
+      const renderer = await getBestAvailableRenderer(targetEngine);
+      setActiveRendererName(renderer.name);
+      setStageMessage(renderer.type === 'server'
+        ? 'Uploading assets to the background-safe Remotion engine...'
+        : 'Preparing real-time browser recording (keep tab visible)...');
+      setProgress(12);
       const projectJson = await buildCanonicalProjectJson({
         resolution,
         fps,
-        modeOverride: exportMode
+        modeOverride: exportMode,
+        skipStaging: renderer.type === 'browser'
       });
-
-      // 2. Select renderer
-      setStageMessage(`Connecting to ${targetEngine === 'browser' ? 'Fast Browser Video Engine' : 'Production Remotion Engine'}...`);
-      setProgress(12);
-
-      const renderer = await getBestAvailableRenderer(targetEngine);
-      setActiveRendererName(renderer.name);
 
       const result = await renderer.render(projectJson, (prog) => {
         if (isCancelledRef.current) return;
@@ -664,7 +680,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                           <span className="text-[8px] px-1 rounded bg-emerald-500/20 text-emerald-300 font-mono">MP4</span>
                         </div>
                         <span className="text-[9px] text-slate-400 block font-mono mt-0.5 leading-tight">
-                          Frame-accurate high quality server render
+                          Best quality · works with other windows open
                         </span>
                       </div>
                     </button>
@@ -687,11 +703,23 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                           <span className="text-[8px] px-1 rounded bg-amber-500/20 text-amber-300 font-mono">Instant</span>
                         </div>
                         <span className="text-[9px] text-slate-400 block font-mono mt-0.5 leading-tight">
-                          Instant in-browser capture (zero server wait)
+                          Real-time only · keep this tab visible
                         </span>
                       </div>
                     </button>
                   </div>
+                </div>
+
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-mono leading-relaxed text-slate-300">
+                  {engineChoice === 'server' ? (
+                    serverAvailable === true
+                      ? <span className="text-emerald-300">Frame-by-frame MP4 renderer online. You can use other windows while the server renders.</span>
+                      : serverAvailable === null
+                        ? 'Checking high-quality renderer availability...'
+                        : <span className="text-amber-300">High-quality renderer offline. On Vercel, configure VITE_RENDER_SERVER_URL pointing to a persistent Node render service. Browser recording is not a background-safe replacement.</span>
+                  ) : (
+                    <span className="text-amber-300">Browser capture runs in real time. Switching tabs/minimizing can freeze frames, so this recording stops with an error if the page becomes hidden. Select Server Remotion to work in other windows.</span>
+                  )}
                 </div>
 
                 {/* Video Mode Selection */}
@@ -802,6 +830,26 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   </div>
                 </div>
 
+                <div className="export-modal-item-anim space-y-1">
+                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Output Frame Rate</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([30, 60] as const).map(rate => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => setFps(rate)}
+                        className={cn(
+                          'rounded-lg border py-2 text-xs font-mono font-bold transition-all',
+                          fps === rate ? 'border-emerald-400/70 bg-emerald-500/15 text-white' : 'border-white/10 bg-white/[0.02] text-slate-400'
+                        )}
+                      >
+                        {rate} FPS {rate === 60 ? '· Smooth (best for 60fps source)' : '· Standard'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-slate-400">60 FPS cannot add genuine motion frames to source videos recorded at 30 FPS.</p>
+                </div>
+
                 {/* Filename Input */}
                 <div className="export-modal-item-anim space-y-1">
                   <label className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Project Filename</label>
@@ -862,7 +910,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 >
                   <Download size={16} /> 
                   <span>
-                    Export {engineChoice === 'browser' ? 'Video' : 'MP4'} ({resolution} • {engineChoice === 'browser' ? 'Browser Engine' : 'Server Engine'})
+                    Export {engineChoice === 'browser' ? 'Video' : 'MP4'} ({resolution} • {fps} FPS • {engineChoice === 'browser' ? 'Foreground Browser' : 'High-Quality Server'})
                   </span>
                 </button>
               </div>
