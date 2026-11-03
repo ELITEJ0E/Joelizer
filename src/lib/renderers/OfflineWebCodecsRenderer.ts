@@ -23,15 +23,23 @@ async function findVideoConfig(project: { width: number; height: number; fps: nu
   if (!Video) return null;
   const bitrate = Math.max(6_000_000, Math.min(35_000_000, Math.round(project.width * project.height * project.fps * 0.16)));
   for (const codec of ['avc1.64002a', 'avc1.4d002a', 'avc1.42001f']) {
-    const config = {
-      codec,
-      width: project.width, height: project.height, bitrate,
-      framerate: project.fps, hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality',
-      avc: { format: 'avc' }
-    };
-    try {
-      if ((await Video.isConfigSupported(config)).supported) return config;
-    } catch { /* Try a lower-profile H264 encoder. */ }
+    // Many supported Chrome H.264 software encoders reject the combination of
+    // prefer-hardware + quality latency mode, particularly in headless/browser
+    // sessions without GPU acceleration. Do not mistake that for unavailable H264.
+    for (const options of [
+      { hardwareAcceleration: 'no-preference', latencyMode: 'realtime' },
+      { hardwareAcceleration: 'prefer-software', latencyMode: 'realtime' },
+      {}
+    ]) {
+      const config = {
+        codec, width: project.width, height: project.height, bitrate,
+        framerate: project.fps, ...options
+      };
+      try {
+        const capability = await Video.isConfigSupported(config);
+        if (capability.supported) return capability.config;
+      } catch { /* Probe next supported H264 encoder configuration. */ }
+    }
   }
   return null;
 }
