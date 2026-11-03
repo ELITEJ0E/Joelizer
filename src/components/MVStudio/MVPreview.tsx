@@ -1,4 +1,5 @@
 import { getVideoSyncDecision } from '../../lib/videoPlaybackSync';
+import { layoutMVCaption, drawMVCaption, MVCaptionLayout } from '../../lib/mvCaptionLayout';
 import { getBrowserExportTime, sampleBrowserExportVideo } from '../../lib/browserExportClock';
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
@@ -36,6 +37,33 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stageDimensions, setStageDimensions] = useState({ width: 640, height: 360 });
+  const [availableStage, setAvailableStage] = useState({ width: 0, height: 0 });
+  const [stageHovered, setStageHovered] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Portaled dialogs are outside the preview's DOM tree. They suppress the
+  // central play button even if a pointer previously hovered over the stage.
+  useEffect(() => {
+    const sync = () => {
+      const open = !!document.querySelector('[data-mv-dialog]');
+      setDialogOpen(open);
+      if (open) setStageHovered(false);
+    };
+    window.addEventListener('mv-dialog-state', sync);
+    sync();
+    return () => window.removeEventListener('mv-dialog-state', sync);
+  }, []);
+
+  useEffect(() => {
+    const node = stageRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(() => {
+      setAvailableStage({ width: node.clientWidth, height: node.clientHeight });
+    });
+    observer.observe(node);
+    setAvailableStage({ width: node.clientWidth, height: node.clientHeight });
+    return () => observer.disconnect();
+  }, []);
 
   // Sync canvas container dimensions for accurate interactive stage drag overlay
   useEffect(() => {
@@ -97,16 +125,24 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
     });
   }, [videoAssets]);
 
-  const aspectRatioVal = 
-    aspectRatio === '9:16' ? '9/16' : 
-    aspectRatio === '1:1' ? '1/1' : 
-    aspectRatio === '4:5' ? '4/5' :
-    aspectRatio === '3:4' ? '3/4' : 
-    aspectRatio === '4:3' ? '4/3' : '16/9';
+  const aspectValues: Record<string, [number, number]> = {
+    '16:9': [16, 9], '9:16': [9, 16], '1:1': [1, 1],
+    '4:5': [4, 5], '3:4': [3, 4], '4:3': [4, 3]
+  };
+  const [ratioWidth, ratioHeight] = aspectValues[aspectRatio] || aspectValues['16:9'];
+  // Pixel-sized contain calculation avoids clipping and distorted aspect
+  // ratios when the preview pane is shorter or narrower than the video.
+  const stageScale = Math.max(0.1, Math.min(
+    Math.max(1, availableStage.width - 16) / ratioWidth,
+    Math.max(1, availableStage.height - 16) / ratioHeight
+  ));
+  const displayWidth = Math.floor(ratioWidth * stageScale);
+  const displayHeight = Math.floor(ratioHeight * stageScale);
 
   // Continuous Canvas Renderer Loop (Serves both live preview and high-quality ExportModal recording)
   useEffect(() => {
     let animFrameId: number;
+    let captionCache: { line: object; width: number; height: number; layout: MVCaptionLayout } | null = null;
 
     const render = () => {
       try {
@@ -413,115 +449,23 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           ctx.fillText('NO ACTIVE TIMELINE CLIP', W / 2, H / 2);
         }
 
-        // 3. Render Synchronized Word-by-Word Lyric Captions
+        // 3. Responsive karaoke captions. Cache line wrapping and font
+        // measurement until the text object or canvas geometry changes.
         const timings = mvState.wordTimings;
         const lines = storeState.lyricsSettings?.lines || [];
+        const activeLine = timings.find(t => curTime >= t.startTime && curTime < t.endTime)
+          || lines.find(l => curTime >= l.startTime && curTime < l.endTime);
 
-        // Find active line from wordTimings first, or fallback to lyricsSettings
-        let activeLine = timings.find(t => curTime >= t.startTime && curTime <= t.endTime);
-        if (!activeLine && lines.length > 0) {
-          const found = lines.find(l => curTime >= l.startTime && curTime <= l.endTime);
-          if (found) {
-            activeLine = {
-              id: found.id,
-              text: found.text,
-              startTime: found.startTime,
-              endTime: found.endTime
-            };
-          }
-        }
-
-        if (activeLine && activeLine.text) {
-          const fontSize = Math.round(H * 0.045);
-          ctx.font = `bold ${fontSize}px sans-serif`;
-
-          const hasWords = activeLine.words && activeLine.words.length > 0;
-          const lineY = H - Math.round(H * 0.12);
-
-          if (hasWords) {
-            // Compute total text width for exact centering
-            let totalW = 0;
-            const wordWidths = activeLine.words!.map(w => {
-              const wWidth = ctx.measureText(w.word + ' ').width;
-              totalW += wWidth;
-              return wWidth;
+        if (activeLine?.text) {
+          if (!captionCache || captionCache.line !== activeLine ||
+              captionCache.width !== W || captionCache.height !== H) {
+            const layout = layoutMVCaption(activeLine, W, H, (text, fontSize) => {
+              ctx.font = `700 ${fontSize}px sans-serif`;
+              return ctx.measureText(text).width;
             });
-
-            const padX = 20;
-            const boxW = Math.min(W * 0.92, totalW + padX * 2);
-            const boxH = fontSize * 1.8;
-            const boxX = (W - boxW) / 2;
-            const boxY = lineY - boxH / 1.5;
-
-            // Draw backdrop pill container
-            ctx.save();
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-            if (ctx.roundRect) {
-              ctx.beginPath();
-              ctx.roundRect(boxX, boxY, boxW, boxH, 12);
-              ctx.fill();
-            } else {
-              ctx.fillRect(boxX, boxY, boxW, boxH);
-            }
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            ctx.restore();
-
-            // Render individual words with highlight
-            let currentX = (W - totalW) / 2;
-
-            activeLine.words!.forEach((w, idx) => {
-              const isWordActive = curTime >= w.start && curTime <= w.end;
-              ctx.save();
-
-              if (isWordActive) {
-                ctx.fillStyle = '#fde047'; // Bright Yellow Gold
-                ctx.font = `extrabold ${Math.round(fontSize * 1.1)}px sans-serif`;
-                ctx.shadowColor = 'rgba(253, 224, 71, 0.9)';
-                ctx.shadowBlur = 12;
-              } else {
-                ctx.fillStyle = '#ffffff';
-                ctx.font = `bold ${fontSize}px sans-serif`;
-              }
-
-              ctx.textAlign = 'left';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(w.word + ' ', currentX, lineY);
-              ctx.restore();
-
-              currentX += wordWidths[idx];
-            });
-          } else {
-            // Render plain centered text
-            const textMetrics = ctx.measureText(activeLine.text);
-            const padX = 24;
-            const boxW = Math.min(W * 0.92, textMetrics.width + padX * 2);
-            const boxH = fontSize * 1.8;
-            const boxX = (W - boxW) / 2;
-            const boxY = lineY - boxH / 1.5;
-
-            ctx.save();
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-            if (ctx.roundRect) {
-              ctx.beginPath();
-              ctx.roundRect(boxX, boxY, boxW, boxH, 12);
-              ctx.fill();
-            } else {
-              ctx.fillRect(boxX, boxY, boxW, boxH);
-            }
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-
-            ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-            ctx.shadowBlur = 8;
-            ctx.fillText(activeLine.text, W / 2, lineY);
-            ctx.restore();
+            captionCache = { line: activeLine, width: W, height: H, layout };
           }
+          drawMVCaption(ctx, captionCache.layout, curTime);
         }
       } catch (err) {
         console.error("Renderer Loop Exception:", err);
@@ -548,16 +492,14 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         ref={stageRef}
         className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-[#0a0c0f]"
       >
-        <div 
+        <div
           ref={canvasContainerRef}
-          className="bg-black rounded border border-[#232933] overflow-hidden relative shadow-[0_16px_50px_rgba(0,0,0,0.9)] flex items-center justify-center transition-all duration-300"
-          style={{
-            aspectRatio: aspectRatioVal,
-            maxHeight: '100%',
-            maxWidth: '100%',
-            height: '100%',
-            width: 'auto',
-          }}
+          onPointerEnter={() => setStageHovered(true)}
+          onPointerLeave={() => setStageHovered(false)}
+          className="bg-black rounded-lg border border-[#232933] overflow-hidden relative shadow-[0_10px_36px_rgba(0,0,0,0.55)] flex items-center justify-center group/mvpreview"
+          style={availableStage.width > 0 && availableStage.height > 0
+            ? { width: displayWidth, height: displayHeight, flexShrink: 0 }
+            : { aspectRatio: `${ratioWidth}/${ratioHeight}`, height: '100%', maxWidth: '100%' }}
         >
           {/* Main Canvas Element - Used by ExportModal via id="visualizer-canvas" */}
           <canvas
@@ -575,27 +517,24 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             />
           )}
 
-          {/* Play/Pause Central Floating Control - always clickable */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+          {/* Transport appears only on the video surface, never under a dialog. */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsPlaying(!isPlaying);
               }}
-              className={`w-14 h-14 rounded-full bg-[#0e1115]/90 border border-[#232933] hover:border-accent flex items-center justify-center text-[#f0f3f6] hover:text-accent backdrop-blur-md transition-all cursor-pointer shadow-2xl pointer-events-auto group ${
-                isPlaying 
-                  ? 'opacity-0 hover:opacity-100 focus:opacity-100 hover:scale-105 bg-[#0e1115]/70' 
-                  : 'opacity-100 scale-100 hover:scale-110 ring-2 ring-accent/20'
+              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#0e1115]/85 border border-white/20 flex items-center justify-center text-white backdrop-blur-md transition-opacity duration-150 shadow-xl focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent ${
+                stageHovered && !dialogOpen
+                  ? 'opacity-100 pointer-events-auto hover:scale-105 cursor-pointer'
+                  : 'opacity-0 pointer-events-none'
               }`}
-              title={isPlaying ? "Pause playback" : "Start playback"}
-              aria-label={isPlaying ? "Pause" : "Play"}
+              disabled={dialogOpen}
+              title={isPlaying ? 'Pause playback' : 'Play video'}
+              aria-label={isPlaying ? 'Pause video' : 'Play video'}
             >
-              {isPlaying ? (
-                <Pause size={22} className="text-[#f0f3f6] group-hover:text-accent transition-colors" />
-              ) : (
-                <Play size={22} className="ml-1 text-accent group-hover:text-accent transition-colors fill-accent/20" />
-              )}
+              {isPlaying ? <Pause size={21} /> : <Play size={21} className="ml-0.5 fill-white/20" />}
             </button>
           </div>
 
@@ -609,8 +548,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
           {/* Fullscreen Toggle Button */}
           <button
+            type="button"
             onClick={handleToggleFullscreen}
-            className="absolute top-2 right-2 z-20 bg-[#0e1115]/90 hover:bg-[#161b22] text-[#c9d1d9] hover:text-[#f0f3f6] p-1.5 rounded border border-[#232933] hover:border-[#303846] cursor-pointer transition-colors shadow-md"
+            className={`absolute top-2 right-2 z-20 bg-[#0e1115]/85 hover:bg-[#161b22] text-[#c9d1d9] hover:text-white p-2 rounded-lg border border-[#303846] cursor-pointer transition-all focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent ${stageHovered && !dialogOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen preview'}
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview"}
           >
             {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
