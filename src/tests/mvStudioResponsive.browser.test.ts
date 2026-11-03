@@ -25,6 +25,9 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.setDefaultTimeout(20000);
   page.on('pageerror', err => { console.error('Browser page error:', err.message); });
+  page.on('console', message => {
+    if (message.type() === 'error') console.error('Browser console error:', message.text());
+  });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
   await page.evaluate(async () => {
     const modulePath = '/src/store/useStore.ts';
@@ -52,6 +55,12 @@ try {
   assert.equal(new Set(topControls.map(c => c.radius)).size, 1,
     'Global toolbar actions must use one shared border radius');
   await topExport.click();
+  console.log('Export click diagnostic:', await page.evaluate(() => ({
+    button: document.getElementById('topbar-export-btn')?.outerHTML,
+    modalCount: document.querySelectorAll('.export-modal-card').length,
+    allDialogText: Array.from(document.querySelectorAll('[role="dialog"], .fixed'))
+      .map(el => el.textContent?.trim().slice(0, 80)).slice(0, 10)
+  })));
   const exportDialog = page.locator('.export-modal-card');
   await exportDialog.waitFor({ state: 'visible' });
   assert.equal(await exportDialog.getByText('Production Export Studio').count(), 1,
