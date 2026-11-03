@@ -370,7 +370,8 @@ export const useStore = create<ProjectState>((set, get) => ({
   setIsLooping: (isLooping) => set({ isLooping }),
 
   setExportRange: (start, end) => set((state) => {
-    const duration = state.audioDuration || 180;
+    // MV timelines can extend beyond the soundtrack; respect the caller's full range.
+    const duration = Math.max(state.audioDuration || 0, end, start + 0.5);
     const clampedStart = Math.max(0, Math.min(start, duration - 0.5));
     const clampedEnd = Math.max(clampedStart + 0.5, Math.min(end, duration));
     return {
