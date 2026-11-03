@@ -24,6 +24,30 @@ try {
   page.setDefaultTimeout(120000);
   page.on('console', msg => { if (msg.type() === 'error') process.stderr.write('Browser console: ' + msg.text() + '\n'); });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+  const encoderSupport = await page.evaluate(async () => {
+    const Encoder = (globalThis as any).VideoEncoder;
+    if (!Encoder) return { hasEncoder: false, configs: [] };
+    const configs = [];
+    for (const codec of ['avc1.64002a', 'avc1.4d002a', 'avc1.42001f', 'avc1.42001e', 'vp09.00.10.08']) {
+      for (const options of [
+        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality', avc: { format: 'avc' } },
+        { hardwareAcceleration: 'no-preference', latencyMode: 'realtime' },
+        {}
+      ]) {
+        try {
+          const result = await Encoder.isConfigSupported({
+            codec, width: 320, height: 180, bitrate: 800000, framerate: 30, ...options
+          });
+          configs.push({ codec, options, supported: result.supported });
+        } catch (error) {
+          configs.push({ codec, options, error: String(error) });
+        }
+      }
+    }
+    return { hasEncoder: true, configs };
+  });
+  console.log('Chrome WebCodecs encoder support:', JSON.stringify(encoderSupport));
+
 
   for (const mode of ['lyrics-video', 'music-video']) {
     const result = await page.evaluate(async mode => {
