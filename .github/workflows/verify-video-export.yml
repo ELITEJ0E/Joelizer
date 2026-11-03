@@ -22,7 +22,12 @@ jobs:
       - run: npm run lint
       - run: npx tsx src/tests/browserExportClock.test.ts
       - run: npx tsx src/tests/videoPlaybackSync.test.ts
+      - run: npx tsx src/tests/mvCaptionLayout.test.ts
       - run: npm run build
+      - name: Install Google Chrome for responsive MV UI checks
+        run: npx playwright install --with-deps chrome
+      - name: Verify responsive preview, media dialogs and hover behavior
+        run: npx tsx src/tests/mvStudioResponsive.browser.test.ts
       - name: Install FFmpeg for MP4 validation
         run: |
           sudo apt-get update -qq

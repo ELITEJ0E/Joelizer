@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { MVDialogPortal } from './MVDialogPortal';
 import { useMVStore, MediaAsset } from '../../store/useMVStore';
 import { Film, Image as ImageIcon, Plus, Trash2, Link as LinkIcon, FolderPlus, Sparkles, ExternalLink, Globe, Search, Wand2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
@@ -650,14 +651,8 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
 
           {/* Local Files / Folder Upload Modal */}
           {showLocalUploadModal && (
-            <div 
-              onClick={() => setShowLocalUploadModal(false)}
-              className="fixed inset-0 bg-[#0a0c0f]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-mono"
-            >
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                className="bg-[#0e1115] border border-[#232933] rounded-lg p-5 max-w-md w-full flex flex-col gap-4 text-[#c9d1d9] shadow-[0_16px_48px_rgba(0,0,0,0.9)] relative"
-              >
+            <MVDialogPortal title="Import local media" onClose={() => setShowLocalUploadModal(false)}>
+              <div className="flex flex-col gap-4 min-w-0 font-mono text-[#d1d5db]">
                 <div className="flex items-center justify-between border-b border-[#232933] pb-3">
                   <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
                     <FolderPlus size={15} className="text-accent" />
@@ -686,7 +681,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                     <p className="text-xs font-semibold text-[#f0f3f6]">Drag & drop files or entire folder here</p>
                     <p className="text-[10px] text-[#7e8999] mt-1 font-sans">Supports MP4, WebM, MOV, JPG, PNG, WEBP</p>
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
                     <button 
                       onClick={() => { fileInputRef.current?.click(); setShowLocalUploadModal(false); }}
                       className="px-3.5 py-1.5 rounded bg-accent hover:bg-accent/80 text-[#0a0c0f] text-xs font-semibold transition-colors cursor-pointer"
@@ -702,19 +697,13 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   </div>
                 </div>
               </div>
-            </div>
+            </MVDialogPortal>
           )}
 
           {/* Direct URL Import Modal */}
           {showUrlModal && (
-            <div 
-              onClick={() => setShowUrlModal(false)}
-              className="fixed inset-0 bg-[#0a0c0f]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-mono"
-            >
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                className="bg-[#0e1115] border border-[#232933] rounded-lg p-5 max-w-md w-full flex flex-col gap-4 text-[#c9d1d9] shadow-[0_16px_48px_rgba(0,0,0,0.9)]"
-              >
+            <MVDialogPortal title="Import media from URL" onClose={() => setShowUrlModal(false)}>
+              <div className="flex flex-col gap-4 min-w-0 font-mono text-[#d1d5db]">
                 <div className="flex items-center justify-between border-b border-[#232933] pb-3">
                   <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
                     <LinkIcon size={14} className="text-accent" />
@@ -755,19 +744,13 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   </button>
                 </div>
               </div>
-            </div>
+            </MVDialogPortal>
           )}
 
           {/* Stock Providers Hub Modal */}
           {showStockModal && (
-            <div 
-              onClick={() => setShowStockModal(false)}
-              className="fixed inset-0 bg-[#0a0c0f]/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-mono"
-            >
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                className="bg-[#0e1115] border border-[#232933] rounded-lg p-5 max-w-lg w-full flex flex-col gap-4 text-[#c9d1d9] shadow-[0_16px_48px_rgba(0,0,0,0.9)] relative overflow-hidden"
-              >
+            <MVDialogPortal title="Stock provider hub" onClose={() => setShowStockModal(false)}>
+              <div className="flex flex-col gap-4 min-w-0 font-mono text-[#d1d5db]">
                 <div className="flex items-center justify-between border-b border-[#232933] pb-3">
                   <div>
                     <h3 className="text-xs font-semibold text-[#f0f3f6] uppercase tracking-wider flex items-center gap-2">
@@ -781,7 +764,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   <button onClick={() => setShowStockModal(false)} className="text-[#7e8999] hover:text-[#f0f3f6] p-1 cursor-pointer">✕</button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[55vh] overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[40dvh] overflow-y-auto pr-1">
                   {stockProviders.map(provider => (
                     <a
                       key={provider.name}
@@ -808,13 +791,13 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                     <LinkIcon size={12} className="text-accent" />
                     Quick Import Stock Video Link
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 min-w-0">
                     <input 
                       type="text" 
                       placeholder="Paste direct .mp4 or .jpg URL from stock provider"
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}
-                      className="flex-1 bg-[#12161c] border border-[#232933] focus:border-accent rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
+                      className="flex-1 min-w-0 bg-[#12161c] border border-[#232933] focus:border-accent rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] placeholder-[#4d5566] focus:outline-none font-mono transition-colors"
                     />
                     <button
                       onClick={() => {
@@ -837,7 +820,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                   </button>
                 </div>
               </div>
-            </div>
+            </MVDialogPortal>
           )}
         </>
       )}
