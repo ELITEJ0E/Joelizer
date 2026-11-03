@@ -54,6 +54,7 @@ export interface RenderLyricsVideoOptions {
   watermarkText?: string;
   showSafeArea?: boolean;
   showBackgroundVisualizer?: boolean;
+  offlineExport?: boolean;
 }
 
 // Media cache to avoid reconstructing elements every frame
@@ -1192,7 +1193,7 @@ export function renderLyricsVideoFrame(
   audioTimeData?: Uint8Array | null
 ) {
   const { template } = options;
-  const isPlaying = useStore.getState().isPlaying;
+  const isPlaying = options.offlineExport || useStore.getState().isPlaying;
 
   // Background Settings Resolution
   const bgType = options.customBackground?.type || template.defaultBackground.type;
