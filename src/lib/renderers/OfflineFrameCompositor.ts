@@ -1,4 +1,5 @@
-import { CanonicalProjectJson, CanonicalVideoClip } from '../../types/projectJson';
+import { CanonicalProjectJson } from '../../types/projectJson';
+import { OfflineAudioAnalysis } from './offlineAudioAnalysis';
 import { renderLyricsVideoFrame, getOrLoadImage } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
@@ -110,6 +111,11 @@ export class OfflineFrameCompositor {
   private videos = new Map<string, StageMedia>();
   private images = new Map<string, HTMLImageElement>();
   private loaded = false;
+  private audioAnalysis = new OfflineAudioAnalysis();
+
+  setAudioBuffer(audio: AudioBuffer | null): void {
+    this.audioAnalysis.setBuffer(audio);
+  }
 
   constructor(private project: CanonicalProjectJson) {
     this.canvas = document.createElement('canvas');
@@ -145,6 +151,7 @@ export class OfflineFrameCompositor {
     if (!this.loaded) throw new Error('Export frame renderer has not loaded source media.');
     const { project, ctx } = { project: this.project, ctx: this.ctx };
     const W = project.width, H = project.height;
+    const audio = this.audioAnalysis.atTime(time - project.exportRange.start);
     ctx.save();
     ctx.fillStyle = '#050508';
     ctx.fillRect(0, 0, W, H);
@@ -186,8 +193,9 @@ export class OfflineFrameCompositor {
         animationOverride: lyricsState.animationOverride,
         elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
         watermarkText: project.watermarkText,
-        showSafeArea: false
-      }, new Uint8Array(1024), new Uint8Array(1024).fill(128));
+        showSafeArea: false,
+        offlineExport: true
+      }, audio.frequency, audio.waveform);
     } else if (clip) {
       if (clip.type === 'video') {
         const media = this.videos.get(clip.url);
@@ -219,7 +227,7 @@ export class OfflineFrameCompositor {
       } else if (clip.type === 'visualizer') {
         // Deterministic non-live export. Audio-reactive animation needs
         // precomputed PCM analysis, not the unrelated preview AudioContext.
-        renderVisualizer(ctx, new Uint8Array(1024), new Uint8Array(1024).fill(128),
+        renderVisualizer(ctx, audio.frequency, audio.waveform,
           useStore.getState().visualizerSettings, W, H);
       }
       caption(ctx, project, time);
