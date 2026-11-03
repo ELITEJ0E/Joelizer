@@ -19,6 +19,9 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     project: CanonicalProjectJson,
     onProgress: (progress: RenderProgress) => void
   ): Promise<{ outputUrl: string; fileSize?: number }> {
+    if (project.exportMode === 'music-video' && project.videoClips.some(c => c.type === 'video' || c.type === 'image')) {
+      throw new Error('Music video exports with timeline clips require the server Remotion renderer. Browser canvas capture cannot render MV clips reliably.');
+    }
     onProgress({
       stage: 'preparing',
       stageMessage: 'Preparing Client Video Recorder...',
@@ -126,6 +129,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     }
 
     const duration = project.exportRange?.duration || 10;
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error('Invalid export range duration');
     const startTimeOffset = project.exportRange?.start || 0;
     const durationMs = duration * 1000;
 
