@@ -263,6 +263,7 @@ export async function getRemotionBundle(): Promise<string> {
 
     const bundleLocation = await bundle({
       entryPoint,
+      publicDir: path.resolve('./public'),
       webpackOverride: (config) => config
     });
 
@@ -271,6 +272,37 @@ export async function getRemotionBundle(): Promise<string> {
     return bundleLocation;
   } finally {
     isBundling = false;
+  }
+}
+
+/**
+ * Remotion serves media from its isolated bundle directory, not the Express
+ * public directory. New uploads arrive after the bundle is cached, so copying
+ * public/ once at bundle time is not sufficient.
+ */
+function synchronizeStagedMedia(bundleLocation: string, project: CanonicalProjectJson): void {
+  const urls = [
+    ...(project.videoClips || []).map(clip => clip.url),
+    project.background?.value,
+    project.background?.videoUrl,
+    project.audio?.albumArt
+  ];
+  for (const url of urls) {
+    if (!url || !url.startsWith('/staged/')) continue;
+    const filename = path.basename(url.split(/[?#]/)[0]);
+    if (!filename || filename === '.' || filename === '..') {
+      throw new Error('Invalid staged media filename');
+    }
+    const source = path.join(STAGED_DIR, filename);
+    if (!fs.existsSync(source)) {
+      throw new Error(`Video export asset not found: ${filename}. Please reimport this clip and retry.`);
+    }
+    const destinationDir = path.join(bundleLocation, 'staged');
+    fs.mkdirSync(destinationDir, { recursive: true });
+    const destination = path.join(destinationDir, filename);
+    if (!fs.existsSync(destination) || fs.statSync(destination).size !== fs.statSync(source).size) {
+      fs.copyFileSync(source, destination);
+    }
   }
 }
 
@@ -325,6 +357,7 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
     // STAGE 1: PREPARING ASSETS & COMPOSITION
     updateProgress('preparing', 'Resolving media assets and bundling components...', 10);
     const bundleLocation = await getRemotionBundle();
+    synchronizeStagedMedia(bundleLocation, projectJson);
 
     // 1a. Extract audio to disk for FFmpeg muxing
     const audioSource = projectJson.audio?.audioDataUri || projectJson.audio?.url;
