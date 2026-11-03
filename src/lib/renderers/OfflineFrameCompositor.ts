@@ -155,7 +155,7 @@ export class OfflineFrameCompositor {
     if (project.exportMode === 'lyrics-video' || clip?.type === 'vinyl-lyrics') {
       const lyricsState = useLyricsVideoStore.getState();
       const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
-      const bg: typeof lyricsState.customBackground & { videoElement?: HTMLVideoElement } = { ...lyricsState.customBackground };
+      const bg: typeof lyricsState.customBackground & { videoElement?: HTMLVideoElement; imageElement?: HTMLImageElement } = { ...lyricsState.customBackground };
       // The shared lyrics drawing engine can use a pre-decoded background
       // instead of starting an unclocked HTML video during export.
       const bgVideo = project.background.videoUrl && this.videos.get(project.background.videoUrl);
@@ -184,7 +184,7 @@ export class OfflineFrameCompositor {
         typographyOverride: project.lyrics,
         artworkOverride: project.artwork,
         animationOverride: lyricsState.animationOverride,
-        elementPositions: project.elementPositions,
+        elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
         watermarkText: project.watermarkText,
         showSafeArea: false
       }, new Uint8Array(1024), new Uint8Array(1024).fill(128));
