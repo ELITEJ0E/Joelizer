@@ -35,6 +35,6 @@ jobs:
       - name: Render and inspect lyrics + MV exports
         run: npx tsx src/tests/videoExportSmoke.test.ts
       - name: Install Chromium for offline browser MP4 tests
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chrome
       - name: Render offline WebCodecs MP4 in Chromium
         run: npx tsx src/tests/offlineWebCodecs.browser.test.ts
