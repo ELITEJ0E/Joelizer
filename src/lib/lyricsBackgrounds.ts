@@ -292,12 +292,10 @@ export function drawBackgroundCanvas(
   } else if (bgSettings.type === 'video' && bgSettings.videoElement) {
     const video = bgSettings.videoElement;
     if (video.readyState >= 2) {
-      const dur = video.duration || 10;
-      const targetTime = currentTime % dur;
-      if (Math.abs(video.currentTime - targetTime) > 0.3) {
-        try { video.currentTime = targetTime; } catch (_) {}
-      }
-      
+      // Source playback is synchronized by the preview or offline compositor.
+      // NEVER seek inside a synchronous canvas draw: seeked media frames are
+      // delivered asynchronously, resulting in frozen exported backgrounds
+      // and snapping on every paused preview repaint.
       const vW = video.videoWidth || 1280;
       const vH = video.videoHeight || 720;
       const scale = Math.max(W / vW, H / vH);
