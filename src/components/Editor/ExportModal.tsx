@@ -448,6 +448,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       <p className="text-[11px] text-slate-400 font-mono mt-0.5">
                         {actualExportResolution || resolution} · {fps} FPS {fileSize ? `· ${formatFileSize(fileSize)}` : ''}
                       </p>
+                      {actualExportResolution && actualExportResolution !== resolution && (
+                        <p className="mt-1 text-xs text-amber-300">
+                          Browser encoding limit: exported at {actualExportResolution} instead of {resolution}.
+                        </p>
+                      )}
                     </div>
 
                     {downloadUrl && (
