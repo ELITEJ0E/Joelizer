@@ -2,6 +2,8 @@ import { CanonicalProjectJson } from '../../types/projectJson';
 import { layoutMVCaption, drawMVCaption } from '../mvCaptionLayout';
 import { FastMp4Source } from './FastMp4Source';
 import { OfflineAudioAnalysis } from './offlineAudioAnalysis';
+import { drawPositionedLyricsVisualizer } from '../positionedLyricsVisualizer';
+import { getDefaultPositions } from '../lyricsLayout';
 import { renderLyricsVideoFrame, renderLyricsOverlayFrame, registerCachedImage } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
@@ -298,7 +300,8 @@ export class OfflineFrameCompositor {
         animationStyle: project.lyrics.animationStyle,
         visibleLineCount: lyricsState.visibleLineCount,
         showArtwork: project.showArtwork ?? (project.templateId !== 'cinematic-clean'),
-        showVisualizer: project.showVisualizer ?? (project.visualizer?.enabled !== false && project.templateId !== 'cinematic-clean'),
+        // Draw with the same shared layer used by Lyrics Studio preview.
+        showVisualizer: false,
         // Offline export must use its serialized visualizer config, not a
         // possibly stale global Zustand flag from the preview/editor session.
         visualizerSettingsOverride: {
@@ -329,6 +332,15 @@ export class OfflineFrameCompositor {
         showSafeArea: false,
         offlineExport: true
       }, audio.frequency, audio.waveform);
+      if (project.showVisualizer ?? project.visualizer?.enabled ?? true) {
+        const visualizerPos = project.elementPositions?.visualizer ??
+          getDefaultPositions(project.aspectRatio, template.id).visualizer;
+        drawPositionedLyricsVisualizer(
+          ctx, W, H, visualizerPos,
+          { ...project.visualizer, enabled: true },
+          audio.frequency, audio.waveform
+        );
+      }
       if (bg.videoElement && typeof (bg.videoElement as any).close === 'function') {
         try { (bg.videoElement as any).close(); } catch {}
       }
