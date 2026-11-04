@@ -142,7 +142,7 @@ export class OfflineFrameCompositor {
 
   constructor(private project: CanonicalProjectJson) {
     // Adapt and cache lyric timing once per export, not on every 1080p frame.
-    this.preparedLyrics = project.lyrics.lines.map(line => ({
+    this.preparedLyrics = (project.lyrics?.lines || []).map(line => ({
       ...line,
       words: line.words?.map(w => ({
         word: w.word, start: w.startTime, end: w.endTime
