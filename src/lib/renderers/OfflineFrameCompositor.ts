@@ -188,7 +188,9 @@ export class OfflineFrameCompositor {
       }),
       ...[...requiredImageUrls].map(async url => this.images.set(url, await loadImage(url)))
     ]);
-    if (project.audio.albumArt) {
+    const needsArtwork = project.exportMode === 'lyrics-video' ||
+      clips.some(clip => clip.type === 'vinyl-lyrics');
+    if (project.audio.albumArt && needsArtwork) {
       // Only artwork scenes need the cover. A blocked optional cover should
       // not prevent custom video clips from rendering and exporting.
       try {
