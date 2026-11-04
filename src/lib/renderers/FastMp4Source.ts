@@ -17,6 +17,29 @@ type Sample = {
   data: Uint8Array;
 };
 
+/**
+ * Discard only obsolete presentation frames, never future frames.
+ * The array is modified in place, preserving the selected frame and all
+ * later timestamps; dropping future frames causes choppy MP4 exports.
+ */
+export function pruneConsumedVideoFrames<T extends { timestamp: number; close(): void }>(
+  frames: T[],
+  targetUs: number
+): void {
+  if (frames.length <= 1) return;
+  frames.sort((a, b) => a.timestamp - b.timestamp);
+  let selected = -1;
+  for (let i = 0; i < frames.length; i++) {
+    if (frames[i].timestamp <= targetUs) selected = i;
+    else break;
+  }
+  if (selected <= 0) return;
+  for (let i = 0; i < selected; i++) {
+    try { frames[i].close(); } catch {}
+  }
+  frames.splice(0, selected);
+}
+
 export class FastMp4Source {
   private samples: Sample[];
   private config: VideoDecoderConfig;
@@ -115,19 +138,7 @@ export class FastMp4Source {
    * frames must never be pruned simply because a queue-length cap was hit.
    */
   private pruneDecoded(targetUs: number) {
-    if (this.decoded.length <= 1) return;
-    this.decoded.sort((a, b) => a.timestamp - b.timestamp);
-    let bestPastIdx = -1;
-    for (let i = 0; i < this.decoded.length; i++) {
-      if (this.decoded[i].timestamp <= targetUs) bestPastIdx = i;
-      else break;
-    }
-    if (bestPastIdx > 0) {
-      for (let i = 0; i < bestPastIdx; i++) {
-        try { this.decoded[i].close(); } catch {}
-      }
-      this.decoded.splice(0, bestPastIdx);
-    }
+    pruneConsumedVideoFrames(this.decoded, targetUs);
   }
 
   private reset(targetUs: number) {
