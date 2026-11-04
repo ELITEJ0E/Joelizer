@@ -145,7 +145,9 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   // normalized coordinates from a previous template.
   const getDisplayedPos = (key: ElementKey) => {
     const original = elementPositions[key] || { x: 0.5, y: 0.5 };
-    if (key !== 'lyrics') return original;
+    // Lyrics Studio now renders from elementPositions, so its hit box must
+    // always use that same anchor even when old preset state is persisted.
+    if (key !== 'lyrics' || mode === 'lyrics-video') return original;
     const preset = useLyricsVideoStore.getState().typographyOverride.position ||
       useStore.getState().lyricsSettings?.position;
     if (preset === 'center') return { x: 0.5, y: 0.5 };
