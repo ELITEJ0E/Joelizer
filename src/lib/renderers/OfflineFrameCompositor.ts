@@ -177,9 +177,23 @@ export class OfflineFrameCompositor {
         const duration = fastBackground.durationSeconds;
         const loopTime = Number.isFinite(duration) && duration > 0
           ? ((time % duration) + duration) % duration : time;
-        // Sequential decoder reuses frames across 30/60fps output, avoiding
-        // hundreds of expensive HTML video seeks per second of footage.
-        bg.videoElement = await fastBackground.frameAt(loopTime);
+        try {
+          // Sequential decoder reuses frames across 30/60fps output, avoiding
+          // hundreds of expensive HTML video seeks per second of footage.
+          bg.videoElement = await fastBackground.frameAt(loopTime);
+        } catch (error) {
+          console.warn('[Lyrics export] Fast background decoder unavailable; using video element:', error);
+          fastBackground.dispose();
+          this.fastVideos.delete(backgroundUrl!);
+          const fallback = await loadVideo(backgroundUrl!);
+          const media = { element: fallback, lastFrame: NaN };
+          this.videos.set(backgroundUrl!, media);
+          const fallbackDuration = fallback.duration;
+          const fallbackTime = Number.isFinite(fallbackDuration) && fallbackDuration > 0
+            ? ((time % fallbackDuration) + fallbackDuration) % fallbackDuration : time;
+          await atTime(media, fallbackTime);
+          bg.videoElement = fallback;
+        }
         bg.videoUrl = undefined;
       } else if (bgVideo) {
         const duration = bgVideo.element.duration;
