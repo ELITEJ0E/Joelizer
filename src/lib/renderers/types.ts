@@ -27,5 +27,5 @@ export interface VideoRenderer {
   render(
     project: CanonicalProjectJson,
     onProgress: (progress: RenderProgress) => void
-  ): Promise<{ outputUrl: string; fileSize?: number; format?: 'webm' | 'mp4' }>;
+  ): Promise<{ outputUrl: string; fileSize?: number; format?: 'webm' | 'mp4'; resolution?: '1080p' | '720p' | '360p' }>;
 }

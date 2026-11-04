@@ -88,7 +88,7 @@ try {
     } catch { return false; }
   });
   const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps',
-    'lyrics-video-looped-background', 'music-video-custom-blob'];
+    'lyrics-video-looped-background', 'music-video-custom-blob', 'lyrics-video-portrait-720p'];
   if (AACsupported || opusSupported) modes.push('music-video-with-audio', 'music-video-with-audio-long');
   for (const mode of (h264 ? modes : [])) {
     const fps = mode.endsWith('-60fps') ? 60 : 30;
@@ -103,7 +103,10 @@ try {
         ? URL.createObjectURL(await (await fetch('/staged/smoke-video.mp4')).blob()) : null;
       const project = {
         version: '1.0', projectName: 'offline-browser-smoke', exportMode: mode.startsWith('lyrics-video') ? 'lyrics-video' : 'music-video',
-        width: 320, height: 180, fps, resolution: '360p', aspectRatio: '16:9',
+        width: mode === 'lyrics-video-portrait-720p' ? 405 : 320,
+        height: mode === 'lyrics-video-portrait-720p' ? 720 : 180,
+        fps, resolution: mode === 'lyrics-video-portrait-720p' ? '720p' : '360p',
+        aspectRatio: mode === 'lyrics-video-portrait-720p' ? '9:16' : '16:9',
         // Verify timeline export from a nonzero start and clips trimmed from
         // different source-file positions rather than just playing at t=0.
         exportRange: { start: 1, end: 1 + duration, duration },
@@ -147,15 +150,21 @@ try {
       const buffer = await response.arrayBuffer();
       URL.revokeObjectURL(result.outputUrl);
       if (customUrl) URL.revokeObjectURL(customUrl);
-      return { bytes: Array.from(new Uint8Array(buffer)), format: result.format || 'mp4' };
+      return { bytes: Array.from(new Uint8Array(buffer)), format: result.format || 'mp4',
+        width: project.width, resolution: result.resolution };
     }, { mode, fps, duration });
     const path = join(tmpdir(), `joelizer-offline-${mode}.${result.format}`);
     writeFileSync(path, Buffer.from(result.bytes));
     const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-count_frames',
-      '-show_entries', 'stream=codec_type,duration,nb_frames,nb_read_frames',
+      '-show_entries', 'stream=codec_type,width,height,duration,nb_frames,nb_read_frames',
       '-show_entries', 'format=duration', '-of', 'json', path], { encoding: 'utf8' }));
     const video = probe.streams.find(s => s.codec_type === 'video');
     assert.ok(video, 'H264 stream missing');
+    if (mode === 'lyrics-video-portrait-720p') {
+      assert.equal(Number(video.width) % 2, 0, 'H264 dimensions must be even');
+      assert.equal(Number(video.height), 720, 'Portrait output height must remain 720');
+      assert.equal(result.resolution, '720p', 'Renderer must report actual output resolution');
+    }
     if (mode.startsWith('music-video-with-audio')) {
       assert.ok(probe.streams.some(s => s.codec_type === 'audio'), 'Audio track missing from offline export');
       assert.ok(['mp4', 'webm'].includes(result.format), 'Audio must be muxed into a playable container');

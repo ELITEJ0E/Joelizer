@@ -128,6 +128,7 @@ export class OfflineFrameCompositor {
   private ctx: CanvasRenderingContext2D;
   private videos = new Map<string, StageMedia>();
   private fastVideos = new Map<string, FastMp4Source>();
+  private fastDecodeErrors = new Map<string, string>();
   private images = new Map<string, HTMLImageElement>();
   private loaded = false;
   private audioAnalysis = new OfflineAudioAnalysis();
@@ -175,6 +176,7 @@ export class OfflineFrameCompositor {
             this.fastVideos.set(url, await FastMp4Source.open(url));
             return;
           } catch (error) {
+            this.fastDecodeErrors.set(url, error instanceof Error ? error.message : String(error));
             console.warn('[MV export] Fast MP4 decoder unavailable, falling back to seeking:', error);
           }
         }
@@ -183,7 +185,8 @@ export class OfflineFrameCompositor {
         } catch (error) {
           const matchingClip = clips.find(clip => clip.url === url);
           const friendly = matchingClip ? `timeline clip "${matchingClip.id}"` : 'looping background';
-          throw new Error(`Cannot prepare ${friendly}: ${error instanceof Error ? error.message : String(error)}`);
+          const fastReason = this.fastDecodeErrors.get(url);
+          throw new Error(`Cannot prepare ${friendly}: ${error instanceof Error ? error.message : String(error)}${fastReason ? ` Fast decoder: ${fastReason}` : ''}`);
         }
       }),
       ...[...requiredImageUrls].map(async url => this.images.set(url, await loadImage(url)))
@@ -360,6 +363,7 @@ export class OfflineFrameCompositor {
     this.videos.clear();
     for (const source of this.fastVideos.values()) source.dispose();
     this.fastVideos.clear();
+    this.fastDecodeErrors.clear();
     this.images.clear();
   }
 }
