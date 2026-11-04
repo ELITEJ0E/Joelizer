@@ -140,14 +140,29 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
     }
   };
 
+  // Match the actual rendered lyric position while a Top/Center/Bottom
+  // preset is active. The selection box must sit on the text, not the old
+  // normalized coordinates from a previous template.
+  const getDisplayedPos = (key: ElementKey) => {
+    const original = elementPositions[key] || { x: 0.5, y: 0.5 };
+    if (key !== 'lyrics') return original;
+    const preset = useLyricsVideoStore.getState().typographyOverride.position ||
+      useStore.getState().lyricsSettings?.position;
+    if (preset === 'center') return { x: 0.5, y: 0.5 };
+    if (preset === 'top') return { x: 0.5, y: 0.2 };
+    if (preset === 'bottom') return { x: 0.5, y: stageHeight > stageWidth ? 0.82 : 0.80 };
+    return original;
+  };
+
   // Body drag to move
   const handlePointerDown = (e: React.PointerEvent, key: ElementKey) => {
     e.stopPropagation();
     setSelectedElement(key);
+    const startPos = getDisplayedPos(key);
     if (key === 'lyrics') {
-      // Manual dragging takes precedence over the Top / Center / Bottom preset.
-      // Clear both positioning overrides so the lyric renderer uses the actual
-      // normalized elementPositions.lyrics value during preview and export.
+      // Transfer the currently visible position to the drag state before
+      // releasing the preset, so grabbing the text cannot make it jump.
+      setElementPosition('lyrics', startPos);
       useLyricsVideoStore.getState().updateTypographyOverride({ position: undefined });
       useStore.getState().updateLyricsSettings({ position: undefined });
     }
@@ -155,8 +170,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
     activeKeyRef.current = key;
 
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
-    const currentPos = elementPositions[key] || { x: 0.5, y: 0.5 };
-    initialElemPosRef.current = { ...currentPos };
+    initialElemPosRef.current = { ...startPos };
 
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -734,7 +748,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       {/* RENDER DRAGGABLE & RESIZABLE BOUNDING OVERLAYS */}
       {/* ========================================================================= */}
       {keys.map((key) => {
-        const pos = elementPositions[key] || { x: 0.5, y: 0.5 };
+        const pos = getDisplayedPos(key);
         const size = getBoxSize(key);
         const isSelected = selectedElement === key;
         const isScalable = key === 'visualizer' || key === 'artwork';
