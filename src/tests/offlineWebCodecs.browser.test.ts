@@ -127,20 +127,23 @@ try {
     }, { mode, fps });
     const path = join(tmpdir(), `joelizer-offline-${mode}.${result.format}`);
     writeFileSync(path, Buffer.from(result.bytes));
-    const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error',
-      '-show_entries', 'stream=codec_type,duration,nb_frames', '-of', 'json', path], { encoding: 'utf8' }));
+    const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-count_frames',
+      '-show_entries', 'stream=codec_type,duration,nb_frames,nb_read_frames',
+      '-show_entries', 'format=duration', '-of', 'json', path], { encoding: 'utf8' }));
     const video = probe.streams.find(s => s.codec_type === 'video');
     assert.ok(video, 'H264 stream missing');
     if (mode === 'music-video-with-audio') {
       assert.ok(probe.streams.some(s => s.codec_type === 'audio'), 'Audio track missing from offline export');
       assert.ok(['mp4', 'webm'].includes(result.format), 'Audio must be muxed into a playable container');
     }
-    assert.equal(Number(video.nb_frames), 2 * fps, `Offline MP4 must contain exactly ${2 * fps} encoded video frames`);
-    assert.ok(Number(video.duration) >= 1.95, 'Offline MP4 must not be truncated');
+    const decodedFrames = Number(video.nb_read_frames || video.nb_frames);
+    const totalDuration = Number(video.duration || probe.format?.duration);
+    assert.equal(decodedFrames, 2 * fps, `Offline export must decode exactly ${2 * fps} frames`);
+    assert.ok(totalDuration >= 1.95 && totalDuration <= 2.1, 'Offline export must not be truncated');
     const md5 = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-vf', 'fps=10,scale=80:45', '-f', 'framemd5', '-'],
       { encoding: 'utf8' }).split('\n').filter(line => line && !line.startsWith('#'));
     assert.ok(new Set(md5).size >= 5, 'Offline MP4 must contain continuously changing video frames');
-    console.log(`Browser WebCodecs ${mode} ${result.format} export passed: ${video.nb_frames} exact frames, ${video.duration}s, ${new Set(md5).size} distinct samples`);
+    console.log(`Browser WebCodecs ${mode} ${result.format} export passed: ${decodedFrames} exact frames, ${totalDuration}s, ${new Set(md5).size} distinct samples`);
     unlinkSync(path);
   }
 } finally {
