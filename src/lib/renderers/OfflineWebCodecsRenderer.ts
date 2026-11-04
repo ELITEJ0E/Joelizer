@@ -233,7 +233,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
       muxer.finalize();
       const buffer = muxer.target.buffer as ArrayBuffer | null;
       if (!buffer || buffer.byteLength < 1024) throw new Error('The offline video file was empty.');
-      const output = new Blob([buffer], { type: format === 'webm' ? 'video/webm' : 'video/mp4' });
+      const output = new Blob([buffer], { type: 'video/mp4' });
       const outputUrl = URL.createObjectURL(output);
       onProgress({ stage: 'ready', stageMessage: 'Frame-accurate video ready for download.', progress: 100, outputUrl, fileSize: output.size });
       return { outputUrl, fileSize: output.size, format };
