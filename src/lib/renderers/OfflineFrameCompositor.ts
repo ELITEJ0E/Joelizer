@@ -173,7 +173,6 @@ export class OfflineFrameCompositor {
         elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
         watermarkText: project.watermarkText,
         showSafeArea: false,
-        offlineExport: true,
         offlineExport: true
       }, audio.frequency, audio.waveform);
     } else if (clip) {
