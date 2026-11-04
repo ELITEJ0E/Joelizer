@@ -9,6 +9,8 @@ import { LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { renderLyricsVideoFrame, renderLyricsOverlayFrame, syncLyricsBackgroundVideo, pauseInactiveLyricsBackgroundVideos } from '../../lib/lyricsEngine';
 import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
+import { drawPositionedLyricsVisualizer } from '../../lib/positionedLyricsVisualizer';
+import { getDefaultPositions } from '../../lib/lyricsLayout';
 import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay';
 import { Play, Pause, Maximize2, Minimize2 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
@@ -294,7 +296,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               watermarkText: 'Made with Joelizer',
               showSafeArea: lyricsVideoState.showSafeArea,
               showArtwork: lyricsVideoState.showArtwork !== false,
-              showVisualizer: lyricsVideoState.showVisualizer !== false,
+              // The positioned visualizer is composited explicitly below.
+              showVisualizer: false,
               showLyrics: lyricsVideoState.showLyrics !== false,
               showMeta: lyricsVideoState.showMeta !== false,
               visualizerSettingsOverride: storeState.visualizerSettings,
@@ -303,6 +306,16 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             freqData,
             timeData
           );
+
+          if (lyricsVideoState.showVisualizer !== false) {
+            const visualizerPos = lyricsVideoState.elementPositions?.visualizer ??
+              getDefaultPositions(storeState.aspectRatio, tmpl.id).visualizer;
+            drawPositionedLyricsVisualizer(
+              ctx, W, H, visualizerPos,
+              { ...storeState.visualizerSettings, enabled: true },
+              freqData, timeData
+            );
+          }
 
           animFrameId = requestAnimationFrame(render);
           return;
