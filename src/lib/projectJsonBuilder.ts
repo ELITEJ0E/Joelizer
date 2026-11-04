@@ -109,8 +109,10 @@ export async function buildCanonicalProjectJson(options?: {
     };
   });
 
-  // Process video timeline clips
-  const rawClips = mvStore.timelineClips || [];
+  // Lyrics Video is its own canvas composition. Do not serialize unrelated
+  // MV timeline clips into it; the server compositor could treat those as
+  // active clips and suppress the artwork / visualizer overlay.
+  const rawClips = exportMode === 'music-video' ? (mvStore.timelineClips || []) : [];
   const canonicalClips: CanonicalVideoClip[] = [];
 
   for (const clip of rawClips) {
