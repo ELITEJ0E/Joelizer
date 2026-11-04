@@ -449,6 +449,43 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
               onChange={handleFileChange}
             />
 
+            {/* Filter Tabs */}
+            <div className="flex items-center bg-[#0a0c0f] p-0.5 rounded border border-[#232933] text-[10px]">
+              <button
+                onClick={() => setMediaSourceFilter('all')}
+                className={`flex-1 py-1 rounded transition-colors font-semibold ${
+                  mediaSourceFilter === 'all'
+                    ? 'bg-[#161b22] text-accent border border-[#232933]'
+                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
+              >
+                All ({videoAssets.length})
+              </button>
+              <button
+                onClick={() => setMediaSourceFilter('my-clips')}
+                className={`flex-1 py-1 rounded transition-colors font-semibold ${
+                  mediaSourceFilter === 'my-clips'
+                    ? 'bg-[#161b22] text-accent border border-[#232933]'
+                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
+              >
+                My Clips
+              </button>
+              <button
+                onClick={() => setMediaSourceFilter('stock')}
+                className={`flex-1 py-1 rounded transition-colors font-semibold ${
+                  mediaSourceFilter === 'stock'
+                    ? 'bg-[#161b22] text-accent border border-[#232933]'
+                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
+              >
+                Stock
+              </button>
+            </div>
+          </div>
+          
+          {/* Media List */}
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 min-h-0">
             {/* Timeline Scene Presets */}
             <div className="p-2.5 bg-[#12161c] border border-[#232933] rounded flex flex-col gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
@@ -496,43 +533,6 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
               </div>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex items-center bg-[#0a0c0f] p-0.5 rounded border border-[#232933] text-[10px]">
-              <button
-                onClick={() => setMediaSourceFilter('all')}
-                className={`flex-1 py-1 rounded transition-colors font-semibold ${
-                  mediaSourceFilter === 'all'
-                    ? 'bg-[#161b22] text-accent border border-[#232933]'
-                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
-                }`}
-              >
-                All ({videoAssets.length})
-              </button>
-              <button
-                onClick={() => setMediaSourceFilter('my-clips')}
-                className={`flex-1 py-1 rounded transition-colors font-semibold ${
-                  mediaSourceFilter === 'my-clips'
-                    ? 'bg-[#161b22] text-accent border border-[#232933]'
-                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
-                }`}
-              >
-                My Clips
-              </button>
-              <button
-                onClick={() => setMediaSourceFilter('stock')}
-                className={`flex-1 py-1 rounded transition-colors font-semibold ${
-                  mediaSourceFilter === 'stock'
-                    ? 'bg-[#161b22] text-accent border border-[#232933]'
-                    : 'text-[#7e8999] hover:text-[#f0f3f6]'
-                }`}
-              >
-                Stock
-              </button>
-            </div>
-          </div>
-          
-          {/* Media List */}
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 min-h-0">
             {filteredAssets.length === 0 ? (
               <div className="text-center text-xs text-[#7e8999] py-8 px-3 flex flex-col items-center gap-2.5">
                 <Film size={26} className="opacity-30" />
@@ -581,7 +581,7 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
                     }}
                     className="relative group rounded overflow-hidden bg-[#12161c] border border-[#232933] hover:border-[#303846] transition-colors shadow-sm cursor-grab active:cursor-grabbing"
                   >
-                    <img src={asset.thumbnail} alt={asset.name} className="w-full h-20 object-cover opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    <img src={asset.thumbnail} alt={asset.name} className="w-full aspect-[4/3] max-h-[260px] object-contain bg-[#0a0c0f] opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c0f] via-transparent to-transparent pointer-events-none" />
                     
                     {/* Type Badge */}
