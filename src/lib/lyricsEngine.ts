@@ -78,11 +78,12 @@ function getOrLoadVideo(url?: string): HTMLVideoElement | null {
   let vid = videoCache.get(url);
   if (!vid) {
     vid = document.createElement('video');
-    vid.src = url;
+    if (!url.startsWith('blob:')) vid.crossOrigin = 'anonymous';
+    vid.preload = 'auto';
     vid.muted = true;
     vid.loop = true;
     vid.playsInline = true;
-    vid.crossOrigin = 'anonymous';
+    vid.src = url;
     // Playback is driven by the studio clock rather than autostarting.
     videoCache.set(url, vid);
   }
