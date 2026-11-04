@@ -5,6 +5,7 @@ import {
   saveAudioToStorage, 
   loadAudioFromStorage, 
   clearAudioFromStorage,
+  updateStoredAudioMetadata,
   saveLyricsToStorage, 
   loadLyricsFromStorage 
 } from '../lib/storage';
@@ -137,6 +138,7 @@ interface ProjectState {
   ) => void;
   setAlbumArt: (albumArt: string | null) => void;
   updateCurrentTrackCover: (newCoverUrl: string) => void;
+  updateTrackMetadata: (index: number, updates: { name?: string; artist?: string }) => void;
   setSelectedLayerId: (id: string | null) => void;
   
   updateVisualizerSettings: (settings: Partial<VisualizerSettings>) => void;
@@ -257,7 +259,7 @@ export const useStore = create<ProjectState>((set, get) => ({
     const fileName = meta?.name || (file as File)?.name || 'Audio Track';
     const artist = meta?.artist || (file ? 'Uploaded Audio' : 'Online Track');
     if (file) {
-      saveAudioToStorage(file, typeof fileName === 'string' ? fileName : 'Saved Track', duration);
+      saveAudioToStorage(file, typeof fileName === 'string' ? fileName : 'Saved Track', duration, artist);
     }
 
     set((state) => {
@@ -316,6 +318,25 @@ export const useStore = create<ProjectState>((set, get) => ({
       };
     });
   },
+  updateTrackMetadata: (index, updates) => set((state) => {
+    const current = state.tracks[index];
+    if (!current) return state;
+    const name = updates.name !== undefined ? updates.name.trim() : current.name;
+    const artist = updates.artist !== undefined ? updates.artist.trim() : current.artist;
+    const next = {
+      ...current,
+      name: name || current.name,
+      artist: artist || current.artist
+    };
+    // IndexedDB retains one locally uploaded audio file. Persist its
+    // metadata when editing that file, without changing the playback URL.
+    if (next.isUserUploaded && index === state.currentTrackIndex &&
+        state.audioUrl === next.url && state.audioFile) {
+      void updateStoredAudioMetadata(next.name, next.artist);
+    }
+    const tracks = state.tracks.map((track, i) => i === index ? next : track);
+    return { tracks };
+  }),
   setAlbumArt: (albumArt) => set({ albumArt }),
   updateCurrentTrackCover: (newCoverUrl) => set((state) => {
     const currentTrack = state.tracks[state.currentTrackIndex];
@@ -504,7 +525,7 @@ export const useStore = create<ProjectState>((set, get) => ({
       const track: Track = {
         id: 'stored-track',
         name: savedAudio.name.replace(/\.[^/.]+$/, ""),
-        artist: 'Uploaded Audio',
+        artist: savedAudio.artist || 'Uploaded Audio',
         url: url,
         duration: savedAudio.duration,
         albumArt: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop',

@@ -239,7 +239,7 @@ export function drawBackgroundCanvas(
     value: string;
     videoUrl?: string;
     imageElement?: HTMLImageElement | null;
-    videoElement?: HTMLVideoElement | null;
+    videoElement?: HTMLVideoElement | VideoFrame | null;
   },
   albumArtImage?: HTMLImageElement | null,
   audioFrequencyData?: Uint8Array | null
@@ -291,15 +291,12 @@ export function drawBackgroundCanvas(
     }
   } else if (bgSettings.type === 'video' && bgSettings.videoElement) {
     const video = bgSettings.videoElement;
-    if (video.readyState >= 2) {
-      const dur = video.duration || 10;
-      const targetTime = currentTime % dur;
-      if (Math.abs(video.currentTime - targetTime) > 0.3) {
-        try { video.currentTime = targetTime; } catch (_) {}
-      }
-      
-      const vW = video.videoWidth || 1280;
-      const vH = video.videoHeight || 720;
+    const decodedFrame = typeof VideoFrame !== 'undefined' && video instanceof VideoFrame;
+    if (decodedFrame || (video instanceof HTMLVideoElement && video.readyState >= 2)) {
+      // WebCodecs VideoFrame represents an already decoded frame at the exact
+      // export timestamp. Never initiate an asynchronous seek from a draw.
+      const vW = decodedFrame ? video.displayWidth : (video as HTMLVideoElement).videoWidth || 1280;
+      const vH = decodedFrame ? video.displayHeight : (video as HTMLVideoElement).videoHeight || 720;
       const scale = Math.max(W / vW, H / vH);
       const drawW = vW * scale;
       const drawH = vH * scale;

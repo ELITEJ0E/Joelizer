@@ -279,7 +279,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight }: Props) {
           title="Reset elements positions and scales to 100%"
         >
           <RotateCcw size={11} className="text-accent" />
-          <span>Reset Layout</span>
+          <span>Reset</span>
         </button>
       </div>
 

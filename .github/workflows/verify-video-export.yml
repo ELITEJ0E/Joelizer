@@ -23,6 +23,7 @@ jobs:
       - run: npx tsx src/tests/browserExportClock.test.ts
       - run: npx tsx src/tests/videoPlaybackSync.test.ts
       - run: npx tsx src/tests/mvCaptionLayout.test.ts
+      - run: npx tsx src/tests/offlineAudioAnalysis.test.ts
       - run: npm run build
       - name: Install Google Chrome for responsive MV UI checks
         run: npx playwright install --with-deps chrome

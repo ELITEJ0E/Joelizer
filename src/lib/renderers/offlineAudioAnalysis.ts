@@ -1,12 +1,12 @@
 /**
- * Deterministic 512-point spectral analysis of the decoded soundtrack.
+ * Deterministic 2048-point spectral analysis of the decoded soundtrack.
  * Sample positions come from composition timestamps, not the active audio
  * device or its real-time analyser. Supports silent scenes and trimmed ranges.
  */
 export class OfflineAudioAnalysis {
   private samples: Float32Array | null = null;
   private sampleRate = 48000;
-  private readonly fftSize = 512;
+  private readonly fftSize = 2048;
 
   setBuffer(buffer: AudioBuffer | null) {
     this.samples = buffer ? buffer.getChannelData(0) : null;
@@ -23,7 +23,7 @@ export class OfflineAudioAnalysis {
     const real = new Float32Array(n);
     const imag = new Float32Array(n);
     for (let k = 0; k < wave.length; k++) {
-      const value = samples[center - 512 + k] || 0;
+      const value = samples[center - Math.floor(wave.length / 2) + k] || 0;
       wave[k] = Math.max(0, Math.min(255, Math.round(128 + value * 127)));
     }
     for (let i = 0; i < n; i++) {

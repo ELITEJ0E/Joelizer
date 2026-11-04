@@ -29,7 +29,9 @@ try {
   page.setDefaultTimeout(120000);
   let usedSlowMp4Fallback = false;
   page.on('console', msg => {
-    if (msg.text().includes('Fast MP4 decoder unavailable')) usedSlowMp4Fallback = true;
+    if (msg.text().includes('Fast MP4 decoder unavailable') ||
+        msg.text().includes('Switching stalled clip to browser decoder') ||
+        msg.text().includes('Fast background decoder unavailable')) usedSlowMp4Fallback = true;
     process.stderr.write('Browser ' + msg.type() + ': ' + msg.text() + '\n');
   });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
@@ -85,11 +87,12 @@ try {
       return (await Audio.isConfigSupported({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 })).supported;
     } catch { return false; }
   });
-  const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps'];
+  const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps',
+    'lyrics-video-looped-background'];
   if (AACsupported || opusSupported) modes.push('music-video-with-audio', 'music-video-with-audio-long');
   for (const mode of (h264 ? modes : [])) {
     const fps = mode.endsWith('-60fps') ? 60 : 30;
-    const duration = mode.endsWith('-long') ? 8 : 2;
+    const duration = mode.endsWith('-long') ? 8 : mode === 'lyrics-video-looped-background' ? 6 : 2;
     const result = await page.evaluate(async ({ mode, fps, duration }) => {
       const modulePath = '/src/lib/renderers/OfflineWebCodecsRenderer.ts';
       const { OfflineWebCodecsRenderer } = await import(/* @vite-ignore */ modulePath);
@@ -102,7 +105,9 @@ try {
         exportRange: { start: 1, end: 1 + duration, duration },
         audio: { url: mode.startsWith('music-video-with-audio') ? '/staged/smoke-audio.wav' : null,
           albumArt: null, title: 'Sample', artist: 'CI', duration: 1 },
-        background: { type: 'color', value: '#111111', blurAlbumArt: false },
+        background: mode === 'lyrics-video-looped-background'
+          ? { type: 'video', value: '/staged/smoke-video.mp4', videoUrl: '/staged/smoke-video.mp4', blurAlbumArt: false }
+          : { type: 'color', value: '#111111', blurAlbumArt: false },
         lyrics: { lines: [{ id: '1', startTime: 1, endTime: 3, text: 'Test lyrics' }],
           fontFamily: 'Outfit', fontWeight: '700', fontSizeScale: 1,
           textColor: '#fff', activeWordColor: '#fde047', inactiveWordColor: '#aaa',
@@ -157,7 +162,14 @@ try {
     const md5 = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-vf', 'fps=10,scale=80:45', '-f', 'framemd5', '-'],
       { encoding: 'utf8' }).split('\n').filter(line => line && !line.startsWith('#'));
     assert.ok(new Set(md5).size >= 5, 'Offline export must contain continuously changing video frames');
-    if (mode.startsWith('music-video')) {
+    if (mode === 'lyrics-video-looped-background') {
+      // Background footage is 4 seconds long but the timeline lasts 6.
+      // A stale frame or non-looped decode would leave this nearly static.
+      assert.ok(new Set(md5).size >= 25,
+        'Looping lyrics background must show changing frames, including after the loop boundary');
+      console.log('Looping background rendered across its end:', new Set(md5).size, 'distinct frame hashes');
+    }
+    if (mode.startsWith('music-video') || mode === 'lyrics-video-looped-background') {
       assert.equal(usedSlowMp4Fallback, false,
         'MP4 source must use fast sequential WebCodecs decoding, not slow per-frame HTML seeks');
     }
