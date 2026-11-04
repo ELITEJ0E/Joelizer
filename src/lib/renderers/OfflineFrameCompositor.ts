@@ -1,4 +1,5 @@
 import { CanonicalProjectJson } from '../../types/projectJson';
+import { layoutMVCaption, drawMVCaption } from '../mvCaptionLayout';
 import { OfflineAudioAnalysis } from './offlineAudioAnalysis';
 import { renderLyricsVideoFrame, getOrLoadImage } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
@@ -71,38 +72,11 @@ function cover(ctx: CanvasRenderingContext2D, source: CanvasImageSource, width: 
 function caption(ctx: CanvasRenderingContext2D, project: CanonicalProjectJson, time: number) {
   const line = project.lyrics.lines.find(l => time >= l.startTime && time < l.endTime);
   if (!line?.text) return;
-  const { width: W, height: H } = ctx.canvas;
-  const fontSize = Math.round(H * 0.045);
-  ctx.save();
-  ctx.font = `bold ${fontSize}px sans-serif`;
-  const words = line.words || [];
-  const totalWidth = words.length
-    ? words.reduce((w, word) => w + ctx.measureText(word.word + ' ').width, 0)
-    : ctx.measureText(line.text).width;
-  const boxW = Math.min(W * 0.92, totalWidth + 48);
-  const boxH = fontSize * 1.8;
-  const y = H - Math.round(H * 0.12);
-  ctx.fillStyle = 'rgba(0,0,0,0.75)';
-  ctx.beginPath();
-  ctx.roundRect((W - boxW) / 2, y - boxH / 1.5, boxW, boxH, 12);
-  ctx.fill();
-  ctx.textBaseline = 'middle';
-  if (!words.length) {
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(line.text, W / 2, y, W * 0.88);
-  } else {
-    let x = (W - totalWidth) / 2;
-    ctx.textAlign = 'left';
-    for (const word of words) {
-      const content = word.word + ' ';
-      const advance = ctx.measureText(content).width;
-      ctx.fillStyle = time >= word.startTime && time < word.endTime ? '#fde047' : '#fff';
-      ctx.fillText(content, x, y);
-      x += advance;
-    }
-  }
-  ctx.restore();
+  const layout = layoutMVCaption(line, ctx.canvas.width, ctx.canvas.height, (value, size) => {
+    ctx.font = `700 ${size}px sans-serif`;
+    return ctx.measureText(value).width;
+  });
+  drawMVCaption(ctx, layout, time);
 }
 
 export class OfflineFrameCompositor {
@@ -162,7 +136,12 @@ export class OfflineFrameCompositor {
     if (project.exportMode === 'lyrics-video' || clip?.type === 'vinyl-lyrics') {
       const lyricsState = useLyricsVideoStore.getState();
       const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
-      const bg: typeof lyricsState.customBackground & { videoElement?: HTMLVideoElement; imageElement?: HTMLImageElement } = { ...lyricsState.customBackground };
+      const bg: typeof lyricsState.customBackground & { videoElement?: HTMLVideoElement; imageElement?: HTMLImageElement } = {
+        ...lyricsState.customBackground,
+        type: project.background.type,
+        value: project.background.value,
+        videoUrl: project.background.videoUrl
+      };
       // The shared lyrics drawing engine can use a pre-decoded background
       // instead of starting an unclocked HTML video during export.
       const bgVideo = project.background.videoUrl && this.videos.get(project.background.videoUrl);
@@ -194,6 +173,7 @@ export class OfflineFrameCompositor {
         elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
         watermarkText: project.watermarkText,
         showSafeArea: false,
+        offlineExport: true,
         offlineExport: true
       }, audio.frequency, audio.waveform);
     } else if (clip) {
