@@ -89,7 +89,9 @@ try {
   });
   const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps',
     'lyrics-video-looped-background', 'music-video-custom-blob', 'lyrics-video-portrait-720p'];
-  if (AACsupported || opusSupported) modes.push('music-video-with-audio', 'music-video-with-audio-long');
+  if (AACsupported || opusSupported) modes.push('music-video-with-audio', 'music-video-with-audio-long',
+    'lyrics-video-visualizer-on', 'lyrics-video-visualizer-off');
+  const visualizerFrameHashes = new Map<string, string>();
   for (const mode of (h264 ? modes : [])) {
     const fps = mode.endsWith('-60fps') ? 60 : 30;
     const duration = mode.endsWith('-long') ? 8 : mode === 'lyrics-video-looped-background' ? 6 : 2;
@@ -110,7 +112,7 @@ try {
         // Verify timeline export from a nonzero start and clips trimmed from
         // different source-file positions rather than just playing at t=0.
         exportRange: { start: 1, end: 1 + duration, duration },
-        audio: { url: mode.startsWith('music-video-with-audio') ? '/staged/smoke-audio.wav' : null,
+        audio: { url: (mode.startsWith('music-video-with-audio') || mode.startsWith('lyrics-video-visualizer')) ? '/staged/smoke-audio.wav' : null,
           albumArt: mode === 'music-video-custom-blob' ? '/staged/nonexistent-album-art.jpg' : null,
           title: 'Sample', artist: 'CI', duration: 1 },
         background: mode === 'lyrics-video-looped-background'
@@ -127,8 +129,11 @@ try {
           { id: 'v2', assetId: 'v2', url: '/staged/smoke-video.mp4', type: 'video',
             startTime: 2, endTime: 3, duration: 1, trimStart: 2, trimEnd: 3, effect: 'none', transition: 'cut' }
         ] : [],
+        showArtwork: false,
+        showMeta: false,
+        showVisualizer: mode === 'lyrics-video-visualizer-on',
         artwork: { style: 'none', animation: 'none', sizeScale: 1 },
-        visualizer: { style: 'bars', color: '#00e676', sensitivity: 1, smoothing: 0.5,
+        visualizer: { enabled: mode === 'lyrics-video-visualizer-on', style: 'bars', color: '#00e676', sensitivity: 1, smoothing: 0.5,
           segments: 8, hitResponse: 0.1, glitchIntensity: 0, shakeIntensity: 0,
           showGrain: false, showScanlines: false },
         effects: { showGrain: false, showScanlines: false, glow: false, vignette: false },
@@ -177,6 +182,11 @@ try {
     const md5 = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-vf', 'fps=10,scale=80:45', '-f', 'framemd5', '-'],
       { encoding: 'utf8' }).split('\n').filter(line => line && !line.startsWith('#'));
     assert.ok(new Set(md5).size >= 5, 'Offline export must contain continuously changing video frames');
+    if (mode.startsWith('lyrics-video-visualizer-')) {
+      // Both videos use identical audio/lyrics/backgrounds. The visualizer is
+      // the only difference, so their exported frame hashes MUST differ.
+      visualizerFrameHashes.set(mode, md5.join('\n'));
+    }
     if (mode === 'lyrics-video-looped-background') {
       // Background footage is 4 seconds long but the timeline lasts 6.
       // A stale frame or non-looped decode would leave this nearly static.
@@ -212,6 +222,14 @@ try {
     }
     console.log(`Browser WebCodecs ${mode} ${result.format} export passed: ${decodedFrames} exact frames, ${totalDuration}s, ${new Set(md5).size} distinct samples`);
     unlinkSync(path);
+  }
+  if (AACsupported || opusSupported) {
+    assert.notEqual(
+      visualizerFrameHashes.get('lyrics-video-visualizer-on'),
+      visualizerFrameHashes.get('lyrics-video-visualizer-off'),
+      'Visualizer ON must change exported MP4 pixels compared with Visualizer OFF'
+    );
+    console.log('Lyrics visualizer visibility preserved in offline MP4 exports');
   }
   if (h264) {
     // A corrupt or unsupported user clip must name the failure, rather than
