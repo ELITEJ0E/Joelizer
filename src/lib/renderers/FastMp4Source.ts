@@ -122,10 +122,13 @@ export class FastMp4Source {
     }
     this.lastTarget = targetUs;
 
+    let batches = 0;
     while (this.sampleIndex < this.samples.length &&
-      (!this.decoded.length || Math.max(...this.decoded.map(f => f.timestamp)) < targetUs)) {
-      // Decode a small sequential batch. Flush waits for reordered H264 B
-      // frames and prevents output from referencing uninitialized frames.
+      (!this.decoded.length || this.decoded[this.decoded.length - 1].timestamp < targetUs)) {
+      // Do NOT flush between batches. Per WebCodecs, flush() resets the
+      // decoder's keyframe requirement; subsequent H.264 P/B frames then
+      // throw DataError until another IDR. Decode forward in one continuous
+      // stream, allowing reordered B frames to arrive asynchronously.
       const count = Math.min(12, this.samples.length - this.sampleIndex);
       for (let i = 0; i < count; i++) {
         const sample = this.samples[this.sampleIndex++];
@@ -136,7 +139,14 @@ export class FastMp4Source {
           data: sample.data
         }));
       }
-      await this.decoder!.flush();
+      // Yield for decoder output callbacks and keep GPU/CPU queues bounded.
+      await new Promise(resolve => setTimeout(resolve, this.decoder!.decodeQueueSize > 24 ? 5 : 0));
+      if (this.decoderError) throw this.decoderError;
+      if (++batches > 5000) throw new Error('Imported video decoder exceeded safe sample limit');
+    }
+    if (this.sampleIndex === this.samples.length && this.decoder && this.decoder.state === 'configured') {
+      // End-of-stream flush is safe because no delta packets follow.
+      await this.decoder.flush();
       if (this.decoderError) throw this.decoderError;
     }
     if (!this.decoded.length) throw new Error('MP4 decoder returned no frames');
