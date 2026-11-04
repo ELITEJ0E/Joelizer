@@ -27,7 +27,7 @@ export interface RenderLyricsVideoOptions {
     value: string;
     videoUrl?: string;
     imageElement?: HTMLImageElement | null;
-    videoElement?: HTMLVideoElement | null;
+    videoElement?: HTMLVideoElement | VideoFrame | null;
   };
   typographyOverride?: {
     fontFamily?: string;
