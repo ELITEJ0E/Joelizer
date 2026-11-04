@@ -1403,7 +1403,7 @@ export function renderLyricsVideoFrame(
 
   if (
     isVisEnabled &&
-    options.showBackgroundVisualizer &&
+    (options.showBackgroundVisualizer || visSettings?.style === 'particles') &&
     visSettings &&
     (visSettings.style === 'particles' ||
       visSettings.style === 'waveform' ||
