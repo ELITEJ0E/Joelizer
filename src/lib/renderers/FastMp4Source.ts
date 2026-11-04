@@ -53,7 +53,7 @@ export class FastMp4Source {
       const codecBox = entry?.avcC || entry?.hvcC || entry?.vpcC || entry?.av1C;
       let description: Uint8Array | undefined;
       if (codecBox) {
-        const stream = new MP4Box.DataStream(undefined, 0, false);
+        const stream = new MP4Box.DataStream(undefined, 0, MP4Box.Endianness.BIG_ENDIAN);
         codecBox.write(stream);
         description = new Uint8Array(stream.buffer.slice(8));
       }
