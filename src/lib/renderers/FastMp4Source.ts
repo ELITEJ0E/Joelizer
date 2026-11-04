@@ -122,10 +122,13 @@ export class FastMp4Source {
   }
 
   async frameAt(seconds: number): Promise<VideoFrame> {
-    const targetUs = Math.round(Math.max(0, seconds) * 1e6);
-    // A different cut can jump to a remote trim offset in the same video.
-    if (!this.decoder || (this.lastTarget >= 0 &&
-        (targetUs < this.lastTarget - 1000 || targetUs > this.lastTarget + 1_000_000))) {
+    const lastSampleTimestamp = this.samples.length > 0
+      ? this.samples[this.samples.length - 1].timestamp
+      : 0;
+    const targetUs = Math.min(Math.round(Math.max(0, seconds) * 1e6), lastSampleTimestamp);
+    // A different cut or loop boundary can jump to an earlier or remote offset.
+    if (!this.decoder || this.decoder.state === 'closed' || this.decoderError ||
+        (this.lastTarget >= 0 && (targetUs < this.lastTarget - 2000 || targetUs > this.lastTarget + 1_500_000))) {
       this.reset(targetUs);
     }
     this.lastTarget = targetUs;
@@ -170,7 +173,8 @@ export class FastMp4Source {
     // decoded frames to keep long projects within reasonable memory.
     for (let i = 0; i < selected; i++) this.decoded[i].close();
     if (selected) this.decoded.splice(0, selected);
-    return this.decoded[0];
+    // Return a clone so caller drawing and decoder resets don't cross-close
+    return this.decoded[0].clone();
   }
 
   dispose() {

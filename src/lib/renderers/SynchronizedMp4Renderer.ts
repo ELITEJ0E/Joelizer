@@ -17,19 +17,32 @@ export async function renderSynchronizedMp4(
   project: CanonicalProjectJson,
   compositor: OfflineFrameCompositor,
   audioBuffer: AudioBuffer | null,
-  onProgress: (progress: RenderProgress) => void
+  onProgress: (progress: RenderProgress) => void,
+  videoConfig?: any
 ): Promise<{ outputUrl: string; fileSize: number; format: 'mp4' }> {
   if (audioBuffer && !(await canEncodeAudio('aac'))) {
     registerAacEncoder();
   }
   const target = new BufferTarget();
   const output = new Output({ target, format: new Mp4OutputFormat() });
-  const bitrate = Math.max(3_000_000,
+  const bitrate = videoConfig?.bitrate || Math.max(3_000_000,
     Math.min(25_000_000, Math.round(project.width * project.height * project.fps * 0.12)));
-  const videoSource = new CanvasSource(compositor.canvas, {
+
+  const videoSourceOptions: any = {
     codec: 'avc',
     quality: new Quality({ bitrate })
-  });
+  };
+  if (videoConfig?.codec) {
+    videoSourceOptions.fullCodecString = videoConfig.codec;
+  }
+  if (videoConfig?.hardwareAcceleration) {
+    videoSourceOptions.hardwareAcceleration = videoConfig.hardwareAcceleration;
+  }
+  if (videoConfig?.latencyMode) {
+    videoSourceOptions.latencyMode = videoConfig.latencyMode;
+  }
+
+  const videoSource = new CanvasSource(compositor.canvas, videoSourceOptions);
   output.addVideoTrack(videoSource);
 
   let audioSource: AudioBufferSource | null = null;

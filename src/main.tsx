@@ -3,6 +3,17 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Ignore chrome/moz extension unhandled errors from breaking the page
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    const stack = (reason && reason.stack) || '';
+    if (stack.includes('chrome-extension://') || stack.includes('moz-extension://')) {
+      event.preventDefault();
+    }
+  });
+}
+
 // Register Service Worker for PWA support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

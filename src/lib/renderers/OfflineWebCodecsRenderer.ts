@@ -16,15 +16,38 @@ function videoEncoderClass(): EncoderClass | null {
   return (globalThis as any).VideoEncoder || null;
 }
 
-async function findVideoConfig(project: { width: number; height: number; fps: number }, codecs: string[] = ['avc1.64002a', 'avc1.4d002a', 'avc1.42001f']) {
+function getCandidateCodecs(width: number, height: number, fps: number): string[] {
+  const macroblocks = Math.ceil(width / 16) * Math.ceil(height / 16);
+  // Level indication: 1080p is 8160 macroblocks -> requires Level 4.0 (0x28) for 30fps, 4.2 (0x2a) for 60fps, or 5.0 (0x32) / 5.1 (0x33).
+  // 720p is 3600 macroblocks -> requires Level 3.1 (0x1f) for 30fps, 3.2 (0x20) for 60fps, or 4.0 (0x28).
+  const is1080pOrHigher = macroblocks > 3600;
+  const levels = is1080pOrHigher
+    ? (fps > 30 ? ['2a', '28', '32', '33'] : ['28', '2a', '32', '33'])
+    : (fps > 30 ? ['20', '1f', '28', '2a'] : ['1f', '20', '28', '2a']);
+
+  const list: string[] = [];
+  // Prioritize High -> Main -> Constrained Baseline -> Baseline across appropriate levels
+  for (const lvl of levels) list.push(`avc1.6400${lvl}`);
+  for (const lvl of levels) list.push(`avc1.4d00${lvl}`);
+  for (const lvl of levels) list.push(`avc1.42e0${lvl}`);
+  for (const lvl of levels) list.push(`avc1.4200${lvl}`);
+  return list;
+}
+
+async function findVideoConfig(project: { width: number; height: number; fps: number }, customCodecs?: string[]) {
   const Video = videoEncoderClass();
   if (!Video) return null;
-  const bitrate = Math.max(6_000_000, Math.min(35_000_000, Math.round(project.width * project.height * project.fps * 0.16)));
+  const codecs = customCodecs || getCandidateCodecs(project.width, project.height, project.fps);
+  const bitrate = Math.max(4_000_000, Math.min(30_000_000, Math.round(project.width * project.height * project.fps * 0.14)));
+
   for (const codec of codecs) {
-    // Many supported Chrome H.264 software encoders reject the combination of
-    // prefer-hardware + quality latency mode, particularly in headless/browser
-    // sessions without GPU acceleration. Do not mistake that for unavailable H264.
+    // Probe hardware and software encoder modes. Testing no-preference and software
+    // ensures machines without dedicated GPU H.264 encode hardware still succeed.
     for (const options of [
+      { hardwareAcceleration: 'no-preference' },
+      { hardwareAcceleration: 'prefer-hardware' },
+      { hardwareAcceleration: 'prefer-software' },
+      { hardwareAcceleration: 'no-preference', latencyMode: 'quality' },
       { hardwareAcceleration: 'no-preference', latencyMode: 'realtime' },
       { hardwareAcceleration: 'prefer-software', latencyMode: 'realtime' },
       {}
@@ -65,11 +88,17 @@ async function resolveSupportedOutput(project: CanonicalProjectJson) {
     try {
       const bitrate = Math.max(3_000_000, Math.min(25_000_000,
         Math.round(width * height * project.fps * 0.12)));
-      if (!(await canEncodeVideo('avc', {
-        width, height, frameRate: project.fps, quality: new Quality({ bitrate })
-      }))) continue;
+      // Test Mediabunny compatibility with the exact discovered codec string
+      const mbSupported = await canEncodeVideo('avc', {
+        width, height, frameRate: project.fps, quality: new Quality({ bitrate }),
+        fullCodecString: config.codec,
+        hardwareAcceleration: config.hardwareAcceleration
+      } as any).catch(() => false);
+      if (!mbSupported && typeof (globalThis as any).VideoEncoder === 'undefined') {
+        continue;
+      }
     } catch {
-      continue;
+      // Continue with WebCodecs candidate config if VideoEncoder supports it
     }
     return { config, width, height, resolution };
   }
@@ -152,7 +181,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     compositor.setAudioBuffer(audioBuffer);
     // Audio is encoded/muxed by Mediabunny using native or WASM AAC.
     if (audioBuffer) {
-      const result = await renderSynchronizedMp4(resolvedProject, compositor, audioBuffer, onProgress);
+      const result = await renderSynchronizedMp4(resolvedProject, compositor, audioBuffer, onProgress, videoConfig);
       return { ...result, resolution: resolvedProject.resolution };
     }
     const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');

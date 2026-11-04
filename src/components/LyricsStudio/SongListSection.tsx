@@ -6,7 +6,7 @@ import { syncAllLyrics } from '../../lib/timelineLyricsSync';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
 import { 
   Play, Pause, Plus, Music2, Trash2, Upload, 
-  Disc3, Check, ExternalLink, Volume2
+  Disc3, Check, ExternalLink, Volume2, Pencil, X
 } from 'lucide-react';
 
 export function SongListSection() {
@@ -15,13 +15,38 @@ export function SongListSection() {
   const isPlaying = useStore(s => s.isPlaying);
   const selectTrack = useStore(s => s.selectTrack);
   const removeTrack = useStore(s => s.removeTrack);
+  const updateTrackMetadata = useStore(s => s.updateTrackMetadata);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setAudio = useStore(s => s.setAudio);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const lyricsLines = useStore(s => s.lyricsSettings?.lines) || [];
 
+  const [editingTrackIndex, setEditingTrackIndex] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editArtist, setEditArtist] = useState('');
+
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleStartEdit = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const track = tracks[idx];
+    if (!track) return;
+    setEditingTrackIndex(idx);
+    setEditName(track.name);
+    setEditArtist(track.artist || '');
+  };
+
+  const handleSaveEdit = (idx: number, e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (editName.trim()) {
+      updateTrackMetadata(idx, {
+        name: editName.trim(),
+        artist: editArtist.trim()
+      });
+    }
+    setEditingTrackIndex(null);
+  };
 
   const handleTrackClick = (index: number) => {
     // Unlock Audio Context immediately on user click
@@ -184,30 +209,79 @@ export function SongListSection() {
                   </div>
                 </div>
 
-                {/* Title & Metadata */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className={`text-xs font-semibold truncate leading-tight ${isSelected ? 'text-accent' : 'text-[#f0f3f6]'}`}>
-                      {track.name}
-                    </p>
-                    {isSelected && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                    )}
-                  </div>
+                {/* Title & Metadata or Inline Edit Form */}
+                {editingTrackIndex === idx ? (
+                  <form 
+                    onSubmit={(e) => handleSaveEdit(idx, e)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="min-w-0 flex-1 flex flex-col gap-1 pr-1"
+                  >
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Song Title"
+                      autoFocus
+                      className="w-full bg-[#0a0c0f] border border-accent/60 rounded px-1.5 py-0.5 text-xs text-white outline-none font-semibold"
+                    />
+                    <input
+                      type="text"
+                      value={editArtist}
+                      onChange={(e) => setEditArtist(e.target.value)}
+                      placeholder="Artist Name"
+                      className="w-full bg-[#0a0c0f] border border-[#2b3442] rounded px-1.5 py-0.5 text-[10px] text-[#9aa2ae] outline-none"
+                    />
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <button
+                        type="submit"
+                        className="px-2 py-0.5 bg-accent text-black font-bold rounded text-[9px] uppercase tracking-wider flex items-center gap-0.5"
+                      >
+                        <Check size={10} strokeWidth={3} /> Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingTrackIndex(null)}
+                        className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 text-[#c4cad4] rounded text-[9px] uppercase tracking-wider"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className={`text-xs font-semibold truncate leading-tight ${isSelected ? 'text-accent' : 'text-[#f0f3f6]'}`}>
+                        {track.name}
+                      </p>
+                      {isSelected && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                      )}
+                    </div>
 
-                  <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-[#7e8999]">
-                    <span className="truncate max-w-[120px]">
-                      {track.artist || (track.isUserUploaded ? 'Uploaded' : 'Studio Track')}
-                    </span>
-                    <span>•</span>
-                    <span className="font-mono text-[9.5px]">
-                      {formatSecs(track.duration)}
-                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-[#7e8999]">
+                      <span className="truncate max-w-[120px]">
+                        {track.artist || (track.isUserUploaded ? 'Uploaded' : 'Studio Track')}
+                      </span>
+                      <span>•</span>
+                      <span className="font-mono text-[9.5px]">
+                        {formatSecs(track.duration)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-1 shrink-0">
+                  {editingTrackIndex !== idx && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleStartEdit(idx, e)}
+                      title="Edit Song Title & Artist"
+                      className="p-1 text-[#7e8999] hover:text-accent hover:bg-accent/10 rounded transition-colors opacity-80 sm:opacity-0 group-hover:opacity-100 cursor-pointer"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -215,7 +289,7 @@ export function SongListSection() {
                       removeTrack(idx);
                     }}
                     title="Remove Track"
-                    className="p-1 text-[#5e6877] hover:text-[#ff5252] hover:bg-[#ff5252]/10 rounded transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                    className="p-1 text-[#5e6877] hover:text-[#ff5252] hover:bg-[#ff5252]/10 rounded transition-colors opacity-80 sm:opacity-0 group-hover:opacity-100 cursor-pointer"
                   >
                     <Trash2 size={13} />
                   </button>

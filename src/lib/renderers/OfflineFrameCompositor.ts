@@ -2,7 +2,7 @@ import { CanonicalProjectJson } from '../../types/projectJson';
 import { layoutMVCaption, drawMVCaption } from '../mvCaptionLayout';
 import { FastMp4Source } from './FastMp4Source';
 import { OfflineAudioAnalysis } from './offlineAudioAnalysis';
-import { renderLyricsVideoFrame } from '../lyricsEngine';
+import { renderLyricsVideoFrame, registerCachedImage } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useMVStore } from '../../store/useMVStore';
@@ -67,7 +67,7 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
   }
 }
 
-async function loadVideo(url: string): Promise<HTMLVideoElement> {
+async function loadVideo(url: string, retryTranscode = true): Promise<HTMLVideoElement> {
   const video = document.createElement('video');
   if (!url.startsWith('blob:') && !url.startsWith('data:')) video.crossOrigin = 'anonymous';
   video.preload = 'auto';
@@ -77,7 +77,7 @@ async function loadVideo(url: string): Promise<HTMLVideoElement> {
     video.src = url;
     video.load();
     if (video.readyState < 2) {
-      await waitForEvent(video, 'loadeddata', 'error', 30000, 'Video ' + mediaLabel(url));
+      await waitForEvent(video, 'loadeddata', 'error', 25000, 'Video ' + mediaLabel(url));
     }
     if (!video.videoWidth || !video.videoHeight) throw new Error('No decodable video frames');
     video.pause();
@@ -86,6 +86,16 @@ async function loadVideo(url: string): Promise<HTMLVideoElement> {
     video.pause();
     video.removeAttribute('src');
     video.load();
+    if (retryTranscode && (url.startsWith('blob:') || url.startsWith('http') || /\.(mp4|mov|webm|mkv|m4v)/i.test(url))) {
+      try {
+        console.warn(`[Video Decoder] Attempting client-side FFmpeg transcode for incompatible video: ${mediaLabel(url)}`);
+        const { transcodeToH264Mp4 } = await import('../videoTranscoder');
+        const transcodedUrl = await transcodeToH264Mp4(url);
+        return await loadVideo(transcodedUrl, false);
+      } catch (transcodeErr) {
+        console.warn('[Video Decoder] Transcoding fallback failed:', transcodeErr);
+      }
+    }
     throw describeMediaFailure(url, 'video',
       `${error instanceof Error ? error.message : String(error)}. Try converting this clip to H.264 MP4 (yuv420p) and import it again; HEVC, some MOV codecs, and restricted URLs may not decode in Chrome.`);
   }
@@ -157,7 +167,7 @@ export class OfflineFrameCompositor {
     const videoUrls = new Set(clips.filter(c => c.type === 'video').map(c => c.url));
     const imageUrls = new Set(clips.filter(c => c.type === 'image').map(c => c.url));
     const backgroundVideoUrl = project.background.type === 'video'
-      ? (project.background.videoUrl || project.background.value) : null;
+      ? (project.background.videoUrl || (project.background.value && !project.background.value.startsWith('#') ? project.background.value : null)) : null;
     if (backgroundVideoUrl) videoUrls.add(backgroundVideoUrl);
     if (project.background.type === 'image') imageUrls.add(project.background.value);
     // Album art is decorative, not required for an MV timeline export.
@@ -170,7 +180,7 @@ export class OfflineFrameCompositor {
         // fallback for other containers, codecs and browser implementations.
         const eligible = (clips.some(clip => clip.type === 'video' && clip.url === url) ||
           backgroundVideoUrl === url) &&
-          (url.startsWith('blob:') || /\.(mp4|m4v|mov)(?:[?#]|$)/i.test(url));
+          (url.startsWith('blob:') || /\.(mp4|m4v|mov|webm|mkv)(?:[?#]|$)/i.test(url));
         if (eligible) {
           try {
             this.fastVideos.set(url, await FastMp4Source.open(url));
@@ -183,6 +193,12 @@ export class OfflineFrameCompositor {
         try {
           this.videos.set(url, { element: await loadVideo(url), lastFrame: NaN });
         } catch (error) {
+          if (backgroundVideoUrl === url) {
+            console.warn(`[Lyrics export] Looping background video "${mediaLabel(url)}" failed: ${error instanceof Error ? error.message : String(error)}. Falling back to styled background.`);
+            project.background.type = 'color';
+            project.background.value = project.background.value?.startsWith('#') ? project.background.value : '#0e1115';
+            return;
+          }
           const matchingClip = clips.find(clip => clip.url === url);
           const friendly = matchingClip ? `timeline clip "${matchingClip.id}"` : 'looping background';
           const fastReason = this.fastDecodeErrors.get(url);
@@ -197,7 +213,9 @@ export class OfflineFrameCompositor {
       // Only artwork scenes need the cover. A blocked optional cover should
       // not prevent custom video clips from rendering and exporting.
       try {
-        await loadImage(project.audio.albumArt);
+        const art = await loadImage(project.audio.albumArt);
+        this.images.set(project.audio.albumArt, art);
+        registerCachedImage(project.audio.albumArt, art);
       } catch (error) {
         console.warn('[MV export] Optional album art unavailable; continuing export:', error);
         project.audio.albumArt = null;
@@ -291,6 +309,9 @@ export class OfflineFrameCompositor {
         showSafeArea: false,
         offlineExport: true
       }, audio.frequency, audio.waveform);
+      if (bg.videoElement && typeof (bg.videoElement as any).close === 'function') {
+        try { (bg.videoElement as any).close(); } catch {}
+      }
     } else if (clip) {
       if (clip.type === 'video') {
         const sourceTime = clip.trimStart + time - clip.startTime;
@@ -306,6 +327,7 @@ export class OfflineFrameCompositor {
                 reject(new Error('VideoDecoder stalled on imported clip')), 12000))
             ]);
             cover(ctx, frame, W, H, frame.displayWidth, frame.displayHeight);
+            try { frame.close(); } catch {}
             renderedFastFrame = true;
           } catch (error) {
             console.warn('[MV export] Switching stalled clip to browser decoder:', clip.id, error);

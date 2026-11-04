@@ -61,12 +61,18 @@ export interface RenderLyricsVideoOptions {
 const imageCache = new Map<string, HTMLImageElement>();
 const videoCache = new Map<string, HTMLVideoElement>();
 
+export function registerCachedImage(url: string, img: HTMLImageElement): void {
+  if (url && img) imageCache.set(url, img);
+}
+
 export function getOrLoadImage(url?: string): HTMLImageElement | null {
   if (!url) return null;
   let img = imageCache.get(url);
   if (!img) {
     img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!url.startsWith('blob:') && !url.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.src = url;
     imageCache.set(url, img);
   }

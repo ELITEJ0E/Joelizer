@@ -28,8 +28,17 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   
   const activeClip = timelineClips.find(c => currentTime >= c.startTime && currentTime <= c.endTime);
   const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
-  // Interactive drag & arrange of components is dedicated to lyrics-video mode only, not MV studio
-  const showOverlay = videoMode === 'lyrics-video';
+  const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
+
+  // Interactive drag, resize, and alignment overlay in both Lyrics mode and compatible MV Studio scenes
+  const showOverlay = videoMode === 'lyrics-video' ||
+    (videoMode === 'music-video' && (!!isVinylScene || !!isVisualizerScene || timelineClips.length === 0));
+
+  const mvFilterKeys = isVinylScene
+    ? undefined
+    : isVisualizerScene
+      ? (['visualizer'] as any)
+      : undefined;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -538,6 +547,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             <InteractiveStageOverlay
               stageWidth={stageDimensions.width}
               stageHeight={stageDimensions.height}
+              filterKeys={videoMode === 'music-video' ? mvFilterKeys : undefined}
+              mode={videoMode}
             />
           )}
 
