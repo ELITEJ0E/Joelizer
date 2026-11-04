@@ -67,23 +67,29 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
     ? 1.0 + Math.sin(currentTime * 6) * 0.025 
     : 1.0;
 
-  const showLyricsScene = isVinylScene || (!activeClip && mode === 'lyrics-video') || (mode === 'lyrics-video' && !isMediaClip && !isVisualizerScene);
+  // Lyrics Video is an independent composition: leftover MV timeline clips must
+  // never suppress the vinyl, visualizer, metadata, or lyrics overlays.
+  const showLyricsScene = mode === 'lyrics-video' || !!isVinylScene;
+  const artworkVisible = projectJson.showArtwork ?? artwork?.enabled ?? true;
+  const visualizerVisible = projectJson.showVisualizer ?? visualizer?.enabled ?? true;
+  const lyricsVisible = projectJson.showLyrics ?? true;
+  const metadataVisible = projectJson.showMeta ?? true;
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#050508', overflow: 'hidden', fontFamily: lyrics?.fontFamily || 'Outfit, sans-serif' }}>
       
       {/* 1. BACKGROUND LAYER */}
-      {isMediaClip ? (
+      {mode === 'music-video' && isMediaClip ? (
         <BackgroundClipLayer clip={activeClip} currentTime={currentTime} exportStart={projectJson.exportRange?.start || 0} width={width} height={height} />
       ) : (
         <BackgroundLayer bg={background} albumArt={audio?.albumArt || null} width={width} height={height} currentTime={currentTime} />
       )}
 
       {/* 2. ARTWORK OBJECT LAYER (Vinyl, CD, Glowing Disc) */}
-      {showLyricsScene && artwork?.style !== 'none' && audio?.albumArt && (
+      {showLyricsScene && artworkVisible && artwork?.style !== 'none' && artwork?.style !== 'background-blur' && (
         <ArtworkLayer 
           artwork={artwork} 
-          albumArt={audio.albumArt} 
+          albumArt={audio?.albumArt || ''} 
           rotation={rotationDegrees} 
           scale={artworkScale * (artwork?.sizeScale || 1.0)} 
           width={width} 
@@ -93,7 +99,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* 3. TRACK METADATA (Song Title & Artist) */}
-      {showLyricsScene && (audio?.title || audio?.artist) && (
+      {showLyricsScene && metadataVisible && (audio?.title || audio?.artist) && (
         <MetaLayer
           title={audio?.title || ''}
           artist={audio?.artist || ''}
@@ -104,7 +110,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* 4. VISUALIZER OVERLAY */}
-      {(isVisualizerScene || showLyricsScene) && artwork?.style !== 'glowing-disc' && artwork?.style !== 'glowing-disc-needle' && (
+      {(isVisualizerScene || showLyricsScene) && visualizerVisible && (
         <VisualizerLayer 
           visualizer={visualizer} 
           currentTime={currentTime} 
@@ -116,7 +122,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* 5. ANIMATED LYRICS LAYER */}
-      {showLyricsScene && (
+      {showLyricsScene && lyricsVisible && (
         <LyricsLayer 
           lyrics={lyrics} 
           activeLine={activeLine} 
