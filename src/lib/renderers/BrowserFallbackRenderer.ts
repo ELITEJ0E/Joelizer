@@ -4,6 +4,8 @@ import { useStore } from '../../store/useStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { audioManager } from '../audio';
 import { renderLyricsVideoFrame } from '../lyricsEngine';
+import { drawPositionedLyricsVisualizer } from '../positionedLyricsVisualizer';
+import { getDefaultPositions } from '../lyricsLayout';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import fixWebmDuration from 'fix-webm-duration';
 import { getBrowserExportTime, startBrowserExportClock, stopBrowserExportClock, validateBrowserExportVideo } from '../browserExportClock';
@@ -82,11 +84,23 @@ export class BrowserFallbackRenderer implements VideoRenderer {
               animationOverride: lyricsVideoState.animationOverride,
               elementPositions: lyricsVideoState.elementPositions,
               watermarkText: 'Made with Joelizer',
-              showSafeArea: false
+              showSafeArea: false,
+              showArtwork: project.showArtwork ?? project.artwork?.enabled ?? true,
+              showVisualizer: false,
+              showLyrics: project.showLyrics ?? true,
+              showMeta: project.showMeta ?? true,
+              preferElementPosition: true,
+              visualizerSettingsOverride: { ...project.visualizer, enabled: false }
             },
             freqData,
             timeData
           );
+          if (project.showVisualizer ?? project.visualizer?.enabled ?? true) {
+            const visPos = project.elementPositions?.visualizer ??
+              getDefaultPositions(project.aspectRatio, tmpl.id).visualizer;
+            drawPositionedLyricsVisualizer(ctx, targetW, targetH, visPos,
+              { ...project.visualizer, enabled: true }, freqData, timeData);
+          }
           customRenderLoop = requestAnimationFrame(renderFrame);
         };
         customRenderLoop = requestAnimationFrame(renderFrame);
