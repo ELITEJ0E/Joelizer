@@ -98,6 +98,23 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<any>(null);
   const isCancelledRef = useRef<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const createdBlobUrlRef = useRef<string | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const cleanupBlobUrl = () => {
+    if (previewVideoRef.current) {
+      try {
+        previewVideoRef.current.pause();
+        previewVideoRef.current.removeAttribute('src');
+        previewVideoRef.current.load();
+      } catch {}
+    }
+    if (createdBlobUrlRef.current) {
+      try { URL.revokeObjectURL(createdBlobUrlRef.current); } catch {}
+      createdBlobUrlRef.current = null;
+    }
+  };
 
   // Global store values
   const tracks = useStore(s => s.tracks);
@@ -154,13 +171,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       duration: 350,
       easing: 'easeOutBack'
     });
-    
-
 
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      cleanupBlobUrl();
     };
   }, []);
 
@@ -176,10 +195,15 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   const handleCancelExport = () => {
     isCancelledRef.current = true;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
+    cleanupBlobUrl();
     setIsExporting(false);
     setExportStage('preparing');
     setProgress(0);
@@ -205,6 +229,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     let targetEngine = forcedEngine || engineChoice;
 
     try {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      cleanupBlobUrl();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       isCancelledRef.current = false;
       setIsExporting(true);
       setExportStage('preparing');
@@ -237,14 +268,17 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       });
 
       const result = await renderer.render(projectJson, (prog) => {
-        if (isCancelledRef.current) return;
+        if (isCancelledRef.current || controller.signal.aborted) return;
         setExportStage(prog.stage as any);
         setStageMessage(prog.stageMessage);
         setProgress(prog.progress);
         if (prog.error) setExportError(prog.error);
-      });
+      }, controller.signal);
 
-      if (result.outputUrl) {
+      if (result.outputUrl && !controller.signal.aborted) {
+        if (result.outputUrl.startsWith('blob:')) {
+          createdBlobUrlRef.current = result.outputUrl;
+        }
         setDownloadFormat(result.format || (renderer.type === 'browser' ? 'webm' : 'mp4'));
         setActualExportResolution(result.resolution || resolution);
         setDownloadUrl(result.outputUrl);
@@ -253,6 +287,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         setProgress(100);
       }
     } catch (err: any) {
+      if (err?.message === 'Export cancelled by user.') return;
       console.error('Unified export error:', err);
       setExportStage('error');
       setExportError(err.message || 'Failed to export video');
@@ -458,6 +493,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                     {downloadUrl && (
                       <div className="w-full rounded-xl overflow-hidden border border-emerald-500/30 bg-black/80 shadow-2xl my-1">
                         <video 
+                          ref={previewVideoRef}
                           src={downloadUrl.startsWith('blob:') ? downloadUrl : `${downloadUrl}?stream=1`} 
                           controls 
                           className="w-full max-h-[220px] object-contain rounded-xl bg-black"

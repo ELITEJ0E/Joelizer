@@ -18,7 +18,8 @@ export async function renderSynchronizedMp4(
   compositor: OfflineFrameCompositor,
   audioBuffer: AudioBuffer | null,
   onProgress: (progress: RenderProgress) => void,
-  videoConfig?: any
+  videoConfig?: any,
+  signal?: AbortSignal
 ): Promise<{ outputUrl: string; fileSize: number; format: 'mp4' }> {
   if (audioBuffer && !(await canEncodeAudio('aac'))) {
     registerAacEncoder();
@@ -90,8 +91,9 @@ export async function renderSynchronizedMp4(
     }
   };
 
-  await withTimeout(output.start(), 'Starting MP4 encoder');
   try {
+    if (signal?.aborted) throw new Error('Export cancelled by user.');
+    await withTimeout(output.start(), 'Starting MP4 encoder');
     onProgress({ stage: 'preparing', stageMessage: 'Loading clips and synchronizing soundtrack...', progress: 5 });
     await withTimeout(compositor.prepare(), 'Loading imported MV clips', 60000);
     onProgress({ stage: 'rendering', stageMessage: 'Media loaded. Beginning video and audio export...', progress: 12 });
@@ -109,6 +111,9 @@ export async function renderSynchronizedMp4(
     );
 
     for (let index = 0; index < totalFrames; index++) {
+      if (signal?.aborted) {
+        throw new Error('Export cancelled by user.');
+      }
       const time = project.exportRange.start + index / project.fps;
 
       // 1. Decode & composite frame with separate timing
@@ -179,6 +184,7 @@ export async function renderSynchronizedMp4(
       }
     }
 
+    if (signal?.aborted) throw new Error('Export cancelled by user.');
     videoSource.close();
     audioSource?.close();
     onProgress({ stage: 'finalizing', stageMessage: 'Finalizing synchronized video and audio...', progress: 95 });
@@ -191,6 +197,8 @@ export async function renderSynchronizedMp4(
       outputUrl, fileSize: blob.size });
     return { outputUrl, fileSize: blob.size, format: 'mp4' };
   } finally {
+    try { videoSource.close(); } catch {}
+    try { audioSource?.close(); } catch {}
     compositor.dispose();
   }
 }

@@ -150,7 +150,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     } catch { return false; }
   }
 
-  async render(project: CanonicalProjectJson, onProgress: (progress: RenderProgress) => void) {
+  async render(project: CanonicalProjectJson, onProgress: (progress: RenderProgress) => void, signal?: AbortSignal) {
     if (!Number.isFinite(project.exportRange.duration) || project.exportRange.duration <= 0 || project.fps <= 0) {
       throw new Error('Invalid timeline duration or frame rate for offline export.');
     }
@@ -181,7 +181,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     compositor.setAudioBuffer(audioBuffer);
     // Audio is encoded/muxed by Mediabunny using native or WASM AAC.
     if (audioBuffer) {
-      const result = await renderSynchronizedMp4(resolvedProject, compositor, audioBuffer, onProgress, videoConfig);
+      const result = await renderSynchronizedMp4(resolvedProject, compositor, audioBuffer, onProgress, videoConfig, signal);
       return { ...result, resolution: resolvedProject.resolution };
     }
     const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
@@ -198,12 +198,15 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
       error: (error: Error) => { encoderError = error; }
     });
     try {
+      if (signal?.aborted) throw new Error('Export cancelled by user.');
       onProgress({ stage: 'preparing', stageMessage: 'Loading imported clips for smooth frame-by-frame export...', progress: 5 });
       await compositor.prepare();
+      if (signal?.aborted) throw new Error('Export cancelled by user.');
       videoEncoder.configure(videoConfig);
       // No requestAnimationFrame, captureStream, MediaRecorder, or playback clock:
       // each encoded timestamp is derived from its exact timeline frame index.
       for (let index = 0; index < totalFrames; index++) {
+        if (signal?.aborted) throw new Error('Export cancelled by user.');
         if (encoderError) throw encoderError;
         const t = resolvedProject.exportRange.start + index / resolvedProject.fps;
         const canvas = await compositor.frame(t);
@@ -228,6 +231,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
           await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
+      if (signal?.aborted) throw new Error('Export cancelled by user.');
       await videoEncoder.flush();
       if (encoderError) throw encoderError;
       if (videoEncoded !== totalFrames) {
@@ -242,7 +246,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
       onProgress({ stage: 'ready', stageMessage: 'Frame-accurate video ready for download.', progress: 100, outputUrl, fileSize: output.size });
       return { outputUrl, fileSize: output.size, format, resolution: resolvedProject.resolution };
     } finally {
-      videoEncoder.close();
+      try { videoEncoder.close(); } catch {}
       compositor.dispose();
     }
   }

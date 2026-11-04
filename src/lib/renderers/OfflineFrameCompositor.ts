@@ -408,6 +408,9 @@ export class OfflineFrameCompositor {
   }
 
   dispose(): void {
+    this.canvas.width = 0;
+    this.canvas.height = 0;
+    this.audioAnalysis.setBuffer(null);
     for (const media of this.videos.values()) {
       media.element.pause();
       media.element.removeAttribute('src');

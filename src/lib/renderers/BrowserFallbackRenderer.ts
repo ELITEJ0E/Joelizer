@@ -18,8 +18,10 @@ export class BrowserFallbackRenderer implements VideoRenderer {
 
   async render(
     project: CanonicalProjectJson,
-    onProgress: (progress: RenderProgress) => void
+    onProgress: (progress: RenderProgress) => void,
+    signal?: AbortSignal
   ): Promise<{ outputUrl: string; fileSize?: number }> {
+    if (signal?.aborted) throw new Error('Export cancelled by user.');
     if (document.hidden) {
       throw new Error('Browser recording needs a visible tab. Use Server Remotion for focus-independent, highest-quality export.');
     }
@@ -175,6 +177,24 @@ export class BrowserFallbackRenderer implements VideoRenderer {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
       };
       document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      const handleAbort = () => {
+        if (timer) clearInterval(timer);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          try { mediaRecorder.stop(); } catch {}
+        }
+        restorePlayback();
+        canvasStream.getTracks().forEach(track => track.stop());
+        reject(new Error('Export cancelled by user.'));
+      };
+      if (signal) {
+        if (signal.aborted) {
+          handleAbort();
+          return;
+        }
+        signal.addEventListener('abort', handleAbort, { once: true });
+      }
       try {
         const bitrate = Math.max(8_000_000, Math.round(project.width * project.height * fps * 0.25));
         mediaRecorder = new MediaRecorder(combinedStream, {
