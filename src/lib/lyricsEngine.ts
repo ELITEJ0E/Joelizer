@@ -121,8 +121,7 @@ export function syncLyricsBackgroundVideo(url: string | undefined, time: number,
     // Otherwise preserve the decoded video frame without repeated seeks.
     if (duration > 0 && !video.seeking &&
       (scrubbed || (!Number.isFinite(video.currentTime)) ||
-       (video.readyState >= 1 && video.currentTime === 0 && target > 0.04 &&
-        !Number.isFinite(state.lastTime)))) {
+       (video.readyState >= 1 && video.currentTime === 0 && target > 0.04))) {
       if (Math.abs(video.currentTime - target) > 0.04) {
         try { video.currentTime = target; } catch { /* Browser media may not be seekable yet */ }
       }
