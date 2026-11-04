@@ -239,7 +239,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       });
 
       if (result.outputUrl) {
-        setDownloadFormat(renderer.type === 'browser' ? 'webm' : 'mp4');
+        setDownloadFormat(result.format || (renderer.type === 'browser' ? 'webm' : 'mp4'));
         setDownloadUrl(result.outputUrl);
         setFileSize(result.fileSize || null);
         setExportStage('ready');
