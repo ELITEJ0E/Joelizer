@@ -62,20 +62,19 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
-    Promise.all([
-      new ServerRemotionRenderer().isAvailable(),
-      new OfflineWebCodecsRenderer().isAvailable()
-    ]).then(([server, offline]) => {
+    // Probe local WebCodecs independently: waiting for the server health
+    // timeout previously left Browser MediaRecorder selected for several
+    // seconds, leading to another broken clip export when users clicked fast.
+    new OfflineWebCodecsRenderer().isAvailable().then(offline => {
+      if (alive && !manuallySelectedEngine.current && offline) {
+        setEngineChoice('offline');
+      }
+    }).catch(() => {});
+    new ServerRemotionRenderer().isAvailable().then(server => {
       if (!alive) return;
       setServerAvailable(server);
-      // Prefer constant-frame-rate MP4 for trimmed local footage. Real-time
-      // MediaRecorder can look like it freezes/restarts around clip boundaries.
-      if (!manuallySelectedEngine.current) {
-        setEngineChoice(server ? 'server' : offline ? 'offline' : 'browser');
-      }
-    }).catch(() => {
-      if (alive && !manuallySelectedEngine.current) setEngineChoice('browser');
-    });
+      if (server && !manuallySelectedEngine.current) setEngineChoice('server');
+    }).catch(() => { if (alive) setServerAvailable(false); });
     return () => { alive = false; };
   }, []);
   const currentAspectRatio = useStore(s => s.aspectRatio);
@@ -202,7 +201,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   // Unified Production Export (Server Remotion or Fast Browser MediaRecorder)
   const handleStartExport = async (forcedEngine?: 'server' | 'offline' | 'browser') => {
-    const targetEngine = forcedEngine || engineChoice;
+    let targetEngine = forcedEngine || engineChoice;
 
     try {
       isCancelledRef.current = false;
@@ -213,8 +212,13 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setExportError(null);
       setDownloadUrl(null);
 
-      // Check engine first: Vercel has no server-rendering process. Never
-      // upload assets or silently downgrade quality to a foreground recorder.
+      // Recheck codec support at click time, so very fast user interactions
+      // cannot accidentally select the laggy real-time browser recorder.
+      if (!forcedEngine && targetEngine === 'browser' &&
+          await new OfflineWebCodecsRenderer().isAvailable()) {
+        targetEngine = 'offline';
+        setEngineChoice('offline');
+      }
       const renderer = await getBestAvailableRenderer(targetEngine);
       setActiveRendererName(renderer.name);
       setStageMessage(renderer.type === 'server'
