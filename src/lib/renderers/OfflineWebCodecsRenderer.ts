@@ -1,6 +1,7 @@
 import type { CanonicalProjectJson } from '../../types/projectJson';
 import type { RenderProgress, VideoRenderer, RendererType } from './types';
 import { OfflineFrameCompositor } from './OfflineFrameCompositor';
+import { renderSynchronizedWebm } from './SynchronizedWebmRenderer';
 
 const SAMPLE_RATE = 48000;
 const AAC_CHUNK_SAMPLES = 1024;
@@ -131,7 +132,10 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     const totalFrames = Math.max(1, Math.ceil(project.exportRange.duration * project.fps));
     const audioBuffer = await decodeSoundtrack(project);
     compositor.setAudioBuffer(audioBuffer);
-    const format = useWebm ? 'webm' as const : 'mp4' as const;
+    // On AAC-less platforms, let the media pipeline manage Opus frame
+    // boundaries, encoder priming, timestamp interleaving and finalization.
+    if (useWebm) return renderSynchronizedWebm(project, compositor, audioBuffer, onProgress);
+    const format = 'mp4' as const;
     let muxer: any;
     if (useWebm) {
       // Opus is available on platforms where AAC WebCodecs is missing.
@@ -166,17 +170,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
       if (audioBuffer) {
         onProgress({ stage: 'encoding', stageMessage: 'Encoding soundtrack with exact timestamps...', progress: 10 });
         audioEncoder = new Audio({
-          output: (chunk: any, metadata: any) => {
-            if (audioEncoded < 4) {
-              const bytes = new Uint8Array(Math.min(16, chunk.byteLength));
-              chunk.copyTo(bytes);
-              console.log('[export audio packet]', audioEncoded, 'ts', chunk.timestamp,
-                'duration', chunk.duration, 'bytes', chunk.byteLength,
-                'head', Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(''));
-            }
-            muxer.addAudioChunk(chunk, metadata);
-            audioEncoded++;
-          },
+          output: (chunk: any, metadata: any) => { muxer.addAudioChunk(chunk, metadata); audioEncoded++; },
           error: (error: Error) => { encoderError = error; }
         });
         audioEncoder.configure({ codec: useWebm ? 'opus' : 'mp4a.40.2', sampleRate: SAMPLE_RATE, numberOfChannels: 2, bitrate: useWebm ? 192000 : 256000 });
