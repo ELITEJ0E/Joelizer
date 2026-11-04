@@ -88,7 +88,7 @@ try {
     } catch { return false; }
   });
   const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps',
-    'lyrics-video-looped-background'];
+    'lyrics-video-looped-background', 'music-video-custom-blob'];
   if (AACsupported || opusSupported) modes.push('music-video-with-audio', 'music-video-with-audio-long');
   for (const mode of (h264 ? modes : [])) {
     const fps = mode.endsWith('-60fps') ? 60 : 30;
@@ -97,6 +97,10 @@ try {
       const modulePath = '/src/lib/renderers/OfflineWebCodecsRenderer.ts';
       const { OfflineWebCodecsRenderer } = await import(/* @vite-ignore */ modulePath);
       const renderer = new OfflineWebCodecsRenderer();
+      // Object URLs are how user-imported files are supplied to MV Studio.
+      // Test them directly rather than testing only server-side staged URLs.
+      const customUrl = mode === 'music-video-custom-blob'
+        ? URL.createObjectURL(await (await fetch('/staged/smoke-video.mp4')).blob()) : null;
       const project = {
         version: '1.0', projectName: 'offline-browser-smoke', exportMode: mode.startsWith('lyrics-video') ? 'lyrics-video' : 'music-video',
         width: 320, height: 180, fps, resolution: '360p', aspectRatio: '16:9',
@@ -104,7 +108,8 @@ try {
         // different source-file positions rather than just playing at t=0.
         exportRange: { start: 1, end: 1 + duration, duration },
         audio: { url: mode.startsWith('music-video-with-audio') ? '/staged/smoke-audio.wav' : null,
-          albumArt: null, title: 'Sample', artist: 'CI', duration: 1 },
+          albumArt: mode === 'music-video-custom-blob' ? '/staged/nonexistent-album-art.jpg' : null,
+          title: 'Sample', artist: 'CI', duration: 1 },
         background: mode === 'lyrics-video-looped-background'
           ? { type: 'video', value: '/staged/smoke-video.mp4', videoUrl: '/staged/smoke-video.mp4', blurAlbumArt: false }
           : { type: 'color', value: '#111111', blurAlbumArt: false },
@@ -114,7 +119,7 @@ try {
           glowColor: '#fde047', showContainerPill: true, pillBgColor: '#111',
           animationStyle: 'karaoke' },
         videoClips: !mode.startsWith('lyrics-video') ? [
-          { id: 'v1', assetId: 'v1', url: '/staged/smoke-video.mp4', type: 'video',
+          { id: 'v1', assetId: 'v1', url: customUrl || '/staged/smoke-video.mp4', type: 'video',
             startTime: 1, endTime: 2, duration: 1, trimStart: 0.25, trimEnd: 1.25, effect: 'none', transition: 'cut' },
           { id: 'v2', assetId: 'v2', url: '/staged/smoke-video.mp4', type: 'video',
             startTime: 2, endTime: 3, duration: 1, trimStart: 2, trimEnd: 3, effect: 'none', transition: 'cut' }
@@ -141,6 +146,7 @@ try {
       const response = await fetch(result.outputUrl);
       const buffer = await response.arrayBuffer();
       URL.revokeObjectURL(result.outputUrl);
+      if (customUrl) URL.revokeObjectURL(customUrl);
       return { bytes: Array.from(new Uint8Array(buffer)), format: result.format || 'mp4' };
     }, { mode, fps, duration });
     const path = join(tmpdir(), `joelizer-offline-${mode}.${result.format}`);
@@ -197,6 +203,36 @@ try {
     }
     console.log(`Browser WebCodecs ${mode} ${result.format} export passed: ${decodedFrames} exact frames, ${totalDuration}s, ${new Set(md5).size} distinct samples`);
     unlinkSync(path);
+  }
+  if (h264) {
+    // A corrupt or unsupported user clip must name the failure, rather than
+    // reporting a generic "selected video or image source" with no guidance.
+    const errorText = await page.evaluate(async () => {
+      const modulePath = '/src/lib/renderers/OfflineFrameCompositor.ts';
+      const { OfflineFrameCompositor } = await import(/* @vite-ignore */ modulePath);
+      const project = {
+        width: 320, height: 180, exportMode: 'music-video',
+        exportRange: { start: 0, end: 1, duration: 1 },
+        background: { type: 'color', value: '#000' },
+        audio: { albumArt: null },
+        videoClips: [{ id: 'broken-user-clip', type: 'video',
+          url: '/staged/missing-user-file.mp4', startTime: 0, endTime: 1 }]
+      };
+      const renderer = new OfflineFrameCompositor(project as any);
+      try {
+        await renderer.prepare();
+        return 'unexpected-success';
+      } catch (error) {
+        return String(error);
+      } finally {
+        renderer.dispose();
+      }
+    });
+    assert.match(errorText, /broken-user-clip/,
+      'A failed imported clip must be identified so users can replace it');
+    assert.match(errorText, /H\.264 MP4/,
+      'Error must give a supported codec conversion workaround');
+    console.log('Invalid imported media receives actionable source-specific error');
   }
 } finally {
   await browser?.close();

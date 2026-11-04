@@ -2,7 +2,7 @@ import { CanonicalProjectJson } from '../../types/projectJson';
 import { layoutMVCaption, drawMVCaption } from '../mvCaptionLayout';
 import { FastMp4Source } from './FastMp4Source';
 import { OfflineAudioAnalysis } from './offlineAudioAnalysis';
-import { renderLyricsVideoFrame, getOrLoadImage } from '../lyricsEngine';
+import { renderLyricsVideoFrame } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useMVStore } from '../../store/useMVStore';
@@ -11,17 +11,41 @@ import { renderVisualizer } from '../renderers';
 
 type StageMedia = { element: HTMLVideoElement; lastFrame: number };
 
-function waitForEvent(target: EventTarget, ok: string, failure: string, timeout = 20000): Promise<void> {
+function mediaLabel(url: string): string {
+  if (url.startsWith('blob:')) return 'uploaded local file';
+  if (url.startsWith('data:')) return 'embedded media';
+  try {
+    const parsed = new URL(url, window.location.href);
+    return decodeURIComponent(parsed.pathname.split('/').pop() || parsed.hostname).slice(0, 120);
+  } catch {
+    return url.slice(0, 120);
+  }
+}
+
+function describeMediaFailure(url: string, kind: 'video' | 'image', reason: string): Error {
+  return new Error(`Cannot decode ${kind} "${mediaLabel(url)}": ${reason}`);
+}
+
+function waitForEvent(target: EventTarget, ok: string, failure: string,
+  timeout = 20000, detail = 'Media'): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => done(new Error('Timed out decoding media; source may be unsupported')), timeout);
-    const success = () => done();
-    const error = () => done(new Error('Unable to decode the selected video or image source'));
+    let finished = false;
     const done = (err?: Error) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timer);
       target.removeEventListener(ok, success);
       target.removeEventListener(failure, error);
       err ? reject(err) : resolve();
     };
+    const success = () => done();
+    const error = () => {
+      const media = target instanceof HTMLMediaElement ? target : null;
+      const code = media?.error?.code;
+      const message = media?.error?.message;
+      done(new Error(`${detail}: browser decoder error${code ? ` (code ${code})` : ''}${message ? ` - ${message}` : ''}.`));
+    };
+    const timer = setTimeout(() => done(new Error(`${detail}: timed out while decoding after ${timeout / 1000}s.`)), timeout);
     target.addEventListener(ok, success, { once: true });
     target.addEventListener(failure, error, { once: true });
   });
@@ -29,23 +53,42 @@ function waitForEvent(target: EventTarget, ok: string, failure: string, timeout 
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
   const img = new Image();
-  img.crossOrigin = 'anonymous';
+  if (!url.startsWith('blob:') && !url.startsWith('data:')) img.crossOrigin = 'anonymous';
   img.src = url;
-  if (!img.complete || !img.naturalWidth) await waitForEvent(img, 'load', 'error');
-  if (!img.naturalWidth) throw new Error('Cannot decode image source: ' + url);
-  return img;
+  try {
+    if (!img.complete || !img.naturalWidth) {
+      await waitForEvent(img, 'load', 'error', 15000, 'Image ' + mediaLabel(url));
+    }
+    if (!img.naturalWidth) throw new Error('Image has no decoded pixels');
+    return img;
+  } catch (error) {
+    throw describeMediaFailure(url, 'image',
+      `${error instanceof Error ? error.message : String(error)}. Check image format and CORS access.`);
+  }
 }
 
 async function loadVideo(url: string): Promise<HTMLVideoElement> {
   const video = document.createElement('video');
-  video.crossOrigin = 'anonymous';
+  if (!url.startsWith('blob:') && !url.startsWith('data:')) video.crossOrigin = 'anonymous';
   video.preload = 'auto';
   video.muted = true;
   video.playsInline = true;
-  video.src = url;
-  if (video.readyState < 2) await waitForEvent(video, 'loadeddata', 'error', 30000);
-  video.pause();
-  return video;
+  try {
+    video.src = url;
+    video.load();
+    if (video.readyState < 2) {
+      await waitForEvent(video, 'loadeddata', 'error', 30000, 'Video ' + mediaLabel(url));
+    }
+    if (!video.videoWidth || !video.videoHeight) throw new Error('No decodable video frames');
+    video.pause();
+    return video;
+  } catch (error) {
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    throw describeMediaFailure(url, 'video',
+      `${error instanceof Error ? error.message : String(error)}. Try converting this clip to H.264 MP4 (yuv420p) and import it again; HEVC, some MOV codecs, and restricted URLs may not decode in Chrome.`);
+  }
 }
 
 async function atTime(media: StageMedia, seconds: number): Promise<void> {
@@ -57,10 +100,10 @@ async function atTime(media: StageMedia, seconds: number): Promise<void> {
     media.lastFrame = target;
     return;
   }
-  const ready = waitForEvent(video, 'seeked', 'error', 25000);
+  const ready = waitForEvent(video, 'seeked', 'error', 25000, 'Seeking video ' + mediaLabel(video.currentSrc || video.src));
   video.currentTime = target;
   await ready;
-  if (video.readyState < 2) await waitForEvent(video, 'loadeddata', 'error');
+  if (video.readyState < 2) await waitForEvent(video, 'loadeddata', 'error', 20000, 'Decoding frame ' + mediaLabel(video.currentSrc || video.src));
   media.lastFrame = target;
 }
 
@@ -116,7 +159,10 @@ export class OfflineFrameCompositor {
       ? (project.background.videoUrl || project.background.value) : null;
     if (backgroundVideoUrl) videoUrls.add(backgroundVideoUrl);
     if (project.background.type === 'image') imageUrls.add(project.background.value);
-    if (project.audio.albumArt) imageUrls.add(project.audio.albumArt);
+    // Album art is decorative, not required for an MV timeline export.
+    // A third-party album-art URL can be blocked by CORS even when every
+    // user-uploaded video clip is valid. Never fail the entire export for it.
+    const requiredImageUrls = new Set(imageUrls);
     await Promise.all([
       ...[...videoUrls].map(async url => {
         // Fast WebCodecs decoding is supported for MP4/MOV. Keep HTMLVideo
@@ -132,14 +178,26 @@ export class OfflineFrameCompositor {
             console.warn('[MV export] Fast MP4 decoder unavailable, falling back to seeking:', error);
           }
         }
-        this.videos.set(url, { element: await loadVideo(url), lastFrame: NaN });
+        try {
+          this.videos.set(url, { element: await loadVideo(url), lastFrame: NaN });
+        } catch (error) {
+          const matchingClip = clips.find(clip => clip.url === url);
+          const friendly = matchingClip ? `timeline clip "${matchingClip.id}"` : 'looping background';
+          throw new Error(`Cannot prepare ${friendly}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }),
-      ...[...imageUrls].map(async url => this.images.set(url, await loadImage(url)))
+      ...[...requiredImageUrls].map(async url => this.images.set(url, await loadImage(url)))
     ]);
-    if (project.audio.albumArt) {
-      const album = getOrLoadImage(project.audio.albumArt);
-      if (album && (!album.complete || !album.naturalWidth)) {
-        await waitForEvent(album, 'load', 'error');
+    const needsArtwork = project.exportMode === 'lyrics-video' ||
+      clips.some(clip => clip.type === 'vinyl-lyrics');
+    if (project.audio.albumArt && needsArtwork) {
+      // Only artwork scenes need the cover. A blocked optional cover should
+      // not prevent custom video clips from rendering and exporting.
+      try {
+        await loadImage(project.audio.albumArt);
+      } catch (error) {
+        console.warn('[MV export] Optional album art unavailable; continuing export:', error);
+        project.audio.albumArt = null;
       }
     }
     this.loaded = true;
