@@ -324,6 +324,7 @@ export class OfflineFrameCompositor {
         artworkOverride: project.artwork,
         animationOverride: lyricsState.animationOverride,
         elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
+        preferElementPosition: true,
         watermarkText: project.watermarkText,
         showSafeArea: false,
         offlineExport: true
