@@ -1,4 +1,4 @@
-import { FastMp4Source } from '../lib/renderers/FastMp4Source';
+import { pruneConsumedVideoFrames } from '../lib/renderers/FastMp4Source';
 import { getResolutionDimensions } from '../types/projectJson';
 
 console.log('====================================================');
@@ -31,68 +31,39 @@ assert(res1080p916.width === 1080 && res1080p916.height === 1920, '1080p 9:16 di
 const res720p916 = getResolutionDimensions('9:16', '720p');
 assert(res720p916.width % 2 === 0 && res720p916.height % 2 === 0, '720p 9:16 dimensions are even numbers for H.264');
 
-// 2. Mock FastMp4Source queue pruning simulation
-// Simulate internal behavior of pruneDecoded under 1080p decode sequences
+// 2. Test production pruning logic, including out-of-order H.264 frame output.
+// A decoder may emit B-frames ahead of the current export timestamp. Those
+// future frames must never be discarded just to enforce a small GPU pool size.
 class MockVideoFrame {
   closed = false;
   constructor(public timestamp: number) {}
-  close() {
-    this.closed = true;
-  }
-  clone() {
-    return new MockVideoFrame(this.timestamp);
-  }
+  close() { this.closed = true; }
 }
 
-// Emulate pruneDecoded
-function simulatePrune(decoded: MockVideoFrame[], targetUs: number) {
-  if (decoded.length <= 2) return;
-  decoded.sort((a, b) => a.timestamp - b.timestamp);
-  let bestPastIdx = -1;
-  for (let i = 0; i < decoded.length; i++) {
-    if (decoded[i].timestamp <= targetUs) {
-      bestPastIdx = i;
-    } else {
-      break;
-    }
-  }
-  if (bestPastIdx > 0) {
-    for (let i = 0; i < bestPastIdx; i++) {
-      decoded[i].close();
-    }
-    decoded.splice(0, bestPastIdx);
-  }
-  const maxFuture = 3;
-  const pastCount = bestPastIdx >= 0 ? 1 : 0;
-  while (decoded.length > pastCount + maxFuture) {
-    const excess = decoded.pop();
-    if (excess) excess.close();
-  }
-}
+const decoded = [0, 33_333, 66_666, 100_000, 133_333, 166_666]
+  .map(t => new MockVideoFrame(t));
+pruneConsumedVideoFrames(decoded, 40_000);
+assert(decoded[0].timestamp === 33_333, 'Keep most recent frame at or before current time');
+assert(decoded.length === 5, 'Keep all decoded future frames for subsequent export timestamps');
+assert(decoded.every(frame => !frame.closed), 'All retained frames remain open');
 
-// Test: Decode 120 frames forward in a 1080p clip with targetUs = 3,000,000 (3 seconds in)
-const activeFrames: MockVideoFrame[] = [];
-let maxAliveSimultaneously = 0;
+// Rendering the next time step must advance to the next decoded source frame.
+pruneConsumedVideoFrames(decoded, 70_000);
+assert(decoded[0].timestamp === 66_666, 'Subsequent output advances to next source frame without skipping');
+assert(decoded.slice(1).every(frame => frame.timestamp > 70_000),
+  'Future presentation timestamps remain intact');
 
-for (let i = 0; i < 120; i++) {
-  const frame = new MockVideoFrame(i * 33333); // 30fps timestamps
-  activeFrames.push(frame);
-  simulatePrune(activeFrames, 3_000_000);
-  const currentlyAlive = activeFrames.filter(f => !f.closed).length;
-  if (currentlyAlive > maxAliveSimultaneously) {
-    maxAliveSimultaneously = currentlyAlive;
-  }
-}
-
-assert(
-  maxAliveSimultaneously <= 4,
-  `Pruning keeps concurrent VideoFrames strictly bounded (max alive: ${maxAliveSimultaneously} <= 4)`
-);
-
-assert(
-  activeFrames.length <= 4,
-  `Final active frames array is small (length: ${activeFrames.length} <= 4)`
-);
+// With many decoded frames ahead of the playhead, it is safer to retain them
+// than to silently skip footage. Decoder submission uses separate backpressure.
+const future = Array.from({ length: 12 }, (_, i) => new MockVideoFrame(1_000_000 + i * 33_333));
+pruneConsumedVideoFrames(future, 990_000);
+assert(future.length === 12, 'Pruning does not delete future frames under memory pressure');
+assert(future.every(frame => !frame.closed), 'Every future frame remains available');
+const past = new MockVideoFrame(900_000);
+future.unshift(past);
+pruneConsumedVideoFrames(future, 1_050_000);
+assert(past.closed, 'Obsolete past frame resources are closed');
+assert(future[0].timestamp === 1_033_333, 'Closest earlier frame is retained');
 
 // 3. Test Looping Background bounds
 const songDuration = 180;
