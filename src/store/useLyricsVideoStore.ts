@@ -51,6 +51,7 @@ export interface LyricsVideoState {
     glowColor: string;
     showContainerPill: boolean;
     pillBgColor: string;
+    position?: 'bottom' | 'center' | 'top';
   };
 
   artworkOverride: {

@@ -54,6 +54,7 @@ export interface RenderLyricsVideoOptions {
     glowColor?: string;
     showContainerPill?: boolean;
     pillBgColor?: string;
+    position?: 'bottom' | 'center' | 'top';
   };
   artworkOverride?: {
     style?: ArtworkStyle;
@@ -898,8 +899,21 @@ function renderLyrics(
   const fontSizeScale = options.typographyOverride?.fontSizeScale || 1;
   const fontSize = Math.max(16, Math.round(H * (isPortrait ? 0.038 : 0.045) * fontSizeScale));
 
-  const posX = pos ? pos.x * W : (isPortrait ? W / 2 : W * 0.72);
-  const posY = pos ? pos.y * H : (isPortrait ? H * 0.72 : H * 0.45);
+  // Determine position taking into account position override ('bottom', 'center', 'top')
+  const positionSetting = options.typographyOverride?.position || useStore.getState().lyricsSettings?.position;
+  let posX = pos ? pos.x * W : (isPortrait ? W / 2 : W * 0.72);
+  let posY = pos ? pos.y * H : (isPortrait ? H * 0.72 : H * 0.45);
+
+  if (positionSetting === 'bottom') {
+    posX = W / 2;
+    posY = H * (isPortrait ? 0.82 : 0.80);
+  } else if (positionSetting === 'center') {
+    posX = W / 2;
+    posY = H * 0.50;
+  } else if (positionSetting === 'top') {
+    posX = W / 2;
+    posY = H * 0.20;
+  }
 
   ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}, system-ui, sans-serif`;
   ctx.textAlign = 'left';
@@ -1017,8 +1031,11 @@ function renderLyrics(
     }
   }
 
-  // Optional Container Pill Background (suppressed for cinematic-clean or when showContainerPill is false)
-  const showPill = options.typographyOverride?.showContainerPill ?? template.typography.showContainerPill;
+  // Optional Container Pill Background (respects showContainerPill override or lyricsSettings showBackgroundBox)
+  const showPill = options.typographyOverride?.showContainerPill ?? 
+    useStore.getState().lyricsSettings?.showBackgroundBox ?? 
+    template.typography.showContainerPill;
+
   if (showPill && activeLineOpacity > 0.01) {
     ctx.save();
     ctx.globalAlpha = activeLineOpacity;

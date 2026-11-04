@@ -383,11 +383,16 @@ export class OfflineFrameCompositor {
       }
       if (project.showLyrics !== false && project.lyrics.lines.length > 0) {
         const lyricsState = useLyricsVideoStore.getState();
+        const storeState = useStore.getState();
         const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
         const adaptedLines = project.lyrics.lines.map(line => ({
           ...line,
           words: line.words?.map(w => ({ word: w.word, start: w.startTime, end: w.endTime }))
         }));
+
+        const lyricPosSetting = project.lyrics?.position || storeState.lyricsSettings?.position || lyricsState.typographyOverride?.position || 'bottom';
+        const effectiveShowBox = project.lyrics?.showBackgroundBox ?? storeState.lyricsSettings?.showBackgroundBox ?? lyricsState.typographyOverride?.showContainerPill ?? true;
+
         renderLyricsVideoFrame(ctx, W, H, time, adaptedLines as any, {
           title: project.audio.title,
           artist: project.audio.artist,
@@ -406,7 +411,12 @@ export class OfflineFrameCompositor {
           fadeOutDuration: project.lyrics.fadeOutDuration,
           fadeEasing: project.lyrics.fadeEasing,
           customBackground: { type: 'color', value: 'transparent' },
-          typographyOverride: project.lyrics,
+          typographyOverride: {
+            ...project.lyrics,
+            ...lyricsState.typographyOverride,
+            showContainerPill: effectiveShowBox,
+            position: lyricPosSetting
+          },
           artworkOverride: project.artwork,
           animationOverride: lyricsState.animationOverride,
           elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },

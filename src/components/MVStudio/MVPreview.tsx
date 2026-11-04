@@ -488,6 +488,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           const templateId = lyricsVideoState.selectedTemplateId || 'vinyl';
           const tmpl = LYRIC_VIDEO_TEMPLATES[templateId] || LYRIC_VIDEO_TEMPLATES['vinyl'];
 
+          const lyricPosSetting = storeState.lyricsSettings?.position || lyricsVideoState.typographyOverride?.position || 'bottom';
+          const effectiveShowBox = storeState.lyricsSettings?.showBackgroundBox ?? lyricsVideoState.typographyOverride?.showContainerPill ?? true;
+
           renderLyricsVideoFrame(
             ctx,
             W,
@@ -513,7 +516,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               fadeOutDuration: lyricsVideoState.fadeOutDuration,
               fadeEasing: lyricsVideoState.fadeEasing,
               customBackground: { type: 'color', value: 'transparent' },
-              typographyOverride: lyricsVideoState.typographyOverride,
+              typographyOverride: {
+                ...lyricsVideoState.typographyOverride,
+                showContainerPill: effectiveShowBox,
+                position: lyricPosSetting
+              },
               animationOverride: lyricsVideoState.animationOverride,
               elementPositions: lyricsVideoState.elementPositions,
               watermarkText: 'Made with Joelizer',

@@ -145,7 +145,15 @@ export function MVSettingsPanel() {
             <div className="grid grid-cols-2 gap-1.5 pt-1">
               <button
                 type="button"
-                onClick={() => updateLyricsSettings({ position: lyricsPos === 'center' ? 'bottom' : 'center' })}
+                onClick={() => {
+                  const nextPos = lyricsPos === 'center' ? 'bottom' : 'center';
+                  updateLyricsSettings({ position: nextPos });
+                  useLyricsVideoStore.getState().updateTypographyOverride({ position: nextPos });
+                  useLyricsVideoStore.getState().setElementPosition('lyrics', {
+                    x: 0.5,
+                    y: nextPos === 'center' ? 0.5 : 0.82
+                  });
+                }}
                 className="p-1.5 rounded text-[10px] font-mono border bg-[#0a0c0f] border-[#232933] text-[#f0f3f6] flex items-center justify-between cursor-pointer hover:border-[#384252]"
               >
                 <span className="text-[#7e8999]">Position:</span>
@@ -154,7 +162,11 @@ export function MVSettingsPanel() {
 
               <button
                 type="button"
-                onClick={() => updateLyricsSettings({ showBackgroundBox: !showBox })}
+                onClick={() => {
+                  const nextBox = !showBox;
+                  updateLyricsSettings({ showBackgroundBox: nextBox });
+                  useLyricsVideoStore.getState().updateTypographyOverride({ showContainerPill: nextBox });
+                }}
                 className="p-1.5 rounded text-[10px] font-mono border bg-[#0a0c0f] border-[#232933] text-[#f0f3f6] flex items-center justify-between cursor-pointer hover:border-[#384252]"
               >
                 <span className="text-[#7e8999]">Box:</span>
