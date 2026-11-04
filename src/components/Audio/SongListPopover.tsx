@@ -6,7 +6,7 @@ import { syncAllLyrics } from '../../lib/timelineLyricsSync';
 import { AudioSourceModal } from './AudioSourceModal';
 import {
   ListMusic, Plus, Trash2, Play, Pause,
-  Search, X, Check, ChevronDown, Music2
+  Search, X, Check, ChevronDown, Music2, Pencil
 } from 'lucide-react';
 
 interface SongListPopoverProps {
@@ -18,6 +18,9 @@ export function SongListPopover({ align = 'left', compact = false }: SongListPop
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const [editingTrackId, setEditingTrackId] = useState<string | null>(null);
+  const [editedName, setEditedName] = useState('');
+  const [editedArtist, setEditedArtist] = useState('');
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const tracks = useStore(s => s.tracks);
@@ -25,6 +28,7 @@ export function SongListPopover({ align = 'left', compact = false }: SongListPop
   const isPlaying = useStore(s => s.isPlaying);
   const selectTrack = useStore(s => s.selectTrack);
   const removeTrack = useStore(s => s.removeTrack);
+  const updateTrackMetadata = useStore(s => s.updateTrackMetadata);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const lyricsLines = useStore(s => s.lyricsSettings?.lines) || [];
@@ -318,23 +322,69 @@ export function SongListPopover({ align = 'left', compact = false }: SongListPop
 
                     {/* Track Info */}
                     <div className="flex-1 min-w-0 pr-1">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`text-xs font-semibold truncate ${isSelected ? 'font-bold' : 'text-zinc-200 group-hover:text-white'}`}
-                          style={isSelected ? { color: activeColor } : undefined}
-                        >
-                          {track.name || 'Untitled Track'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 truncate mt-0.5">
-                        <span className="truncate">{track.artist || 'Unknown Artist'}</span>
-                        <span>•</span>
-                        <span className="font-mono text-zinc-500">{formatTime(track.duration || 0)}</span>
-                      </div>
+                      {editingTrackId === track.id ? (
+                        <form className="space-y-2 py-1" onClick={e => e.stopPropagation()}
+                          onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setEditingTrackId(null); }}
+                          onSubmit={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            updateTrackMetadata(actualIndex, { name: editedName, artist: editedArtist });
+                            setEditingTrackId(null);
+                          }}>
+                          <label className="block text-[10px] text-zinc-400">
+                            Song title
+                            <input aria-label="Song title" value={editedName}
+                              onChange={e => setEditedName(e.target.value)} maxLength={180}
+                              className="mt-1 h-8 w-full rounded-md border border-white/20 bg-[#141b23] px-2 text-xs text-white outline-none focus:border-accent" />
+                          </label>
+                          <label className="block text-[10px] text-zinc-400">
+                            Artist
+                            <input aria-label="Artist name" value={editedArtist}
+                              onChange={e => setEditedArtist(e.target.value)} maxLength={180}
+                              placeholder="Artist name"
+                              className="mt-1 h-8 w-full rounded-md border border-white/20 bg-[#141b23] px-2 text-xs text-white outline-none focus:border-accent" />
+                          </label>
+                          <div className="flex gap-2">
+                            <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-[11px] font-semibold text-black">
+                              Save
+                            </button>
+                            <button type="button" onClick={() => setEditingTrackId(null)}
+                              className="rounded-md border border-white/15 px-2 py-1.5 text-[11px] text-zinc-300">
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-xs font-semibold truncate ${isSelected ? 'font-bold' : 'text-zinc-200 group-hover:text-white'}`}
+                              style={isSelected ? { color: activeColor } : undefined}>
+                              {track.name || 'Untitled Track'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 truncate mt-0.5">
+                            <span className="truncate">{track.artist || 'Unknown Artist'}</span>
+                            <span>•</span>
+                            <span className="font-mono text-zinc-500">{formatTime(track.duration || 0)}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     {/* Right Actions */}
                     <div className="flex items-center gap-1 shrink-0">
+                      <button type="button" title="Edit title and artist"
+                        aria-label={`Edit title and artist for ${track.name}`}
+                        onClick={e => {
+                          e.stopPropagation();
+                          setEditingTrackId(track.id);
+                          setEditedName(track.name || '');
+                          setEditedArtist(track.artist === 'Uploaded Audio' ? '' : track.artist || '');
+                        }}
+                        className="rounded-md p-1.5 text-zinc-500 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-accent">
+                        <Pencil size={13} />
+                      </button>
+
                       {isSelected && (
                         <div className="p-1 rounded-full" style={{ color: activeColor }}>
                           <Check size={13} strokeWidth={2.5} />
