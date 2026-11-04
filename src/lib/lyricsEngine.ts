@@ -83,10 +83,64 @@ function getOrLoadVideo(url?: string): HTMLVideoElement | null {
     vid.loop = true;
     vid.playsInline = true;
     vid.crossOrigin = 'anonymous';
-    vid.play().catch(() => {});
+    // Playback is driven by the studio clock rather than autostarting.
     videoCache.set(url, vid);
   }
   return vid;
+}
+
+/**
+ * Keep live background footage in sync with the editor audio clock.
+ * A paused preview never seeks repeatedly to its own held timestamp.
+ * Explicit scrubbing seeks once; playback uses native decoding and only
+ * corrects material drift, rather than snapping each rendered frame.
+ */
+const backgroundClockState = new WeakMap<HTMLVideoElement, {
+  lastTime: number;
+  lastPlaying: boolean;
+  playPending: boolean;
+}>();
+
+export function syncLyricsBackgroundVideo(url: string | undefined, time: number, playing: boolean): void {
+  const video = getOrLoadVideo(url);
+  if (!video) return;
+  const state = backgroundClockState.get(video) || {
+    lastTime: Number.NaN, lastPlaying: false, playPending: false
+  };
+  const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+  const target = duration > 0 ? ((time % duration) + duration) % duration : 0;
+  const scrubbed = Number.isFinite(state.lastTime) && Math.abs(time - state.lastTime) > 0.04;
+  const resumed = playing && !state.lastPlaying;
+  state.lastTime = time;
+  state.lastPlaying = playing;
+  backgroundClockState.set(video, state);
+
+  if (!playing) {
+    if (!video.paused) video.pause();
+    // The audio timeline has moved while paused: update the background once.
+    // Otherwise preserve the decoded video frame without repeated seeks.
+    if (duration > 0 && !video.seeking &&
+      (scrubbed || (!Number.isFinite(video.currentTime)) ||
+       (video.readyState >= 1 && video.currentTime === 0 && target > 0.04 &&
+        !Number.isFinite(state.lastTime)))) {
+      if (Math.abs(video.currentTime - target) > 0.04) {
+        try { video.currentTime = target; } catch { /* Browser media may not be seekable yet */ }
+      }
+    }
+    return;
+  }
+
+  if (duration > 0 && !video.seeking) {
+    const difference = Math.abs(video.currentTime - target);
+    const circularDifference = Math.min(difference, Math.abs(difference - duration));
+    if ((resumed || circularDifference > 0.65) && circularDifference > 0.12) {
+      try { video.currentTime = target; } catch { /* Seek unsupported for current source */ }
+    }
+  }
+  if (video.paused && !state.playPending) {
+    state.playPending = true;
+    video.play().catch(() => {}).finally(() => { state.playPending = false; });
+  }
 }
 
 // Draw image covering bounds (like CSS object-fit: cover)
@@ -1198,7 +1252,8 @@ export function renderLyricsVideoFrame(
   // Background Settings Resolution
   const bgType = options.customBackground?.type || template.defaultBackground.type;
   const bgValue = options.customBackground?.value || template.defaultBackground.value;
-  const bgVideoUrl = options.customBackground?.videoUrl;
+  const bgVideoUrl = options.customBackground?.videoUrl ||
+    (bgType === 'video' ? bgValue : undefined);
 
   const albumArtImg = getOrLoadImage(metadata.albumArtUrl);
   const videoElem = options.customBackground?.videoElement || (bgVideoUrl ? getOrLoadVideo(bgVideoUrl) : null);
