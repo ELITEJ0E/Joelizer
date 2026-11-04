@@ -86,10 +86,11 @@ try {
     } catch { return false; }
   });
   const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps'];
-  if (AACsupported || opusSupported) modes.push('music-video-with-audio');
+  if (AACsupported || opusSupported) modes.push('music-video-with-audio', 'music-video-with-audio-long');
   for (const mode of (h264 ? modes : [])) {
     const fps = mode.endsWith('-60fps') ? 60 : 30;
-    const result = await page.evaluate(async ({ mode, fps }) => {
+    const duration = mode.endsWith('-long') ? 8 : 2;
+    const result = await page.evaluate(async ({ mode, fps, duration }) => {
       const modulePath = '/src/lib/renderers/OfflineWebCodecsRenderer.ts';
       const { OfflineWebCodecsRenderer } = await import(/* @vite-ignore */ modulePath);
       const renderer = new OfflineWebCodecsRenderer();
@@ -98,8 +99,8 @@ try {
         width: 320, height: 180, fps, resolution: '360p', aspectRatio: '16:9',
         // Verify timeline export from a nonzero start and clips trimmed from
         // different source-file positions rather than just playing at t=0.
-        exportRange: { start: 1, end: 3, duration: 2 },
-        audio: { url: mode === 'music-video-with-audio' ? '/staged/smoke-audio.wav' : null,
+        exportRange: { start: 1, end: 1 + duration, duration },
+        audio: { url: mode.startsWith('music-video-with-audio') ? '/staged/smoke-audio.wav' : null,
           albumArt: null, title: 'Sample', artist: 'CI', duration: 1 },
         background: { type: 'color', value: '#111111', blurAlbumArt: false },
         lyrics: { lines: [{ id: '1', startTime: 1, endTime: 3, text: 'Test lyrics' }],
@@ -136,7 +137,7 @@ try {
       const buffer = await response.arrayBuffer();
       URL.revokeObjectURL(result.outputUrl);
       return { bytes: Array.from(new Uint8Array(buffer)), format: result.format || 'mp4' };
-    }, { mode, fps });
+    }, { mode, fps, duration });
     const path = join(tmpdir(), `joelizer-offline-${mode}.${result.format}`);
     writeFileSync(path, Buffer.from(result.bytes));
     const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-count_frames',
@@ -144,14 +145,15 @@ try {
       '-show_entries', 'format=duration', '-of', 'json', path], { encoding: 'utf8' }));
     const video = probe.streams.find(s => s.codec_type === 'video');
     assert.ok(video, 'H264 stream missing');
-    if (mode === 'music-video-with-audio') {
+    if (mode.startsWith('music-video-with-audio')) {
       assert.ok(probe.streams.some(s => s.codec_type === 'audio'), 'Audio track missing from offline export');
       assert.ok(['mp4', 'webm'].includes(result.format), 'Audio must be muxed into a playable container');
     }
     const decodedFrames = Number(video.nb_read_frames || video.nb_frames);
     const totalDuration = Number(video.duration || probe.format?.duration);
-    assert.equal(decodedFrames, 2 * fps, `Offline export must decode exactly ${2 * fps} frames`);
-    assert.ok(totalDuration >= 1.95 && totalDuration <= 2.1, 'Offline export must not be truncated');
+    assert.equal(decodedFrames, duration * fps, `Offline export must decode exactly ${duration * fps} frames`);
+    assert.ok(totalDuration >= duration - 0.05 && totalDuration <= duration + 0.12,
+      'Offline export must not be truncated');
     const md5 = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-vf', 'fps=10,scale=80:45', '-f', 'framemd5', '-'],
       { encoding: 'utf8' }).split('\n').filter(line => line && !line.startsWith('#'));
     assert.ok(new Set(md5).size >= 5, 'Offline export must contain continuously changing video frames');
@@ -159,7 +161,7 @@ try {
       assert.equal(usedSlowMp4Fallback, false,
         'MP4 source must use fast sequential WebCodecs decoding, not slow per-frame HTML seeks');
     }
-    if (mode === 'music-video-with-audio') {
+    if (mode.startsWith('music-video-with-audio')) {
       // Verify decoded audio continuity, not merely presence of an audio
       // stream. The old 1024-sample Opus input created tiny timestamp gaps
       // every packet even though the output container looked valid.
@@ -167,9 +169,9 @@ try {
         '-f', 'f32le', '-ac', '1', '-ar', '48000', '-'], { maxBuffer: 20000000 });
       const samples = new Float32Array(
         pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
-      assert.ok(samples.length >= 48000 * 1.95, 'Audio must cover entire exported time range');
+      assert.ok(samples.length >= 48000 * (duration - 0.05), 'Audio must cover entire exported time range');
       let silentRun = 0, longestSilentRun = 0;
-      for (let i = 48000 / 5; i < Math.min(samples.length - 48000 / 5, 48000 * 1.8); i++) {
+      for (let i = 48000 / 5; i < Math.min(samples.length - 48000 / 5, 48000 * (duration - 0.2)); i++) {
         if (Math.abs(samples[i]) < 0.00015) {
           silentRun++;
           longestSilentRun = Math.max(longestSilentRun, silentRun);

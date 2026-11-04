@@ -104,7 +104,12 @@ export class OfflineFrameCompositor {
 
   async prepare(): Promise<void> {
     const project = this.project;
-    const clips = project.exportMode === 'music-video' ? project.videoClips : [];
+    // Only prepare media that actually occurs in the exported range.
+    // Importing many long clips should not block a short section export.
+    const clips = project.exportMode === 'music-video'
+      ? project.videoClips.filter(c =>
+          c.startTime < project.exportRange.end && c.endTime > project.exportRange.start)
+      : [];
     const videoUrls = new Set(clips.filter(c => c.type === 'video').map(c => c.url));
     const imageUrls = new Set(clips.filter(c => c.type === 'image').map(c => c.url));
     if (project.background.type === 'video' && project.background.videoUrl) videoUrls.add(project.background.videoUrl);
@@ -197,10 +202,27 @@ export class OfflineFrameCompositor {
       if (clip.type === 'video') {
         const sourceTime = clip.trimStart + time - clip.startTime;
         const fast = this.fastVideos.get(clip.url);
+        let renderedFastFrame = false;
         if (fast) {
-          const frame = await fast.frameAt(sourceTime);
-          cover(ctx, frame, W, H, frame.displayWidth, frame.displayHeight);
-        } else {
+          try {
+            // Broken or variable-frame-rate imported MP4 clips can stall a
+            // WebCodecs decoder. Fall back to normal browser video decoding.
+            const frame = await Promise.race([
+              fast.frameAt(sourceTime),
+              new Promise<never>((_, reject) => setTimeout(() =>
+                reject(new Error('VideoDecoder stalled on imported clip')), 12000))
+            ]);
+            cover(ctx, frame, W, H, frame.displayWidth, frame.displayHeight);
+            renderedFastFrame = true;
+          } catch (error) {
+            console.warn('[MV export] Switching stalled clip to browser decoder:', clip.id, error);
+            fast.dispose();
+            this.fastVideos.delete(clip.url);
+            const fallback = await loadVideo(clip.url);
+            this.videos.set(clip.url, { element: fallback, lastFrame: NaN });
+          }
+        }
+        if (!renderedFastFrame) {
           const media = this.videos.get(clip.url);
           if (!media) throw new Error('Missing prepared video clip ' + clip.id);
           await atTime(media, sourceTime);
