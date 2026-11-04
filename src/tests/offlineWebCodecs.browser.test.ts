@@ -29,7 +29,9 @@ try {
   page.setDefaultTimeout(120000);
   let usedSlowMp4Fallback = false;
   page.on('console', msg => {
-    if (msg.text().includes('Fast MP4 decoder unavailable')) usedSlowMp4Fallback = true;
+    if (msg.text().includes('Fast MP4 decoder unavailable') ||
+        msg.text().includes('Switching stalled clip to browser decoder') ||
+        msg.text().includes('Fast background decoder unavailable')) usedSlowMp4Fallback = true;
     process.stderr.write('Browser ' + msg.type() + ': ' + msg.text() + '\n');
   });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
@@ -167,7 +169,7 @@ try {
         'Looping lyrics background must show changing frames, including after the loop boundary');
       console.log('Looping background rendered across its end:', new Set(md5).size, 'distinct frame hashes');
     }
-    if (mode.startsWith('music-video')) {
+    if (mode.startsWith('music-video') || mode === 'lyrics-video-looped-background') {
       assert.equal(usedSlowMp4Fallback, false,
         'MP4 source must use fast sequential WebCodecs decoding, not slow per-frame HTML seeks');
     }
