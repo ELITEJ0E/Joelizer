@@ -15,6 +15,7 @@ import { ExportRangeSlider } from './ExportRangeSlider';
 import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
 import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
 import { ServerRemotionRenderer } from '../../lib/renderers/ServerRemotionRenderer';
+import { OfflineWebCodecsRenderer } from '../../lib/renderers/OfflineWebCodecsRenderer';
 import { AspectRatioType, ExportResolutionType, ExportModeType } from '../../types/projectJson';
 import { 
   generateLRC, generateEnhancedLRC, generateSRT, generateASS, 
@@ -35,9 +36,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   // Video Export Engine: Server Remotion vs Fast Browser Engine
   // Browser capture works immediately on Vercel. Upgrade to independent MP4 rendering
   // only after a real persistent Remotion backend responds to /api/health.
-  const [engineChoice, setEngineChoice] = useState<'server' | 'browser'>('browser');
+  const [engineChoice, setEngineChoice] = useState<'server' | 'offline' | 'browser'>('browser');
   const manuallySelectedEngine = useRef(false);
-  const chooseEngine = (engine: 'server' | 'browser') => {
+  const chooseEngine = (engine: 'server' | 'offline' | 'browser') => {
     manuallySelectedEngine.current = true;
     setEngineChoice(engine);
   };
@@ -48,6 +49,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [stageMessage, setStageMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadFormat, setDownloadFormat] = useState<'webm' | 'mp4'>('webm');
   const [fileSize, setFileSize] = useState<number | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [activeRendererName, setActiveRendererName] = useState<string>('');
@@ -60,14 +62,19 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
-    new ServerRemotionRenderer().isAvailable().then(available => {
-      if (alive) {
-        setServerAvailable(available);
-        if (!manuallySelectedEngine.current) {
-          setEngineChoice(available ? 'server' : 'browser');
-        }
+    // Probe local WebCodecs independently: waiting for the server health
+    // timeout previously left Browser MediaRecorder selected for several
+    // seconds, leading to another broken clip export when users clicked fast.
+    new OfflineWebCodecsRenderer().isAvailable().then(offline => {
+      if (alive && !manuallySelectedEngine.current && offline) {
+        setEngineChoice('offline');
       }
-    });
+    }).catch(() => {});
+    new ServerRemotionRenderer().isAvailable().then(server => {
+      if (!alive) return;
+      setServerAvailable(server);
+      if (server && !manuallySelectedEngine.current) setEngineChoice('server');
+    }).catch(() => { if (alive) setServerAvailable(false); });
     return () => { alive = false; };
   }, []);
   const currentAspectRatio = useStore(s => s.aspectRatio);
@@ -193,8 +200,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   };
 
   // Unified Production Export (Server Remotion or Fast Browser MediaRecorder)
-  const handleStartExport = async (forcedEngine?: 'server' | 'browser') => {
-    const targetEngine = forcedEngine || engineChoice;
+  const handleStartExport = async (forcedEngine?: 'server' | 'offline' | 'browser') => {
+    let targetEngine = forcedEngine || engineChoice;
 
     try {
       isCancelledRef.current = false;
@@ -205,19 +212,26 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setExportError(null);
       setDownloadUrl(null);
 
-      // Check engine first: Vercel has no server-rendering process. Never
-      // upload assets or silently downgrade quality to a foreground recorder.
+      // Recheck codec support at click time, so very fast user interactions
+      // cannot accidentally select the laggy real-time browser recorder.
+      if (!forcedEngine && targetEngine === 'browser' &&
+          await new OfflineWebCodecsRenderer().isAvailable()) {
+        targetEngine = 'offline';
+        setEngineChoice('offline');
+      }
       const renderer = await getBestAvailableRenderer(targetEngine);
       setActiveRendererName(renderer.name);
       setStageMessage(renderer.type === 'server'
         ? 'Uploading assets to the background-safe Remotion engine...'
-        : 'Preparing real-time browser recording (keep tab visible)...');
+        : renderer.type === 'offline'
+          ? 'Preparing exact video frames for smooth MP4 export...'
+          : 'Preparing real-time browser recording (keep tab visible)...');
       setProgress(12);
       const projectJson = await buildCanonicalProjectJson({
         resolution,
         fps,
         modeOverride: exportMode,
-        skipStaging: renderer.type === 'browser'
+        skipStaging: renderer.type === 'browser' || renderer.type === 'offline'
       });
 
       const result = await renderer.render(projectJson, (prog) => {
@@ -229,6 +243,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       });
 
       if (result.outputUrl) {
+        setDownloadFormat(result.format || (renderer.type === 'browser' ? 'webm' : 'mp4'));
         setDownloadUrl(result.outputUrl);
         setFileSize(result.fileSize || null);
         setExportStage('ready');
@@ -445,7 +460,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
                     <a
                       href={downloadUrl || '#'}
-                      download={`${(projectName || 'Joelizer-Video').replace(/[^a-zA-Z0-9_-]/g, '_')}.${downloadUrl?.startsWith('blob:') ? 'webm' : 'mp4'}`}
+                      download={`${(projectName || 'Joelizer-Video').replace(/[^a-zA-Z0-9_-]/g, '_')}.${downloadFormat}`}
                       className="w-full py-3.5 px-6 rounded-xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 text-black transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl cursor-pointer mt-2"
                       style={{
                         background: `linear-gradient(135deg, ${activeColor}, #ffffff)`,
@@ -453,7 +468,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       }}
                     >
                       <Download size={16} />
-                      <span>Download {downloadUrl?.startsWith('blob:') ? 'Video (WebM)' : 'Production MP4'}</span>
+                      <span>Download {downloadFormat === 'mp4' ? 'Smooth MP4' : 'Video (WebM)'}</span>
                     </a>
 
                     <button

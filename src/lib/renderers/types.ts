@@ -18,7 +18,7 @@ export interface RenderProgress {
   fileSize?: number;
 }
 
-export type RendererType = 'server' | 'local' | 'browser';
+export type RendererType = 'server' | 'local' | 'browser' | 'offline';
 
 export interface VideoRenderer {
   name: string;
@@ -27,5 +27,5 @@ export interface VideoRenderer {
   render(
     project: CanonicalProjectJson,
     onProgress: (progress: RenderProgress) => void
-  ): Promise<{ outputUrl: string; fileSize?: number }>;
+  ): Promise<{ outputUrl: string; fileSize?: number; format?: 'webm' | 'mp4' }>;
 }
