@@ -292,6 +292,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               elementPositions: lyricsVideoState.elementPositions,
               watermarkText: 'Made with Joelizer',
               showSafeArea: lyricsVideoState.showSafeArea,
+              showArtwork: lyricsVideoState.showArtwork !== false,
+              showVisualizer: lyricsVideoState.showVisualizer !== false,
+              showLyrics: lyricsVideoState.showLyrics !== false,
+              showMeta: lyricsVideoState.showMeta !== false,
+              visualizerSettingsOverride: storeState.visualizerSettings,
               showBackgroundVisualizer: activeVideoMode === 'music-video' && !!isVisualizerScene
             },
             freqData,
