@@ -299,6 +299,12 @@ export class OfflineFrameCompositor {
         visibleLineCount: lyricsState.visibleLineCount,
         showArtwork: project.showArtwork ?? (project.templateId !== 'cinematic-clean'),
         showVisualizer: project.showVisualizer ?? (project.visualizer?.enabled !== false && project.templateId !== 'cinematic-clean'),
+        // Offline export must use its serialized visualizer config, not a
+        // possibly stale global Zustand flag from the preview/editor session.
+        visualizerSettingsOverride: {
+          ...project.visualizer,
+          enabled: project.showVisualizer ?? project.visualizer?.enabled ?? true
+        },
         showLyrics: project.showLyrics ?? true,
         showMeta: project.showMeta ?? (project.templateId !== 'cinematic-clean'),
         bilingualEnabled: project.lyrics.bilingualEnabled,
