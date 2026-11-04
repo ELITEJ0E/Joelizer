@@ -1181,6 +1181,26 @@ function renderLyrics(
   ctx.restore();
 }
 
+/**
+ * Render only the timed lyric text over an already composited MV frame.
+ * Keep the existing MV video/image pixels intact: no background, artwork,
+ * visualizer, metadata, or watermark passes. This deliberately reuses the
+ * same fade/karaoke implementation as the full Lyrics Video renderer.
+ */
+export function renderLyricsOverlayFrame(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  currentTime: number,
+  lyricsLines: LyricLine[],
+  options: RenderLyricsVideoOptions
+): void {
+  if (options.showLyrics === false || lyricsLines.length === 0) return;
+  const lyricPosition = options.elementPositions?.lyrics ||
+    getDefaultPositions(options.aspectRatio, options.template.id).lyrics;
+  renderLyrics(ctx, W, H, currentTime, lyricsLines, options, options.template, lyricPosition);
+}
+
 // Render Audio Spectrum Bars / Visualizer Dots
 export function renderSegmentDots(
   ctx: CanvasRenderingContext2D,
