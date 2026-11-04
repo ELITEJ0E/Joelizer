@@ -25,6 +25,7 @@ export class FastMp4Source {
   private sampleIndex = 0;
   private lastTarget = -1;
   private decoderError: Error | null = null;
+  private flushed = false;
 
   readonly durationSeconds: number;
   private constructor(samples: Sample[], config: VideoDecoderConfig) {
@@ -96,6 +97,7 @@ export class FastMp4Source {
     for (const frame of this.decoded) frame.close();
     this.decoded = [];
     this.decoderError = null;
+    this.flushed = false;
     this.lastTarget = -1;
 
     // Decode from the nearest previous random access point, not from a
@@ -144,9 +146,11 @@ export class FastMp4Source {
       if (this.decoderError) throw this.decoderError;
       if (++batches > 5000) throw new Error('Imported video decoder exceeded safe sample limit');
     }
-    if (this.sampleIndex === this.samples.length && this.decoder && this.decoder.state === 'configured') {
+    if (!this.flushed && this.sampleIndex === this.samples.length && this.decoder &&
+        this.decoder.state === 'configured') {
       // End-of-stream flush is safe because no delta packets follow.
       await this.decoder.flush();
+      this.flushed = true;
       if (this.decoderError) throw this.decoderError;
     }
     if (!this.decoded.length) throw new Error('MP4 decoder returned no frames');
