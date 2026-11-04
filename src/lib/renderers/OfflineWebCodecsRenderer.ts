@@ -166,7 +166,17 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
       if (audioBuffer) {
         onProgress({ stage: 'encoding', stageMessage: 'Encoding soundtrack with exact timestamps...', progress: 10 });
         audioEncoder = new Audio({
-          output: (chunk: any, metadata: any) => { muxer.addAudioChunk(chunk, metadata); audioEncoded++; },
+          output: (chunk: any, metadata: any) => {
+            if (audioEncoded < 4) {
+              const bytes = new Uint8Array(Math.min(16, chunk.byteLength));
+              chunk.copyTo(bytes);
+              console.log('[export audio packet]', audioEncoded, 'ts', chunk.timestamp,
+                'duration', chunk.duration, 'bytes', chunk.byteLength,
+                'head', Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(''));
+            }
+            muxer.addAudioChunk(chunk, metadata);
+            audioEncoded++;
+          },
           error: (error: Error) => { encoderError = error; }
         });
         audioEncoder.configure({ codec: useWebm ? 'opus' : 'mp4a.40.2', sampleRate: SAMPLE_RATE, numberOfChannels: 2, bitrate: useWebm ? 192000 : 256000 });
