@@ -216,7 +216,8 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
         } finally {
           videoFrame.close();
         }
-        if (videoEncoder.encodeQueueSize > 12) await videoEncoder.flush();
+        const maxQueue = resolvedProject.width >= 1920 ? 4 : 8;
+        if (videoEncoder.encodeQueueSize > maxQueue) await videoEncoder.flush();
         if (index % Math.max(1, Math.round(resolvedProject.fps / 2)) === 0) {
           onProgress({
             stage: 'rendering',

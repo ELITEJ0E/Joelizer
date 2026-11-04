@@ -24,15 +24,23 @@ export class FastMp4Source {
   private decoded: VideoFrame[] = [];
   private sampleIndex = 0;
   private lastTarget = -1;
+  private currentTargetUs = 0;
   private decoderError: Error | null = null;
   private flushed = false;
 
   readonly durationSeconds: number;
+  readonly width: number;
+  readonly height: number;
+  readonly codec: string;
+
   private constructor(samples: Sample[], config: VideoDecoderConfig) {
     this.durationSeconds = samples.reduce((duration, sample) =>
       Math.max(duration, (sample.timestamp + sample.duration) / 1e6), 0);
     this.samples = samples;
     this.config = config;
+    this.width = config.codedWidth || 0;
+    this.height = config.codedHeight || 0;
+    this.codec = config.codec || 'unknown';
   }
 
   static async open(url: string): Promise<FastMp4Source> {
@@ -97,26 +105,79 @@ export class FastMp4Source {
     return new FastMp4Source(samples, support.config);
   }
 
+  /**
+   * Bounded queue management: Keeps only the most relevant decoded frames.
+   * In 1080p, holding onto dozens of decoded VideoFrames exhausts the browser's
+   * hardware video decoder texture pool, stalling decode callbacks indefinitely.
+   * By closing obsolete frames immediately as newer frames arrive, the decoder
+   * buffer pool remains unblocked.
+   */
+  private pruneDecoded(targetUs: number) {
+    if (this.decoded.length <= 2) return;
+    this.decoded.sort((a, b) => a.timestamp - b.timestamp);
+    let bestPastIdx = -1;
+    for (let i = 0; i < this.decoded.length; i++) {
+      if (this.decoded[i].timestamp <= targetUs) {
+        bestPastIdx = i;
+      } else {
+        break;
+      }
+    }
+    // Any frame before the closest past frame is obsolete and must be released immediately
+    if (bestPastIdx > 0) {
+      for (let i = 0; i < bestPastIdx; i++) {
+        try { this.decoded[i].close(); } catch {}
+      }
+      this.decoded.splice(0, bestPastIdx);
+    }
+    // Cap future lookahead frames to 3 to keep GPU memory strictly bounded
+    const maxFuture = 3;
+    const pastCount = bestPastIdx >= 0 ? 1 : 0;
+    while (this.decoded.length > pastCount + maxFuture) {
+      const excess = this.decoded.pop();
+      if (excess) {
+        try { excess.close(); } catch {}
+      }
+    }
+  }
+
   private reset(targetUs: number) {
-    this.decoder?.close();
-    this.decoder = null;
-    for (const frame of this.decoded) frame.close();
+    if (this.decoder) {
+      try {
+        if (this.decoder.state !== 'closed') this.decoder.close();
+      } catch {}
+      this.decoder = null;
+    }
+    for (const frame of this.decoded) {
+      try { frame.close(); } catch {}
+    }
     this.decoded = [];
     this.decoderError = null;
     this.flushed = false;
     this.lastTarget = -1;
 
-    // Decode from the nearest previous random access point, not from a
-    // delta frame. This supports arbitrary user trimStart values.
+    // Decode from the nearest previous sync sample (keyframe)
     let keyIndex = 0;
     for (let i = 0; i < this.samples.length; i++) {
-      if (this.samples[i].timestamp > targetUs) break;
-      if (this.samples[i].key) keyIndex = i;
+      if (this.samples[i].key) {
+        if (this.samples[i].timestamp <= targetUs) {
+          keyIndex = i;
+        } else {
+          break;
+        }
+      }
     }
     this.sampleIndex = keyIndex;
+    this.currentTargetUs = targetUs;
     this.decoder = new VideoDecoder({
-      output: frame => this.decoded.push(frame),
-      error: error => { this.decoderError = error; }
+      output: frame => {
+        this.decoded.push(frame);
+        this.pruneDecoded(this.currentTargetUs);
+      },
+      error: error => {
+        console.warn(`[FastMp4Source] VideoDecoder error on ${this.codec}:`, error);
+        this.decoderError = error;
+      }
     });
     this.decoder.configure(this.config);
   }
@@ -126,21 +187,40 @@ export class FastMp4Source {
       ? this.samples[this.samples.length - 1].timestamp
       : 0;
     const targetUs = Math.min(Math.round(Math.max(0, seconds) * 1e6), lastSampleTimestamp);
-    // A different cut or loop boundary can jump to an earlier or remote offset.
+    this.currentTargetUs = targetUs;
+
+    // A cut jump, loop wrap, or distant forward seek triggers a reset to the nearest keyframe
     if (!this.decoder || this.decoder.state === 'closed' || this.decoderError ||
         (this.lastTarget >= 0 && (targetUs < this.lastTarget - 2000 || targetUs > this.lastTarget + 1_500_000))) {
       this.reset(targetUs);
     }
     this.lastTarget = targetUs;
 
+    // Prune before feeding additional samples
+    this.pruneDecoded(targetUs);
+
     let batches = 0;
     while (this.sampleIndex < this.samples.length &&
       (!this.decoded.length || this.decoded[this.decoded.length - 1].timestamp < targetUs)) {
-      // Do NOT flush between batches. Per WebCodecs, flush() resets the
-      // decoder's keyframe requirement; subsequent H.264 P/B frames then
-      // throw DataError until another IDR. Decode forward in one continuous
-      // stream, allowing reordered B frames to arrive asynchronously.
-      const count = Math.min(12, this.samples.length - this.sampleIndex);
+      if (this.decoderError) throw this.decoderError;
+
+      // Backpressure: If decodeQueueSize reaches 4 or higher, wait for the dequeue event
+      // instead of flooding the hardware decoder with uncompressed 1080p textures
+      if (this.decoder && this.decoder.decodeQueueSize >= 4) {
+        await new Promise<void>(resolve => {
+          let resolved = false;
+          const onDone = () => {
+            if (!resolved) {
+              resolved = true;
+              resolve();
+            }
+          };
+          this.decoder!.addEventListener('dequeue', onDone, { once: true });
+          setTimeout(onDone, 30);
+        });
+      }
+
+      const count = Math.min(4, this.samples.length - this.sampleIndex);
       for (let i = 0; i < count; i++) {
         const sample = this.samples[this.sampleIndex++];
         this.decoder!.decode(new EncodedVideoChunk({
@@ -150,37 +230,53 @@ export class FastMp4Source {
           data: sample.data
         }));
       }
-      // Yield for decoder output callbacks and keep GPU/CPU queues bounded.
-      await new Promise(resolve => setTimeout(resolve, this.decoder!.decodeQueueSize > 24 ? 5 : 0));
+
+      // Yield to macrotask so the browser's GPU worker thread can process output callbacks
+      await new Promise(resolve => setTimeout(resolve, 0));
       if (this.decoderError) throw this.decoderError;
-      if (++batches > 5000) throw new Error('Imported video decoder exceeded safe sample limit');
+      if (++batches > 4000) {
+        throw new Error(`Imported video decoder exceeded sample batch limit at ${targetUs}us (${this.codec}, queue: ${this.decoder?.decodeQueueSize}, open frames: ${this.decoded.length})`);
+      }
     }
+
     if (!this.flushed && this.sampleIndex === this.samples.length && this.decoder &&
         this.decoder.state === 'configured') {
-      // End-of-stream flush is safe because no delta packets follow.
       await this.decoder.flush();
       this.flushed = true;
       if (this.decoderError) throw this.decoderError;
     }
-    if (!this.decoded.length) throw new Error('MP4 decoder returned no frames');
+
+    if (!this.decoded.length) {
+      throw new Error(`MP4 decoder returned no frames for target ${targetUs}us (${this.codec})`);
+    }
+
     this.decoded.sort((a, b) => a.timestamp - b.timestamp);
     let selected = 0;
     for (let i = 0; i < this.decoded.length; i++) {
       if (this.decoded[i].timestamp > targetUs) break;
       selected = i;
     }
-    // Retain the chosen frame for output FPS > input FPS; close older
-    // decoded frames to keep long projects within reasonable memory.
-    for (let i = 0; i < selected; i++) this.decoded[i].close();
+
+    // Retain the chosen frame for output FPS > input FPS; close older frames
+    for (let i = 0; i < selected; i++) {
+      try { this.decoded[i].close(); } catch {}
+    }
     if (selected) this.decoded.splice(0, selected);
+
     // Return a clone so caller drawing and decoder resets don't cross-close
     return this.decoded[0].clone();
   }
 
   dispose() {
-    this.decoder?.close();
-    this.decoder = null;
-    for (const frame of this.decoded) frame.close();
+    if (this.decoder) {
+      try {
+        if (this.decoder.state !== 'closed') this.decoder.close();
+      } catch {}
+      this.decoder = null;
+    }
+    for (const frame of this.decoded) {
+      try { frame.close(); } catch {}
+    }
     this.decoded = [];
     this.samples = [];
   }

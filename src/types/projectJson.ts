@@ -129,24 +129,47 @@ export function getResolutionDimensions(
   aspectRatio: AspectRatioType,
   resolution: ExportResolutionType = '1080p'
 ): { width: number; height: number } {
-  let baseHeight = 1080;
-  if (resolution === '720p') baseHeight = 720;
-  if (resolution === '360p') baseHeight = 360;
+  let base = 1080;
+  if (resolution === '720p') base = 720;
+  if (resolution === '360p') base = 360;
+
+  let width: number;
+  let height: number;
 
   switch (aspectRatio) {
     case '16:9':
-      return { width: Math.round(baseHeight * (16 / 9)), height: baseHeight };
+      width = Math.round(base * (16 / 9));
+      height = base;
+      break;
     case '9:16':
-      return { width: Math.round(baseHeight * (9 / 16)), height: baseHeight };
+      width = base;
+      height = Math.round(base * (16 / 9));
+      break;
     case '1:1':
-      return { width: baseHeight, height: baseHeight };
+      width = base;
+      height = base;
+      break;
     case '4:5':
-      return { width: Math.round(baseHeight * (4 / 5)), height: baseHeight };
+      width = base;
+      height = Math.round(base * (5 / 4));
+      break;
     case '3:4':
-      return { width: Math.round(baseHeight * (3 / 4)), height: baseHeight };
+      width = base;
+      height = Math.round(base * (4 / 3));
+      break;
     case '4:3':
-      return { width: Math.round(baseHeight * (4 / 3)), height: baseHeight };
+      width = Math.round(base * (4 / 3));
+      height = base;
+      break;
     default:
-      return { width: Math.round(baseHeight * (16 / 9)), height: baseHeight };
+      width = Math.round(base * (16 / 9));
+      height = base;
+      break;
   }
+
+  // Ensure even dimensions required by H.264 4:2:0 encoding
+  return {
+    width: Math.max(2, Math.round(width / 2) * 2),
+    height: Math.max(2, Math.round(height / 2) * 2)
+  };
 }

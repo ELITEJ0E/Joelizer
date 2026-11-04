@@ -319,15 +319,18 @@ export class OfflineFrameCompositor {
         let renderedFastFrame = false;
         if (fast) {
           try {
-            // Broken or variable-frame-rate imported MP4 clips can stall a
-            // WebCodecs decoder. Fall back to normal browser video decoding.
+            // Sequential fast WebCodecs decoding for MP4 clips.
+            // Bounded queue in FastMp4Source prevents 1080p decoder pool deadlock.
             const frame = await Promise.race([
               fast.frameAt(sourceTime),
               new Promise<never>((_, reject) => setTimeout(() =>
-                reject(new Error('VideoDecoder stalled on imported clip')), 12000))
+                reject(new Error(`VideoDecoder stalled on clip "${clip.id}" at ${sourceTime.toFixed(2)}s`)), 25000))
             ]);
-            cover(ctx, frame, W, H, frame.displayWidth, frame.displayHeight);
-            try { frame.close(); } catch {}
+            try {
+              cover(ctx, frame, W, H, frame.displayWidth, frame.displayHeight);
+            } finally {
+              try { frame.close(); } catch {}
+            }
             renderedFastFrame = true;
           } catch (error) {
             console.warn('[MV export] Switching stalled clip to browser decoder:', clip.id, error);
