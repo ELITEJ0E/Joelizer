@@ -153,7 +153,7 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
       ]
     });
 
-    const json = await buildCanonicalProjectJson({ skipStaging: true });
+    const json = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'music-video' });
     assert(
       json.videoClips.length === 1 && json.videoClips[0].url === 'https://example.com/video1.mp4',
       '4. Converts video timeline clips into canonical representation'
@@ -175,13 +175,25 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
       ]
     });
 
-    const json = await buildCanonicalProjectJson({ skipStaging: true });
+    const json = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'music-video' });
     assert(
       json.videoClips.length === 2 && json.videoClips[0].startTime === 0 && json.videoClips[1].startTime === 3,
       '5. Handles multiple clips ordering and timeline sequence'
     );
   } catch (e: any) {
     assert(false, '5. Handles multiple clips ordering and timeline sequence', e.message);
+  }
+
+  // Lyrics Studio must not inherit unrelated MV timeline clips. Previously,
+  // an active clip could suppress vinyl and visualizer layers on server export.
+  try {
+    const lyricsOnly = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'lyrics-video' });
+    assert(
+      lyricsOnly.videoClips.length === 0,
+      'Lyrics Video exports exclude MV timeline clips so vinyl and visualizers remain visible'
+    );
+  } catch (e: any) {
+    assert(false, 'Lyrics Video exports exclude MV timeline clips', e.message);
   }
 
   // 6. Stage asset helper returns remote URLs unchanged
