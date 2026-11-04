@@ -52,12 +52,20 @@ try {
     return { hasEncoder: true, configs };
   });
   console.log('Chrome WebCodecs encoder support:', JSON.stringify(encoderSupport));
+  const smoothRendererAvailable = await page.evaluate(async () => {
+    const rendererPath = '/src/lib/renderers/OfflineWebCodecsRenderer.ts';
+    const { OfflineWebCodecsRenderer } = await import(/* @vite-ignore */ rendererPath);
+    return new OfflineWebCodecsRenderer().isAvailable();
+  });
+  console.log('Smooth export engine available for 1080p:', smoothRendererAvailable);
 
 
   const h264 = encoderSupport.configs?.some((probe: any) =>
     probe.codec.startsWith('avc1.') && probe.supported === true);
   if (!h264) {
-    console.log('SKIP offline MP4 browser integration: this CI Chrome build has no H.264 VideoEncoder. Server-side MP4 tests still verify exported files.');
+    console.log('SKIP MP4 browser integration: this Chrome build has no H.264 VideoEncoder.');
+  } else {
+    assert.ok(smoothRendererAvailable, '1080p smooth export must be selectable on supported Chrome platforms');
   }
   const AACsupported = await page.evaluate(async () => {
     const Audio = (globalThis as any).AudioEncoder;
