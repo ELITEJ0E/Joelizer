@@ -31,8 +31,9 @@ export function drawPositionedLyricsVisualizer(
     const cx = boxW / 2;
     const cy = boxH / 2;
     const radius = Math.max(7, boxH * 0.27);
-    ctx.fillStyle = settings.color || '#00e676';
-    ctx.shadowColor = ctx.fillStyle;
+    const idleColor = settings.color || '#00e676';
+    ctx.fillStyle = idleColor;
+    ctx.shadowColor = idleColor;
     ctx.shadowBlur = 8;
     for (let i = 0; i < 12; i++) {
       const angle = i / 12 * 2 * Math.PI;
