@@ -3,7 +3,11 @@ import type { RenderProgress, VideoRenderer, RendererType } from './types';
 import { OfflineFrameCompositor } from './OfflineFrameCompositor';
 
 const SAMPLE_RATE = 48000;
-const AUDIO_CHUNK_SAMPLES = 1024;
+const AAC_CHUNK_SAMPLES = 1024;
+// 48 kHz Opus packets are 20 ms = 960 samples. Supplying 1024-sample
+// packets creates a 1.333 ms timestamp mismatch per packet, perceived as
+// rapid audio stutter/clicking after muxing.
+const OPUS_CHUNK_SAMPLES = 960;
 
 type EncoderClass = {
   new (init: { output: (chunk: any, metadata: any) => void; error: (error: Error) => void }): any;
@@ -168,18 +172,22 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
         audioEncoder.configure({ codec: useWebm ? 'opus' : 'mp4a.40.2', sampleRate: SAMPLE_RATE, numberOfChannels: 2, bitrate: useWebm ? 192000 : 256000 });
         const left = audioBuffer.getChannelData(0);
         const right = audioBuffer.getChannelData(1);
-        for (let offset = 0; offset < audioBuffer.length; offset += AUDIO_CHUNK_SAMPLES) {
+        const audioChunkSamples = useWebm ? OPUS_CHUNK_SAMPLES : AAC_CHUNK_SAMPLES;
+        for (let offset = 0; offset < audioBuffer.length; offset += audioChunkSamples) {
           if (encoderError) throw encoderError;
-          const count = Math.min(AUDIO_CHUNK_SAMPLES, audioBuffer.length - offset);
-          const planar = new Float32Array(count * 2);
+          const count = Math.min(audioChunkSamples, audioBuffer.length - offset);
+          // Never feed partial final Opus packets. Zero padding the tail
+          // preserves the correct 20 ms timebase without holes between chunks.
+          const packetSamples = useWebm ? OPUS_CHUNK_SAMPLES : count;
+          const planar = new Float32Array(packetSamples * 2);
           planar.set(left.subarray(offset, offset + count), 0);
-          planar.set(right.subarray(offset, offset + count), count);
+          planar.set(right.subarray(offset, offset + count), packetSamples);
           const audioFrame = new (globalThis as any).AudioData({
-            format: 'f32-planar', sampleRate: SAMPLE_RATE, numberOfFrames: count,
+            format: 'f32-planar', sampleRate: SAMPLE_RATE, numberOfFrames: packetSamples,
             numberOfChannels: 2, timestamp: Math.round(offset * 1e6 / SAMPLE_RATE), data: planar
           });
           try { audioEncoder.encode(audioFrame); } finally { audioFrame.close(); }
-          if (audioEncoder.encodeQueueSize > 8) await audioEncoder.flush();
+          if (audioEncoder.encodeQueueSize > 64) await audioEncoder.flush();
         }
         await audioEncoder.flush();
         if (encoderError) throw encoderError;
@@ -201,11 +209,11 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
         } finally {
           videoFrame.close();
         }
-        if (videoEncoder.encodeQueueSize > 6) await videoEncoder.flush();
+        if (videoEncoder.encodeQueueSize > 12) await videoEncoder.flush();
         if (index % Math.max(1, Math.round(project.fps / 2)) === 0) {
           onProgress({
             stage: 'rendering',
-            stageMessage: `Rendering exact frame ${index + 1}/${totalFrames} (not real-time capture)...`,
+            stageMessage: `Rendering video ${Math.min(project.exportRange.duration, (index + 1) / project.fps).toFixed(1)}s / ${project.exportRange.duration.toFixed(1)}s...`,
             progress: 15 + Math.round(index / totalFrames * 75)
           });
           // Yield to controls without affecting media timestamps.
