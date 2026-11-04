@@ -184,8 +184,10 @@ try {
   await page.keyboard.press('Escape');
   await mobileDialog.waitFor({ state: 'detached' });
   const metadata = await page.evaluate(async () => {
-    const { useStore } = await import(/* @vite-ignore */ '/src/store/useStore.ts');
-    const { buildCanonicalProjectJson } = await import(/* @vite-ignore */ '/src/lib/projectJsonBuilder.ts');
+    const storePath = '/src/store/useStore.ts';
+    const projectPath = '/src/lib/projectJsonBuilder.ts';
+    const { useStore } = await import(/* @vite-ignore */ storePath);
+    const { buildCanonicalProjectJson } = await import(/* @vite-ignore */ projectPath);
     const data = new File(['testing metadata'], 'original-track.wav', { type: 'audio/wav' });
     useStore.getState().setAudio(data, URL.createObjectURL(data), 10, null,
       { name: 'Original song', artist: 'Uploaded Audio' });
