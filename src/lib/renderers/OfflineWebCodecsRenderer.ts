@@ -18,11 +18,11 @@ function videoEncoderClass(): EncoderClass | null {
   return (globalThis as any).VideoEncoder || null;
 }
 
-async function findVideoConfig(project: { width: number; height: number; fps: number }) {
+async function findVideoConfig(project: { width: number; height: number; fps: number }, codecs: string[] = ['avc1.64002a', 'avc1.4d002a', 'avc1.42001f']) {
   const Video = videoEncoderClass();
   if (!Video) return null;
   const bitrate = Math.max(6_000_000, Math.min(35_000_000, Math.round(project.width * project.height * project.fps * 0.16)));
-  for (const codec of ['avc1.64002a', 'avc1.4d002a', 'avc1.42001f']) {
+  for (const codec of codecs) {
     // Many supported Chrome H.264 software encoders reject the combination of
     // prefer-hardware + quality latency mode, particularly in headless/browser
     // sessions without GPU acceleration. Do not mistake that for unavailable H264.
@@ -54,6 +54,16 @@ async function supportsAAC(): Promise<boolean> {
   } catch { return false; }
 }
 
+async function supportsOpus(): Promise<boolean> {
+  const Audio = audioEncoderClass();
+  if (!Audio || !(globalThis as any).AudioData) return false;
+  try {
+    return !!(await Audio.isConfigSupported({
+      codec: 'opus', sampleRate: SAMPLE_RATE, numberOfChannels: 2, bitrate: 192000
+    })).supported;
+  } catch { return false; }
+}
+
 async function decodeSoundtrack(project: CanonicalProjectJson): Promise<AudioBuffer | null> {
   if (!project.audio.url && !project.audio.audioDataUri) return null;
   const uri = project.audio.audioDataUri || project.audio.url!;
@@ -81,13 +91,16 @@ async function decodeSoundtrack(project: CanonicalProjectJson): Promise<AudioBuf
 }
 
 export class OfflineWebCodecsRenderer implements VideoRenderer {
-  name = 'Frame-accurate Browser MP4 (WebCodecs)';
+  name = 'Frame-accurate Browser Video (WebCodecs)';
   type: RendererType = 'offline';
 
   async isAvailable(): Promise<boolean> {
     if (typeof window === 'undefined' || typeof (globalThis as any).VideoFrame !== 'function') return false;
     try {
-      return !!(await findVideoConfig({ width: 1920, height: 1080, fps: 30 })) && await supportsAAC();
+      const project = { width: 1920, height: 1080, fps: 30 };
+      const mp4 = !!(await findVideoConfig(project)) && await supportsAAC();
+      const webm = !!(await findVideoConfig(project, ['vp09.00.40.08', 'vp09.00.10.08'])) && await supportsOpus();
+      return mp4 || webm;
     } catch { return false; }
   }
 
@@ -96,22 +109,44 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
       throw new Error('Invalid timeline duration or frame rate for offline export.');
     }
     const Video = videoEncoderClass(), Audio = audioEncoderClass();
-    const videoConfig = await findVideoConfig(project);
-    if (!Video || !videoConfig) throw new Error('H.264 offline encoding is unsupported at these dimensions and FPS. Try 720p/30 FPS or Fast Browser.');
-    if ((project.audio.url || project.audio.audioDataUri) && (!Audio || !await supportsAAC())) {
-      throw new Error('AAC offline encoding is unsupported in this browser. Use Fast Browser or a supported Chromium/Edge browser.');
+    if (!Video) throw new Error('VideoEncoder is unavailable. Use Chrome or Edge.');
+    const needsAudio = !!(project.audio.url || project.audio.audioDataUri);
+    const aacAvailable = await supportsAAC();
+    const opusAvailable = await supportsOpus();
+    const h264 = await findVideoConfig(project);
+    const useWebm = !h264 || (needsAudio && !aacAvailable);
+    const videoConfig = useWebm
+      ? await findVideoConfig(project, ['vp09.00.40.08', 'vp09.00.10.08'])
+      : h264;
+    if (!videoConfig) throw new Error('The browser cannot encode this resolution. Try 720p/30 FPS or another browser.');
+    if (needsAudio && (!Audio || (useWebm ? !opusAvailable : !aacAvailable))) {
+      throw new Error('This browser does not support the required audio encoder for smooth offline exports.');
     }
-    const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
+
     const compositor = new OfflineFrameCompositor(project);
     const totalFrames = Math.max(1, Math.ceil(project.exportRange.duration * project.fps));
     const audioBuffer = await decodeSoundtrack(project);
     compositor.setAudioBuffer(audioBuffer);
-    const muxer = new Muxer({
-      target: new ArrayBufferTarget(),
-      video: { codec: 'avc', width: project.width, height: project.height, frameRate: project.fps },
-      ...(audioBuffer ? { audio: { codec: 'aac' as const, sampleRate: SAMPLE_RATE, numberOfChannels: 2 } } : {}),
-      fastStart: 'in-memory'
-    });
+    const format = useWebm ? 'webm' as const : 'mp4' as const;
+    let muxer: any;
+    if (useWebm) {
+      // Opus is available on platforms where AAC WebCodecs is missing.
+      // Both variants use exact frame timestamps, never MediaRecorder.
+      const { Muxer, ArrayBufferTarget } = await import('webm-muxer');
+      muxer = new Muxer({
+        target: new ArrayBufferTarget(),
+        video: { codec: 'V_VP9', width: project.width, height: project.height, frameRate: project.fps },
+        ...(audioBuffer ? { audio: { codec: 'A_OPUS', sampleRate: SAMPLE_RATE, numberOfChannels: 2 } } : {})
+      });
+    } else {
+      const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
+      muxer = new Muxer({
+        target: new ArrayBufferTarget(),
+        video: { codec: 'avc', width: project.width, height: project.height, frameRate: project.fps },
+        ...(audioBuffer ? { audio: { codec: 'aac' as const, sampleRate: SAMPLE_RATE, numberOfChannels: 2 } } : {}),
+        fastStart: 'in-memory'
+      });
+    }
     let videoEncoded = 0;
     let audioEncoded = 0;
     let encoderError: Error | null = null;
@@ -121,16 +156,16 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     });
     let audioEncoder: any = null;
     try {
-      onProgress({ stage: 'preparing', stageMessage: 'Loading original clips and artwork for offline MP4...', progress: 5 });
+      onProgress({ stage: 'preparing', stageMessage: 'Loading imported clips for smooth frame-by-frame export...', progress: 5 });
       await compositor.prepare();
       videoEncoder.configure(videoConfig);
       if (audioBuffer) {
-        onProgress({ stage: 'encoding', stageMessage: 'Encoding and synchronizing AAC soundtrack...', progress: 10 });
+        onProgress({ stage: 'encoding', stageMessage: 'Encoding soundtrack with exact timestamps...', progress: 10 });
         audioEncoder = new Audio({
           output: (chunk: any, metadata: any) => { muxer.addAudioChunk(chunk, metadata); audioEncoded++; },
           error: (error: Error) => { encoderError = error; }
         });
-        audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate: SAMPLE_RATE, numberOfChannels: 2, bitrate: 256000 });
+        audioEncoder.configure({ codec: useWebm ? 'opus' : 'mp4a.40.2', sampleRate: SAMPLE_RATE, numberOfChannels: 2, bitrate: useWebm ? 192000 : 256000 });
         const left = audioBuffer.getChannelData(0);
         const right = audioBuffer.getChannelData(1);
         for (let offset = 0; offset < audioBuffer.length; offset += AUDIO_CHUNK_SAMPLES) {
@@ -148,7 +183,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
         }
         await audioEncoder.flush();
         if (encoderError) throw encoderError;
-        if (audioEncoded === 0) throw new Error('AAC encoder produced no audio packets.');
+        if (audioEncoded === 0) throw new Error('Audio encoder produced no packets.');
       }
 
       // No requestAnimationFrame, captureStream, MediaRecorder, or playback clock:
@@ -182,14 +217,14 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
       if (videoEncoded !== totalFrames) {
         throw new Error(`Incomplete encoding: ${videoEncoded} of ${totalFrames} frames. Export was not saved.`);
       }
-      onProgress({ stage: 'finalizing', stageMessage: 'Muxing synchronized constant-frame-rate MP4...', progress: 95 });
+      onProgress({ stage: 'finalizing', stageMessage: 'Muxing synchronized constant-frame-rate video...', progress: 95 });
       muxer.finalize();
-      const buffer = (muxer.target as InstanceType<typeof ArrayBufferTarget>).buffer;
-      if (!buffer || buffer.byteLength < 1024) throw new Error('The offline MP4 file was empty.');
-      const output = new Blob([buffer], { type: 'video/mp4' });
+      const buffer = muxer.target.buffer as ArrayBuffer | null;
+      if (!buffer || buffer.byteLength < 1024) throw new Error('The offline video file was empty.');
+      const output = new Blob([buffer], { type: format === 'webm' ? 'video/webm' : 'video/mp4' });
       const outputUrl = URL.createObjectURL(output);
-      onProgress({ stage: 'ready', stageMessage: 'Frame-accurate browser MP4 ready for download.', progress: 100, outputUrl, fileSize: output.size });
-      return { outputUrl, fileSize: output.size };
+      onProgress({ stage: 'ready', stageMessage: 'Frame-accurate video ready for download.', progress: 100, outputUrl, fileSize: output.size });
+      return { outputUrl, fileSize: output.size, format };
     } finally {
       videoEncoder.close();
       if (audioEncoder) audioEncoder.close();
