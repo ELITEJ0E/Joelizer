@@ -20,6 +20,48 @@ import {
   SkipBack, SkipForward, Repeat, ChevronDown, ChevronUp
 } from 'lucide-react';
 
+/**
+ * Visible in the Lyrics Studio itself (desktop and mobile), not only inside
+ * the secondary Artwork settings tab. These independent switches are shared
+ * by live preview and canonical MP4 export.
+ */
+function LayerVisibilityControls() {
+  const showArtwork = useLyricsVideoStore(s => s.showArtwork !== false);
+  const setShowArtwork = useLyricsVideoStore(s => s.setShowArtwork);
+  const showVisualizer = useLyricsVideoStore(s => s.showVisualizer !== false);
+  const setShowVisualizer = useLyricsVideoStore(s => s.setShowVisualizer);
+
+  return (
+    <div className="space-y-2 rounded border border-[#232933] bg-[#0e1115] p-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-[#7e8999]">
+        Visible Layers
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setShowArtwork(!showArtwork)}
+          aria-pressed={showArtwork}
+          title="Show or hide the vinyl and album artwork"
+          className={cn("rounded border px-2 py-2 text-[11px] font-semibold transition-colors cursor-pointer",
+            showArtwork ? "border-accent text-accent bg-[#181d26]" : "border-[#232933] text-[#7e8999] bg-[#12161c]")}
+        >
+          Vinyl / Artwork {showArtwork ? 'ON' : 'OFF'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowVisualizer(!showVisualizer)}
+          aria-pressed={showVisualizer}
+          title="Show or hide the spectrum / waveform visualizer independently"
+          className={cn("rounded border px-2 py-2 text-[11px] font-semibold transition-colors cursor-pointer",
+            showVisualizer ? "border-accent text-accent bg-[#181d26]" : "border-[#232933] text-[#7e8999] bg-[#12161c]")}
+        >
+          Visualizer {showVisualizer ? 'ON' : 'OFF'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function LyricsVideoLayout() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const setVisualizerColor = (color: string) => useStore.getState().updateVisualizerSettings({ color });
@@ -220,6 +262,7 @@ export function LyricsVideoLayout() {
               <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3.5 custom-scrollbar">
                 {mobileTab === 'layout' && (
                   <div className="space-y-3.5">
+                    <LayerVisibilityControls />
                     {/* Layout Cards */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
@@ -596,6 +639,8 @@ export function LyricsVideoLayout() {
               <div className="pb-3 border-b border-[#232933]">
                 <SongListSection />
               </div>
+
+              <LayerVisibilityControls />
 
               {/* 1. LAYOUT SELECTOR SECTION */}
               <div className="space-y-2.5">
