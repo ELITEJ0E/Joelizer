@@ -6,7 +6,7 @@ import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
-import { renderLyricsVideoFrame, syncLyricsBackgroundVideo, pauseInactiveLyricsBackgroundVideos } from '../../lib/lyricsEngine';
+import { renderLyricsVideoFrame, renderLyricsOverlayFrame, syncLyricsBackgroundVideo, pauseInactiveLyricsBackgroundVideos } from '../../lib/lyricsEngine';
 import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
 import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay';
@@ -484,49 +484,33 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
         // 3. Render unified lyrics overlay over MV timeline clips (eliminates old duplicate bottom caption box)
         if (storeState.lyricsSettings?.lines && storeState.lyricsSettings.lines.length > 0) {
-          const currentTrack = storeState.tracks[storeState.currentTrackIndex];
           const templateId = lyricsVideoState.selectedTemplateId || 'vinyl';
           const tmpl = LYRIC_VIDEO_TEMPLATES[templateId] || LYRIC_VIDEO_TEMPLATES['vinyl'];
-
           const lyricPosSetting = storeState.lyricsSettings?.position || lyricsVideoState.typographyOverride?.position || 'bottom';
           const effectiveShowBox = storeState.lyricsSettings?.showBackgroundBox ?? lyricsVideoState.typographyOverride?.showContainerPill ?? true;
 
-          renderLyricsVideoFrame(
-            ctx,
-            W,
-            H,
-            curTime,
-            storeState.lyricsSettings?.lines || [],
-            {
-              title: currentTrack?.name || 'Untitled Track',
-              artist: currentTrack?.artist || 'Joelizer Studio',
-              albumArtUrl: currentTrack?.albumArt || storeState.albumArt
+          // Composite lyrics only: never re-render the background or watermark
+          // over an imported MV clip. The full lyrics scene renderer is used
+          // separately above for dedicated vinyl-lyrics timeline scenes.
+          renderLyricsOverlayFrame(ctx, W, H, curTime, storeState.lyricsSettings.lines, {
+            template: tmpl,
+            aspectRatio: storeState.aspectRatio,
+            animationStyle: storeState.lyricsSettings?.animationStyle || lyricsVideoState.animationStyle,
+            visibleLineCount: lyricsVideoState.visibleLineCount,
+            showLyrics: true,
+            bilingualEnabled: storeState.lyricsSettings?.bilingualEnabled ?? lyricsVideoState.bilingualEnabled,
+            fadeInDuration: storeState.lyricsSettings?.fadeInDuration ?? lyricsVideoState.fadeInDuration,
+            fadeOutDuration: storeState.lyricsSettings?.fadeOutDuration ?? lyricsVideoState.fadeOutDuration,
+            fadeEasing: storeState.lyricsSettings?.fadeEasing ?? lyricsVideoState.fadeEasing,
+            typographyOverride: {
+              ...lyricsVideoState.typographyOverride,
+              showContainerPill: effectiveShowBox,
+              position: lyricPosSetting
             },
-            {
-              template: tmpl,
-              aspectRatio: storeState.aspectRatio,
-              animationStyle: lyricsVideoState.animationStyle,
-              visibleLineCount: lyricsVideoState.visibleLineCount,
-              showArtwork: false,
-              showMeta: false,
-              showVisualizer: false,
-              showLyrics: true,
-              bilingualEnabled: lyricsVideoState.bilingualEnabled ?? true,
-              fadeInDuration: lyricsVideoState.fadeInDuration,
-              fadeOutDuration: lyricsVideoState.fadeOutDuration,
-              fadeEasing: lyricsVideoState.fadeEasing,
-              customBackground: { type: 'color', value: 'transparent' },
-              typographyOverride: {
-                ...lyricsVideoState.typographyOverride,
-                showContainerPill: effectiveShowBox,
-                position: lyricPosSetting
-              },
-              animationOverride: lyricsVideoState.animationOverride,
-              elementPositions: lyricsVideoState.elementPositions,
-              watermarkText: 'Made with Joelizer',
-              showSafeArea: false
-            }
-          );
+            animationOverride: lyricsVideoState.animationOverride,
+            elementPositions: lyricsVideoState.elementPositions,
+            showSafeArea: false
+          });
         }
       } catch (err) {
         console.error("Renderer Loop Exception:", err);
