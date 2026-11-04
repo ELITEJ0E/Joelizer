@@ -6,7 +6,7 @@ import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
-import { renderLyricsVideoFrame } from '../../lib/lyricsEngine';
+import { renderLyricsVideoFrame, syncLyricsBackgroundVideo } from '../../lib/lyricsEngine';
 import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
 import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay';
@@ -101,6 +101,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   // Asset element caches to avoid re-creating elements and avoid black frames on transitions
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const lastActiveVideoClipRef = useRef<string | null>(null);
+  const pausedClipTimelineRef = useRef<Map<string, number>>(new Map());
   const imageElementsRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
   // Keep asset caches updated with crossOrigin = 'anonymous' for clean canvas rendering
@@ -235,6 +236,13 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
 
         if (activeVideoMode === 'lyrics-video' || (activeVideoMode === 'music-video' && isVinylScene)) {
+          // Only the live preview owns playback/pausing of this background.
+          // Export uses its own decoded video element and timeline clock.
+          const bg = lyricsVideoState.customBackground;
+          syncLyricsBackgroundVideo(
+            bg.type === 'video' ? (bg.videoUrl || bg.value) : undefined,
+            curTime, playing
+          );
           // Render Vinyl Lyrics Scene
           const currentTrack = storeState.tracks[storeState.currentTrackIndex];
           const templateId = lyricsVideoState.selectedTemplateId || 'vinyl';
@@ -330,7 +338,15 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               // Avoid repeatedly seeking for ~200ms audio/video clock jitter.
               // Seek on timeline cuts and large desync only; small drift is
               // absorbed by slightly altering source playback speed.
-              if (sync.seekTo !== null && !videoEl.seeking) {
+              // When paused, seek only when the timeline is explicitly
+              // scrubbed or a new clip is selected. Holding a still frame
+              // must not issue repeated video seeks and produce jitter.
+              const lastPausedPosition = pausedClipTimelineRef.current.get(activeClip.id);
+              const pausedScrubbed = !playing &&
+                (lastPausedPosition === undefined || Math.abs(lastPausedPosition - curTime) > 0.04);
+              if (!playing) pausedClipTimelineRef.current.set(activeClip.id, curTime);
+              if (sync.seekTo !== null && !videoEl.seeking &&
+                  (playing || clipChanged || pausedScrubbed)) {
                 try { videoEl.currentTime = sync.seekTo; } catch (_) {}
               }
               if (Math.abs(videoEl.playbackRate - sync.playbackRate) > 0.005) {
