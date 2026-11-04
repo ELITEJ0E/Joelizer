@@ -50,6 +50,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadFormat, setDownloadFormat] = useState<'webm' | 'mp4'>('webm');
+  const [actualExportResolution, setActualExportResolution] = useState<ExportResolutionType | null>(null);
   const [fileSize, setFileSize] = useState<number | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [activeRendererName, setActiveRendererName] = useState<string>('');
@@ -211,6 +212,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setProgress(5);
       setExportError(null);
       setDownloadUrl(null);
+      setActualExportResolution(null);
 
       // Recheck codec support at click time, so very fast user interactions
       // cannot accidentally select the laggy real-time browser recorder.
@@ -244,6 +246,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
       if (result.outputUrl) {
         setDownloadFormat(result.format || (renderer.type === 'browser' ? 'webm' : 'mp4'));
+        setActualExportResolution(result.resolution || resolution);
         setDownloadUrl(result.outputUrl);
         setFileSize(result.fileSize || null);
         setExportStage('ready');
@@ -443,7 +446,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                     <div>
                       <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Export complete</h3>
                       <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {resolution} · {fps} FPS {fileSize ? `· ${formatFileSize(fileSize)}` : ''}
+                        {actualExportResolution || resolution} · {fps} FPS {fileSize ? `· ${formatFileSize(fileSize)}` : ''}
                       </p>
                     </div>
 
