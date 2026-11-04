@@ -6,7 +6,7 @@ import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
-import { renderLyricsVideoFrame, syncLyricsBackgroundVideo } from '../../lib/lyricsEngine';
+import { renderLyricsVideoFrame, syncLyricsBackgroundVideo, pauseInactiveLyricsBackgroundVideos } from '../../lib/lyricsEngine';
 import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
 import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay';
@@ -234,6 +234,14 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
         const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
         const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
+
+        const showingLyricsScene = activeVideoMode === 'lyrics-video' ||
+          (activeVideoMode === 'music-video' && !!isVinylScene);
+        const activeBackground = lyricsVideoState.customBackground;
+        const activeBackgroundUrl = showingLyricsScene && activeBackground.type === 'video'
+          ? (activeBackground.videoUrl || activeBackground.value)
+          : undefined;
+        pauseInactiveLyricsBackgroundVideos(activeBackgroundUrl);
 
         if (activeVideoMode === 'lyrics-video' || (activeVideoMode === 'music-video' && isVinylScene)) {
           // Only the live preview owns playback/pausing of this background.
