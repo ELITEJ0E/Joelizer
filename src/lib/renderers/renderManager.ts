@@ -2,13 +2,18 @@ import { VideoRenderer, RendererType } from './types';
 import { ServerRemotionRenderer } from './ServerRemotionRenderer';
 import { LocalFFmpegRenderer } from './LocalFFmpegRenderer';
 import { BrowserFallbackRenderer } from './BrowserFallbackRenderer';
+import { OfflineWebCodecsRenderer } from './OfflineWebCodecsRenderer';
 
 export async function getBestAvailableRenderer(preferred?: RendererType): Promise<VideoRenderer> {
   const serverRenderer = new ServerRemotionRenderer();
   const localRenderer = new LocalFFmpegRenderer();
   const browserRenderer = new BrowserFallbackRenderer();
+  const offlineRenderer = new OfflineWebCodecsRenderer();
 
-  if (preferred === 'local') {
+  if (preferred === 'offline') {
+    if (await offlineRenderer.isAvailable()) return offlineRenderer;
+    throw new Error('Smooth MP4 encoding is unavailable in this browser. Try an up-to-date Google Chrome or Microsoft Edge.');
+  } else if (preferred === 'local') {
     if (await localRenderer.isAvailable()) return localRenderer;
   } else if (preferred === 'server') {
     if (await serverRenderer.isAvailable()) return serverRenderer;
@@ -17,10 +22,12 @@ export async function getBestAvailableRenderer(preferred?: RendererType): Promis
     if (await browserRenderer.isAvailable()) return browserRenderer;
   }
 
-  // Priority order: independent server -> local FFmpeg -> foreground-only browser
+  // Priority order: independent server -> deterministic offline WebCodecs -> browser.
   if (await serverRenderer.isAvailable()) {
     return serverRenderer;
   }
+
+  if (await offlineRenderer.isAvailable()) return offlineRenderer;
 
   if (await localRenderer.isAvailable()) {
     return localRenderer;
