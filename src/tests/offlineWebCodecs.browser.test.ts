@@ -27,7 +27,11 @@ try {
   browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
   const page = await browser.newPage();
   page.setDefaultTimeout(120000);
-  page.on('console', msg => { process.stderr.write('Browser ' + msg.type() + ': ' + msg.text() + '\n'); });
+  let usedSlowMp4Fallback = false;
+  page.on('console', msg => {
+    if (msg.text().includes('Fast MP4 decoder unavailable')) usedSlowMp4Fallback = true;
+    process.stderr.write('Browser ' + msg.type() + ': ' + msg.text() + '\n');
+  });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
   const encoderSupport = await page.evaluate(async () => {
     const Encoder = (globalThis as any).VideoEncoder;
@@ -150,7 +154,33 @@ try {
     assert.ok(totalDuration >= 1.95 && totalDuration <= 2.1, 'Offline export must not be truncated');
     const md5 = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-vf', 'fps=10,scale=80:45', '-f', 'framemd5', '-'],
       { encoding: 'utf8' }).split('\n').filter(line => line && !line.startsWith('#'));
-    assert.ok(new Set(md5).size >= 5, 'Offline MP4 must contain continuously changing video frames');
+    assert.ok(new Set(md5).size >= 5, 'Offline export must contain continuously changing video frames');
+    if (mode.startsWith('music-video')) {
+      assert.equal(usedSlowMp4Fallback, false,
+        'MP4 source must use fast sequential WebCodecs decoding, not slow per-frame HTML seeks');
+    }
+    if (mode === 'music-video-with-audio') {
+      // Verify decoded audio continuity, not merely presence of an audio
+      // stream. The old 1024-sample Opus input created tiny timestamp gaps
+      // every packet even though the output container looked valid.
+      const pcm = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-map', '0:a:0',
+        '-f', 'f32le', '-ac', '1', '-ar', '48000', '-'], { maxBuffer: 20000000 });
+      const samples = new Float32Array(
+        pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
+      assert.ok(samples.length >= 48000 * 1.95, 'Audio must cover entire exported time range');
+      let silentRun = 0, longestSilentRun = 0;
+      for (let i = 48000 / 5; i < Math.min(samples.length - 48000 / 5, 48000 * 1.8); i++) {
+        if (Math.abs(samples[i]) < 0.00015) {
+          silentRun++;
+          longestSilentRun = Math.max(longestSilentRun, silentRun);
+        } else {
+          silentRun = 0;
+        }
+      }
+      assert.ok(longestSilentRun < 100,
+        `Decoded sound contains an audible hole of ${longestSilentRun} samples`);
+      console.log('Continuous soundtrack verified: longest near-silent gap', longestSilentRun, 'samples');
+    }
     console.log(`Browser WebCodecs ${mode} ${result.format} export passed: ${decodedFrames} exact frames, ${totalDuration}s, ${new Set(md5).size} distinct samples`);
     unlinkSync(path);
   }
