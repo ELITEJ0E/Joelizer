@@ -197,7 +197,7 @@ export async function buildCanonicalProjectJson(options?: {
       showContainerPill: typo.showContainerPill ?? true,
       pillBgColor: typo.pillBgColor || 'rgba(10, 10, 12, 0.85)',
       animationStyle: lyricsVideoStore.animationStyle || (lyricsVideoStore.animationOverride?.wordAnimation === 'karaoke' ? 'karaoke' : 'fade'),
-      position: mainStore.lyricsSettings?.position || 'bottom',
+      position: typo.position ?? mainStore.lyricsSettings?.position,
       showBackgroundBox: mainStore.lyricsSettings?.showBackgroundBox ?? false,
       bilingualEnabled: lyricsVideoStore.bilingualEnabled ?? mainStore.lyricsSettings?.bilingualEnabled ?? false,
       fadeInDuration: lyricsVideoStore.fadeInDuration ?? mainStore.lyricsSettings?.fadeInDuration ?? 0.4,
