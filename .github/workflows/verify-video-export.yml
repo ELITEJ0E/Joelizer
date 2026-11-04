@@ -36,7 +36,7 @@ jobs:
         run: |
           mkdir -p public/staged
           ffmpeg -y -v error -f lavfi -i testsrc2=size=320x180:rate=60 -t 6 -c:v libx264 -preset ultrafast -pix_fmt yuv420p public/staged/smoke-video.mp4
-          ffmpeg -y -v error -f lavfi -i sine=frequency=440:sample_rate=48000 -t 4 -c:a pcm_s16le public/staged/smoke-audio.wav
+          ffmpeg -y -v error -f lavfi -i sine=frequency=440:sample_rate=48000 -t 10 -c:a pcm_s16le public/staged/smoke-audio.wav
       - name: Render and inspect lyrics + MV exports
         run: npx tsx src/tests/videoExportSmoke.test.ts
       - name: Verify imported trimmed clips in browser WebCodecs MP4
@@ -62,6 +62,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path public/staged | Out-Null
           ffmpeg -y -v error -f lavfi -i testsrc2=size=320x180:rate=60 -t 4 -c:v libx264 -preset ultrafast -pix_fmt yuv420p public/staged/smoke-video.mp4
-          ffmpeg -y -v error -f lavfi -i sine=frequency=440:sample_rate=48000 -t 4 -c:a pcm_s16le public/staged/smoke-audio.wav
+          ffmpeg -y -v error -f lavfi -i sine=frequency=440:sample_rate=48000 -t 10 -c:a pcm_s16le public/staged/smoke-audio.wav
       - name: Validate trimmed source + 30/60fps browser MP4
         run: npx tsx src/tests/offlineWebCodecs.browser.test.ts
