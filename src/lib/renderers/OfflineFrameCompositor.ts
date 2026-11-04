@@ -112,7 +112,9 @@ export class OfflineFrameCompositor {
       : [];
     const videoUrls = new Set(clips.filter(c => c.type === 'video').map(c => c.url));
     const imageUrls = new Set(clips.filter(c => c.type === 'image').map(c => c.url));
-    if (project.background.type === 'video' && project.background.videoUrl) videoUrls.add(project.background.videoUrl);
+    const backgroundVideoUrl = project.background.type === 'video'
+      ? (project.background.videoUrl || project.background.value) : null;
+    if (backgroundVideoUrl) videoUrls.add(backgroundVideoUrl);
     if (project.background.type === 'image') imageUrls.add(project.background.value);
     if (project.audio.albumArt) imageUrls.add(project.audio.albumArt);
     await Promise.all([
@@ -165,11 +167,22 @@ export class OfflineFrameCompositor {
       };
       // The shared lyrics drawing engine can use a pre-decoded background
       // instead of starting an unclocked HTML video during export.
-      const bgVideo = project.background.videoUrl && this.videos.get(project.background.videoUrl);
+      const backgroundUrl = project.background.type === 'video'
+        ? (project.background.videoUrl || project.background.value)
+        : null;
+      const bgVideo = backgroundUrl ? this.videos.get(backgroundUrl) : null;
       if (bgVideo) {
-        await atTime(bgVideo, time);
+        // Map timeline time into the source's finite loop length. Await the
+        // decoded seeked frame BEFORE drawing canvas; asynchronous seeks
+        // performed during draw created frozen/repeating exported backgrounds.
+        const duration = bgVideo.element.duration;
+        const loopTime = Number.isFinite(duration) && duration > 0
+          ? ((time % duration) + duration) % duration : time;
+        await atTime(bgVideo, loopTime);
         bg.videoElement = bgVideo.element;
         bg.videoUrl = undefined;
+      } else if (backgroundUrl) {
+        throw new Error('The looping background video could not be prepared for export.');
       }
       // Background video scenes still use their legacy HTML decoding;
       // video clip fast-path is used for trimmed timeline footage.
