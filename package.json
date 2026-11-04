@@ -41,7 +41,6 @@
     "mp4box": "^2.5.0",
     "mediabunny": "^1.65.0",
     "@mediabunny/aac-encoder": "^1.65.0",
-    "webm-muxer": "^5.1.4",
     "multer": "^2.2.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
