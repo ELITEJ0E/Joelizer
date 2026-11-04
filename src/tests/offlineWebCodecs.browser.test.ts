@@ -66,8 +66,15 @@ try {
       return (await Audio.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 256000 })).supported;
     } catch { return false; }
   });
-  const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps',
-    ...(AACsupported ? ['music-video-with-audio'] : [])];
+  const opusSupported = await page.evaluate(async () => {
+    const Audio = (globalThis as any).AudioEncoder;
+    if (!Audio) return false;
+    try {
+      return (await Audio.isConfigSupported({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 })).supported;
+    } catch { return false; }
+  });
+  const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps'];
+  if (AACsupported || opusSupported) modes.push('music-video-with-audio');
   for (const mode of (h264 ? modes : [])) {
     const fps = mode.endsWith('-60fps') ? 60 : 30;
     const result = await page.evaluate(async ({ mode, fps }) => {
@@ -116,23 +123,24 @@ try {
       const response = await fetch(result.outputUrl);
       const buffer = await response.arrayBuffer();
       URL.revokeObjectURL(result.outputUrl);
-      return Array.from(new Uint8Array(buffer));
+      return { bytes: Array.from(new Uint8Array(buffer)), format: result.format || 'mp4' };
     }, { mode, fps });
-    const path = join(tmpdir(), `joelizer-offline-${mode}.mp4`);
-    writeFileSync(path, Buffer.from(result));
+    const path = join(tmpdir(), `joelizer-offline-${mode}.${result.format}`);
+    writeFileSync(path, Buffer.from(result.bytes));
     const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error',
       '-show_entries', 'stream=codec_type,duration,nb_frames', '-of', 'json', path], { encoding: 'utf8' }));
     const video = probe.streams.find(s => s.codec_type === 'video');
     assert.ok(video, 'H264 stream missing');
     if (mode === 'music-video-with-audio') {
-      assert.ok(probe.streams.some(s => s.codec_type === 'audio'), 'AAC track missing from offline MP4');
+      assert.ok(probe.streams.some(s => s.codec_type === 'audio'), 'Audio track missing from offline export');
+      assert.ok(['mp4', 'webm'].includes(result.format), 'Audio must be muxed into a playable container');
     }
     assert.equal(Number(video.nb_frames), 2 * fps, `Offline MP4 must contain exactly ${2 * fps} encoded video frames`);
     assert.ok(Number(video.duration) >= 1.95, 'Offline MP4 must not be truncated');
     const md5 = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-vf', 'fps=10,scale=80:45', '-f', 'framemd5', '-'],
       { encoding: 'utf8' }).split('\n').filter(line => line && !line.startsWith('#'));
     assert.ok(new Set(md5).size >= 5, 'Offline MP4 must contain continuously changing video frames');
-    console.log(`Browser WebCodecs ${mode} export passed: ${video.nb_frames} exact frames, ${video.duration}s, ${new Set(md5).size} distinct samples`);
+    console.log(`Browser WebCodecs ${mode} ${result.format} export passed: ${video.nb_frames} exact frames, ${video.duration}s, ${new Set(md5).size} distinct samples`);
     unlinkSync(path);
   }
 } finally {
