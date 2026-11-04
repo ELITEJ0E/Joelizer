@@ -26,7 +26,10 @@ export class FastMp4Source {
   private lastTarget = -1;
   private decoderError: Error | null = null;
 
+  readonly durationSeconds: number;
   private constructor(samples: Sample[], config: VideoDecoderConfig) {
+    this.durationSeconds = samples.reduce((duration, sample) =>
+      Math.max(duration, (sample.timestamp + sample.duration) / 1e6), 0);
     this.samples = samples;
     this.config = config;
   }
