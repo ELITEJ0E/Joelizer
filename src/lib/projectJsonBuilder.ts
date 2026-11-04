@@ -104,6 +104,7 @@ export async function buildCanonicalProjectJson(options?: {
       startTime: Number(lineStart.toFixed(3)),
       endTime: Number(lineEnd.toFixed(3)),
       text: line.text || '',
+      secondaryText: line.secondaryText,
       words: canonicalWords
     };
   });
@@ -195,18 +196,31 @@ export async function buildCanonicalProjectJson(options?: {
       glowColor: typo.glowColor || '#eab308',
       showContainerPill: typo.showContainerPill ?? true,
       pillBgColor: typo.pillBgColor || 'rgba(10, 10, 12, 0.85)',
-      animationStyle: lyricsVideoStore.animationStyle || (lyricsVideoStore.animationOverride?.wordAnimation === 'karaoke' ? 'karaoke' : 'fade')
+      animationStyle: lyricsVideoStore.animationStyle || (lyricsVideoStore.animationOverride?.wordAnimation === 'karaoke' ? 'karaoke' : 'fade'),
+      position: mainStore.lyricsSettings?.position || 'bottom',
+      showBackgroundBox: mainStore.lyricsSettings?.showBackgroundBox ?? false,
+      bilingualEnabled: lyricsVideoStore.bilingualEnabled ?? mainStore.lyricsSettings?.bilingualEnabled ?? false,
+      fadeInDuration: lyricsVideoStore.fadeInDuration ?? mainStore.lyricsSettings?.fadeInDuration ?? 0.4,
+      fadeOutDuration: lyricsVideoStore.fadeOutDuration ?? mainStore.lyricsSettings?.fadeOutDuration ?? 0.4,
+      fadeEasing: lyricsVideoStore.fadeEasing ?? mainStore.lyricsSettings?.fadeEasing ?? 'smooth'
     },
     background: {
       type: bg.type || 'color',
       value: bgValue,
       videoUrl: bgVideoUrl,
-      blurAlbumArt: mainStore.backgroundSettings.blurAlbumArt
+      blurAlbumArt: mainStore.backgroundSettings.blurAlbumArt,
+      blur: bg.blur ?? mainStore.backgroundSettings?.blur ?? 0,
+      dim: bg.dim ?? mainStore.backgroundSettings?.dim ?? 0,
+      brightness: bg.brightness ?? mainStore.backgroundSettings?.brightness,
+      contrast: bg.contrast ?? mainStore.backgroundSettings?.contrast,
+      saturation: bg.saturation ?? mainStore.backgroundSettings?.saturation,
+      vignette: typeof bg.vignette === 'number' ? bg.vignette : (mainStore.backgroundSettings?.vignette ? 0.4 : 0)
     },
     artwork: {
       style: artwork.style || 'vinyl',
       animation: artwork.animation || 'rotate',
-      sizeScale: artwork.sizeScale || 1.0
+      sizeScale: artwork.sizeScale || 1.0,
+      enabled: lyricsVideoStore.showArtwork ?? (lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
     },
     visualizer: {
       style: vis.style || 'bars',
@@ -219,7 +233,8 @@ export async function buildCanonicalProjectJson(options?: {
       shakeIntensity: vis.shakeIntensity || 0,
       showGrain: vis.showGrain || false,
       showScanlines: vis.showScanlines || false,
-      scale: vis.scale ?? 1.0
+      scale: vis.scale ?? 1.0,
+      enabled: lyricsVideoStore.showVisualizer ?? (vis.enabled !== false && lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
     },
     videoClips: canonicalClips,
     effects: {
@@ -231,7 +246,11 @@ export async function buildCanonicalProjectJson(options?: {
     elementPositions: lyricsVideoStore.elementPositions,
     watermarkText: 'Made with Joelizer',
     safeArea: lyricsVideoStore.showSafeArea,
-    templateId: lyricsVideoStore.selectedTemplateId
+    templateId: lyricsVideoStore.selectedTemplateId,
+    showArtwork: lyricsVideoStore.showArtwork ?? (lyricsVideoStore.selectedTemplateId !== 'cinematic-clean'),
+    showVisualizer: lyricsVideoStore.showVisualizer ?? (vis.enabled !== false && lyricsVideoStore.selectedTemplateId !== 'cinematic-clean'),
+    showLyrics: lyricsVideoStore.showLyrics ?? true,
+    showMeta: lyricsVideoStore.showMeta ?? (lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
   };
 
   return projectJson;

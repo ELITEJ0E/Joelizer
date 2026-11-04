@@ -13,6 +13,7 @@ export interface CanonicalLyricLine {
   startTime: number; // seconds
   endTime: number;   // seconds
   text: string;
+  secondaryText?: string;
   words?: CanonicalWordTiming[];
 }
 
@@ -39,6 +40,12 @@ export interface CanonicalLyricsConfig {
   showContainerPill: boolean;
   pillBgColor: string;
   animationStyle: 'karaoke' | 'fade' | 'slide-up' | 'pop';
+  position?: 'bottom' | 'center' | 'top';
+  showBackgroundBox?: boolean;
+  bilingualEnabled?: boolean;
+  fadeInDuration?: number;
+  fadeOutDuration?: number;
+  fadeEasing?: 'linear' | 'smooth' | 'ease';
 }
 
 export interface CanonicalBackgroundConfig {
@@ -46,12 +53,19 @@ export interface CanonicalBackgroundConfig {
   value: string;
   videoUrl?: string;
   blurAlbumArt: boolean;
+  blur?: number;
+  dim?: number;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  vignette?: number;
 }
 
 export interface CanonicalArtworkConfig {
   style: 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'glowing-disc-needle' | 'floating' | 'framed' | 'background-blur';
   animation: 'none' | 'rotate' | 'scale-beat' | 'pulse' | 'float' | 'bounce';
   sizeScale: number;
+  enabled?: boolean;
 }
 
 export interface CanonicalVisualizerConfig {
@@ -66,6 +80,7 @@ export interface CanonicalVisualizerConfig {
   showGrain: boolean;
   showScanlines: boolean;
   scale?: number;
+  enabled?: boolean;
 }
 
 export interface CanonicalVideoClip {
@@ -122,6 +137,10 @@ export interface CanonicalProjectJson {
   watermarkText?: string;
   safeArea: boolean;
   templateId?: string;
+  showArtwork?: boolean;
+  showVisualizer?: boolean;
+  showLyrics?: boolean;
+  showMeta?: boolean;
 }
 
 // Utility to compute dimensions

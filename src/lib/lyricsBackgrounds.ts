@@ -20,6 +20,24 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     isDefault: true
   },
   {
+    id: 'cinematic-sunset',
+    name: 'Golden Scenic Glow',
+    category: 'Cinematic',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #7c2d12 0%, #d97706 40%, #b45309 70%, #1e1b4b 100%)',
+    previewGradient: 'linear-gradient(135deg, #7c2d12 0%, #d97706 40%, #b45309 70%, #1e1b4b 100%)',
+    duration: '00:08'
+  },
+  {
+    id: 'cinematic-floral',
+    name: 'Floral Landscape',
+    category: 'Cinematic',
+    type: 'gradient',
+    value: 'linear-gradient(135deg, #9f1239 0%, #fbbf24 50%, #065f46 100%)',
+    previewGradient: 'linear-gradient(135deg, #9f1239 0%, #fbbf24 50%, #065f46 100%)',
+    duration: '00:08'
+  },
+  {
     id: 'sunset',
     name: 'Sunset Glow',
     category: 'Gradient',
@@ -228,23 +246,53 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   }
 ];
 
+export interface DrawBackgroundSettings {
+  type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
+  value: string;
+  videoUrl?: string;
+  imageElement?: HTMLImageElement | null;
+  videoElement?: HTMLVideoElement | VideoFrame | null;
+  blur?: number;
+  dim?: number;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  vignette?: number;
+}
+
 // Helper to draw background video or animated particle canvas
 export function drawBackgroundCanvas(
   ctx: CanvasRenderingContext2D,
   W: number,
   H: number,
   currentTime: number,
-  bgSettings: {
-    type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
-    value: string;
-    videoUrl?: string;
-    imageElement?: HTMLImageElement | null;
-    videoElement?: HTMLVideoElement | VideoFrame | null;
-  },
+  bgSettings: DrawBackgroundSettings,
   albumArtImage?: HTMLImageElement | null,
   audioFrequencyData?: Uint8Array | null
 ) {
   ctx.save();
+
+  // Resolution-aware blur pixel size (e.g. 0-30px normalized against 1080p)
+  const blurAmount = Math.max(0, bgSettings.blur ?? 0);
+  const blurPx = blurAmount > 0 ? (blurAmount * (Math.min(W, H) / 1080)) : 0;
+
+  const buildImageFilter = (): string => {
+    const filters: string[] = [];
+    if (blurPx > 0) filters.push(`blur(${blurPx.toFixed(1)}px)`);
+    if (typeof bgSettings.brightness === 'number') filters.push(`brightness(${bgSettings.brightness})`);
+    if (typeof bgSettings.contrast === 'number') filters.push(`contrast(${bgSettings.contrast})`);
+    if (typeof bgSettings.saturation === 'number') filters.push(`saturate(${bgSettings.saturation})`);
+    return filters.length > 0 ? filters.join(' ') : 'none';
+  };
+
+  const applyVignetteOverlay = (strength: number) => {
+    if (strength <= 0) return;
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.72);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, `rgba(0,0,0,${Math.min(0.95, strength)})`);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, W, H);
+  };
 
   if (bgSettings.type === 'color') {
     ctx.fillStyle = bgSettings.value || '#09090b';
@@ -274,16 +322,31 @@ export function drawBackgroundCanvas(
       ctx.fillStyle = fallbackGrad;
     }
     ctx.fillRect(0, 0, W, H);
+    if (typeof bgSettings.dim === 'number' && bgSettings.dim > 0) {
+      ctx.fillStyle = `rgba(0,0,0,${bgSettings.dim})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    if (bgSettings.vignette) applyVignetteOverlay(bgSettings.vignette);
   } else if (bgSettings.type === 'image') {
     const img = bgSettings.imageElement || albumArtImage;
     if (img && img.complete && img.naturalWidth > 0) {
       const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
       const drawW = img.naturalWidth * scale;
       const drawH = img.naturalHeight * scale;
+
+      const filterStr = buildImageFilter();
+      if (filterStr !== 'none') ctx.filter = filterStr;
       ctx.drawImage(img, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
-      // Dark overlay for legibility
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      ctx.fillRect(0, 0, W, H);
+      if (filterStr !== 'none') ctx.filter = 'none';
+
+      // Explicit dim control: if user specified dim (e.g. 0 for Cinematic Clean), respect 0.
+      // Only fallback to 0.55 if dim is completely undefined.
+      const dimOpacity = typeof bgSettings.dim === 'number' ? bgSettings.dim : 0.55;
+      if (dimOpacity > 0) {
+        ctx.fillStyle = `rgba(0,0,0,${dimOpacity})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+      if (bgSettings.vignette) applyVignetteOverlay(bgSettings.vignette);
     } else {
       // Fallback dark canvas
       ctx.fillStyle = '#0f172a';
@@ -300,10 +363,19 @@ export function drawBackgroundCanvas(
       const scale = Math.max(W / vW, H / vH);
       const drawW = vW * scale;
       const drawH = vH * scale;
-      ctx.drawImage(video, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
 
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(0, 0, W, H);
+      const filterStr = buildImageFilter();
+      if (filterStr !== 'none') ctx.filter = filterStr;
+      ctx.drawImage(video, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
+      if (filterStr !== 'none') ctx.filter = 'none';
+
+      // Explicit dim control: if user specified dim, respect it (0 = perfectly sharp un-dimmed video)
+      const dimOpacity = typeof bgSettings.dim === 'number' ? bgSettings.dim : 0.5;
+      if (dimOpacity > 0) {
+        ctx.fillStyle = `rgba(0,0,0,${dimOpacity})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+      if (bgSettings.vignette) applyVignetteOverlay(bgSettings.vignette);
     } else {
       ctx.fillStyle = '#09090b';
       ctx.fillRect(0, 0, W, H);

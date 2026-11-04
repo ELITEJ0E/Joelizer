@@ -95,6 +95,118 @@ export function BackgroundCarousel() {
         )}
       </div>
 
+      {/* Independent Background Blur & Dimming Controls */}
+      <div className="bg-[#12161c] border border-[#232933] rounded-xl p-3 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+            <Sparkles size={12} className="text-accent" />
+            Background Blur & Lighting
+          </span>
+          <span className="text-[9px] font-mono text-accent font-bold">
+            Blur: {customBackground.blur ?? 0}px · Dim: {Math.round((customBackground.dim ?? 0) * 100)}%
+          </span>
+        </div>
+
+        {/* Blur Preset Buttons */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-[10px] font-mono text-[#7e8999]">
+            <span>Background Blur</span>
+            <span className="text-[#f0f3f6] font-bold">{customBackground.blur ? `${customBackground.blur}px` : 'None (Sharp)'}</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              { label: 'None', val: 0 },
+              { label: 'Subtle', val: 4 },
+              { label: 'Medium', val: 12 },
+              { label: 'Strong', val: 24 }
+            ].map(b => {
+              const active = (customBackground.blur ?? 0) === b.val;
+              return (
+                <button
+                  key={b.label}
+                  type="button"
+                  onClick={() => setCustomBackground({ blur: b.val })}
+                  className={`py-1 rounded text-[10px] font-mono border transition-all cursor-pointer ${
+                    active
+                      ? 'bg-[#161b22] border-accent/60 text-accent font-bold shadow-[0_0_8px_rgba(0,230,118,0.15)]'
+                      : 'bg-[#0a0c0f] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6]'
+                  }`}
+                >
+                  {b.label}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={30}
+            step={1}
+            value={customBackground.blur ?? 0}
+            onChange={(e) => setCustomBackground({ blur: Number(e.target.value) })}
+            className="w-full accent-accent h-1.5 bg-[#0a0c0f] rounded-lg cursor-pointer"
+          />
+        </div>
+
+        {/* Dimming / Darkening Slider */}
+        <div className="flex flex-col gap-1.5 pt-2 border-t border-[#232933]">
+          <div className="flex items-center justify-between text-[10px] font-mono text-[#7e8999]">
+            <span>Background Dimming</span>
+            <span className="text-[#f0f3f6] font-bold">{Math.round((customBackground.dim ?? 0) * 100)}%</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              { label: '0% (Clear)', val: 0 },
+              { label: '25%', val: 0.25 },
+              { label: '50%', val: 0.5 },
+              { label: '75%', val: 0.75 }
+            ].map(d => {
+              const active = Math.abs((customBackground.dim ?? 0) - d.val) < 0.05;
+              return (
+                <button
+                  key={d.label}
+                  type="button"
+                  onClick={() => setCustomBackground({ dim: d.val })}
+                  className={`py-1 rounded text-[10px] font-mono border transition-all cursor-pointer ${
+                    active
+                      ? 'bg-[#161b22] border-accent/60 text-accent font-bold shadow-[0_0_8px_rgba(0,230,118,0.15)]'
+                      : 'bg-[#0a0c0f] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6]'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={customBackground.dim ?? 0}
+            onChange={(e) => setCustomBackground({ dim: Number(e.target.value) })}
+            className="w-full accent-accent h-1.5 bg-[#0a0c0f] rounded-lg cursor-pointer"
+          />
+        </div>
+
+        {/* Edge Vignette */}
+        <div className="flex flex-col gap-1.5 pt-2 border-t border-[#232933]">
+          <div className="flex items-center justify-between text-[10px] font-mono text-[#7e8999]">
+            <span>Edge Vignette</span>
+            <span className="text-[#f0f3f6] font-bold">{Math.round((customBackground.vignette ?? 0) * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={customBackground.vignette ?? 0}
+            onChange={(e) => setCustomBackground({ vignette: Number(e.target.value) })}
+            className="w-full accent-accent h-1.5 bg-[#0a0c0f] rounded-lg cursor-pointer"
+          />
+        </div>
+      </div>
+
       {/* Preset Backgrounds Section */}
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">

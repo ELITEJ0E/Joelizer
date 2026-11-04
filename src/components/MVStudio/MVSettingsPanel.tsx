@@ -1,12 +1,20 @@
 import React, { useEffect } from 'react';
 import { useMVStore } from '../../store/useMVStore';
 import { useStore } from '../../store/useStore';
-import { Sliders, Key, Sparkles, Wand2 } from 'lucide-react';
+import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
+import { Sliders, Key, Sparkles, Wand2, Type } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { animate, stagger } from 'animejs';
 
 export function MVSettingsPanel() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+  const lyricsSettings = useStore(s => s.lyricsSettings);
+  const updateLyricsSettings = useStore(s => s.updateLyricsSettings);
+  const setLyricsVideoAnimation = useLyricsVideoStore(s => s.setAnimationStyle);
+  const lyricsVideoAnim = useLyricsVideoStore(s => s.animationStyle);
+  const lyricsAnimStyle = lyricsSettings?.animationStyle || lyricsVideoAnim || 'karaoke';
+  const lyricsPos = lyricsSettings?.position || 'bottom';
+  const showBox = lyricsSettings?.showBackgroundBox ?? false;
   
   const style = useMVStore(s => s.style);
   const setStyle = useMVStore(s => s.setStyle);
@@ -92,6 +100,67 @@ export function MVSettingsPanel() {
                 <SelectItem value="Strong">Strong cut on beat</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Unified Caption & Lyric Style */}
+          <div className="pt-3 border-t border-[#232933] space-y-2.5">
+            <span className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider flex items-center gap-1.5">
+              <Type size={12} className="text-accent" />
+              <span>Lyric Animation & Subtitles</span>
+            </span>
+
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  updateLyricsSettings({ animationStyle: 'fade' });
+                  setLyricsVideoAnimation('fade');
+                }}
+                className={`p-2 rounded text-xs font-mono border text-center transition-all cursor-pointer ${
+                  lyricsAnimStyle === 'fade'
+                    ? 'bg-[#161b22] border-accent/60 text-accent font-bold shadow-[0_0_8px_rgba(0,230,118,0.15)]'
+                    : 'bg-[#0a0c0f] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
+              >
+                Smooth Fade
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  updateLyricsSettings({ animationStyle: 'karaoke' });
+                  setLyricsVideoAnimation('karaoke');
+                }}
+                className={`p-2 rounded text-xs font-mono border text-center transition-all cursor-pointer ${
+                  lyricsAnimStyle === 'karaoke'
+                    ? 'bg-[#161b22] border-accent/60 text-accent font-bold shadow-[0_0_8px_rgba(0,230,118,0.15)]'
+                    : 'bg-[#0a0c0f] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
+              >
+                Karaoke Highlight
+              </button>
+            </div>
+
+            {/* Subtitle Positioning & Background Box */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={() => updateLyricsSettings({ position: lyricsPos === 'center' ? 'bottom' : 'center' })}
+                className="p-1.5 rounded text-[10px] font-mono border bg-[#0a0c0f] border-[#232933] text-[#f0f3f6] flex items-center justify-between cursor-pointer hover:border-[#384252]"
+              >
+                <span className="text-[#7e8999]">Position:</span>
+                <span className="text-accent font-bold uppercase">{lyricsPos}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => updateLyricsSettings({ showBackgroundBox: !showBox })}
+                className="p-1.5 rounded text-[10px] font-mono border bg-[#0a0c0f] border-[#232933] text-[#f0f3f6] flex items-center justify-between cursor-pointer hover:border-[#384252]"
+              >
+                <span className="text-[#7e8999]">Box:</span>
+                <span className="text-accent font-bold uppercase">{showBox ? 'Dark Box' : 'Clear (No Box)'}</span>
+              </button>
+            </div>
           </div>
 
           {/* 4. Edit Seed */}

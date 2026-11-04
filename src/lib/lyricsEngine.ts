@@ -10,6 +10,7 @@ import { drawBackgroundCanvas } from './lyricsBackgrounds';
 import { CanvasElementPositions, getDefaultPositions, ElementPos } from './lyricsLayout';
 import { renderVisualizer } from './renderers';
 import { computeContinuousLineSweep, TimedWordMetric } from './karaokeSweep';
+import { computeFadeOpacity } from './mvCaptionLayout';
 
 export interface LyricsVideoMetadata {
   title: string;
@@ -22,12 +23,26 @@ export interface RenderLyricsVideoOptions {
   aspectRatio: string;
   animationStyle?: string;
   visibleLineCount?: number;
+  showVisualizer?: boolean;
+  showArtwork?: boolean;
+  showLyrics?: boolean;
+  showMeta?: boolean;
+  bilingualEnabled?: boolean;
+  fadeInDuration?: number;
+  fadeOutDuration?: number;
+  fadeEasing?: 'linear' | 'smooth' | 'ease';
   customBackground?: {
     type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
     value: string;
     videoUrl?: string;
     imageElement?: HTMLImageElement | null;
     videoElement?: HTMLVideoElement | VideoFrame | null;
+    blur?: number;
+    dim?: number;
+    brightness?: number;
+    contrast?: number;
+    saturation?: number;
+    vignette?: number;
   };
   typographyOverride?: {
     fontFamily?: string;
@@ -240,8 +255,9 @@ function renderArtwork(
     const isCD = style === 'cd' || style === 'cd-needle';
     const hasNeedle = style === 'vinyl-needle' || style === 'cd-needle';
 
-    // Audio reactive outer perimeter glow
-    if (audioFrequencyData && audioFrequencyData.length > 0) {
+    // Audio reactive outer perimeter glow (suppressed when visualizer is disabled)
+    const isVisEnabled = (useStore.getState().visualizerSettings?.enabled !== false);
+    if (isVisEnabled && audioFrequencyData && audioFrequencyData.length > 0) {
       ctx.save();
       const numSpokes = 64;
       const innerR = radius * 0.98;
@@ -835,19 +851,27 @@ function renderLyrics(
     return;
   }
 
-  // Cross-fade opacity computation for the active line ONLY
+  const isKaraoke =
+    (options.animationStyle ? options.animationStyle === 'karaoke' : null) ??
+    (options.animationOverride?.wordAnimation === 'karaoke') ??
+    (useStore.getState().lyricsSettings?.animationStyle === 'karaoke');
+
+  // Cross-fade opacity computation for the active line
   const lineDuration = Math.max(0.4, activeLine.endTime - activeLine.startTime);
   const elapsed = currentTime - activeLine.startTime;
   const remaining = activeLine.endTime - currentTime;
   const transitionDuration = Math.min(0.28, Math.max(0.15, lineDuration * 0.2));
 
   let activeLineOpacity = 1.0;
-  if (visibleCount === 1) {
-    const rawFadeIn = Math.max(0, Math.min(1, (currentTime - (activeLine.startTime - 0.25)) / 0.25));
-    const rawFadeOut = Math.max(0, Math.min(1, remaining / transitionDuration));
-    const smoothIn = rawFadeIn * rawFadeIn * (3 - 2 * rawFadeIn);
-    const smoothOut = rawFadeOut * rawFadeOut * (3 - 2 * rawFadeOut);
-    activeLineOpacity = Math.min(smoothIn, smoothOut);
+  if (!isKaraoke || visibleCount === 1) {
+    activeLineOpacity = computeFadeOpacity(
+      currentTime,
+      activeLine.startTime,
+      activeLine.endTime,
+      options.fadeInDuration ?? 0.4,
+      options.fadeOutDuration ?? 0.4,
+      options.fadeEasing ?? 'smooth'
+    );
   } else {
     // Multi-line / 2-line mode:
     // When waiting before line start: steady preview opacity (0.55)
@@ -880,11 +904,6 @@ function renderLyrics(
   ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}, system-ui, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-
-  const isKaraoke =
-    (options.animationStyle ? options.animationStyle === 'karaoke' : null) ??
-    (options.animationOverride?.wordAnimation === 'karaoke') ??
-    (useStore.getState().lyricsSettings?.animationStyle === 'karaoke');
 
   const activeWordColor =
     options.typographyOverride?.activeWordColor ||
@@ -998,6 +1017,29 @@ function renderLyrics(
     }
   }
 
+  // Optional Container Pill Background (suppressed for cinematic-clean or when showContainerPill is false)
+  const showPill = options.typographyOverride?.showContainerPill ?? template.typography.showContainerPill;
+  if (showPill && activeLineOpacity > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = activeLineOpacity;
+    const pillPaddingX = Math.max(14, fontSize * 0.55);
+    const pillPaddingY = Math.max(8, fontSize * 0.35);
+    const longestSublineWidth = Math.max(...sublines.map(sl => sl.reduce((sum, w) => sum + ctx.measureText(w.word).width + spaceWidth, 0)));
+    const hasSec = (options.bilingualEnabled !== false) && Boolean(activeLine.secondaryText?.trim());
+    const totalContentH = sublines.length * lineHeight + (hasSec ? fontSize * 0.9 : 0);
+    const pillW = Math.min(W * 0.94, longestSublineWidth + pillPaddingX * 2);
+    const pillH = totalContentH + pillPaddingY * 2;
+    const pillX = posX - pillW / 2;
+    const pillY = startY - pillPaddingY;
+
+    ctx.fillStyle = options.typographyOverride?.pillBgColor || 'rgba(10, 10, 12, 0.78)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, Math.max(8, fontSize * 0.3));
+    else ctx.rect(pillX, pillY, pillW, pillH);
+    ctx.fill();
+    ctx.restore();
+  }
+
   // 2. Active line rendering (Line 1 in 2-line mode) with individual opacity
   if (activeLineOpacity > 0.01) {
     ctx.save();
@@ -1065,6 +1107,20 @@ function renderLyrics(
         const textX = posX - textW / 2;
         ctx.fillText(fullText, textX, lineY);
       });
+    }
+
+    // Bilingual Secondary Line translation (e.g. Vietnamese under Chinese as in reference)
+    if (options.bilingualEnabled !== false && activeLine.secondaryText?.trim()) {
+      ctx.save();
+      const secondaryFontSize = Math.max(12, Math.round(fontSize * 0.72));
+      ctx.font = `500 ${secondaryFontSize}px ${fontFamily}, system-ui, sans-serif`;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.shadowBlur = Math.max(3, Math.round(secondaryFontSize * 0.22));
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      const secY = startY + sublines.length * lineHeight + Math.round(fontSize * 0.15);
+      const secW = ctx.measureText(activeLine.secondaryText).width;
+      ctx.fillText(truncateWithEllipsis(ctx, activeLine.secondaryText, maxLineWidth), posX - Math.min(secW, maxLineWidth) / 2, secY);
+      ctx.restore();
     }
 
     ctx.restore();
@@ -1285,7 +1341,13 @@ export function renderLyricsVideoFrame(
       type: bgType,
       value: bgValue,
       videoElement: videoElem,
-      imageElement: options.customBackground?.imageElement || albumArtImg
+      imageElement: options.customBackground?.imageElement || albumArtImg,
+      blur: options.customBackground?.blur,
+      dim: options.customBackground?.dim,
+      brightness: options.customBackground?.brightness,
+      contrast: options.customBackground?.contrast,
+      saturation: options.customBackground?.saturation,
+      vignette: options.customBackground?.vignette
     },
     albumArtImg,
     audioFrequencyData
@@ -1293,7 +1355,10 @@ export function renderLyricsVideoFrame(
 
   // Background Full Visualizer layer if enabled (only when in MV Studio if explicitly needed)
   const visSettings = useStore.getState().visualizerSettings;
+  const isVisEnabled = (options.showVisualizer !== false) && (visSettings?.enabled !== false) && ((template.layout as any).showVisualizer !== false);
+
   if (
+    isVisEnabled &&
     options.showBackgroundVisualizer &&
     visSettings &&
     (visSettings.style === 'particles' ||
@@ -1319,8 +1384,9 @@ export function renderLyricsVideoFrame(
   const artworkStyle = options.artworkOverride?.style || template.layout.artworkType;
   const artworkSizeScale = options.artworkOverride?.sizeScale || 1;
 
-  // 3. Render Artwork (Vinyl record, CD, Neon Turntable, etc.)
-  if (artworkStyle !== 'none' && artworkStyle !== 'background-blur') {
+  // 3. Render Artwork (Vinyl record, CD, Neon Turntable, etc.) - suppressed when showArtwork is false or template is cinematic-clean
+  const shouldRenderArtwork = options.showArtwork !== false && artworkStyle !== 'none' && artworkStyle !== 'background-blur';
+  if (shouldRenderArtwork) {
     renderArtwork(
       ctx,
       W,
@@ -1337,18 +1403,19 @@ export function renderLyricsVideoFrame(
     );
   }
 
-  // 4. Render Song Title & Artist
-  if (template.layout.showSongTitle || template.layout.showArtist) {
+  // 4. Render Song Title & Artist - suppressed when showMeta is false
+  if (options.showMeta !== false && (template.layout.showSongTitle || template.layout.showArtist)) {
     renderSongMeta(ctx, W, H, metadata, template, metaPos, options);
   }
 
-  // 5. Render Lyrics
-  renderLyrics(ctx, W, H, currentTime, lyricsLines, options, template, lyricsPos);
+  // 5. Render Lyrics - suppressed when showLyrics is false
+  if (options.showLyrics !== false) {
+    renderLyrics(ctx, W, H, currentTime, lyricsLines, options, template, lyricsPos);
+  }
 
-  // 6. Render Segment Dots / Visualizer (if not glowing-disc)
-  if (!(artworkStyle === 'glowing-disc' || artworkStyle === 'glowing-disc-needle')) {
-    const activeVis = useStore.getState().visualizerSettings;
-    if (activeVis && activeVis.style !== 'particles') {
+  // 6. Render Segment Dots / Visualizer (completely suppressed when showVisualizer is false or visualizer is disabled)
+  if (isVisEnabled && !(artworkStyle === 'glowing-disc' || artworkStyle === 'glowing-disc-needle')) {
+    if (visSettings && visSettings.style !== 'particles') {
       renderSegmentDots(ctx, W, H, visualizerPos, audioFrequencyData, audioTimeData);
     }
   }

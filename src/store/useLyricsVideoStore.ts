@@ -17,6 +17,15 @@ export interface LyricsVideoState {
   selectedElement: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null;
   visibleLineCount: number;
 
+  showArtwork?: boolean;
+  showVisualizer?: boolean;
+  showLyrics?: boolean;
+  showMeta?: boolean;
+  bilingualEnabled?: boolean;
+  fadeInDuration?: number;
+  fadeOutDuration?: number;
+  fadeEasing?: 'linear' | 'smooth' | 'ease';
+
   elementPositions: CanvasElementPositions;
   animationStyle: 'karaoke' | 'fade';
   
@@ -24,6 +33,12 @@ export interface LyricsVideoState {
     type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
     value: string;
     videoUrl?: string;
+    blur?: number;
+    dim?: number;
+    brightness?: number;
+    contrast?: number;
+    saturation?: number;
+    vignette?: number;
   };
 
   typographyOverride: {
@@ -67,6 +82,12 @@ export interface LyricsVideoState {
   setVisibleLineCount: (count: number) => void;
   setElementPosition: (key: keyof CanvasElementPositions, pos: ElementPos) => void;
   resetElementPositions: (aspectRatio?: string) => void;
+  setShowArtwork: (show: boolean) => void;
+  setShowVisualizer: (show: boolean) => void;
+  setShowLyrics: (show: boolean) => void;
+  setShowMeta: (show: boolean) => void;
+  setBilingualEnabled: (enabled: boolean) => void;
+  setFadeDurations: (fadeIn: number, fadeOut: number, easing?: 'linear' | 'smooth' | 'ease') => void;
   
   // Magic Auto-Generator
   generateLyricsVideo: () => void;
@@ -82,11 +103,21 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       visibleLineCount: 2,
       elementPositions: DEFAULT_POSITIONS_16_9,
       animationStyle: 'karaoke',
+      showArtwork: true,
+      showVisualizer: true,
+      showLyrics: true,
+      showMeta: true,
+      bilingualEnabled: false,
+      fadeInDuration: 0.4,
+      fadeOutDuration: 0.4,
+      fadeEasing: 'smooth',
 
       customBackground: {
         type: 'blurred-artwork',
         value: '#18181b',
-        videoUrl: undefined
+        videoUrl: undefined,
+        blur: 0,
+        dim: 0
       },
 
       typographyOverride: {
@@ -123,18 +154,39 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
         if (!tmpl) return;
 
         const currentAspectRatio = useStore.getState().aspectRatio;
+        const isCinematicClean = templateId === 'cinematic-clean';
+
+        if (isCinematicClean) {
+          useStore.getState().updateVisualizerSettings({ enabled: false });
+          useStore.getState().updateLyricsSettings({ animationStyle: 'fade', showBackgroundBox: false, position: 'center' });
+        }
 
         set((s) => ({
           selectedTemplateId: templateId,
           visibleLineCount: tmpl.layout.maxLines || s.visibleLineCount || 2,
+          showArtwork: isCinematicClean ? false : (s.showArtwork ?? true),
+          showVisualizer: isCinematicClean ? false : (s.showVisualizer ?? true),
+          showMeta: isCinematicClean ? false : (s.showMeta ?? true),
+          animationStyle: isCinematicClean ? 'fade' : s.animationStyle,
           artworkOverride: {
             style: tmpl.layout.artworkType,
             animation: tmpl.layout.artworkAnim,
             sizeScale: s.artworkOverride?.sizeScale ?? 1.0
           },
+          typographyOverride: {
+            ...s.typographyOverride,
+            showContainerPill: isCinematicClean ? false : s.typographyOverride.showContainerPill,
+            textColor: isCinematicClean ? '#ffffff' : s.typographyOverride.textColor,
+            fontSizeScale: isCinematicClean ? 1.0 : s.typographyOverride.fontSizeScale
+          },
+          customBackground: {
+            ...s.customBackground,
+            blur: isCinematicClean ? 0 : s.customBackground.blur,
+            dim: isCinematicClean ? 0 : s.customBackground.dim
+          },
           animationOverride: {
             lineAnimation: tmpl.animations.lineAnimation,
-            wordAnimation: tmpl.animations.wordAnimation,
+            wordAnimation: isCinematicClean ? 'word-fade' : tmpl.animations.wordAnimation,
             intensity: tmpl.animations.intensity
           },
           elementPositions: getDefaultPositions(currentAspectRatio, templateId)
@@ -169,14 +221,17 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
         ...(updates.wordAnimation === 'karaoke' ? { animationStyle: 'karaoke' } : updates.wordAnimation === 'word-fade' ? { animationStyle: 'fade' } : {})
       })),
 
-      setAnimationStyle: (style) => set((s) => ({
-        animationStyle: style,
-        animationOverride: {
-          ...s.animationOverride,
-          wordAnimation: style === 'karaoke' ? 'karaoke' : 'word-fade',
-          lineAnimation: style === 'fade' ? 'fade' : s.animationOverride.lineAnimation,
-        }
-      })),
+      setAnimationStyle: (style) => {
+        useStore.getState().updateLyricsSettings({ animationStyle: style });
+        set((s) => ({
+          animationStyle: style,
+          animationOverride: {
+            ...s.animationOverride,
+            wordAnimation: style === 'karaoke' ? 'karaoke' : 'word-fade',
+            lineAnimation: style === 'fade' ? 'fade' : s.animationOverride.lineAnimation,
+          }
+        }));
+      },
 
       setShowSafeArea: (showSafeArea) => set({ showSafeArea }),
 
@@ -188,6 +243,22 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       resetElementPositions: (aspectRatio = '16:9') => {
         const currentTemplate = get().selectedTemplateId;
         set({ elementPositions: getDefaultPositions(aspectRatio, currentTemplate) });
+      },
+
+      setShowArtwork: (showArtwork) => set({ showArtwork }),
+      setShowVisualizer: (showVisualizer) => {
+        set({ showVisualizer });
+        useStore.getState().updateVisualizerSettings({ enabled: showVisualizer });
+      },
+      setShowLyrics: (showLyrics) => set({ showLyrics }),
+      setShowMeta: (showMeta) => set({ showMeta }),
+      setBilingualEnabled: (bilingualEnabled) => {
+        set({ bilingualEnabled });
+        useStore.getState().updateLyricsSettings({ bilingualEnabled });
+      },
+      setFadeDurations: (fadeIn, fadeOut, easing = 'smooth') => {
+        set({ fadeInDuration: fadeIn, fadeOutDuration: fadeOut, fadeEasing: easing });
+        useStore.getState().updateLyricsSettings({ fadeInDuration: fadeIn, fadeOutDuration: fadeOut, fadeEasing: easing });
       },
 
       generateLyricsVideo: () => {

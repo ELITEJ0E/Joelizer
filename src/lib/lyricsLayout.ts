@@ -93,7 +93,7 @@ export function getDefaultPositions(
   aspectRatio: AspectRatio | string = '16:9',
   templateId?: LyricTemplateId | string
 ): CanvasElementPositions {
-  if (templateId === 'full') {
+  if (templateId === 'full' || templateId === 'cinematic-clean') {
     if (aspectRatio === '16:9' || aspectRatio === '4:3') {
       return { ...DEFAULT_POSITIONS_16_9_FULL };
     }

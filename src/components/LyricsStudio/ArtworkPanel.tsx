@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { ArtworkStyle, ArtworkAnimation, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
-import { Disc, Circle, Square, Radio, Activity, Image as ImageIcon, Upload, Check } from 'lucide-react';
+import { Disc, Circle, Square, Radio, Activity, Image as ImageIcon, Upload, Check, Eye, EyeOff, BarChart2 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 
 export function ArtworkPanel() {
@@ -13,6 +13,10 @@ export function ArtworkPanel() {
   const artwork = useLyricsVideoStore(s => s.artworkOverride);
   const updateArtwork = useLyricsVideoStore(s => s.updateArtworkOverride);
   const setSelectedTemplateId = useLyricsVideoStore(s => s.setSelectedTemplateId);
+  const showArtwork = useLyricsVideoStore(s => s.showArtwork) ?? true;
+  const setShowArtwork = useLyricsVideoStore(s => s.setShowArtwork);
+  const showVisualizer = useLyricsVideoStore(s => s.showVisualizer) ?? true;
+  const setShowVisualizer = useLyricsVideoStore(s => s.setShowVisualizer);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,6 +63,54 @@ export function ArtworkPanel() {
 
   return (
     <div className="flex flex-col h-full bg-[#0e1115] text-[#f0f3f6] p-3.5 gap-4 overflow-y-auto">
+
+      {/* Independent Element Toggles */}
+      <div className="bg-[#12161c] border border-[#232933] rounded-xl p-3 flex flex-col gap-2.5">
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#7e8999] flex items-center gap-1.5">
+          <Eye size={12} className="text-accent" />
+          Layer Visibility Controls
+        </span>
+
+        <div className="grid grid-cols-2 gap-2">
+          {/* Artwork Visibility Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowArtwork(!showArtwork)}
+            className={`p-2.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${
+              showArtwork
+                ? 'bg-[#161b22] border-accent/60 text-[#f0f3f6] font-semibold'
+                : 'bg-[#0a0c0f] border-[#232933] text-[#7e8999]'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Disc size={14} className={showArtwork ? 'text-accent' : 'text-[#7e8999]'} />
+              <span className="text-xs font-mono">Center Vinyl</span>
+            </div>
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${showArtwork ? 'bg-accent/20 text-accent font-bold' : 'bg-white/5 text-[#7e8999]'}`}>
+              {showArtwork ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
+          {/* Visualizer Visibility Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowVisualizer(!showVisualizer)}
+            className={`p-2.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${
+              showVisualizer
+                ? 'bg-[#161b22] border-accent/60 text-[#f0f3f6] font-semibold'
+                : 'bg-[#0a0c0f] border-[#232933] text-[#7e8999]'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <BarChart2 size={14} className={showVisualizer ? 'text-accent' : 'text-[#7e8999]'} />
+              <span className="text-xs font-mono">Visualizer</span>
+            </div>
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${showVisualizer ? 'bg-accent/20 text-accent font-bold' : 'bg-white/5 text-[#7e8999]'}`}>
+              {showVisualizer ? 'ON' : 'OFF'}
+            </span>
+          </button>
+        </div>
+      </div>
       
       {/* Active Song Cover Upload & Selector */}
       <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-[#232933] bg-[#12161c]">

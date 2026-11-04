@@ -17,6 +17,9 @@ export interface MVCaptionWord {
 
 export interface MVCaptionLine {
   text: string;
+  secondaryText?: string;
+  startTime?: number;
+  endTime?: number;
   words?: MVCaptionWord[];
 }
 
@@ -32,17 +35,79 @@ export interface MVCaptionRow {
   width: number;
 }
 
+export interface MVCaptionOptions {
+  animationStyle?: 'karaoke' | 'fade';
+  position?: 'bottom' | 'center' | 'top';
+  showBackgroundBox?: boolean;
+  boxColor?: string;
+  textColor?: string;
+  activeColor?: string;
+  secondaryColor?: string;
+  fadeInDuration?: number;
+  fadeOutDuration?: number;
+  fadeEasing?: 'linear' | 'smooth' | 'ease';
+  bilingualEnabled?: boolean;
+  fontFamily?: string;
+}
+
 export interface MVCaptionLayout {
   rows: MVCaptionRow[];
+  secondaryRows?: MVCaptionRow[];
   fontSize: number;
+  secondaryFontSize?: number;
   lineHeight: number;
+  secondaryLineHeight?: number;
   boxX: number;
   boxY: number;
   boxWidth: number;
   boxHeight: number;
   paddingX: number;
   firstBaselineY: number;
+  secondaryBaselineY?: number;
   safeWidth: number;
+  lineStartTime: number;
+  lineEndTime: number;
+  options?: MVCaptionOptions;
+}
+
+export function computeFadeOpacity(
+  currentTime: number,
+  startTime: number,
+  endTime: number,
+  fadeInDuration: number = 0.4,
+  fadeOutDuration: number = 0.4,
+  easing: 'linear' | 'smooth' | 'ease' = 'smooth'
+): number {
+  if (currentTime < startTime || currentTime > endTime) {
+    const trailDuration = Math.min(0.25, fadeOutDuration);
+    if (currentTime > endTime && currentTime < endTime + trailDuration) {
+      const trailT = 1 - (currentTime - endTime) / trailDuration;
+      return trailT * trailT * 0.35;
+    }
+    return 0;
+  }
+
+  const duration = Math.max(0.2, endTime - startTime);
+  const actualIn = Math.min(fadeInDuration, duration * 0.48);
+  const actualOut = Math.min(fadeOutDuration, duration * 0.48);
+
+  let inFactor = 1;
+  if (actualIn > 0 && currentTime < startTime + actualIn) {
+    const t = Math.max(0, Math.min(1, (currentTime - startTime) / actualIn));
+    if (easing === 'linear') inFactor = t;
+    else if (easing === 'ease') inFactor = Math.sin((t * Math.PI) / 2);
+    else inFactor = t * t * (3 - 2 * t);
+  }
+
+  let outFactor = 1;
+  if (actualOut > 0 && currentTime > endTime - actualOut) {
+    const t = Math.max(0, Math.min(1, (endTime - currentTime) / actualOut));
+    if (easing === 'linear') outFactor = t;
+    else if (easing === 'ease') outFactor = Math.sin((t * Math.PI) / 2);
+    else outFactor = t * t * (3 - 2 * t);
+  }
+
+  return Math.max(0, Math.min(1, inFactor * outFactor));
 }
 
 type MeasureText = (text: string, fontSize: number) => number;
@@ -121,7 +186,8 @@ export function layoutMVCaption(
   line: MVCaptionLine,
   canvasWidth: number,
   canvasHeight: number,
-  measure: MeasureText
+  measure: MeasureText,
+  options?: MVCaptionOptions
 ): MVCaptionLayout {
   const W = Math.max(1, canvasWidth);
   const H = Math.max(1, canvasHeight);
@@ -143,55 +209,171 @@ export function layoutMVCaption(
     rows = wrapCaption(words, safeWidth, fontSize, measure);
   }
 
+  // Calculate timestamps for fade calculations
+  let lineStartTime = line.startTime ?? 0;
+  let lineEndTime = line.endTime ?? 0;
+  for (const row of rows) {
+    for (const f of row.fragments) {
+      if (typeof f.start === 'number' && (lineStartTime === 0 || f.start < lineStartTime)) lineStartTime = f.start;
+      if (typeof f.end === 'number' && f.end > lineEndTime) lineEndTime = f.end;
+    }
+  }
+  if (lineEndTime <= lineStartTime) {
+    lineEndTime = lineStartTime + 3.0;
+  }
+
+  // Bilingual secondary text support
+  let secondaryRows: MVCaptionRow[] | undefined = undefined;
+  let secondaryFontSize: number | undefined = undefined;
+  let secondaryLineHeight: number | undefined = undefined;
+  let secondaryHeight = 0;
+
+  const isBilingual = (options?.bilingualEnabled !== false) && Boolean(line.secondaryText?.trim());
+  if (isBilingual && line.secondaryText) {
+    secondaryFontSize = Math.max(11, Math.round(fontSize * 0.72));
+    secondaryLineHeight = Math.round(secondaryFontSize * 1.35);
+    const secondaryFragments = line.secondaryText.trim().split(/\s+/u).filter(Boolean).map(text => ({ text, width: 0 }));
+    secondaryRows = wrapCaption(secondaryFragments, safeWidth, secondaryFontSize, measure);
+    secondaryHeight = secondaryRows.length * secondaryLineHeight + Math.round(fontSize * 0.3);
+  }
+
   // Maximise legibility without letting the dark pill obscure the entire MV.
-  const lineWidth = Math.max(1, ...rows.map(row => row.width));
+  const allRowWidths = rows.map(r => r.width);
+  if (secondaryRows) {
+    allRowWidths.push(...secondaryRows.map(r => r.width));
+  }
+  const lineWidth = Math.max(1, ...allRowWidths);
   const boxWidth = Math.min(W * 0.94, Math.ceil(lineWidth + paddingX * 2));
   const paddingY = Math.max(7, Math.round(fontSize * 0.36));
-  const boxHeight = Math.ceil(rows.length * lineHeight + paddingY * 2);
+  const boxHeight = Math.ceil(rows.length * lineHeight + secondaryHeight + paddingY * 2);
+
+  const isCentered = options?.position === 'center';
   const bottomMargin = Math.max(10, Math.round(H * 0.075));
   const boxX = (W - boxWidth) / 2;
-  const boxY = Math.max(Math.round(H * 0.03), H - bottomMargin - boxHeight);
+  const boxY = isCentered
+    ? Math.max(Math.round(H * 0.05), Math.round((H - boxHeight) / 2))
+    : Math.max(Math.round(H * 0.03), H - bottomMargin - boxHeight);
   const firstBaselineY = boxY + paddingY + lineHeight / 2;
+  const secondaryBaselineY = secondaryRows ? (firstBaselineY + rows.length * lineHeight) : undefined;
 
   return {
-    rows, fontSize, lineHeight, boxX, boxY, boxWidth, boxHeight,
-    paddingX, firstBaselineY, safeWidth
+    rows,
+    secondaryRows,
+    fontSize,
+    secondaryFontSize,
+    lineHeight,
+    secondaryLineHeight,
+    boxX,
+    boxY,
+    boxWidth,
+    boxHeight,
+    paddingX,
+    firstBaselineY,
+    secondaryBaselineY,
+    safeWidth,
+    lineStartTime,
+    lineEndTime,
+    options
   };
 }
 
 export function drawMVCaption(
   ctx: CanvasRenderingContext2D,
   layout: MVCaptionLayout,
-  time: number
+  time: number,
+  overrideOptions?: MVCaptionOptions
 ): void {
-  const { fontSize, rows, lineHeight, boxX, boxY, boxWidth, boxHeight, firstBaselineY } = layout;
+  const opt = overrideOptions || layout.options || {};
+  const animStyle = opt.animationStyle || 'karaoke';
+  const isFade = animStyle === 'fade';
+  const showBox = opt.showBackgroundBox ?? false;
+
+  const {
+    fontSize,
+    secondaryFontSize,
+    rows,
+    secondaryRows,
+    lineHeight,
+    secondaryLineHeight,
+    boxX,
+    boxY,
+    boxWidth,
+    boxHeight,
+    firstBaselineY,
+    secondaryBaselineY,
+    lineStartTime,
+    lineEndTime
+  } = layout;
+
   ctx.save();
-  ctx.fillStyle = 'rgba(8, 10, 14, 0.76)';
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxWidth, boxHeight, Math.max(8, fontSize * 0.26));
-  else ctx.rect(boxX, boxY, boxWidth, boxHeight);
-  ctx.fill();
+
+  // Smooth Fade Animation computation
+  if (isFade) {
+    const fadeOpacity = computeFadeOpacity(
+      time,
+      lineStartTime,
+      lineEndTime,
+      opt.fadeInDuration ?? 0.4,
+      opt.fadeOutDuration ?? 0.4,
+      opt.fadeEasing ?? 'smooth'
+    );
+    if (fadeOpacity <= 0.005) {
+      ctx.restore();
+      return;
+    }
+    ctx.globalAlpha = fadeOpacity;
+  }
+
+  // Draw optional subtitle container box if enabled
+  if (showBox) {
+    ctx.fillStyle = opt.boxColor || 'rgba(8, 10, 14, 0.76)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxWidth, boxHeight, Math.max(8, fontSize * 0.26));
+    else ctx.rect(boxX, boxY, boxWidth, boxHeight);
+    ctx.fill();
+  }
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.font = `700 ${fontSize}px sans-serif`;
-  // Restrict all glyphs to safe bounds even on nonstandard browser font metrics.
-  ctx.beginPath();
-  ctx.rect(boxX, boxY, boxWidth, boxHeight);
-  ctx.clip();
+  const fontFamily = opt.fontFamily || 'Outfit, system-ui, sans-serif';
+  ctx.font = `700 ${fontSize}px ${fontFamily}`;
 
+  // Subtle text shadow for high legibility over bright scenic video
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.88)';
+  ctx.shadowBlur = Math.max(3, Math.round(fontSize * 0.22));
+
+  // Render Primary Line rows
   rows.forEach((row, rowIndex) => {
     let x = boxX + (boxWidth - row.width) / 2;
     const y = firstBaselineY + rowIndex * lineHeight;
     for (const fragment of row.fragments) {
-      const isCurrent = fragment.start !== undefined && fragment.end !== undefined &&
-        time >= fragment.start && time < fragment.end;
-      ctx.fillStyle = isCurrent ? '#fde047' : '#f8fafc';
-      ctx.shadowColor = 'rgba(0,0,0,0.85)';
-      ctx.shadowBlur = Math.max(2, Math.round(fontSize * 0.16));
+      if (isFade) {
+        ctx.fillStyle = opt.textColor || '#ffffff';
+      } else {
+        const isCurrent = fragment.start !== undefined && fragment.end !== undefined &&
+          time >= fragment.start && time < fragment.end;
+        ctx.fillStyle = isCurrent ? (opt.activeColor || '#fde047') : (opt.textColor || '#f8fafc');
+      }
       ctx.fillText(fragment.text, x, y);
       x += fragment.width;
     }
   });
+
+  // Render Optional Bilingual Secondary Line
+  if (secondaryRows && secondaryRows.length > 0 && secondaryFontSize && secondaryLineHeight && secondaryBaselineY) {
+    ctx.font = `500 ${secondaryFontSize}px ${fontFamily}`;
+    ctx.fillStyle = opt.secondaryColor || 'rgba(255, 255, 255, 0.82)';
+    ctx.shadowBlur = Math.max(2, Math.round(secondaryFontSize * 0.2));
+
+    secondaryRows.forEach((row, rIdx) => {
+      let x = boxX + (boxWidth - row.width) / 2;
+      const y = secondaryBaselineY + rIdx * secondaryLineHeight;
+      for (const fragment of row.fragments) {
+        ctx.fillText(fragment.text, x, y);
+        x += fragment.width;
+      }
+    });
+  }
+
   ctx.restore();
 }

@@ -13,6 +13,7 @@ import {
 export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | '4:3';
 
 export interface VisualizerSettings {
+  enabled?: boolean;
   style: 'bars' | 'waveform' | 'radial' | 'particles' | 'kaleidoscope' | 'orb';
   color: string;
   sensitivity: number;
@@ -30,12 +31,19 @@ export interface BackgroundSettings {
   type: 'color' | 'gradient' | 'image' | 'video';
   value: string;
   blurAlbumArt: boolean;
+  blur?: number; // 0 to 30px blur (default 0)
+  dim?: number; // 0 to 1 dark overlay opacity (default 0 for cinematic, 0.4 for default)
+  brightness?: number; // default 1.0
+  contrast?: number; // default 1.0
+  saturation?: number; // default 1.0
+  vignette?: boolean; // default false
   fit?: 'cover' | 'contain';
 }
 
 export interface LyricLine {
   id: string;
   text: string;
+  secondaryText?: string; // Optional bilingual translation / second language line
   startTime: number; // in seconds
   endTime: number; // in seconds
   words?: { word: string; start?: number; end?: number; startTime?: number; endTime?: number }[];
@@ -47,6 +55,12 @@ export interface LyricsSettings {
   color: string;
   backgroundColor?: string;
   animationStyle: 'fade' | 'karaoke';
+  fadeInDuration?: number; // 0 to 2s, default 0.4s
+  fadeOutDuration?: number; // 0 to 2s, default 0.4s
+  fadeEasing?: 'linear' | 'smooth' | 'ease';
+  position?: 'bottom' | 'center' | 'top';
+  showBackgroundBox?: boolean;
+  bilingualEnabled?: boolean;
 }
 
 export interface LogoSettings {
@@ -174,6 +188,7 @@ const defaultLayers: Layer[] = [
 ];
 
 const defaultVisualizerSettings: VisualizerSettings = {
+  enabled: true,
   style: 'bars',
   color: '#00e676',
   sensitivity: 0.95,
@@ -202,6 +217,12 @@ export const useStore = create<ProjectState>((set, get) => ({
     type: 'color',
     value: '#111111',
     blurAlbumArt: false,
+    blur: 0,
+    dim: 0,
+    brightness: 1,
+    contrast: 1,
+    saturation: 1,
+    vignette: false,
     fit: 'cover',
   },
   
@@ -209,8 +230,14 @@ export const useStore = create<ProjectState>((set, get) => ({
     lines: initialLyrics,
     font: 'Outfit',
     color: '#ffffff',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    animationStyle: 'karaoke',
+    backgroundColor: 'transparent',
+    animationStyle: 'fade',
+    fadeInDuration: 0.4,
+    fadeOutDuration: 0.4,
+    fadeEasing: 'smooth',
+    position: 'center',
+    showBackgroundBox: false,
+    bilingualEnabled: false,
   },
   
   logoSettings: {

@@ -1,6 +1,7 @@
 import { AspectRatio } from '../store/useStore';
 
 export type LyricTemplateId = 
+  | 'cinematic-clean'
   | 'full'
   | 'square'
   | 'circle'
@@ -157,5 +158,48 @@ export const LYRIC_VIDEO_TEMPLATES: Record<LyricTemplateId, LyricVideoTemplate> 
     typography: { fontFamily: 'Outfit', fontWeight: '800', fontSizeScale: 1.1, textColor: '#ffffff', activeWordColor: '#f472b6', inactiveWordColor: 'rgba(255, 255, 255, 0.65)', glowColor: '#db2777', shadowColor: 'rgba(0, 0, 0, 0.95)', showContainerPill: true, pillBgColor: 'rgba(12, 12, 18, 0.85)' },
     animations: { lineAnimation: 'slide-up', wordAnimation: 'karaoke', intensity: 1.1 },
     defaultBackground: { type: 'gradient', presetName: 'Cyberpunk', value: 'linear-gradient(135deg, #090a14 0%, #171026 50%, #080b18 100%)' }
+  },
+  'cinematic-clean': {
+    id: 'cinematic-clean',
+    name: 'Cinematic Clean Lyrics',
+    description: 'Minimal, atmospheric lyric presentation with crisp full-screen background and elegant fading text',
+    category: 'Cinematic',
+    previewColor: '#f59e0b',
+    badge: 'New',
+    layout: {
+      lyricPosition: 'center',
+      lyricAlignment: 'center',
+      maxLines: 1,
+      showNextLine: false,
+      showPrevLine: false,
+      artworkType: 'none',
+      artworkPosition: 'center',
+      artworkAnim: 'none',
+      showSongTitle: false,
+      showArtist: false,
+      titlePosition: 'corner'
+    },
+    typography: {
+      fontFamily: 'Outfit',
+      fontWeight: '500',
+      fontSizeScale: 1.0,
+      textColor: '#ffffff',
+      activeWordColor: '#ffffff',
+      inactiveWordColor: 'rgba(255, 255, 255, 0.75)',
+      glowColor: 'transparent',
+      shadowColor: 'rgba(0, 0, 0, 0.85)',
+      showContainerPill: false,
+      pillBgColor: 'transparent'
+    },
+    animations: {
+      lineAnimation: 'fade',
+      wordAnimation: 'word-fade',
+      intensity: 1.0
+    },
+    defaultBackground: {
+      type: 'color',
+      presetName: 'Deep Onyx',
+      value: '#07080e'
+    }
   }
 };

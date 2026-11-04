@@ -126,11 +126,23 @@ function cover(ctx: CanvasRenderingContext2D, source: CanvasImageSource, width: 
 function caption(ctx: CanvasRenderingContext2D, project: CanonicalProjectJson, time: number) {
   const line = project.lyrics.lines.find(l => time >= l.startTime && time < l.endTime);
   if (!line?.text) return;
+  const options = {
+    animationStyle: (project.lyrics.animationStyle === 'fade' ? 'fade' : 'karaoke') as 'karaoke' | 'fade',
+    position: project.lyrics.position || 'bottom',
+    showBackgroundBox: project.lyrics.showBackgroundBox ?? false,
+    bilingualEnabled: project.lyrics.bilingualEnabled ?? true,
+    textColor: project.lyrics.textColor || '#ffffff',
+    activeColor: project.lyrics.activeWordColor || '#fde047',
+    fontFamily: project.lyrics.fontFamily || 'Outfit, sans-serif',
+    fadeInDuration: project.lyrics.fadeInDuration ?? 0.4,
+    fadeOutDuration: project.lyrics.fadeOutDuration ?? 0.4,
+    fadeEasing: project.lyrics.fadeEasing ?? 'smooth'
+  };
   const layout = layoutMVCaption(line, ctx.canvas.width, ctx.canvas.height, (value, size) => {
-    ctx.font = `700 ${size}px sans-serif`;
+    ctx.font = `700 ${size}px ${options.fontFamily}`;
     return ctx.measureText(value).width;
-  });
-  drawMVCaption(ctx, layout, time);
+  }, options);
+  drawMVCaption(ctx, layout, time, options);
 }
 
 export class OfflineFrameCompositor {
@@ -300,7 +312,23 @@ export class OfflineFrameCompositor {
         aspectRatio: project.aspectRatio,
         animationStyle: project.lyrics.animationStyle,
         visibleLineCount: lyricsState.visibleLineCount,
-        customBackground: bg,
+        showArtwork: project.showArtwork ?? (project.templateId !== 'cinematic-clean'),
+        showVisualizer: project.showVisualizer ?? (project.visualizer?.enabled !== false && project.templateId !== 'cinematic-clean'),
+        showLyrics: project.showLyrics ?? true,
+        showMeta: project.showMeta ?? (project.templateId !== 'cinematic-clean'),
+        bilingualEnabled: project.lyrics.bilingualEnabled,
+        fadeInDuration: project.lyrics.fadeInDuration,
+        fadeOutDuration: project.lyrics.fadeOutDuration,
+        fadeEasing: project.lyrics.fadeEasing,
+        customBackground: {
+          ...bg,
+          blur: project.background.blur,
+          dim: project.background.dim,
+          brightness: project.background.brightness,
+          contrast: project.background.contrast,
+          saturation: project.background.saturation,
+          vignette: project.background.vignette
+        },
         typographyOverride: project.lyrics,
         artworkOverride: project.artwork,
         animationOverride: lyricsState.animationOverride,

@@ -490,15 +490,39 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           || lines.find(l => curTime >= l.startTime && curTime < l.endTime);
 
         if (activeLine?.text) {
+          const mvCaptionOptions = {
+            animationStyle: storeState.lyricsSettings?.animationStyle || lyricsVideoState.animationStyle || 'karaoke',
+            position: storeState.lyricsSettings?.position || 'bottom',
+            showBackgroundBox: storeState.lyricsSettings?.showBackgroundBox ?? false,
+            bilingualEnabled: storeState.lyricsSettings?.bilingualEnabled ?? lyricsVideoState.bilingualEnabled ?? true,
+            textColor: lyricsVideoState.typographyOverride?.textColor || '#ffffff',
+            activeColor: lyricsVideoState.typographyOverride?.activeWordColor || storeState.lyricsSettings?.color || '#fde047',
+            fontFamily: lyricsVideoState.typographyOverride?.fontFamily || 'Outfit, sans-serif',
+            fadeInDuration: lyricsVideoState.fadeInDuration ?? 0.4,
+            fadeOutDuration: lyricsVideoState.fadeOutDuration ?? 0.4,
+            fadeEasing: lyricsVideoState.fadeEasing ?? 'smooth'
+          };
+
           if (!captionCache || captionCache.line !== activeLine ||
-              captionCache.width !== W || captionCache.height !== H) {
+              captionCache.width !== W || captionCache.height !== H ||
+              (captionCache as any).animStyle !== mvCaptionOptions.animationStyle ||
+              (captionCache as any).position !== mvCaptionOptions.position ||
+              (captionCache as any).showBox !== mvCaptionOptions.showBackgroundBox) {
             const layout = layoutMVCaption(activeLine, W, H, (text, fontSize) => {
-              ctx.font = `700 ${fontSize}px sans-serif`;
+              ctx.font = `700 ${fontSize}px ${mvCaptionOptions.fontFamily}`;
               return ctx.measureText(text).width;
-            });
-            captionCache = { line: activeLine, width: W, height: H, layout };
+            }, mvCaptionOptions);
+            captionCache = {
+              line: activeLine,
+              width: W,
+              height: H,
+              layout,
+              animStyle: mvCaptionOptions.animationStyle,
+              position: mvCaptionOptions.position,
+              showBox: mvCaptionOptions.showBackgroundBox
+            } as any;
           }
-          drawMVCaption(ctx, captionCache.layout, curTime);
+          drawMVCaption(ctx, captionCache.layout, curTime, mvCaptionOptions);
         }
       } catch (err) {
         console.error("Renderer Loop Exception:", err);
