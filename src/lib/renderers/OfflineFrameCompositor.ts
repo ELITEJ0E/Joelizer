@@ -114,7 +114,8 @@ export class OfflineFrameCompositor {
       ...[...videoUrls].map(async url => {
         // Fast WebCodecs decoding is supported for MP4/MOV. Keep HTMLVideo
         // fallback for other containers, codecs and browser implementations.
-        const eligible = url.startsWith('blob:') || /\\.(mp4|m4v|mov)(?:[?#]|$)/i.test(url);
+        const eligible = clips.some(clip => clip.type === 'video' && clip.url === url) &&
+          (url.startsWith('blob:') || /\\.(mp4|m4v|mov)(?:[?#]|$)/i.test(url));
         if (eligible) {
           try {
             this.fastVideos.set(url, await FastMp4Source.open(url));
