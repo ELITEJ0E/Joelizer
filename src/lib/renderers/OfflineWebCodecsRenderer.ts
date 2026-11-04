@@ -109,8 +109,15 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
   async isAvailable(): Promise<boolean> {
     if (typeof window === 'undefined' || typeof (globalThis as any).VideoFrame !== 'function') return false;
     try {
-      const project = { width: 1920, height: 1080, fps: 30 };
-      return !!(await findVideoConfig(project));
+      const formats = [
+        { width: 1920, height: 1080, fps: 30 },
+        { width: 1280, height: 720, fps: 30 },
+        { width: 640, height: 360, fps: 30 }
+      ];
+      for (const format of formats) {
+        if (await findVideoConfig(format)) return true;
+      }
+      return false;
     } catch { return false; }
   }
 
