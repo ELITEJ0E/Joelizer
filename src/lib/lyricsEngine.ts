@@ -70,6 +70,8 @@ export interface RenderLyricsVideoOptions {
     intensity?: number;
   };
   elementPositions?: CanvasElementPositions;
+  /** When true, draggable canvas coordinates always win over Top/Center/Bottom presets. */
+  preferElementPosition?: boolean;
   watermarkText?: string;
   showSafeArea?: boolean;
   showBackgroundVisualizer?: boolean;
@@ -903,12 +905,17 @@ function renderLyrics(
   const fontSizeScale = options.typographyOverride?.fontSizeScale || 1;
   const fontSize = Math.max(16, Math.round(H * (isPortrait ? 0.038 : 0.045) * fontSizeScale));
 
-  // Determine position taking into account position override ('bottom', 'center', 'top')
+  // Lyrics Studio has an actual draggable canvas anchor. Never override that
+  // anchor with a stale Top/Center/Bottom preset while editing or exporting,
+  // otherwise the selection box moves while the visible text stays fixed.
+  // Regular MV caption overlays still retain their existing position presets.
   const positionSetting = options.typographyOverride?.position || useStore.getState().lyricsSettings?.position;
   let posX = pos ? pos.x * W : (isPortrait ? W / 2 : W * 0.72);
   let posY = pos ? pos.y * H : (isPortrait ? H * 0.72 : H * 0.45);
 
-  if (positionSetting === 'bottom') {
+  if (options.preferElementPosition && pos) {
+    // Element position is authoritative for editable Lyrics Studio scenes.
+  } else if (positionSetting === 'bottom') {
     posX = W / 2;
     posY = H * (isPortrait ? 0.82 : 0.80);
   } else if (positionSetting === 'center') {
