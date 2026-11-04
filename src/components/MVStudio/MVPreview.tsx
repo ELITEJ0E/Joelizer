@@ -290,6 +290,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               artworkOverride: lyricsVideoState.artworkOverride,
               animationOverride: lyricsVideoState.animationOverride,
               elementPositions: lyricsVideoState.elementPositions,
+              preferElementPosition: true,
               watermarkText: 'Made with Joelizer',
               showSafeArea: lyricsVideoState.showSafeArea,
               showArtwork: lyricsVideoState.showArtwork !== false,
