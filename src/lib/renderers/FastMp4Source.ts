@@ -106,38 +106,27 @@ export class FastMp4Source {
   }
 
   /**
-   * Bounded queue management: Keeps only the most relevant decoded frames.
-   * In 1080p, holding onto dozens of decoded VideoFrames exhausts the browser's
-   * hardware video decoder texture pool, stalling decode callbacks indefinitely.
-   * By closing obsolete frames immediately as newer frames arrive, the decoder
-   * buffer pool remains unblocked.
+   * Discard only past frames that can never be selected again during a
+   * forward export. Keep every decoded future frame until its timestamp is
+   * reached: dropping those frames used to skip source frames and caused
+   * visibly jerky exported footage, especially with reordered H.264 frames.
+   *
+   * The input decodeQueueSize/backpressure below bounds new work; future
+   * frames must never be pruned simply because a queue-length cap was hit.
    */
   private pruneDecoded(targetUs: number) {
-    if (this.decoded.length <= 2) return;
+    if (this.decoded.length <= 1) return;
     this.decoded.sort((a, b) => a.timestamp - b.timestamp);
     let bestPastIdx = -1;
     for (let i = 0; i < this.decoded.length; i++) {
-      if (this.decoded[i].timestamp <= targetUs) {
-        bestPastIdx = i;
-      } else {
-        break;
-      }
+      if (this.decoded[i].timestamp <= targetUs) bestPastIdx = i;
+      else break;
     }
-    // Any frame before the closest past frame is obsolete and must be released immediately
     if (bestPastIdx > 0) {
       for (let i = 0; i < bestPastIdx; i++) {
         try { this.decoded[i].close(); } catch {}
       }
       this.decoded.splice(0, bestPastIdx);
-    }
-    // Cap future lookahead frames to 3 to keep GPU memory strictly bounded
-    const maxFuture = 3;
-    const pastCount = bestPastIdx >= 0 ? 1 : 0;
-    while (this.decoded.length > pastCount + maxFuture) {
-      const excess = this.decoded.pop();
-      if (excess) {
-        try { excess.close(); } catch {}
-      }
     }
   }
 
