@@ -482,47 +482,44 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           ctx.fillText('NO ACTIVE TIMELINE CLIP', W / 2, H / 2);
         }
 
-        // 3. Responsive karaoke captions. Cache line wrapping and font
-        // measurement until the text object or canvas geometry changes.
-        const timings = mvState.wordTimings;
-        const lines = storeState.lyricsSettings?.lines || [];
-        const activeLine = timings.find(t => curTime >= t.startTime && curTime < t.endTime)
-          || lines.find(l => curTime >= l.startTime && curTime < l.endTime);
+        // 3. Render unified lyrics overlay over MV timeline clips (eliminates old duplicate bottom caption box)
+        if (storeState.lyricsSettings?.lines && storeState.lyricsSettings.lines.length > 0) {
+          const currentTrack = storeState.tracks[storeState.currentTrackIndex];
+          const templateId = lyricsVideoState.selectedTemplateId || 'vinyl';
+          const tmpl = LYRIC_VIDEO_TEMPLATES[templateId] || LYRIC_VIDEO_TEMPLATES['vinyl'];
 
-        if (activeLine?.text) {
-          const mvCaptionOptions = {
-            animationStyle: storeState.lyricsSettings?.animationStyle || lyricsVideoState.animationStyle || 'karaoke',
-            position: storeState.lyricsSettings?.position || 'bottom',
-            showBackgroundBox: storeState.lyricsSettings?.showBackgroundBox ?? false,
-            bilingualEnabled: storeState.lyricsSettings?.bilingualEnabled ?? lyricsVideoState.bilingualEnabled ?? true,
-            textColor: lyricsVideoState.typographyOverride?.textColor || '#ffffff',
-            activeColor: lyricsVideoState.typographyOverride?.activeWordColor || storeState.lyricsSettings?.color || '#fde047',
-            fontFamily: lyricsVideoState.typographyOverride?.fontFamily || 'Outfit, sans-serif',
-            fadeInDuration: lyricsVideoState.fadeInDuration ?? 0.4,
-            fadeOutDuration: lyricsVideoState.fadeOutDuration ?? 0.4,
-            fadeEasing: lyricsVideoState.fadeEasing ?? 'smooth'
-          };
-
-          if (!captionCache || captionCache.line !== activeLine ||
-              captionCache.width !== W || captionCache.height !== H ||
-              (captionCache as any).animStyle !== mvCaptionOptions.animationStyle ||
-              (captionCache as any).position !== mvCaptionOptions.position ||
-              (captionCache as any).showBox !== mvCaptionOptions.showBackgroundBox) {
-            const layout = layoutMVCaption(activeLine, W, H, (text, fontSize) => {
-              ctx.font = `700 ${fontSize}px ${mvCaptionOptions.fontFamily}`;
-              return ctx.measureText(text).width;
-            }, mvCaptionOptions);
-            captionCache = {
-              line: activeLine,
-              width: W,
-              height: H,
-              layout,
-              animStyle: mvCaptionOptions.animationStyle,
-              position: mvCaptionOptions.position,
-              showBox: mvCaptionOptions.showBackgroundBox
-            } as any;
-          }
-          drawMVCaption(ctx, captionCache.layout, curTime, mvCaptionOptions);
+          renderLyricsVideoFrame(
+            ctx,
+            W,
+            H,
+            curTime,
+            storeState.lyricsSettings?.lines || [],
+            {
+              title: currentTrack?.name || 'Untitled Track',
+              artist: currentTrack?.artist || 'Joelizer Studio',
+              albumArtUrl: currentTrack?.albumArt || storeState.albumArt
+            },
+            {
+              template: tmpl,
+              aspectRatio: storeState.aspectRatio,
+              animationStyle: lyricsVideoState.animationStyle,
+              visibleLineCount: lyricsVideoState.visibleLineCount,
+              showArtwork: false,
+              showMeta: false,
+              showVisualizer: false,
+              showLyrics: true,
+              bilingualEnabled: lyricsVideoState.bilingualEnabled ?? true,
+              fadeInDuration: lyricsVideoState.fadeInDuration,
+              fadeOutDuration: lyricsVideoState.fadeOutDuration,
+              fadeEasing: lyricsVideoState.fadeEasing,
+              customBackground: { type: 'color', value: 'transparent' },
+              typographyOverride: lyricsVideoState.typographyOverride,
+              animationOverride: lyricsVideoState.animationOverride,
+              elementPositions: lyricsVideoState.elementPositions,
+              watermarkText: 'Made with Joelizer',
+              showSafeArea: false
+            }
+          );
         }
       } catch (err) {
         console.error("Renderer Loop Exception:", err);

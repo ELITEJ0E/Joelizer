@@ -123,27 +123,7 @@ function cover(ctx: CanvasRenderingContext2D, source: CanvasImageSource, width: 
   ctx.drawImage(source, (width - dw) / 2, (height - dh) / 2, dw, dh);
 }
 
-function caption(ctx: CanvasRenderingContext2D, project: CanonicalProjectJson, time: number) {
-  const line = project.lyrics.lines.find(l => time >= l.startTime && time < l.endTime);
-  if (!line?.text) return;
-  const options = {
-    animationStyle: (project.lyrics.animationStyle === 'fade' ? 'fade' : 'karaoke') as 'karaoke' | 'fade',
-    position: project.lyrics.position || 'bottom',
-    showBackgroundBox: project.lyrics.showBackgroundBox ?? false,
-    bilingualEnabled: project.lyrics.bilingualEnabled ?? true,
-    textColor: project.lyrics.textColor || '#ffffff',
-    activeColor: project.lyrics.activeWordColor || '#fde047',
-    fontFamily: project.lyrics.fontFamily || 'Outfit, sans-serif',
-    fadeInDuration: project.lyrics.fadeInDuration ?? 0.4,
-    fadeOutDuration: project.lyrics.fadeOutDuration ?? 0.4,
-    fadeEasing: project.lyrics.fadeEasing ?? 'smooth'
-  };
-  const layout = layoutMVCaption(line, ctx.canvas.width, ctx.canvas.height, (value, size) => {
-    ctx.font = `700 ${size}px ${options.fontFamily}`;
-    return ctx.measureText(value).width;
-  }, options);
-  drawMVCaption(ctx, layout, time, options);
-}
+
 
 export class OfflineFrameCompositor {
   readonly canvas: HTMLCanvasElement;
@@ -401,7 +381,40 @@ export class OfflineFrameCompositor {
         renderVisualizer(ctx, audio.frequency, audio.waveform,
           useStore.getState().visualizerSettings, W, H);
       }
-      caption(ctx, project, time);
+      if (project.showLyrics !== false && project.lyrics.lines.length > 0) {
+        const lyricsState = useLyricsVideoStore.getState();
+        const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
+        const adaptedLines = project.lyrics.lines.map(line => ({
+          ...line,
+          words: line.words?.map(w => ({ word: w.word, start: w.startTime, end: w.endTime }))
+        }));
+        renderLyricsVideoFrame(ctx, W, H, time, adaptedLines as any, {
+          title: project.audio.title,
+          artist: project.audio.artist,
+          albumArtUrl: project.audio.albumArt || undefined
+        }, {
+          template,
+          aspectRatio: project.aspectRatio,
+          animationStyle: project.lyrics.animationStyle,
+          visibleLineCount: lyricsState.visibleLineCount,
+          showArtwork: false,
+          showVisualizer: false,
+          showLyrics: true,
+          showMeta: false,
+          bilingualEnabled: project.lyrics.bilingualEnabled,
+          fadeInDuration: project.lyrics.fadeInDuration,
+          fadeOutDuration: project.lyrics.fadeOutDuration,
+          fadeEasing: project.lyrics.fadeEasing,
+          customBackground: { type: 'color', value: 'transparent' },
+          typographyOverride: project.lyrics,
+          artworkOverride: project.artwork,
+          animationOverride: lyricsState.animationOverride,
+          elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
+          watermarkText: project.watermarkText,
+          showSafeArea: false,
+          offlineExport: true
+        }, audio.frequency, audio.waveform);
+      }
     }
     ctx.restore();
     return this.canvas;
