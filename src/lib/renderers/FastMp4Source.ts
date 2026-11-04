@@ -84,9 +84,15 @@ export class FastMp4Source {
     buffer.fileStart = 0;
     file.appendBuffer(buffer);
     file.flush();
-    if (!track || !config || !samples.length) throw new Error('MP4 has no extractable video samples');
+    if (!track || !config || !samples.length) throw new Error('File does not contain a readable MP4 video track.');
     const support = await VideoDecoder.isConfigSupported(config);
-    if (!support.supported) throw new Error('Source video codec is unsupported by WebCodecs');
+    if (!support.supported) {
+      const detected = track.codec || 'unknown';
+      const format = /^hvc1|^hev1/i.test(detected) ? 'HEVC/H.265'
+        : /^ap4h|^apch|^apcn|^apcs/i.test(detected) ? 'Apple ProRes'
+        : detected;
+      throw new Error(`Source codec ${format} (${detected}) cannot be decoded in this browser. Convert the source to H.264 MP4 (8-bit yuv420p), then re-import it.`);
+    }
     // Samples must be fed in DTS order, which MP4Box's extraction retains.
     return new FastMp4Source(samples, support.config);
   }
