@@ -1,5 +1,6 @@
 import { CanonicalProjectJson } from '../../types/projectJson';
 import { layoutMVCaption, drawMVCaption } from '../mvCaptionLayout';
+import { FastMp4Source } from './FastMp4Source';
 import { OfflineAudioAnalysis } from './offlineAudioAnalysis';
 import { renderLyricsVideoFrame, getOrLoadImage } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
@@ -83,6 +84,7 @@ export class OfflineFrameCompositor {
   readonly canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private videos = new Map<string, StageMedia>();
+  private fastVideos = new Map<string, FastMp4Source>();
   private images = new Map<string, HTMLImageElement>();
   private loaded = false;
   private audioAnalysis = new OfflineAudioAnalysis();
@@ -109,7 +111,20 @@ export class OfflineFrameCompositor {
     if (project.background.type === 'image') imageUrls.add(project.background.value);
     if (project.audio.albumArt) imageUrls.add(project.audio.albumArt);
     await Promise.all([
-      ...[...videoUrls].map(async url => this.videos.set(url, { element: await loadVideo(url), lastFrame: NaN })),
+      ...[...videoUrls].map(async url => {
+        // Fast WebCodecs decoding is supported for MP4/MOV. Keep HTMLVideo
+        // fallback for other containers, codecs and browser implementations.
+        const eligible = url.startsWith('blob:') || /\\.(mp4|m4v|mov)(?:[?#]|$)/i.test(url);
+        if (eligible) {
+          try {
+            this.fastVideos.set(url, await FastMp4Source.open(url));
+            return;
+          } catch (error) {
+            console.warn('[MV export] Fast MP4 decoder unavailable, falling back to seeking:', error);
+          }
+        }
+        this.videos.set(url, { element: await loadVideo(url), lastFrame: NaN });
+      }),
       ...[...imageUrls].map(async url => this.images.set(url, await loadImage(url)))
     ]);
     if (project.audio.albumArt) {
@@ -150,6 +165,8 @@ export class OfflineFrameCompositor {
         bg.videoElement = bgVideo.element;
         bg.videoUrl = undefined;
       }
+      // Background video scenes still use their legacy HTML decoding;
+      // video clip fast-path is used for trimmed timeline footage.
       if (project.background.type === 'image') {
         bg.imageElement = this.images.get(project.background.value);
       }
@@ -177,11 +194,17 @@ export class OfflineFrameCompositor {
       }, audio.frequency, audio.waveform);
     } else if (clip) {
       if (clip.type === 'video') {
-        const media = this.videos.get(clip.url);
-        if (!media) throw new Error('Missing prepared video clip ' + clip.id);
         const sourceTime = clip.trimStart + time - clip.startTime;
-        await atTime(media, sourceTime);
-        cover(ctx, media.element, W, H, media.element.videoWidth, media.element.videoHeight);
+        const fast = this.fastVideos.get(clip.url);
+        if (fast) {
+          const frame = await fast.frameAt(sourceTime);
+          cover(ctx, frame, W, H, frame.displayWidth, frame.displayHeight);
+        } else {
+          const media = this.videos.get(clip.url);
+          if (!media) throw new Error('Missing prepared video clip ' + clip.id);
+          await atTime(media, sourceTime);
+          cover(ctx, media.element, W, H, media.element.videoWidth, media.element.videoHeight);
+        }
       } else if (clip.type === 'image') {
         const image = this.images.get(clip.url);
         if (!image) throw new Error('Missing prepared image clip ' + clip.id);
@@ -222,6 +245,8 @@ export class OfflineFrameCompositor {
       media.element.load();
     }
     this.videos.clear();
+    for (const source of this.fastVideos.values()) source.dispose();
+    this.fastVideos.clear();
     this.images.clear();
   }
 }
