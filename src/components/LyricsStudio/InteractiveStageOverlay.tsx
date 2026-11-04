@@ -144,6 +144,13 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   const handlePointerDown = (e: React.PointerEvent, key: ElementKey) => {
     e.stopPropagation();
     setSelectedElement(key);
+    if (key === 'lyrics') {
+      // Manual dragging takes precedence over the Top / Center / Bottom preset.
+      // Clear both positioning overrides so the lyric renderer uses the actual
+      // normalized elementPositions.lyrics value during preview and export.
+      useLyricsVideoStore.getState().updateTypographyOverride({ position: undefined });
+      useStore.getState().updateLyricsSettings({ position: undefined });
+    }
     isDraggingRef.current = true;
     activeKeyRef.current = key;
 
@@ -189,10 +196,16 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   };
 
   const artworkStyle = useLyricsVideoStore(s => s.artworkOverride.style);
+  const showArtwork = useLyricsVideoStore(s => s.showArtwork);
+  const showVisualizer = useLyricsVideoStore(s => s.showVisualizer);
+  const showLyrics = useLyricsVideoStore(s => s.showLyrics);
+  const showMeta = useLyricsVideoStore(s => s.showMeta);
   const allAvailableKeys: ElementKey[] = (['artwork', 'meta', 'lyrics', 'visualizer', 'watermark'] as ElementKey[]).filter(
     k => {
-      if (k === 'artwork') return artworkStyle !== 'none' && artworkStyle !== 'background-blur';
-      if (k === 'visualizer') return artworkStyle !== 'glowing-disc' && artworkStyle !== 'glowing-disc-needle';
+      if (k === 'artwork') return showArtwork !== false && artworkStyle !== 'none' && artworkStyle !== 'background-blur';
+      if (k === 'visualizer') return showVisualizer !== false && artworkStyle !== 'glowing-disc' && artworkStyle !== 'glowing-disc-needle';
+      if (k === 'lyrics') return showLyrics !== false;
+      if (k === 'meta') return showMeta !== false;
       return true;
     }
   );
@@ -556,6 +569,9 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
           onClick={(e) => {
             e.stopPropagation();
             resetElementPositions(aspectRatio);
+            // Reset returns to the template layout, not a stale global positioning preset.
+            useLyricsVideoStore.getState().updateTypographyOverride({ position: undefined });
+            useStore.getState().updateLyricsSettings({ position: undefined });
             updateVisualizerSettings({ scale: 1.0 });
             updateArtworkOverride({ sizeScale: 1.0 });
           }}
