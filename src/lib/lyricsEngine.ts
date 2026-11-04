@@ -138,7 +138,18 @@ export function syncLyricsBackgroundVideo(url: string | undefined, time: number,
   }
   if (video.paused && !state.playPending) {
     state.playPending = true;
-    video.play().catch(() => {}).finally(() => { state.playPending = false; });
+    video.play().catch(() => {}).finally(() => {
+      state.playPending = false;
+      // A pending browser play() promise can settle after the user paused.
+      // Do not let that asynchronous completion restart background motion.
+      if (!state.lastPlaying && !video.paused) video.pause();
+    });
+  }
+}
+
+export function pauseInactiveLyricsBackgroundVideos(activeUrl?: string): void {
+  for (const [url, video] of videoCache) {
+    if (url !== activeUrl && !video.paused) video.pause();
   }
 }
 
