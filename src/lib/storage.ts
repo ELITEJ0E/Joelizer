@@ -24,16 +24,30 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveAudioToStorage(file: File | Blob, name: string, duration: number): Promise<void> {
+export async function saveAudioToStorage(file: File | Blob, name: string, duration: number, artist = 'Uploaded Audio'): Promise<void> {
   try {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.put(file, 'audioBlob');
     store.put(name, 'audioName');
+    store.put(artist, 'audioArtist');
     store.put(duration, 'audioDuration');
   } catch (err) {
     console.warn('Failed to save audio to IndexedDB:', err);
+  }
+}
+
+// Edits metadata without replacing the stored file or causing playback to restart.
+export async function updateStoredAudioMetadata(name: string, artist: string): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.put(name, 'audioName');
+    store.put(artist, 'audioArtist');
+  } catch (error) {
+    console.warn('Failed to persist edited track metadata:', error);
   }
 }
 
@@ -48,7 +62,7 @@ export async function clearAudioFromStorage(): Promise<void> {
   }
 }
 
-export async function loadAudioFromStorage(): Promise<{ blob: Blob; name: string; duration: number } | null> {
+export async function loadAudioFromStorage(): Promise<{ blob: Blob; name: string; artist: string; duration: number } | null> {
   try {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readonly');
@@ -62,12 +76,14 @@ export async function loadAudioFromStorage(): Promise<{ blob: Blob; name: string
 
     const blob = await getReq('audioBlob');
     const name = await getReq('audioName');
+    const artist = await getReq('audioArtist');
     const duration = await getReq('audioDuration');
 
     if (blob && blob instanceof Blob) {
       return {
         blob,
         name: name || 'Saved Track',
+        artist: artist || 'Uploaded Audio',
         duration: duration || 0
       };
     }
