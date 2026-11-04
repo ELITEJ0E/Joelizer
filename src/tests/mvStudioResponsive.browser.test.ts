@@ -183,6 +183,26 @@ try {
   assert.equal(buttons, 2, 'Mobile media import must offer both file and folder choices');
   await page.keyboard.press('Escape');
   await mobileDialog.waitFor({ state: 'detached' });
+  const metadata = await page.evaluate(async () => {
+    const { useStore } = await import(/* @vite-ignore */ '/src/store/useStore.ts');
+    const { buildCanonicalProjectJson } = await import(/* @vite-ignore */ '/src/lib/projectJsonBuilder.ts');
+    const data = new File(['testing metadata'], 'original-track.wav', { type: 'audio/wav' });
+    useStore.getState().setAudio(data, URL.createObjectURL(data), 10, null,
+      { name: 'Original song', artist: 'Uploaded Audio' });
+    const selected = useStore.getState().currentTrackIndex;
+    useStore.getState().updateTrackMetadata(selected,
+      { name: 'I Do', artist: 'Joel Tan' });
+    const project = await buildCanonicalProjectJson({ skipStaging: true });
+    return {
+      title: project.audio.title,
+      artist: project.audio.artist,
+      unchangedUrl: useStore.getState().tracks[selected]?.url === useStore.getState().audioUrl
+    };
+  });
+  assert.equal(metadata.title, 'I Do', 'Edited song title must appear in exported vinyl metadata');
+  assert.equal(metadata.artist, 'Joel Tan', 'Edited artist name must replace Uploaded Audio in export');
+  assert.ok(metadata.unchangedUrl, 'Editing track metadata must not restart or replace audio playback');
+  console.log('Export metadata editing verified:', metadata.title, metadata.artist);
   console.log('MV Studio desktop/mobile preview, hover controls, stacking and import dialog tests passed');
 } finally {
   await browser?.close();
