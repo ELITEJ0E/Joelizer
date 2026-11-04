@@ -121,8 +121,9 @@ export class OfflineFrameCompositor {
       ...[...videoUrls].map(async url => {
         // Fast WebCodecs decoding is supported for MP4/MOV. Keep HTMLVideo
         // fallback for other containers, codecs and browser implementations.
-        const eligible = clips.some(clip => clip.type === 'video' && clip.url === url) &&
-          (url.startsWith('blob:') || /\\.(mp4|m4v|mov)(?:[?#]|$)/i.test(url));
+        const eligible = (clips.some(clip => clip.type === 'video' && clip.url === url) ||
+          backgroundVideoUrl === url) &&
+          (url.startsWith('blob:') || /\.(mp4|m4v|mov)(?:[?#]|$)/i.test(url));
         if (eligible) {
           try {
             this.fastVideos.set(url, await FastMp4Source.open(url));
@@ -159,7 +160,7 @@ export class OfflineFrameCompositor {
     if (project.exportMode === 'lyrics-video' || clip?.type === 'vinyl-lyrics') {
       const lyricsState = useLyricsVideoStore.getState();
       const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
-      const bg: typeof lyricsState.customBackground & { videoElement?: HTMLVideoElement; imageElement?: HTMLImageElement } = {
+      const bg: typeof lyricsState.customBackground & { videoElement?: HTMLVideoElement | VideoFrame; imageElement?: HTMLImageElement } = {
         ...lyricsState.customBackground,
         type: project.background.type,
         value: project.background.value,
@@ -170,11 +171,17 @@ export class OfflineFrameCompositor {
       const backgroundUrl = project.background.type === 'video'
         ? (project.background.videoUrl || project.background.value)
         : null;
+      const fastBackground = backgroundUrl ? this.fastVideos.get(backgroundUrl) : null;
       const bgVideo = backgroundUrl ? this.videos.get(backgroundUrl) : null;
-      if (bgVideo) {
-        // Map timeline time into the source's finite loop length. Await the
-        // decoded seeked frame BEFORE drawing canvas; asynchronous seeks
-        // performed during draw created frozen/repeating exported backgrounds.
+      if (fastBackground) {
+        const duration = fastBackground.durationSeconds;
+        const loopTime = Number.isFinite(duration) && duration > 0
+          ? ((time % duration) + duration) % duration : time;
+        // Sequential decoder reuses frames across 30/60fps output, avoiding
+        // hundreds of expensive HTML video seeks per second of footage.
+        bg.videoElement = await fastBackground.frameAt(loopTime);
+        bg.videoUrl = undefined;
+      } else if (bgVideo) {
         const duration = bgVideo.element.duration;
         const loopTime = Number.isFinite(duration) && duration > 0
           ? ((time % duration) + duration) % duration : time;
@@ -184,8 +191,6 @@ export class OfflineFrameCompositor {
       } else if (backgroundUrl) {
         throw new Error('The looping background video could not be prepared for export.');
       }
-      // Background video scenes still use their legacy HTML decoding;
-      // video clip fast-path is used for trimmed timeline footage.
       if (project.background.type === 'image') {
         bg.imageElement = this.images.get(project.background.value);
       }
