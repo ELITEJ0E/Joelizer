@@ -2,11 +2,11 @@ import { CanonicalProjectJson } from '../../types/projectJson';
 import { layoutMVCaption, drawMVCaption } from '../mvCaptionLayout';
 import { FastMp4Source } from './FastMp4Source';
 import { OfflineAudioAnalysis } from './offlineAudioAnalysis';
-import { renderLyricsVideoFrame, registerCachedImage } from '../lyricsEngine';
+import { renderLyricsVideoFrame, renderLyricsOverlayFrame, registerCachedImage } from '../lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lyricsTemplates';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useMVStore } from '../../store/useMVStore';
-import { useStore } from '../../store/useStore';
+import { useStore, type LyricLine } from '../../store/useStore';
 import { renderVisualizer } from '../renderers';
 
 type StageMedia = { element: HTMLVideoElement; lastFrame: number };
@@ -134,12 +134,20 @@ export class OfflineFrameCompositor {
   private images = new Map<string, HTMLImageElement>();
   private loaded = false;
   private audioAnalysis = new OfflineAudioAnalysis();
+  private readonly preparedLyrics: LyricLine[];
 
   setAudioBuffer(audio: AudioBuffer | null): void {
     this.audioAnalysis.setBuffer(audio);
   }
 
   constructor(private project: CanonicalProjectJson) {
+    // Adapt and cache lyric timing once per export, not on every 1080p frame.
+    this.preparedLyrics = project.lyrics.lines.map(line => ({
+      ...line,
+      words: line.words?.map(w => ({
+        word: w.word, start: w.startTime, end: w.endTime
+      }))
+    }));
     this.canvas = document.createElement('canvas');
     this.canvas.width = project.width;
     this.canvas.height = project.height;
@@ -279,10 +287,7 @@ export class OfflineFrameCompositor {
       if (project.background.type === 'image') {
         bg.imageElement = this.images.get(project.background.value);
       }
-      const adaptedLines = project.lyrics.lines.map(line => ({
-        ...line,
-        words: line.words?.map(w => ({ word: w.word, start: w.startTime, end: w.endTime }))
-      }));
+      const adaptedLines = this.preparedLyrics;
       renderLyricsVideoFrame(ctx, W, H, time, adaptedLines as any, {
         title: project.audio.title,
         artist: project.audio.artist,
@@ -385,45 +390,32 @@ export class OfflineFrameCompositor {
         const lyricsState = useLyricsVideoStore.getState();
         const storeState = useStore.getState();
         const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
-        const adaptedLines = project.lyrics.lines.map(line => ({
-          ...line,
-          words: line.words?.map(w => ({ word: w.word, start: w.startTime, end: w.endTime }))
-        }));
+        const lyricPosSetting = project.lyrics.position || lyricsState.typographyOverride?.position || 'bottom';
+        const effectiveShowBox = project.lyrics.showBackgroundBox ?? lyricsState.typographyOverride?.showContainerPill ?? true;
 
-        const lyricPosSetting = project.lyrics?.position || storeState.lyricsSettings?.position || lyricsState.typographyOverride?.position || 'bottom';
-        const effectiveShowBox = project.lyrics?.showBackgroundBox ?? storeState.lyricsSettings?.showBackgroundBox ?? lyricsState.typographyOverride?.showContainerPill ?? true;
-
-        renderLyricsVideoFrame(ctx, W, H, time, adaptedLines as any, {
-          title: project.audio.title,
-          artist: project.audio.artist,
-          albumArtUrl: project.audio.albumArt || undefined
-        }, {
+        // Only draw timed text on top of the decoded clip. Calling the full
+        // lyrics-video renderer here needlessly redraws an entire frame's
+        // background and decorations, slowing 1080p export.
+        renderLyricsOverlayFrame(ctx, W, H, time, this.preparedLyrics, {
           template,
           aspectRatio: project.aspectRatio,
           animationStyle: project.lyrics.animationStyle,
           visibleLineCount: lyricsState.visibleLineCount,
-          showArtwork: false,
-          showVisualizer: false,
           showLyrics: true,
-          showMeta: false,
           bilingualEnabled: project.lyrics.bilingualEnabled,
           fadeInDuration: project.lyrics.fadeInDuration,
           fadeOutDuration: project.lyrics.fadeOutDuration,
           fadeEasing: project.lyrics.fadeEasing,
-          customBackground: { type: 'color', value: 'transparent' },
           typographyOverride: {
-            ...project.lyrics,
             ...lyricsState.typographyOverride,
+            ...project.lyrics,
             showContainerPill: effectiveShowBox,
             position: lyricPosSetting
           },
-          artworkOverride: project.artwork,
           animationOverride: lyricsState.animationOverride,
           elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
-          watermarkText: project.watermarkText,
-          showSafeArea: false,
           offlineExport: true
-        }, audio.frequency, audio.waveform);
+        });
       }
     }
     ctx.restore();
