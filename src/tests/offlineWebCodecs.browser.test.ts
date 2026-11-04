@@ -88,10 +88,12 @@ try {
     } catch { return false; }
   });
   const modes = ['lyrics-video', 'music-video', 'lyrics-video-60fps', 'music-video-60fps',
-    'lyrics-video-looped-background', 'music-video-custom-blob', 'lyrics-video-portrait-720p'];
+    'lyrics-video-looped-background', 'music-video-custom-blob', 'lyrics-video-portrait-720p',
+    'lyrics-video-artwork-on', 'lyrics-video-artwork-off'];
   if (AACsupported || opusSupported) modes.push('music-video-with-audio', 'music-video-with-audio-long',
     'lyrics-video-visualizer-on', 'lyrics-video-visualizer-off');
   const visualizerFrameHashes = new Map<string, string>();
+  const artworkFrameHashes = new Map<string, string>();
   for (const mode of (h264 ? modes : [])) {
     const fps = mode.endsWith('-60fps') ? 60 : 30;
     const duration = mode.endsWith('-long') ? 8 : mode === 'lyrics-video-looped-background' ? 6 : 2;
@@ -129,10 +131,10 @@ try {
           { id: 'v2', assetId: 'v2', url: '/staged/smoke-video.mp4', type: 'video',
             startTime: 2, endTime: 3, duration: 1, trimStart: 2, trimEnd: 3, effect: 'none', transition: 'cut' }
         ] : [],
-        showArtwork: false,
+        showArtwork: mode === 'lyrics-video-artwork-on',
         showMeta: false,
         showVisualizer: mode === 'lyrics-video-visualizer-on',
-        artwork: { style: 'none', animation: 'none', sizeScale: 1 },
+        artwork: { style: mode === 'lyrics-video-artwork-on' ? 'vinyl' : 'none', animation: 'rotate', sizeScale: 1, enabled: mode === 'lyrics-video-artwork-on' },
         visualizer: { enabled: mode === 'lyrics-video-visualizer-on', style: 'bars', color: '#00e676', sensitivity: 1, smoothing: 0.5,
           segments: 8, hitResponse: 0.1, glitchIntensity: 0, shakeIntensity: 0,
           showGrain: false, showScanlines: false },
@@ -187,6 +189,9 @@ try {
       // the only difference, so their exported frame hashes MUST differ.
       visualizerFrameHashes.set(mode, md5.join('\n'));
     }
+    if (mode.startsWith('lyrics-video-artwork-')) {
+      artworkFrameHashes.set(mode, md5.join('\n'));
+    }
     if (mode === 'lyrics-video-looped-background') {
       // Background footage is 4 seconds long but the timeline lasts 6.
       // A stale frame or non-looped decode would leave this nearly static.
@@ -223,6 +228,12 @@ try {
     console.log(`Browser WebCodecs ${mode} ${result.format} export passed: ${decodedFrames} exact frames, ${totalDuration}s, ${new Set(md5).size} distinct samples`);
     unlinkSync(path);
   }
+  assert.notEqual(
+    artworkFrameHashes.get('lyrics-video-artwork-on'),
+    artworkFrameHashes.get('lyrics-video-artwork-off'),
+    'Vinyl artwork must be visibly present in exported MP4 even without album artwork'
+  );
+  console.log('Lyrics vinyl artwork visibility preserved in offline MP4 export');
   if (AACsupported || opusSupported) {
     assert.notEqual(
       visualizerFrameHashes.get('lyrics-video-visualizer-on'),
