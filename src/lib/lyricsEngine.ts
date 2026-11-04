@@ -9,6 +9,7 @@ import {
 import { drawBackgroundCanvas } from './lyricsBackgrounds';
 import { CanvasElementPositions, getDefaultPositions, ElementPos } from './lyricsLayout';
 import { renderVisualizer } from './renderers';
+import type { VisualizerSettings } from '../store/useStore';
 import { computeContinuousLineSweep, TimedWordMetric } from './karaokeSweep';
 import { computeFadeOpacity } from './mvCaptionLayout';
 
@@ -24,6 +25,8 @@ export interface RenderLyricsVideoOptions {
   animationStyle?: string;
   visibleLineCount?: number;
   showVisualizer?: boolean;
+  /** Explicit, serialized export settings override the live editor store. */
+  visualizerSettingsOverride?: VisualizerSettings;
   showArtwork?: boolean;
   showLyrics?: boolean;
   showMeta?: boolean;
@@ -229,7 +232,8 @@ function renderArtwork(
   sizeScale: number,
   template: LyricVideoTemplate,
   pos?: ElementPos,
-  audioFrequencyData?: Uint8Array | null
+  audioFrequencyData?: Uint8Array | null,
+  visualizerSettings?: VisualizerSettings
 ) {
   if (style === 'none' || style === 'background-blur') return;
 
@@ -257,13 +261,13 @@ function renderArtwork(
     const hasNeedle = style === 'vinyl-needle' || style === 'cd-needle';
 
     // Audio reactive outer perimeter glow (suppressed when visualizer is disabled)
-    const isVisEnabled = (useStore.getState().visualizerSettings?.enabled !== false);
+    const isVisEnabled = (visualizerSettings ?? useStore.getState().visualizerSettings)?.enabled !== false;
     if (isVisEnabled && audioFrequencyData && audioFrequencyData.length > 0) {
       ctx.save();
       const numSpokes = 64;
       const innerR = radius * 0.98;
       const maxSpokeLen = radius * 0.32;
-      const themeColor = useStore.getState().visualizerSettings?.color || '#00e676';
+      const themeColor = (visualizerSettings ?? useStore.getState().visualizerSettings)?.color || '#00e676';
       ctx.strokeStyle = themeColor;
       ctx.lineWidth = Math.max(1.8, radius * 0.015);
       ctx.lineCap = 'round';
@@ -1208,7 +1212,8 @@ export function renderSegmentDots(
   H: number,
   pos?: { x: number; y: number },
   audioFrequencyData?: Uint8Array | null,
-  audioTimeData?: Uint8Array | null
+  audioTimeData?: Uint8Array | null,
+  visualizerSettings?: VisualizerSettings
 ) {
   ctx.save();
   const isVertical = H > W;
@@ -1216,7 +1221,7 @@ export function renderSegmentDots(
   const posX = pos ? pos.x * W : (isVertical ? W / 2 : W * 0.72);
   const posY = pos ? pos.y * H : (isVertical ? H * 0.84 : H * 0.68);
 
-  const visSettings = useStore.getState().visualizerSettings;
+  const visSettings = visualizerSettings ?? useStore.getState().visualizerSettings;
   const themeColor = visSettings?.color || '#00e676';
   const visScale = Math.max(0.2, visSettings?.scale ?? 1.0);
 
@@ -1391,8 +1396,10 @@ export function renderLyricsVideoFrame(
   );
 
   // Background Full Visualizer layer if enabled (only when in MV Studio if explicitly needed)
-  const visSettings = useStore.getState().visualizerSettings;
-  const isVisEnabled = (options.showVisualizer !== false) && (visSettings?.enabled !== false) && ((template.layout as any).showVisualizer !== false);
+  const visSettings = options.visualizerSettingsOverride ?? useStore.getState().visualizerSettings;
+  // An explicit user toggle wins over template defaults and persisted global settings.
+  const isVisEnabled = options.showVisualizer === true ||
+    (options.showVisualizer !== false && visSettings?.enabled !== false && (template.layout as any).showVisualizer !== false);
 
   if (
     isVisEnabled &&
@@ -1436,7 +1443,8 @@ export function renderLyricsVideoFrame(
       artworkSizeScale,
       template,
       artworkPos,
-      audioFrequencyData
+      audioFrequencyData,
+      { ...visSettings, enabled: isVisEnabled }
     );
   }
 
@@ -1453,7 +1461,7 @@ export function renderLyricsVideoFrame(
   // 6. Render Segment Dots / Visualizer (completely suppressed when showVisualizer is false or visualizer is disabled)
   if (isVisEnabled && !(artworkStyle === 'glowing-disc' || artworkStyle === 'glowing-disc-needle')) {
     if (visSettings && visSettings.style !== 'particles') {
-      renderSegmentDots(ctx, W, H, visualizerPos, audioFrequencyData, audioTimeData);
+      renderSegmentDots(ctx, W, H, visualizerPos, audioFrequencyData, audioTimeData, { ...visSettings, enabled: isVisEnabled });
     }
   }
 
