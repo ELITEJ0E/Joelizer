@@ -341,7 +341,7 @@ export function drawBackgroundCanvas(
 
       // Explicit dim control: if user specified dim (e.g. 0 for Cinematic Clean), respect 0.
       // Only fallback to 0.55 if dim is completely undefined.
-      const dimOpacity = typeof bgSettings.dim === 'number' ? bgSettings.dim : 0.55;
+      const dimOpacity = typeof bgSettings.dim === 'number' ? bgSettings.dim : 0;
       if (dimOpacity > 0) {
         ctx.fillStyle = `rgba(0,0,0,${dimOpacity})`;
         ctx.fillRect(0, 0, W, H);
@@ -370,7 +370,7 @@ export function drawBackgroundCanvas(
       if (filterStr !== 'none') ctx.filter = 'none';
 
       // Explicit dim control: if user specified dim, respect it (0 = perfectly sharp un-dimmed video)
-      const dimOpacity = typeof bgSettings.dim === 'number' ? bgSettings.dim : 0.5;
+      const dimOpacity = typeof bgSettings.dim === 'number' ? bgSettings.dim : 0;
       if (dimOpacity > 0) {
         ctx.fillStyle = `rgba(0,0,0,${dimOpacity})`;
         ctx.fillRect(0, 0, W, H);
