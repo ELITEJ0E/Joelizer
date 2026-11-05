@@ -1058,7 +1058,10 @@ function renderLyrics(
     const pillW = Math.min(W * 0.94, longestSublineWidth + pillPaddingX * 2);
     const pillH = totalContentH + pillPaddingY * 2;
     const pillX = posX - pillW / 2;
-    const pillY = startY - pillPaddingY;
+    // startY is the text baseline (textBaseline='middle'), not the top edge.
+    // Center the optional backdrop on the rendered lyric group rather than
+    // letting its top overlap the first line and its bottom drift downward.
+    const pillY = startY - lineHeight / 2 - pillPaddingY;
 
     ctx.fillStyle = options.typographyOverride?.pillBgColor || 'rgba(10, 10, 12, 0.78)';
     ctx.beginPath();
