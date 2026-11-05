@@ -27,6 +27,8 @@ type MasteredFile = {
 
 interface Props {
   onClose: () => void;
+  /** Render as a persistent workspace within the main navigation. */
+  embedded?: boolean;
   currentAudio?: Blob | null;
   currentName?: string;
 }
@@ -93,7 +95,7 @@ function RangeField({ label, value, min, max, step, unit = '', onChange }: {
   );
 }
 
-export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: Props) {
+export function AudioMasteringLabModal({ onClose, currentAudio, currentName, embedded = false }: Props) {
   const [original, setOriginal] = useState<LoadedFile | null>(null);
   const [comparison, setComparison] = useState<LoadedFile | null>(null);
   const [master, setMaster] = useState<MasteredFile | null>(null);
@@ -118,7 +120,7 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
   closeRef.current = onClose;
 
   useEffect(() => {
-    const esc = (event: KeyboardEvent) => { if (event.key === 'Escape') closeRef.current(); };
+    const esc = (event: KeyboardEvent) => { if (!embedded && event.key === 'Escape') closeRef.current(); };
     window.addEventListener('keydown', esc);
     return () => {
       operationSequence.current++;
@@ -262,12 +264,18 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
     ? waveformStructureCorrelation(original.metrics.waveform, peer.waveform) : null;
   const sameDuration = original && peer && Math.abs(original.metrics.duration - peer.duration) < 0.1;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-2 sm:p-5" onMouseDown={event => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <section role="dialog" aria-modal="true" aria-label="Joelizer Audio Mastering and Provenance Lab"
-        className="flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#0a0e13] text-slate-200 shadow-2xl">
+  const labContents = (
+    <div className={embedded
+      ? 'flex h-full min-h-0 w-full flex-col bg-[#0a0e13]'
+      : 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-2 sm:p-5'}
+      onMouseDown={event => {
+        if (!embedded && event.target === event.currentTarget) onClose();
+      }}>
+      <section role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : true}
+        aria-label="Joelizer Audio Mastering and Provenance Lab"
+        className={embedded
+          ? 'flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#0a0e13] text-slate-200'
+          : 'flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#0a0e13] text-slate-200 shadow-2xl'}>
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-2.5">
             <AudioLines size={23} className="shrink-0 text-emerald-400" />
@@ -276,10 +284,11 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
               <p className="text-[10px] text-slate-400">Local A/B analysis · professional audio processing · honest provenance inspection</p>
             </div>
           </div>
-          <button type="button" aria-label="Close Audio Lab" onClick={onClose} className={actionStyle}><X size={16} /></button>
+          <button type="button" aria-label={embedded ? 'Back to MV Studio' : 'Close Audio Lab'} onClick={onClose}
+            className={actionStyle}>{embedded ? 'Back to MV Studio' : <X size={16} />}</button>
         </header>
 
-        <div className="space-y-4 overflow-y-auto overscroll-contain p-3 sm:p-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 sm:p-5">
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-[11px] leading-relaxed text-amber-100">
             <strong>Important:</strong> This tool cannot authenticate human authorship, detect every hidden fingerprint, or erase an audio watermark.
             A missing local metadata marker is not a negative C2PA verification. Mastering changes sound but does not erase the history of its creation.
@@ -467,6 +476,7 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
           </section>
         </div>
       </section>
-    </div>, document.body
+    </div>
   );
+  return embedded ? labContents : createPortal(labContents, document.body);
 }
