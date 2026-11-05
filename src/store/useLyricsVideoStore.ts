@@ -114,8 +114,8 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       fadeEasing: 'smooth',
 
       customBackground: {
-        type: 'blurred-artwork',
-        value: '#18181b',
+        type: 'gradient',
+        value: 'linear-gradient(135deg, #431407 0%, #9a3412 50%, #312e81 100%)',
         videoUrl: undefined,
         blur: 0,
         dim: 0
@@ -129,7 +129,7 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
         activeWordColor: '#fef08a',
         inactiveWordColor: 'rgba(255, 255, 255, 0.7)',
         glowColor: '#eab308',
-        showContainerPill: true,
+        showContainerPill: false,
         pillBgColor: 'rgba(10, 10, 12, 0.85)'
       },
 
@@ -176,7 +176,8 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
           },
           typographyOverride: {
             ...s.typographyOverride,
-            showContainerPill: isCinematicClean ? false : s.typographyOverride.showContainerPill,
+            // A template change must not force a dark caption box back on.
+            showContainerPill: s.typographyOverride.showContainerPill ?? false,
             textColor: isCinematicClean ? '#ffffff' : s.typographyOverride.textColor,
             fontSizeScale: isCinematicClean ? 1.0 : s.typographyOverride.fontSizeScale
           },
@@ -295,7 +296,27 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
     }),
     {
       name: 'lyrics-video-storage',
-      storage: createJSONStorage(() => sessionStorage)
+      storage: createJSONStorage(() => sessionStorage),
+      version: 1,
+      migrate: (persistedState: unknown) => {
+        const state = (persistedState || {}) as Partial<LyricsVideoState>;
+        const typography = { ...state.typographyOverride };
+        const background = { ...state.customBackground };
+        // Previous builds shipped an opaque pill and blurred cover as their
+        // hardcoded startup values. Migrate only that stock configuration;
+        // custom backgrounds and customized caption styles remain untouched.
+        if (typography.showContainerPill === true &&
+            typography.pillBgColor === 'rgba(10, 10, 12, 0.85)') {
+          typography.showContainerPill = false;
+        }
+        if (background.type === 'blurred-artwork' && background.value === '#18181b') {
+          background.type = 'gradient';
+          background.value = 'linear-gradient(135deg, #431407 0%, #9a3412 50%, #312e81 100%)';
+          background.blur = 0;
+          background.dim = 0;
+        }
+        return { ...state, typographyOverride: typography, customBackground: background };
+      }
     }
   )
 );
