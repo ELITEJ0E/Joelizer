@@ -224,6 +224,7 @@ export function MVTimeline() {
     const wrapper = scrollWrapperRef.current;
     if (wrapper) {
       const rect = wrapper.getBoundingClientRect();
+      const previousScroll = wrapper.scrollLeft;
       const distance = 32;
       const x = scrubPointerXRef.current;
       if (x > rect.right - distance && wrapper.scrollLeft < wrapper.scrollWidth - wrapper.clientWidth) {
@@ -231,7 +232,9 @@ export function MVTimeline() {
       } else if (x < rect.left + distance && wrapper.scrollLeft > 0) {
         wrapper.scrollLeft -= Math.max(2, ((rect.left + distance) - x) * 0.38);
       }
-      handleSeek(x);
+      // Avoid a redundant React/audio seek on every animation frame when the
+      // playhead hasn't moved. Pointer-move events handle normal dragging.
+      if (wrapper.scrollLeft !== previousScroll) handleSeek(x);
     }
     scrubFrameRef.current = requestAnimationFrame(scrollWhileScrubbing);
   }, [handleSeek]);
