@@ -78,14 +78,10 @@ export function computeFadeOpacity(
   fadeOutDuration: number = 0.4,
   easing: 'linear' | 'smooth' | 'ease' = 'smooth'
 ): number {
-  if (currentTime < startTime || currentTime > endTime) {
-    const trailDuration = Math.min(0.25, fadeOutDuration);
-    if (currentTime > endTime && currentTime < endTime + trailDuration) {
-      const trailT = 1 - (currentTime - endTime) / trailDuration;
-      return trailT * trailT * 0.35;
-    }
-    return 0;
-  }
+  // The primary fade already reaches zero at endTime. A second post-end
+  // trail used to restart opacity at 0.35 immediately after the timestamp,
+  // creating a visible blink/snap in Lyrics Studio exports.
+  if (currentTime < startTime || currentTime > endTime) return 0;
 
   const duration = Math.max(0.2, endTime - startTime);
   const actualIn = Math.min(fadeInDuration, duration * 0.48);
