@@ -196,7 +196,7 @@ export async function buildCanonicalProjectJson(options?: {
       activeWordColor: typo.activeWordColor || '#fde047',
       inactiveWordColor: typo.inactiveWordColor || 'rgba(255, 255, 255, 0.7)',
       glowColor: typo.glowColor || '#eab308',
-      showContainerPill: typo.showContainerPill ?? true,
+      showContainerPill: typo.showContainerPill ?? false,
       pillBgColor: typo.pillBgColor || 'rgba(10, 10, 12, 0.85)',
       animationStyle: lyricsVideoStore.animationStyle || (lyricsVideoStore.animationOverride?.wordAnimation === 'karaoke' ? 'karaoke' : 'fade'),
       position: typo.position ?? mainStore.lyricsSettings?.position,
