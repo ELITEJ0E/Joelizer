@@ -119,7 +119,9 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
     return () => {
       operationSequence.current++;
       window.removeEventListener('keydown', esc);
-      Object.values(audioRefs.current).forEach(audio => audio?.pause());
+      audioRefs.current.original?.pause();
+      audioRefs.current.comparison?.pause();
+      audioRefs.current.master?.pause();
       objectUrls.current.forEach(url => URL.revokeObjectURL(url));
     };
   }, []);
