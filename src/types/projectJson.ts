@@ -139,6 +139,9 @@ export interface CanonicalProjectJson {
   templateId?: string;
   showArtwork?: boolean;
   showVisualizer?: boolean;
+  /** Export-frame audio energy, derived from the actual soundtrack by the server.
+   * Indexed by composition frame (relative to exportRange.start), not wall time. */
+  visualizerAudioLevels?: number[];
   showLyrics?: boolean;
   showMeta?: boolean;
 }
