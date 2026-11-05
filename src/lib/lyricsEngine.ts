@@ -1382,6 +1382,12 @@ export function renderLyricsVideoFrame(
     (bgType === 'video' ? bgValue : undefined);
 
   const albumArtImg = getOrLoadImage(metadata.albumArtUrl);
+  // An uploaded image is independent of the song's album artwork.
+  // Previously the renderer always supplied albumArtImg as imageElement,
+  // causing the user's selected background image URL to be ignored.
+  const selectedBackgroundImg = bgType === 'image'
+    ? (options.customBackground?.imageElement || getOrLoadImage(bgValue))
+    : null;
   const videoElem = options.customBackground?.videoElement || (bgVideoUrl ? getOrLoadVideo(bgVideoUrl) : null);
 
   // 1. Draw Canvas Background
@@ -1394,7 +1400,9 @@ export function renderLyricsVideoFrame(
       type: bgType,
       value: bgValue,
       videoElement: videoElem,
-      imageElement: options.customBackground?.imageElement || albumArtImg,
+      imageElement: bgType === 'image'
+        ? selectedBackgroundImg
+        : (options.customBackground?.imageElement || albumArtImg),
       blur: options.customBackground?.blur,
       dim: options.customBackground?.dim,
       brightness: options.customBackground?.brightness,
