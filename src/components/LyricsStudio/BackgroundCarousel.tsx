@@ -23,7 +23,11 @@ export function BackgroundCarousel() {
       const url = URL.createObjectURL(file);
       setCustomBackground({
         type: 'image',
-        value: url
+        value: url,
+        videoUrl: undefined,
+        blur: 0,
+        dim: 0,
+        vignette: 0
       });
     }
   };
@@ -35,7 +39,10 @@ export function BackgroundCarousel() {
       setCustomBackground({
         type: 'video',
         videoUrl: url,
-        value: '#000000'
+        value: '#000000',
+        blur: 0,
+        dim: 0,
+        vignette: 0
       });
     }
   };
