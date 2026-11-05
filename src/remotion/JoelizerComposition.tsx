@@ -56,15 +56,10 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
     ? lyrics.lines[activeLineIndex] 
     : undefined;
 
-  // Calculate beat pulse intensity (120 bpm fallback or analyzed bpm)
-  const bpm = audio?.bpm || 120;
-  const beatPeriod = 60 / bpm;
-  const beatPhase = (currentTime % beatPeriod) / beatPeriod;
+  // Audio animation must follow the exported soundtrack rather than a
+  // constant BPM or time-driven sine wave unrelated to the music.
   const soundtrackLevel = projectJson.visualizerAudioLevels?.[frame];
-  // Only use the BPM oscillator for legacy projects with no audio analysis.
-  const beatPulse = soundtrackLevel !== undefined
-    ? soundtrackLevel
-    : Math.pow(Math.sin(beatPhase * Math.PI), 4);
+  const beatPulse = soundtrackLevel ?? 0;
   const artworkScale = artwork?.animation === 'scale-beat' 
     ? 1.0 + beatPulse * 0.05 
     : artwork?.animation === 'pulse' 
@@ -678,14 +673,10 @@ function VisualizerLayer({
       }}
     >
       {Array.from({ length: numBars }).map((_, i) => {
-        const freqOffset = i * 0.4;
-        // With analyzed audio, every temporal change comes from the actual
-        // soundtrack. Per-bar spatial differences are static, not a fake beat.
+        // Spatial differences are static; only real soundtrack analysis
+        // changes the height of the bars over time.
         const spatialShape = 0.6 + 0.4 * Math.abs(Math.sin(i * 1.37 + 0.4));
-        const legacyWave = Math.sin(currentTime * 8 + freqOffset) * 0.5 + 0.5;
-        const energy = audioLevel !== undefined ? audioLevel : legacyWave;
-        const barHeight = Math.max(4, Math.round(4 + energy * spatialShape * 46 +
-          (audioLevel === undefined ? beatPulse * 12 : 0)));
+        const barHeight = Math.max(4, Math.round(4 + (audioLevel ?? 0) * spatialShape * 46));
 
         return (
           <div
