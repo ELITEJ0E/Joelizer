@@ -170,7 +170,7 @@ async function prepareAudioForMuxing(
  * Analyze the exact exported audio range before rendering instead of
  * animating bars with a fixed BPM/sine-wave that ignores the song.
  */
-function analyzeExportAudioEnergy(
+export function analyzeExportAudioEnergy(
   audioPath: string,
   exportStart: number,
   duration: number,
