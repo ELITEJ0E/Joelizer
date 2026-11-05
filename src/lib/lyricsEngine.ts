@@ -887,8 +887,9 @@ function renderLyrics(
     if (currentTime < activeLine.startTime) {
       activeLineOpacity = 0.55;
     } else if (currentTime > activeLine.endTime) {
-      const trail = Math.max(0, Math.min(1, (activeLine.endTime + 0.3 - currentTime) / 0.3));
-      activeLineOpacity = trail * trail;
+      // The in-range fade-out has already reached zero at endTime.
+      // Never revive the lyric as a second post-end tail.
+      activeLineOpacity = 0;
     } else {
       const rawFadeIn = Math.max(0, Math.min(1, elapsed / transitionDuration));
       const rawFadeOut = Math.max(0, Math.min(1, remaining / transitionDuration));
