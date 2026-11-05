@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { layoutMVCaption, MVCaptionLine } from '../lib/mvCaptionLayout';
+import { layoutMVCaption, MVCaptionLine, computeFadeOpacity } from '../lib/mvCaptionLayout';
 
 // Approximate visual glyph metrics without a DOM/canvas. These invariants
 // must hold across all MV aspect ratios regardless of the browser font.
@@ -45,3 +45,16 @@ const cjk = layoutMVCaption({ text: '我們一起走過每一個春夏秋冬留�
 assert.ok(cjk.rows.length > 1, 'Continuous Mandarin lyrics must wrap in portrait videos');
 assert.ok(cjk.rows.every(row => row.width <= cjk.safeWidth + 0.01));
 console.log('MV responsive caption layout tests passed');
+
+
+// Boundary regression: a fading lyric must not reappear immediately after
+// its end timestamp. The old "post-end trail" restarted opacity at 35%.
+for (const easing of ['linear', 'smooth', 'ease'] as const) {
+  const justBefore = computeFadeOpacity(1.96, 1, 2, 0.4, 0.4, easing);
+  const atEnd = computeFadeOpacity(2, 1, 2, 0.4, 0.4, easing);
+  const justAfter = computeFadeOpacity(2.005, 1, 2, 0.4, 0.4, easing);
+  assert.ok(justBefore > atEnd, `${easing}: opacity must fade toward zero before end`);
+  assert.equal(atEnd, 0, `${easing}: lyric must be invisible at the timestamp end`);
+  assert.equal(justAfter, 0, `${easing}: lyric must remain invisible instead of flashing again`);
+}
+console.log('Lyric fade boundaries remain smooth and non-repeating');
