@@ -60,6 +60,7 @@ export interface LyricsSettings {
   fadeEasing?: 'linear' | 'smooth' | 'ease';
   position?: 'bottom' | 'center' | 'top';
   showBackgroundBox?: boolean;
+  visibleLineCount?: 1 | 2 | 5;
   bilingualEnabled?: boolean;
 }
 
@@ -237,6 +238,7 @@ export const useStore = create<ProjectState>((set, get) => ({
     fadeEasing: 'smooth',
     position: 'center',
     showBackgroundBox: false,
+    visibleLineCount: 2,
     bilingualEnabled: false,
   },
   
