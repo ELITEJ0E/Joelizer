@@ -4,7 +4,7 @@
 
 ## Access
 
-Open **Audio Lab** from Joelizer's global top bar, or Playlist → Audio Lab. The modal works across LRC, Lyrics Video, and MV Studio. Import a local original WAV/MP3/M4A/FLAC/Ogg file or select the currently imported Joelizer track. Import a second, already-mastered recording for side-by-side analysis. All decoding, processing, and metrics run in the browser; no recording is sent automatically to a third-party service.
+Select **Audio Lab** in Joelizer's main studio navigation, immediately beside **MV Studio**, or use the Playlist → Audio Lab shortcut. Audio Lab now fills the workspace beneath the top bar, with keyboard shortcut **4**. The Playlist shortcut still opens it as a modal. Other studios and their video export behavior are unchanged. Import a local original WAV/MP3/M4A/FLAC/Ogg file or select the currently imported Joelizer track. Import a second, already-mastered recording for side-by-side analysis. All decoding, processing, and metrics run in the browser; no recording is sent automatically to a third-party service.
 
 ## Available in this version
 
