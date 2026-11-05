@@ -419,7 +419,7 @@ export class OfflineFrameCompositor {
           template,
           aspectRatio: project.aspectRatio,
           animationStyle: project.lyrics.animationStyle,
-          visibleLineCount: lyricsState.visibleLineCount,
+          visibleLineCount: project.lyrics.visibleLineCount ?? 2,
           showLyrics: true,
           bilingualEnabled: project.lyrics.bilingualEnabled,
           fadeInDuration: project.lyrics.fadeInDuration,
