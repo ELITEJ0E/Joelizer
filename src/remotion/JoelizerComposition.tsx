@@ -60,7 +60,11 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   const bpm = audio?.bpm || 120;
   const beatPeriod = 60 / bpm;
   const beatPhase = (currentTime % beatPeriod) / beatPeriod;
-  const beatPulse = Math.pow(Math.sin(beatPhase * Math.PI), 4);
+  const soundtrackLevel = projectJson.visualizerAudioLevels?.[frame];
+  // Only use the BPM oscillator for legacy projects with no audio analysis.
+  const beatPulse = soundtrackLevel !== undefined
+    ? soundtrackLevel
+    : Math.pow(Math.sin(beatPhase * Math.PI), 4);
   const artworkScale = artwork?.animation === 'scale-beat' 
     ? 1.0 + beatPulse * 0.05 
     : artwork?.animation === 'pulse' 
@@ -114,7 +118,8 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
         <VisualizerLayer 
           visualizer={visualizer} 
           currentTime={currentTime} 
-          beatPulse={beatPulse} 
+          beatPulse={beatPulse}
+          audioLevel={soundtrackLevel}
           width={width} 
           height={height}
           pos={elementPositions.visualizer}
@@ -638,15 +643,17 @@ function MetaLayer({
 function VisualizerLayer({ 
   visualizer, 
   currentTime, 
-  beatPulse, 
-  width, 
+  beatPulse,
+  audioLevel,
+  width,
   height,
   pos
-}: { 
-  visualizer: any; 
-  currentTime: number; 
-  beatPulse: number; 
-  width: number; 
+}: {
+  visualizer: any;
+  currentTime: number;
+  beatPulse: number;
+  audioLevel?: number;
+  width: number;
   height: number;
   pos: { x: number; y: number };
 }) {
@@ -672,8 +679,13 @@ function VisualizerLayer({
     >
       {Array.from({ length: numBars }).map((_, i) => {
         const freqOffset = i * 0.4;
-        const wave = Math.sin(currentTime * 8 + freqOffset) * 0.5 + 0.5;
-        const barHeight = Math.max(4, Math.round(wave * 28 + beatPulse * 16));
+        // With analyzed audio, every temporal change comes from the actual
+        // soundtrack. Per-bar spatial differences are static, not a fake beat.
+        const spatialShape = 0.6 + 0.4 * Math.abs(Math.sin(i * 1.37 + 0.4));
+        const legacyWave = Math.sin(currentTime * 8 + freqOffset) * 0.5 + 0.5;
+        const energy = audioLevel !== undefined ? audioLevel : legacyWave;
+        const barHeight = Math.max(4, Math.round(4 + energy * spatialShape * 46 +
+          (audioLevel === undefined ? beatPulse * 12 : 0)));
 
         return (
           <div
