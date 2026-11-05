@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
 import { 
-  Download, Music, AlignLeft, Disc3, Film, Keyboard, Monitor
+  Download, Music, AlignLeft, Disc3, Film, Keyboard, Monitor, SlidersHorizontal
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StudioButton } from '../ui/StudioButton';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
+import { AudioMasteringLabModal } from '../Audio/AudioMasteringLabModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface TopBarProps {
@@ -20,8 +21,12 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
   const aspectRatio = useStore(s => s.aspectRatio);
   const setAspectRatio = useStore(s => s.setAspectRatio);
   const activeColor = useStore(s => s.visualizerSettings?.color) || '#00e676';
+  const audioFile = useStore(s => s.audioFile);
+  const tracks = useStore(s => s.tracks);
+  const currentTrackIndex = useStore(s => s.currentTrackIndex);
 
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const [isAudioLabOpen, setIsAudioLabOpen] = useState(false);
 
   const workspaces = [
     {
@@ -155,6 +160,19 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
           <span className="hidden sm:inline">Audio</span>
         </StudioButton>
 
+        <StudioButton
+          variant="secondary"
+          size="compact"
+          id="topbar-audio-lab-btn"
+          type="button"
+          onClick={() => setIsAudioLabOpen(true)}
+          className="px-2 sm:px-2.5"
+          title="Audio Mastering and Provenance Lab"
+        >
+          <SlidersHorizontal size={12} style={{ color: activeColor }} />
+          <span className="hidden lg:inline">Audio Lab</span>
+        </StudioButton>
+
         {/* Shortcuts Button */}
         {onOpenShortcutsModal && (
           <StudioButton
@@ -186,6 +204,13 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
         </StudioButton>
       </div>
 
+      {isAudioLabOpen && (
+        <AudioMasteringLabModal
+          onClose={() => setIsAudioLabOpen(false)}
+          currentAudio={audioFile}
+          currentName={tracks[currentTrackIndex]?.name}
+        />
+      )}
       <AudioSourceModal
         isOpen={isAudioModalOpen}
         onClose={() => setIsAudioModalOpen(false)}
