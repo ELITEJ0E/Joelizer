@@ -6,7 +6,6 @@ import {
 import { cn } from '../../lib/utils';
 import { StudioButton } from '../ui/StudioButton';
 import { AudioSourceModal } from '../Audio/AudioSourceModal';
-import { AudioMasteringLabModal } from '../Audio/AudioMasteringLabModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface TopBarProps {
@@ -21,12 +20,8 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
   const aspectRatio = useStore(s => s.aspectRatio);
   const setAspectRatio = useStore(s => s.setAspectRatio);
   const activeColor = useStore(s => s.visualizerSettings?.color) || '#00e676';
-  const audioFile = useStore(s => s.audioFile);
-  const tracks = useStore(s => s.tracks);
-  const currentTrackIndex = useStore(s => s.currentTrackIndex);
 
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
-  const [isAudioLabOpen, setIsAudioLabOpen] = useState(false);
 
   const workspaces = [
     {
@@ -46,6 +41,12 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
       label: 'MV Studio',
       title: 'MV Studio — Cinematic Multi-Track Video Timeline',
       icon: Film
+    },
+    {
+      id: 'audio-lab' as const,
+      label: 'Audio Lab',
+      title: 'Audio Lab — Mastering, A/B Comparison & Provenance',
+      icon: SlidersHorizontal
     }
   ];
 
@@ -85,7 +86,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
 
         <div className="h-4 w-[1px] bg-[#232933] hidden xs:block" />
 
-        {/* Studio Switcher Tabs (LRC Studio, Lyrics Video, MV Studio) */}
+        {/* Studio Switcher Tabs (LRC Studio, Lyrics Video, MV Studio, Audio Lab) */}
         <nav aria-label="Studio Navigation" className="flex min-w-0 items-center overflow-x-auto no-scrollbar bg-[#12161c] border border-[#232933] rounded-lg p-0.5 gap-0.5">
           {workspaces.map(ws => {
             const isActive = activeTab === ws.id;
@@ -110,7 +111,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
                   strokeWidth={isActive ? 2.2 : 1.8}
                 />
                 <span className="font-medium tracking-wide">
-                  <span className="sm:hidden">{ws.id === 'lrc' ? 'LRC' : ws.id === 'lyrics' ? 'Lyrics' : 'MV'}</span>
+                  <span className="sm:hidden">{ws.id === 'lrc' ? 'LRC' : ws.id === 'lyrics' ? 'Lyrics' : ws.id === 'mv-studio' ? 'MV' : 'Audio Lab'}</span>
                   <span className="hidden sm:inline">{ws.label}</span>
                 </span>
               </StudioButton>
@@ -160,19 +161,6 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
           <span className="hidden sm:inline">Audio</span>
         </StudioButton>
 
-        <StudioButton
-          variant="secondary"
-          size="compact"
-          id="topbar-audio-lab-btn"
-          type="button"
-          onClick={() => setIsAudioLabOpen(true)}
-          className="px-2 sm:px-2.5"
-          title="Audio Mastering and Provenance Lab"
-        >
-          <SlidersHorizontal size={12} style={{ color: activeColor }} />
-          <span className="hidden lg:inline">Audio Lab</span>
-        </StudioButton>
-
         {/* Shortcuts Button */}
         {onOpenShortcutsModal && (
           <StudioButton
@@ -204,13 +192,6 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
         </StudioButton>
       </div>
 
-      {isAudioLabOpen && (
-        <AudioMasteringLabModal
-          onClose={() => setIsAudioLabOpen(false)}
-          currentAudio={audioFile}
-          currentName={tracks[currentTrackIndex]?.name}
-        />
-      )}
       <AudioSourceModal
         isOpen={isAudioModalOpen}
         onClose={() => setIsAudioModalOpen(false)}
