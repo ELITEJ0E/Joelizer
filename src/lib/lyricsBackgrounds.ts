@@ -391,14 +391,16 @@ export function drawBackgroundCanvas(
     const bgImg = albumArtImage || bgSettings.imageElement;
 
     if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
-      // 1. Draw zoomed, heavily blurred album art base
-      const scale = Math.max(W / bgImg.naturalWidth, H / bgImg.naturalHeight) * 1.5;
+      // Song Cover uses the same configurable background blur as uploaded
+      // images. Previously this preset applied an unconditional 75px blur
+      // even when the editor's Blur control displayed 0px.
+      const scale = Math.max(W / bgImg.naturalWidth, H / bgImg.naturalHeight);
       const drawW = bgImg.naturalWidth * scale;
       const drawH = bgImg.naturalHeight * scale;
-      
-      ctx.filter = 'blur(75px) brightness(0.7) saturate(1.6)';
+      const filterStr = buildImageFilter();
+      if (filterStr !== 'none') ctx.filter = filterStr;
       ctx.drawImage(bgImg, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
-      ctx.filter = 'none';
+      if (filterStr !== 'none') ctx.filter = 'none';
     } else {
       // Fallback static organic radial blobs
       ctx.filter = 'blur(80px)';
