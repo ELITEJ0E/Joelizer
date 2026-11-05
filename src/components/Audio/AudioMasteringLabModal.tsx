@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useStore } from '../../store/useStore';
 import { Activity, AudioLines, Download, FileAudio, FileSearch, ShieldCheck, SlidersHorizontal, Upload, X } from 'lucide-react';
 import {
   MASTER_PRESETS, SPECTRAL_BANDS, cleanMasterFilename, decodeLabFile, encodeLabWav,
@@ -103,6 +104,9 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
   const [activeSlot, setActiveSlot] = useState<Slot | null>(null);
   const [rmsMatch, setRmsMatch] = useState(true);
   const [sourceHash, setSourceHash] = useState('');
+  const [declaredOrigin, setDeclaredOrigin] = useState('not-specified');
+  const setAudio = useStore(s => s.setAudio);
+  const currentTrack = useStore(s => s.tracks[s.currentTrackIndex]);
   const originalBuffer = useRef<AudioBuffer | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const compareInput = useRef<HTMLInputElement>(null);
@@ -244,6 +248,7 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
     const report = {
       tool: 'Joelizer Audio Mastering & Provenance Lab', createdAt: new Date().toISOString(),
       disclaimer: 'Audio feature measurements are not AI-origin or hidden watermark detection. Processing does not imply human authorship.',
+      originDeclaration: { value: declaredOrigin, source: 'User supplied; not verified by Joelizer' },
       source: { filename: original.file.name, bytes: original.file.size, sha256: sourceHash || null,
         format: original.inspection, metrics: original.metrics },
       comparison: comparison ? { filename: comparison.file.name, metrics: comparison.metrics } : null,
@@ -399,6 +404,15 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
                 onClick={() => download(master.blob, cleanMasterFilename(original?.file.name || 'song'))}>
                 <Download size={14} className="mr-1 inline" />Download WAV
               </button>}
+              {master && <button type="button" className={actionStyle} onClick={() => {
+                // A playlist track needs its own long-lived URL. Do not revoke
+                // it with the short-lived lab preview URLs on modal close.
+                const playlistUrl = URL.createObjectURL(master.blob);
+                const name = cleanMasterFilename(original?.file.name || 'song').replace(/.wav$/, '');
+                setAudio(master.blob, playlistUrl, master.metrics.duration, currentTrack?.albumArt || null,
+                  { name, artist: currentTrack?.artist || 'Joelizer Master' });
+                onClose();
+              }}>Add master to Joelizer playlist</button>}
             </div>
             {master && <div className="mt-3">
               <p className="mb-3 text-xs text-slate-400">
@@ -418,6 +432,16 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
               Local file-format inspection checks a limited set of readable markers. It does not cryptographically validate C2PA credentials
               or detect embedded watermarks, robust acoustic matches, or AI-generated timbres.
             </p>
+            <label className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+              <span>Source declaration for the downloadable report (user supplied):</span>
+              <select value={declaredOrigin} onChange={event => setDeclaredOrigin(event.target.value)}
+                className="rounded border border-white/15 bg-[#111b24] px-2 py-1.5">
+                <option value="not-specified">Not specified</option>
+                <option value="human-recorded">Human recorded</option>
+                <option value="ai-assisted">Human + AI assisted</option>
+                <option value="ai-generated">AI generated</option>
+              </select>
+            </label>
             {original && (
               <div className="mt-3 space-y-2 text-xs text-slate-300">
                 <div>Container: <strong>{original.inspection.container}</strong> · {Math.round(original.inspection.sizeBytes / 1024 / 1024 * 10) / 10} MB</div>
