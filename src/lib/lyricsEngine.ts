@@ -1017,6 +1017,49 @@ function renderLyrics(
     startY = posY - ((totalLines - 1) * lineHeight) / 2 + prevCount * lineHeight;
   }
 
+  // Optional caption backdrop: cover the ENTIRE visible lyric stack,
+  // including preview lines above and below, not just the active lyric.
+  const showPill = options.typographyOverride?.showContainerPill ??
+    useStore.getState().lyricsSettings?.showBackgroundBox ??
+    template.typography.showContainerPill;
+
+  if (showPill && (activeLineOpacity > 0.01 || visibleCount > 1)) {
+    ctx.save();
+    // Multi-line groups contain steady preview text. The background must
+    // remain behind those lines instead of fading with the active line only.
+    ctx.globalAlpha = visibleCount === 1 ? activeLineOpacity : 1;
+    const pillPaddingX = Math.max(14, fontSize * 0.55);
+    const pillPaddingY = Math.max(8, fontSize * 0.35);
+    const activeWidths = sublines.map(sl => ctx.measureText(sl.map(w => w.word).join(' ')).width);
+    const previousCount = visibleCount >= 5 ? Math.min(2, activeIndex) : 0;
+    const nextCount = visibleCount > 1
+      ? Math.min(visibleCount >= 5 ? 2 : 1, lyricsLines.length - 1 - activeIndex)
+      : 0;
+    const previewWidths: number[] = [];
+    for (let i = 1; i <= previousCount; i++) {
+      previewWidths.push(ctx.measureText(truncateWithEllipsis(ctx, lyricsLines[activeIndex - i].text, maxLineWidth)).width);
+    }
+    for (let i = 1; i <= nextCount; i++) {
+      previewWidths.push(ctx.measureText(truncateWithEllipsis(ctx, lyricsLines[activeIndex + i].text, maxLineWidth)).width);
+    }
+    const hasSecondary = options.bilingualEnabled !== false && Boolean(activeLine.secondaryText?.trim());
+    const secondaryHeight = hasSecondary ? fontSize * 0.9 : 0;
+    const firstRowCenter = startY - previousCount * lineHeight;
+    const rowCount = previousCount + sublines.length + nextCount;
+    const pillW = Math.min(W * 0.94,
+      Math.max(0, ...activeWidths, ...previewWidths) + pillPaddingX * 2);
+    const pillH = rowCount * lineHeight + secondaryHeight + pillPaddingY * 2;
+    const pillX = posX - pillW / 2;
+    const pillY = firstRowCenter - lineHeight / 2 - pillPaddingY;
+
+    ctx.fillStyle = options.typographyOverride?.pillBgColor || 'rgba(10, 10, 12, 0.78)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, Math.max(8, fontSize * 0.3));
+    else ctx.rect(pillX, pillY, pillW, pillH);
+    ctx.fill();
+    ctx.restore();
+  }
+
   // 1. Previous line(s) preview ONLY when visibleLineCount > 2
   if (visibleCount > 2) {
     if (visibleCount >= 5 && activeIndex > 1) {
@@ -1041,35 +1084,6 @@ function renderLyrics(
       ctx.fillText(truncateWithEllipsis(ctx, prevLine.text, maxLineWidth), posX, startY - lineHeight);
       ctx.restore();
     }
-  }
-
-  // Optional Container Pill Background (respects showContainerPill override or lyricsSettings showBackgroundBox)
-  const showPill = options.typographyOverride?.showContainerPill ?? 
-    useStore.getState().lyricsSettings?.showBackgroundBox ?? 
-    template.typography.showContainerPill;
-
-  if (showPill && activeLineOpacity > 0.01) {
-    ctx.save();
-    ctx.globalAlpha = activeLineOpacity;
-    const pillPaddingX = Math.max(14, fontSize * 0.55);
-    const pillPaddingY = Math.max(8, fontSize * 0.35);
-    const longestSublineWidth = Math.max(...sublines.map(sl => sl.reduce((sum, w) => sum + ctx.measureText(w.word).width + spaceWidth, 0)));
-    const hasSec = (options.bilingualEnabled !== false) && Boolean(activeLine.secondaryText?.trim());
-    const totalContentH = sublines.length * lineHeight + (hasSec ? fontSize * 0.9 : 0);
-    const pillW = Math.min(W * 0.94, longestSublineWidth + pillPaddingX * 2);
-    const pillH = totalContentH + pillPaddingY * 2;
-    const pillX = posX - pillW / 2;
-    // startY is the text baseline (textBaseline='middle'), not the top edge.
-    // Center the optional backdrop on the rendered lyric group rather than
-    // letting its top overlap the first line and its bottom drift downward.
-    const pillY = startY - lineHeight / 2 - pillPaddingY;
-
-    ctx.fillStyle = options.typographyOverride?.pillBgColor || 'rgba(10, 10, 12, 0.78)';
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, Math.max(8, fontSize * 0.3));
-    else ctx.rect(pillX, pillY, pillW, pillH);
-    ctx.fill();
-    ctx.restore();
   }
 
   // 2. Active line rendering (Line 1 in 2-line mode) with individual opacity
