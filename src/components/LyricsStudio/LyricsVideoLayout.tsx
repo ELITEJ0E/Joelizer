@@ -25,6 +25,32 @@ import {
  * the secondary Artwork settings tab. These independent switches are shared
  * by live preview and canonical MP4 export.
  */
+function LyricsBackdropControl() {
+  const showBox = useLyricsVideoStore(s => s.typographyOverride.showContainerPill ?? false);
+  const updateTypography = useLyricsVideoStore(s => s.updateTypographyOverride);
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded border border-[#232933] bg-[#0e1115] p-2.5">
+      <div>
+        <div className="text-[11px] font-semibold text-[#f0f3f6]">Lyrics Background Box</div>
+        <div className="text-[10px] text-[#7e8999]">Transparent by default; optional dark backdrop</div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showBox}
+        onClick={() => updateTypography({ showContainerPill: !showBox })}
+        className={cn(
+          "shrink-0 rounded border px-3 py-1.5 text-[11px] font-bold cursor-pointer transition-colors",
+          showBox ? "border-accent bg-[#181d26] text-accent" : "border-[#303947] bg-[#12161c] text-[#aab5c4]"
+        )}
+      >
+        {showBox ? 'ON' : 'OFF'}
+      </button>
+    </div>
+  );
+}
+
 function LayerVisibilityControls() {
   const showArtwork = useLyricsVideoStore(s => s.showArtwork !== false);
   const setShowArtwork = useLyricsVideoStore(s => s.setShowArtwork);
@@ -142,9 +168,9 @@ export function LyricsVideoLayout() {
     const isVideo = file.type.startsWith('video/');
 
     if (isVideo) {
-      setCustomBackground({ type: 'video', value: url, videoUrl: url });
+      setCustomBackground({ type: 'video', value: url, videoUrl: url, blur: 0, dim: 0, vignette: 0 });
     } else {
-      setCustomBackground({ type: 'image', value: url });
+      setCustomBackground({ type: 'image', value: url, videoUrl: undefined, blur: 0, dim: 0, vignette: 0 });
     }
   };
 
@@ -263,6 +289,7 @@ export function LyricsVideoLayout() {
                 {mobileTab === 'layout' && (
                   <div className="space-y-3.5">
                     <LayerVisibilityControls />
+                    <LyricsBackdropControl />
                     {/* Layout Cards */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
@@ -641,6 +668,7 @@ export function LyricsVideoLayout() {
               </div>
 
               <LayerVisibilityControls />
+              <LyricsBackdropControl />
 
               {/* 1. LAYOUT SELECTOR SECTION */}
               <div className="space-y-2.5">
