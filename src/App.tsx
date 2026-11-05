@@ -9,6 +9,7 @@ import { TopBar } from './components/Editor/TopBar';
 import { KeyboardShortcutsModal } from './components/Shell/KeyboardShortcutsModal';
 import { ExportModal } from './components/Editor/ExportModal';
 import { AudioSourceModal } from './components/Audio/AudioSourceModal';
+import { AudioMasteringLabModal } from './components/Audio/AudioMasteringLabModal';
 import { StudioLayout } from './components/Studio/StudioLayout';
 import { GlobalAudioPlayer } from './components/Audio/GlobalAudioPlayer';
 import { MVStudioLayout } from './components/MVStudio/MVStudioLayout';
@@ -23,6 +24,8 @@ export default function App() {
   const setActiveTab = useStore(s => s.setActiveTab);
   const initFromStorage = useStore(s => s.initFromStorage);
   const activeColor = useStore(s => s.visualizerSettings?.color) || '#00e676';
+  const audioFile = useStore(s => s.audioFile);
+  const currentTrackName = useStore(s => s.tracks[s.currentTrackIndex]?.name);
 
   useEffect(() => {
     initFromStorage();
@@ -69,6 +72,8 @@ export default function App() {
         setActiveTab('lyrics');
       } else if (e.key === '3') {
         setActiveTab('mv-studio');
+      } else if (e.key === '4') {
+        setActiveTab('audio-lab');
       }
     };
 
@@ -114,6 +119,17 @@ export default function App() {
         {activeTab === 'mv-studio' && (
           <div className="flex-1 overflow-hidden relative animate-in fade-in duration-150">
             <MVStudioLayout />
+          </div>
+        )}
+
+        {activeTab === 'audio-lab' && (
+          <div className="flex-1 min-h-0 w-full overflow-hidden relative animate-in fade-in duration-150">
+            <AudioMasteringLabModal
+              embedded
+              onClose={() => setActiveTab('mv-studio')}
+              currentAudio={audioFile}
+              currentName={currentTrackName}
+            />
           </div>
         )}
       </main>
