@@ -2,7 +2,7 @@ import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
-import { exec, execSync } from 'child_process';
+import { exec, execSync, execFileSync } from 'child_process';
 import { promisify } from 'util';
 import { CanonicalProjectJson } from '../src/types/projectJson';
 
@@ -162,6 +162,65 @@ async function prepareAudioForMuxing(
   }
 
   return { audioPath: '', hasAudio: false };
+}
+
+/**
+ * Extract frame-aligned soundtrack energy for the server-side visualizer.
+ * Remotion renders with audio muted; it cannot use WebAudio's analyser.
+ * Analyze the exact exported audio range before rendering instead of
+ * animating bars with a fixed BPM/sine-wave that ignores the song.
+ */
+function analyzeExportAudioEnergy(
+  audioPath: string,
+  exportStart: number,
+  duration: number,
+  fps: number
+): number[] {
+  if (!audioPath || !Number.isFinite(duration) || duration <= 0 || fps <= 0) return [];
+  const sampleRate = 8000;
+  const totalFrames = Math.max(1, Math.ceil(duration * fps));
+  const pcm = execFileSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error',
+    '-ss', String(Math.max(0, exportStart)),
+    '-i', audioPath,
+    '-t', String(duration),
+    '-vn', '-ac', '1', '-ar', String(sampleRate),
+    '-f', 's16le', 'pipe:1'
+  ], {
+    maxBuffer: Math.max(16 * 1024 * 1024, Math.ceil(duration * sampleRate * 2 + 1024 * 1024))
+  });
+
+  const count = Math.floor(pcm.length / 2);
+  const envelope = new Array<number>(totalFrames).fill(0);
+  // Align each sample window to the exported frame's presentation timestamp.
+  // Centered windows follow musical transients rather than playback speed.
+  for (let frame = 0; frame < totalFrames; frame++) {
+    const center = Math.round((frame + 0.5) * sampleRate / fps);
+    const radius = Math.max(1, Math.round(sampleRate / (fps * 2)));
+    const from = Math.max(0, center - radius);
+    const to = Math.min(count, center + radius);
+    let sum = 0;
+    for (let i = from; i < to; i++) {
+      const sample = pcm.readInt16LE(i * 2) / 32768;
+      sum += sample * sample;
+    }
+    envelope[frame] = to > from ? Math.sqrt(sum / (to - from)) : 0;
+  }
+
+  const sorted = [...envelope].sort((a, b) => a - b);
+  const reference = Math.max(0.006, sorted[Math.floor((sorted.length - 1) * 0.92)] || 0);
+  let lastRms = 0;
+  let lastLevel = 0;
+  return envelope.map(rms => {
+    const base = Math.min(1, rms / reference);
+    const onset = Math.max(0, rms - lastRms) / reference;
+    const target = Math.min(1, Math.max(0, base * 0.78 + onset * 1.6));
+    // Quick attack, gradual release; no fabricated time-based oscillation.
+    const level = Math.max(target, lastLevel * 0.56);
+    lastRms = rms;
+    lastLevel = level;
+    return Number(level.toFixed(4));
+  });
 }
 
 // Helper: Resolve album artwork to reliable data URI so Chrome never gets 403/404
@@ -369,6 +428,23 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       throw new Error('Audio export failed: the selected soundtrack could not be loaded for muxing.');
     }
 
+    // Generate deterministic, actual-audio-driven visualizer frames before
+    // muting the Remotion preview and muxing the soundtrack later.
+    let visualizerAudioLevels: number[] | undefined;
+    const needsVisualizer = projectJson.showVisualizer ?? projectJson.visualizer?.enabled ?? true;
+    if (hasAudio && needsVisualizer) {
+      try {
+        visualizerAudioLevels = analyzeExportAudioEnergy(
+          audioPath, projectJson.exportRange.start,
+          projectJson.exportRange.duration, projectJson.fps
+        );
+      } catch (error) {
+        console.warn('[RenderEngine] Cannot analyze soundtrack for visualizer:', error);
+        // Keep exporting other layers, but never pretend the visualizer is
+        // beat-synchronized when no real soundtrack analysis is available.
+      }
+    }
+
     // 1b. Sanitize album artwork to base64 data URI (bypasses 403s & cross-origin network errors)
     const sanitizedAlbumArt = await resolveAlbumArtDataUri(projectJson.audio?.albumArt);
 
@@ -378,6 +454,7 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
     // 1d. Create Remotion-safe project payload (removes remote audio so Chrome renders frames with zero network lag)
     const remotionProjectJson: CanonicalProjectJson = {
       ...projectJson,
+      visualizerAudioLevels,
       audio: {
         ...projectJson.audio,
         albumArt: sanitizedAlbumArt,
