@@ -35,6 +35,42 @@ try {
     process.stderr.write('Browser ' + msg.type() + ': ' + msg.text() + '\n');
   });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+  // Regression: selecting a custom image in Lyrics Studio must draw that image
+  // rather than silently falling back to the song's different album artwork.
+  const imageBackgroundDrawn = await page.evaluate(async () => {
+    const { renderLyricsVideoFrame, getOrLoadImage } = await import('/src/lib/lyricsEngine.ts');
+    const { LYRIC_VIDEO_TEMPLATES } = await import('/src/lib/lyricsTemplates.ts');
+    const makeImage = (color: string) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64; canvas.height = 64;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 64, 64);
+      return canvas.toDataURL('image/png');
+    };
+    const backgroundUrl = makeImage('#00ff00');
+    const albumUrl = makeImage('#ff0000');
+    const bg = getOrLoadImage(backgroundUrl)!;
+    const album = getOrLoadImage(albumUrl)!;
+    await Promise.all([bg, album].map(image => image.complete && image.naturalWidth
+      ? Promise.resolve() : new Promise<void>((resolve, reject) => {
+          image.addEventListener('load', () => resolve(), { once: true });
+          image.addEventListener('error', () => reject(new Error('Fixture image failed')), { once: true });
+        })));
+    const stage = document.createElement('canvas');
+    stage.width = 320; stage.height = 180;
+    const ctx = stage.getContext('2d')!;
+    renderLyricsVideoFrame(ctx, 320, 180, 0, [], { title: '', artist: '', albumArtUrl: albumUrl }, {
+      template: LYRIC_VIDEO_TEMPLATES.vinyl,
+      aspectRatio: '16:9',
+      showArtwork: false, showVisualizer: false, showLyrics: false, showMeta: false,
+      customBackground: { type: 'image', value: backgroundUrl, blur: 0, dim: 0 }
+    });
+    const pixel = ctx.getImageData(10, 10, 1, 1).data;
+    return pixel[1] > 200 && pixel[0] < 40 && pixel[2] < 40;
+  });
+  assert.ok(imageBackgroundDrawn, 'Lyrics Studio must display selected background image, not album art');
+  console.log('Uploaded Lyrics Video image background preview verified');
   const encoderSupport = await page.evaluate(async () => {
     const Encoder = (globalThis as any).VideoEncoder;
     if (!Encoder) return { hasEncoder: false, configs: [] };
