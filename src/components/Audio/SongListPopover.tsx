@@ -4,9 +4,10 @@ import { audioManager } from '../../lib/audio';
 import { formatTime } from '../../lib/utils';
 import { syncAllLyrics } from '../../lib/timelineLyricsSync';
 import { AudioSourceModal } from './AudioSourceModal';
+import { AudioMasteringLabModal } from './AudioMasteringLabModal';
 import {
   ListMusic, Plus, Trash2, Play, Pause,
-  Search, X, Check, ChevronDown, Music2, Pencil
+  Search, X, Check, ChevronDown, Music2, Pencil, SlidersHorizontal
 } from 'lucide-react';
 
 interface SongListPopoverProps {
@@ -18,12 +19,14 @@ export function SongListPopover({ align = 'left', compact = false }: SongListPop
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const [isMasteringLabOpen, setIsMasteringLabOpen] = useState(false);
   const [editingTrackId, setEditingTrackId] = useState<string | null>(null);
   const [editedName, setEditedName] = useState('');
   const [editedArtist, setEditedArtist] = useState('');
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const tracks = useStore(s => s.tracks);
+  const activeAudioFile = useStore(s => s.audioFile);
   const currentTrackIndex = useStore(s => s.currentTrackIndex);
   const isPlaying = useStore(s => s.isPlaying);
   const selectTrack = useStore(s => s.selectTrack);
@@ -190,6 +193,19 @@ export function SongListPopover({ align = 'left', compact = false }: SongListPop
             </div>
 
             <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsMasteringLabOpen(true);
+                }}
+                className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-emerald-300 transition-all hover:border-emerald-400/50 hover:bg-emerald-400/10"
+                title="Open Audio Mastering and Provenance Lab"
+              >
+                <SlidersHorizontal size={13} />
+                <span>Audio Lab</span>
+              </button>
+
               {/* Import Button */}
               <button
                 onClick={() => {
@@ -419,6 +435,14 @@ export function SongListPopover({ align = 'left', compact = false }: SongListPop
             </div>
           )}
         </div>
+      )}
+
+      {isMasteringLabOpen && (
+        <AudioMasteringLabModal
+          onClose={() => setIsMasteringLabOpen(false)}
+          currentAudio={activeAudioFile}
+          currentName={currentTrack?.name}
+        />
       )}
 
       {/* Audio Source Modal */}
