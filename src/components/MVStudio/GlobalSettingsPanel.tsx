@@ -187,6 +187,29 @@ function LyricsSettingsPanel() {
             </div>
             
             <div>
+              <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Lyrics Display Lines</label>
+              <div className="grid grid-cols-3 gap-1 rounded border border-white/10 bg-white/[0.02] p-1">
+                {([1, 2, 5] as const).map(count => (
+                  <button
+                    key={count}
+                    type="button"
+                    aria-pressed={(settings.visibleLineCount ?? 2) === count}
+                    onClick={() => updateSettings({ visibleLineCount: count })}
+                    className={cn(
+                      "rounded px-2 py-2 text-[11px] font-semibold transition-colors cursor-pointer",
+                      (settings.visibleLineCount ?? 2) === count
+                        ? "border border-[#00e676] bg-[#00e676]/10 text-[#00e676]"
+                        : "text-slate-400 hover:text-white hover:bg-white/10"
+                    )}
+                  >
+                    {count} {count === 1 ? 'Line' : 'Lines'}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-500">Applies to MV preview and exported video, including the optional caption backdrop.</div>
+            </div>
+
+            <div>
               <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Text Accent Color</label>
               <AppColorPicker 
                 value={settings.color}
