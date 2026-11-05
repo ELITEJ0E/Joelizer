@@ -38,8 +38,10 @@ try {
   // Regression: selecting a custom image in Lyrics Studio must draw that image
   // rather than silently falling back to the song's different album artwork.
   const imageBackgroundDrawn = await page.evaluate(async () => {
-    const { renderLyricsVideoFrame, getOrLoadImage } = await import('/src/lib/lyricsEngine.ts');
-    const { LYRIC_VIDEO_TEMPLATES } = await import('/src/lib/lyricsTemplates.ts');
+    const lyricsPath = '/src/lib/lyricsEngine.ts';
+    const templatesPath = '/src/lib/lyricsTemplates.ts';
+    const { renderLyricsVideoFrame, getOrLoadImage } = await import(/* @vite-ignore */ lyricsPath);
+    const { LYRIC_VIDEO_TEMPLATES } = await import(/* @vite-ignore */ templatesPath);
     const makeImage = (color: string) => {
       const canvas = document.createElement('canvas');
       canvas.width = 64; canvas.height = 64;
