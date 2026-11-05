@@ -201,6 +201,9 @@ export async function buildCanonicalProjectJson(options?: {
       animationStyle: lyricsVideoStore.animationStyle || (lyricsVideoStore.animationOverride?.wordAnimation === 'karaoke' ? 'karaoke' : 'fade'),
       position: typo.position ?? mainStore.lyricsSettings?.position,
       showBackgroundBox: mainStore.lyricsSettings?.showBackgroundBox ?? false,
+      visibleLineCount: exportMode === 'music-video'
+        ? (mainStore.lyricsSettings?.visibleLineCount ?? 2)
+        : (lyricsVideoStore.visibleLineCount as 1 | 2 | 5),
       bilingualEnabled: lyricsVideoStore.bilingualEnabled ?? mainStore.lyricsSettings?.bilingualEnabled ?? false,
       fadeInDuration: lyricsVideoStore.fadeInDuration ?? mainStore.lyricsSettings?.fadeInDuration ?? 0.4,
       fadeOutDuration: lyricsVideoStore.fadeOutDuration ?? mainStore.lyricsSettings?.fadeOutDuration ?? 0.4,
