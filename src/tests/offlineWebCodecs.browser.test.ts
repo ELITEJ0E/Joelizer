@@ -37,40 +37,7 @@ try {
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
   // Regression: selecting a custom image in Lyrics Studio must draw that image
   // rather than silently falling back to the song's different album artwork.
-  const imageBackgroundDrawn = await page.evaluate(async () => {
-    const lyricsPath = '/src/lib/lyricsEngine.ts';
-    const templatesPath = '/src/lib/lyricsTemplates.ts';
-    const { renderLyricsVideoFrame, getOrLoadImage } = await import(/* @vite-ignore */ lyricsPath);
-    const { LYRIC_VIDEO_TEMPLATES } = await import(/* @vite-ignore */ templatesPath);
-    const makeImage = (color: string) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 64; canvas.height = 64;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = color;
-      ctx.fillRect(0, 0, 64, 64);
-      return canvas.toDataURL('image/png');
-    };
-    const backgroundUrl = makeImage('#00ff00');
-    const albumUrl = makeImage('#ff0000');
-    const bg = getOrLoadImage(backgroundUrl)!;
-    const album = getOrLoadImage(albumUrl)!;
-    await Promise.all([bg, album].map(image => image.complete && image.naturalWidth
-      ? Promise.resolve() : new Promise<void>((resolve, reject) => {
-          image.addEventListener('load', () => resolve(), { once: true });
-          image.addEventListener('error', () => reject(new Error('Fixture image failed')), { once: true });
-        })));
-    const stage = document.createElement('canvas');
-    stage.width = 320; stage.height = 180;
-    const ctx = stage.getContext('2d')!;
-    renderLyricsVideoFrame(ctx, 320, 180, 0, [], { title: '', artist: '', albumArtUrl: albumUrl }, {
-      template: LYRIC_VIDEO_TEMPLATES.vinyl,
-      aspectRatio: '16:9',
-      showArtwork: false, showVisualizer: false, showLyrics: false, showMeta: false,
-      customBackground: { type: 'image', value: backgroundUrl, blur: 0, dim: 0 }
-    });
-    const pixel = ctx.getImageData(10, 10, 1, 1).data;
-    return pixel[1] > 200 && pixel[0] < 40 && pixel[2] < 40;
-  });
+  const imageBackgroundDrawn = await page.evaluate("(async () => {\n    const lyricsPath = '/src/lib/lyricsEngine.ts';\n    const templatesPath = '/src/lib/lyricsTemplates.ts';\n    const { renderLyricsVideoFrame, getOrLoadImage } = await import(/* @vite-ignore */ lyricsPath);\n    const { LYRIC_VIDEO_TEMPLATES } = await import(/* @vite-ignore */ templatesPath);\n    const makeImage = (color) => {\n      const canvas = document.createElement('canvas');\n      canvas.width = 64; canvas.height = 64;\n      const ctx = canvas.getContext('2d');\n      ctx.fillStyle = color;\n      ctx.fillRect(0, 0, 64, 64);\n      return canvas.toDataURL('image/png');\n    };\n    const backgroundUrl = makeImage('#00ff00');\n    const albumUrl = makeImage('#ff0000');\n    const bg = getOrLoadImage(backgroundUrl);\n    const album = getOrLoadImage(albumUrl);\n    await Promise.all([bg, album].map(image => image.complete && image.naturalWidth\n      ? Promise.resolve() : new Promise((resolve, reject) => {\n          image.addEventListener('load', () => resolve(), { once: true });\n          image.addEventListener('error', () => reject(new Error('Fixture image failed')), { once: true });\n        })));\n    const stage = document.createElement('canvas');\n    stage.width = 320; stage.height = 180;\n    const ctx = stage.getContext('2d');\n    renderLyricsVideoFrame(ctx, 320, 180, 0, [], { title: '', artist: '', albumArtUrl: albumUrl }, {\n      template: LYRIC_VIDEO_TEMPLATES.vinyl,\n      aspectRatio: '16:9',\n      showArtwork: false, showVisualizer: false, showLyrics: false, showMeta: false,\n      customBackground: { type: 'image', value: backgroundUrl, blur: 0, dim: 0 }\n    });\n    const pixel = ctx.getImageData(10, 10, 1, 1).data;\n    return pixel[1] > 200 && pixel[0] < 40 && pixel[2] < 40;\n  })()");
   assert.ok(imageBackgroundDrawn, 'Lyrics Studio must display selected background image, not album art');
   console.log('Uploaded Lyrics Video image background preview verified');
   const encoderSupport = await page.evaluate(async () => {
