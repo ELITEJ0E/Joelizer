@@ -110,9 +110,11 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
   const activeAudio = useRef<Slot | null>(null);
   const objectUrls = useRef<string[]>([]);
   const operationSequence = useRef(0);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
-    const esc = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const esc = (event: KeyboardEvent) => { if (event.key === 'Escape') closeRef.current(); };
     window.addEventListener('keydown', esc);
     return () => {
       operationSequence.current++;
@@ -120,7 +122,7 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName }: P
       Object.values(audioRefs.current).forEach(audio => audio?.pause());
       objectUrls.current.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [onClose]);
+  }, []);
 
   const setUrl = (blob: Blob) => {
     const url = URL.createObjectURL(blob);
