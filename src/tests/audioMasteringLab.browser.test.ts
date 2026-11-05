@@ -42,9 +42,14 @@ try {
   const runtimeErrors: string[] = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await page.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'domcontentloaded' });
-  await page.locator('#topbar-audio-lab-btn').click();
+  // Audio Lab is a workspace tab immediately beside MV Studio.
+  const adjacent = await page.locator('#topbar-tab-mv-studio').evaluate((mv) =>
+    mv.nextElementSibling?.id === 'topbar-tab-audio-lab'
+  );
+  assert.ok(adjacent, 'Audio Lab should be beside MV Studio in the main navigation');
+  await page.locator('#topbar-tab-audio-lab').click();
 
-  const dialog = page.getByRole('dialog', { name: 'Joelizer Audio Mastering and Provenance Lab' });
+  const dialog = page.getByRole('region', { name: 'Joelizer Audio Mastering and Provenance Lab' });
   await dialog.waitFor({ state: 'visible' });
   assert.equal(await dialog.getByText('This tool cannot authenticate human authorship', { exact: false }).count(), 1);
   const sourceInput = dialog.locator('input[type="file"]').first();
@@ -63,9 +68,10 @@ try {
   await dialog.getByRole('button', { name: 'Compute file SHA-256' }).click();
   await dialog.getByText('SHA-256:', { exact: false }).waitFor();
   assert.equal(runtimeErrors.length, 0, 'Audio Lab must not throw browser runtime errors: ' + runtimeErrors.join('; '));
-  await dialog.getByRole('button', { name: 'Close Audio Lab' }).click();
+  await dialog.getByRole('button', { name: 'Back to MV Studio' }).click();
   await dialog.waitFor({ state: 'hidden' });
-  console.log('Audio Lab upload, local master, WAV download and SHA-256 UI verified.');
+  await page.locator('#topbar-tab-mv-studio').waitFor({ state: 'visible' });
+  console.log('Audio Lab workspace navigation, upload, local master, WAV download and SHA-256 UI verified.');
 } finally {
   await browser?.close();
   server.kill();
