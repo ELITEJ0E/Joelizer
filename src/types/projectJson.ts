@@ -42,6 +42,7 @@ export interface CanonicalLyricsConfig {
   animationStyle: 'karaoke' | 'fade' | 'slide-up' | 'pop';
   position?: 'bottom' | 'center' | 'top';
   showBackgroundBox?: boolean;
+  visibleLineCount?: 1 | 2 | 5;
   bilingualEnabled?: boolean;
   fadeInDuration?: number;
   fadeOutDuration?: number;
