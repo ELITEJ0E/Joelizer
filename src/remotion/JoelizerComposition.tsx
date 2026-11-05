@@ -122,10 +122,11 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* 5. ANIMATED LYRICS LAYER */}
-      {showLyricsScene && lyricsVisible && (
+      {(showLyricsScene || (mode === 'music-video' && isMediaClip)) && lyricsVisible && (
         <LyricsLayer 
           lyrics={lyrics} 
-          activeLine={activeLine} 
+          activeLine={activeLine}
+          activeLineIndex={activeLineIndex}
           currentTime={currentTime} 
           width={width} 
           height={height} 
@@ -713,14 +714,16 @@ function measureRemotionWord(word: string, font: string): number {
 /* Animated Lyrics Captions Layer: Supports Karaoke Continuous Sweep & Fade In/Out */
 function LyricsLayer({ 
   lyrics, 
-  activeLine, 
-  currentTime, 
-  width, 
+  activeLine,
+  activeLineIndex,
+  currentTime,
+  width,
   height,
   pos
-}: { 
-  lyrics: any; 
-  activeLine?: CanonicalLyricLine; 
+}: {
+  lyrics: any;
+  activeLine?: CanonicalLyricLine;
+  activeLineIndex: number;
   currentTime: number; 
   width: number; 
   height: number;
@@ -751,6 +754,14 @@ function LyricsLayer({
   const fontFamily = lyrics?.fontFamily || 'Outfit, system-ui, sans-serif';
   const fontWeight = lyrics?.fontWeight || '700';
   const fontCss = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  const count: 1 | 2 | 5 = [1, 2, 5].includes(lyrics?.visibleLineCount) ? lyrics.visibleLineCount : 2;
+  const allLines: CanonicalLyricLine[] = lyrics?.lines || [];
+  const beforeCount = count === 5 ? Math.min(2, activeLineIndex) : 0;
+  const afterCount = count > 1
+    ? Math.min(count === 5 ? 2 : 1, Math.max(0, allLines.length - activeLineIndex - 1)) : 0;
+  const beforeLines = allLines.slice(Math.max(0, activeLineIndex - beforeCount), activeLineIndex);
+  const afterLines = allLines.slice(activeLineIndex + 1, activeLineIndex + 1 + afterCount);
+
   const spaceWidth = measureRemotionWord(' ', fontCss) || fontSize * 0.32;
   const maxLineWidth = isPortrait ? width * 0.88 : width * 0.50;
 
@@ -824,7 +835,7 @@ function LyricsLayer({
         textAlign: 'center',
         pointerEvents: 'none',
         zIndex: 20,
-        opacity: lineOpacity,
+
         maxWidth: isPortrait ? '90%' : '52%'
       }}
     >
@@ -852,6 +863,10 @@ function LyricsLayer({
             textShadow: '0 4px 12px rgba(0,0,0,0.85)'
           }}
         >
+          {beforeLines.map((line, idx) => (
+            <div key={`previous-${idx}`} style={{ color: inactiveColor, opacity: 0.35 }}>{line.text}</div>
+          ))}
+          <div style={{ opacity: lineOpacity, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           {isKaraoke ? (
             sublines.map((subline, lineIdx) => {
               const sweep = computeContinuousLineSweep(subline, spaceWidth, currentTime);
@@ -897,6 +912,10 @@ function LyricsLayer({
           ) : (
             <span style={{ color: textColor }}>{activeLine.text}</span>
           )}
+          </div>
+          {afterLines.map((line, idx) => (
+            <div key={`upcoming-${idx}`} style={{ color: inactiveColor, opacity: 0.55 }}>{line.text}</div>
+          ))}
         </div>
       </div>
     </div>
