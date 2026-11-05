@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useStore, LyricLine } from '../../store/useStore';
+import { audioManager } from '../../lib/audio';
 import { useMVStore, TimelineClip, TimelineText } from '../../store/useMVStore';
 import { 
   Lock, Unlock, Scissors, Trash2, Film, Image as ImageIcon, Music, Type, 
@@ -65,6 +66,9 @@ export function MVTimeline() {
   // Timeline UI States
   const [zoom, setZoom] = useState(1);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const scrubbingRef = useRef(false);
+  const scrubPointerXRef = useRef(0);
+  const scrubFrameRef = useRef<number | null>(null);
   const [snappingEnabled, setSnappingEnabled] = useState(true);
   const [activeSnapGuide, setActiveSnapGuide] = useState<{ time: number; label: string } | null>(null);
 
@@ -200,38 +204,73 @@ export function MVTimeline() {
     return Math.max(0, Math.min(duration, (px / totalWidth) * duration));
   }, [duration]);
 
-  // Scrubbing & Seeking Handler
+  // Seek through the actual Joelizer audio player, not a generic document
+  // <audio> element that may be unrelated to the selected soundtrack.
   const handleSeek = useCallback((clientX: number) => {
-    if (!containerRef.current || duration <= 0) return;
-    const rect = containerRef.current.getBoundingClientRect();
+    const ruler = containerRef.current;
+    if (!ruler || duration <= 0) return;
+    const rect = ruler.getBoundingClientRect();
+    if (rect.width <= 0) return;
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const time = (x / rect.width) * duration;
+    const time = Math.max(0, Math.min(duration, x / rect.width * duration));
     setCurrentTime(time);
-    const audioEl = document.querySelector('audio');
-    if (audioEl) audioEl.currentTime = time;
+    audioManager.seek(Math.min(time, Math.max(0, duration - 0.001)));
   }, [duration, setCurrentTime]);
 
-  // Pointer Down for Playhead Scrubbing on Time Ruler
+  // Keep the playhead advancing through horizontally scrolled/zoomed sections.
+  // A captured pointer can sit at the viewport edge while the timeline pans.
+  const scrollWhileScrubbing = useCallback(() => {
+    if (!scrubbingRef.current) { scrubFrameRef.current = null; return; }
+    const wrapper = scrollWrapperRef.current;
+    if (wrapper) {
+      const rect = wrapper.getBoundingClientRect();
+      const distance = 32;
+      const x = scrubPointerXRef.current;
+      if (x > rect.right - distance && wrapper.scrollLeft < wrapper.scrollWidth - wrapper.clientWidth) {
+        wrapper.scrollLeft += Math.max(2, (x - (rect.right - distance)) * 0.38);
+      } else if (x < rect.left + distance && wrapper.scrollLeft > 0) {
+        wrapper.scrollLeft -= Math.max(2, ((rect.left + distance) - x) * 0.38);
+      }
+      handleSeek(x);
+    }
+    scrubFrameRef.current = requestAnimationFrame(scrollWhileScrubbing);
+  }, [handleSeek]);
+
+  useEffect(() => () => {
+    scrubbingRef.current = false;
+    if (scrubFrameRef.current !== null) cancelAnimationFrame(scrubFrameRef.current);
+  }, []);
+
   const handleRulerPointerDown = (e: React.PointerEvent) => {
-    if (dragSessionRef.current) return;
+    if (dragSessionRef.current || e.button !== 0) return;
+    e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    scrubPointerXRef.current = e.clientX;
+    scrubbingRef.current = true;
     setIsScrubbing(true);
+    handleSeek(e.clientX);
+    if (scrubFrameRef.current === null) {
+      scrubFrameRef.current = requestAnimationFrame(scrollWhileScrubbing);
+    }
+  };
+
+  const handleRulerPointerMove = (e: React.PointerEvent) => {
+    if (!scrubbingRef.current) return;
+    scrubPointerXRef.current = e.clientX;
     handleSeek(e.clientX);
   };
 
-  // Pointer Move for Playhead Scrubbing
-  const handleRulerPointerMove = (e: React.PointerEvent) => {
-    if (isScrubbing) {
-      handleSeek(e.clientX);
+  const finishRulerScrub = (e: React.PointerEvent) => {
+    if (!scrubbingRef.current) return;
+    scrubPointerXRef.current = e.clientX;
+    handleSeek(e.clientX);
+    scrubbingRef.current = false;
+    setIsScrubbing(false);
+    if (scrubFrameRef.current !== null) {
+      cancelAnimationFrame(scrubFrameRef.current);
+      scrubFrameRef.current = null;
     }
-  };
-
-  // Pointer Up for Playhead Scrubbing
-  const handleRulerPointerUp = (e: React.PointerEvent) => {
-    if (isScrubbing) {
-      setIsScrubbing(false);
-      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
-    }
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
   };
 
   // Pointer Down for Dragging Visual Clip
@@ -1071,11 +1110,18 @@ export function MVTimeline() {
             <div 
               onPointerDown={handleRulerPointerDown}
               onPointerMove={handleRulerPointerMove}
-              onPointerUp={handleRulerPointerUp}
+              onPointerUp={finishRulerScrub}
+              onPointerCancel={finishRulerScrub}
+              onLostPointerCapture={() => {
+                scrubbingRef.current = false;
+                setIsScrubbing(false);
+                if (scrubFrameRef.current !== null) cancelAnimationFrame(scrubFrameRef.current);
+                scrubFrameRef.current = null;
+              }}
               className="h-6 bg-[#0e1115] border-b border-[#232933] relative text-[9px] font-mono text-[#7e8999] flex items-center cursor-ew-resize select-none"
             >
               {/* Dynamic Ruler Ticks & Section Markers */}
-              {Array.from({ length: Math.max(13, Math.round(12 * zoom)) }, (_, i) => (duration / Math.max(12, Math.round(12 * zoom))) * i).map((tick, idx) => (
+              {Array.from({ length: Math.max(13, Math.round(12 * zoom)) + 1 }, (_, i) => (duration / Math.max(12, Math.round(12 * zoom))) * i).map((tick, idx) => (
                 <div 
                   key={idx}
                   className="absolute flex flex-col items-center -translate-x-1/2 pointer-events-none"
