@@ -78,11 +78,17 @@ export function PhonkSynthDesigner() {
   const renderId = useRef(0);
   const setAudio = useStore(s => s.setAudio);
 
-  useEffect(() => () => {
-    destroyed.current = true;
-    renderId.current++;
-    player.current?.pause();
-    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+  useEffect(() => {
+    // React StrictMode deliberately mounts, cleans up and mounts effects again.
+    // Reset the flag on each setup so the second mount can render previews.
+    destroyed.current = false;
+    return () => {
+      destroyed.current = true;
+      renderId.current++;
+      player.current?.pause();
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
+    };
   }, []);
 
   const selectStyle = (next: PhonkStyle) => {
