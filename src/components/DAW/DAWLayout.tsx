@@ -4,7 +4,8 @@ import { useStore } from '../../store/useStore';
 import { DAWTopBar } from './DAWTopBar';
 import { DAWTimeline } from './DAWTimeline';
 import { DAWMixerPanel } from './DAWMixerPanel';
-import { Circle, Mic, Volume2, Sparkles, Plus, Layers, Zap } from 'lucide-react';
+import { MusicStudioBrowser } from './MusicStudioBrowser';
+import { Circle, Mic, Volume2, Sparkles, Plus, Layers, Zap, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
 
 export function DAWLayout() {
@@ -30,6 +31,7 @@ export function DAWLayout() {
   const loopEnd = useDAWStore(s => s.loopEnd);
 
   const [inputLevel, setInputLevel] = useState(0);
+  const [browserOpen, setBrowserOpen] = useState(true);
 
   // Monitor live input level during recording
   useEffect(() => {
@@ -120,9 +122,22 @@ export function DAWLayout() {
       {/* Top Workstation Bar */}
       <DAWTopBar />
 
-      {/* Main Multitrack Timeline Canvas */}
-      <div className="flex-1 flex overflow-hidden relative">
-        <DAWTimeline />
+      {/* Dedicated DAW — arrange clips against the transport alongside the sample library. */}
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
+        <div className={browserOpen
+          ? 'w-[300px] sm:w-[340px] max-w-[40vw] min-w-0 shrink-0 overflow-hidden border-r border-white/10'
+          : 'hidden'}>
+          <MusicStudioBrowser />
+        </div>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <button type="button" onClick={() => setBrowserOpen(v => !v)}
+            aria-label={browserOpen ? 'Collapse instrument browser' : 'Expand instrument browser'}
+            title={browserOpen ? 'Collapse instrument browser' : 'Expand instrument browser'}
+            className="absolute left-1 top-1 z-30 flex items-center justify-center rounded border border-white/20 bg-[#131a25] p-1.5 text-slate-300 hover:text-white">
+            {browserOpen ? <PanelLeftClose size={13}/> : <PanelLeftOpen size={13}/>}
+          </button>
+          <DAWTimeline />
+        </div>
       </div>
 
       {/* Console Mixer Strip */}

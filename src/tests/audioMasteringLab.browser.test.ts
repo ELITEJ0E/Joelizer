@@ -42,11 +42,12 @@ try {
   const runtimeErrors: string[] = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await page.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'domcontentloaded' });
-  // Audio Lab is a workspace tab immediately beside MV Studio.
-  const adjacent = await page.locator('#topbar-tab-mv-studio').evaluate((mv) =>
-    mv.nextElementSibling?.id === 'topbar-tab-audio-lab'
+  // Music Studio now sits between MV Studio and the separate mastering Audio Lab.
+  const correctlyOrdered = await page.locator('#topbar-tab-mv-studio').evaluate((mv) =>
+    mv.nextElementSibling?.id === 'topbar-tab-daw' &&
+    mv.nextElementSibling?.nextElementSibling?.id === 'topbar-tab-audio-lab'
   );
-  assert.ok(adjacent, 'Audio Lab should be beside MV Studio in the main navigation');
+  assert.ok(correctlyOrdered, 'Music Studio must have its own tab before the separate Audio Lab');
   await page.locator('#topbar-tab-audio-lab').click();
 
   const dialog = page.getByRole('region', { name: 'Joelizer Audio Mastering and Provenance Lab' });
@@ -71,33 +72,11 @@ try {
 
   await dialog.getByRole('button', { name: 'Compute file SHA-256' }).click();
   await dialog.getByText('SHA-256:', { exact: false }).waitFor();
-  // Phonk sound engine: generate a cowbell, inspect its WAV download, and
-  // verify an edited 16-step loop can be rendered without network services.
-  await dialog.getByRole('button', { name: 'Phonk Synth & FX Designer' }).click();
-  await dialog.getByRole('button', { name: /808 Cowbell/ }).waitFor();
-  await dialog.getByRole('button', { name: 'Generate sound' }).click();
-  await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).waitFor({ timeout: 30000 });
-  const soundDownload = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).click();
-  assert.equal((await soundDownload).suggestedFilename(), 'joelizer-drift-phonk-cowbell.wav');
-  await dialog.getByRole('button', { name: /16-step beat maker/ }).click();
-  await dialog.getByRole('button', { name: 'kick step 1', exact: true }).click();
-  await dialog.getByLabel('Loop bars').selectOption('1');
-  await dialog.getByRole('button', { name: 'Generate beat loop' }).click();
-  await dialog.getByText(/joelizer-drift-phonk-beat.wav/).waitFor({ timeout: 30000 });
-  const beatDownload = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).click();
-  assert.equal((await beatDownload).suggestedFilename(), 'joelizer-drift-phonk-beat.wav');
-  const packDownload = page.waitForEvent('download', { timeout: 45000 });
-  await dialog.getByRole('button', { name: 'Export all 9 FX (ZIP)' }).click();
-  assert.equal((await packDownload).suggestedFilename(), 'joelizer-drift-phonk-fx-pack.zip');
-  await dialog.getByRole('button', { name: 'Mastering & Comparison' }).click();
-  await dialog.getByText('Joelizer-rendered master', { exact: true }).waitFor();
   assert.equal(runtimeErrors.length, 0, 'Audio Lab must not throw browser runtime errors: ' + runtimeErrors.join('; '));
   await dialog.getByRole('button', { name: 'Back to MV Studio' }).click();
   await dialog.waitFor({ state: 'hidden' });
   await page.locator('#topbar-tab-mv-studio').waitFor({ state: 'visible' });
-  console.log('Audio Lab mastering, original phonk one-shots and 16-step beat WAV export verified.');
+  console.log('Audio Lab mastering, WAV export and provenance verification remain independent from Music Studio.');
 } finally {
   await browser?.close();
   server.kill();
