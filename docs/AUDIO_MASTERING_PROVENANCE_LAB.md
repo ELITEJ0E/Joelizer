@@ -11,6 +11,7 @@ Select **Audio Lab** in Joelizer's main studio navigation, immediately beside **
 - A/B monitoring with synchronized playback position, attenuation-only RMS matching, and clear warnings when song lengths do not match.
 - Objective audio statistics: duration, sample rate, channel count, sample peak (dBFS), RMS (dBFS), crest factor, fraction of near-clipped samples, DC offset, stereo correlation, normalized waveform envelopes, relative frequency-band energy.
 - Local signal chain using Web Audio OfflineAudioContext: sub-bass high pass, low-shelf, presence bell, air shelf, optional compressor, RMS target and sample-peak ceiling. Balanced, warm, bright and transparent presets. No alteration to the source file.
+- Adjustable original/processed parallel blend (0–100%) to preserve transients, plus post-render warnings for unmet RMS targets, clipping and low stereo correlation. These are sound-quality controls, not AI-authorship detection adjustments.
 - Downloadable 16-bit and 24-bit PCM WAV with TPDF dither. Output has a Joelizer software identification tag. Users may explicitly add the rendered WAV as a new Joelizer playlist track.
 - SHA-256 file checksum (exact file identity, **not** an acoustic fingerprint), limited local inspection for readable provenance/encoder strings, and a downloadable JSON technical report with an optional *user-declared*, unverified source category.
 - A link to Suno's official Content Credentials detector. The user decides whether to upload a file on the external service.
