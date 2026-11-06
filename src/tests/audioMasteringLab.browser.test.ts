@@ -88,6 +88,9 @@ try {
   const beatDownload = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).click();
   assert.equal((await beatDownload).suggestedFilename(), 'joelizer-drift-phonk-beat.wav');
+  const packDownload = page.waitForEvent('download', { timeout: 45000 });
+  await dialog.getByRole('button', { name: 'Export all 9 FX (ZIP)' }).click();
+  assert.equal((await packDownload).suggestedFilename(), 'joelizer-drift-phonk-fx-pack.zip');
   await dialog.getByRole('button', { name: 'Mastering & Comparison' }).click();
   await dialog.getByText('Joelizer-rendered master', { exact: true }).waitFor();
   assert.equal(runtimeErrors.length, 0, 'Audio Lab must not throw browser runtime errors: ' + runtimeErrors.join('; '));
