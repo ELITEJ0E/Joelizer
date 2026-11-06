@@ -66,5 +66,11 @@ assert.ok(inspection.scopeNote.includes('not proof'), 'Marker scan must disclaim
 assert.ok(Math.abs(waveformStructureCorrelation([1, 2, 3, 4], [2, 4, 6, 8])! - 1) < 1e-12);
 assert.ok(Math.abs(waveformStructureCorrelation([1, 2, 3, 4], [8, 6, 4, 2])! + 1) < 1e-12);
 assert.ok(MASTER_PRESETS.balanced.samplePeakCeilingDbfs < 0);
+assert.ok(MASTER_PRESETS.balanced.wetMixPercent >= 0 && MASTER_PRESETS.balanced.wetMixPercent <= 100,
+  'Default parallel mastering mix must be valid');
+for (const preset of Object.values(MASTER_PRESETS)) {
+  assert.ok(preset.wetMixPercent >= 0 && preset.wetMixPercent <= 100,
+    'All mastering presets must specify a valid processing mix');
+}
 
 console.log('Audio Lab metrics, RIFF export, provenance hints, and waveform comparisons pass.');
