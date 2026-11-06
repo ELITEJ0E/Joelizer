@@ -100,6 +100,51 @@ function LayerVisibilityControls() {
   );
 }
 
+function VideoFramingControls() {
+  const bg = useLyricsVideoStore(s => s.customBackground);
+  const update = useLyricsVideoStore(s => s.setCustomBackground);
+  if (bg.type !== 'video') return null;
+
+  const sliders: { label: string; field: 'zoom' | 'heightScale' | 'offsetX' | 'offsetY'; min: number; max: number; step: number; fallback: number; format: (n: number) => string }[] = [
+    { label: 'Zoom', field: 'zoom', min: 0.25, max: 3, step: 0.05, fallback: 1, format: n => Math.round(n * 100) + '%' },
+    { label: 'Height', field: 'heightScale', min: 0.25, max: 3, step: 0.05, fallback: 1, format: n => Math.round(n * 100) + '%' },
+    { label: 'Horizontal', field: 'offsetX', min: -1, max: 1, step: 0.01, fallback: 0, format: n => Math.round(n * 50) + '%' },
+    { label: 'Vertical', field: 'offsetY', min: -1, max: 1, step: 0.01, fallback: 0, format: n => Math.round(n * 50) + '%' }
+  ];
+  return (
+    <div className="space-y-3 rounded border border-[#2b3442] bg-[#111820] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold text-white">Video framing</span>
+        <button type="button" onClick={() => update({ fit: 'cover', zoom: 1, heightScale: 1, offsetX: 0, offsetY: 0 })}
+          className="text-[10px] font-semibold text-accent hover:underline">Reset framing</button>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {(['cover', 'contain'] as const).map(fit => (
+          <button key={fit} type="button" onClick={() => update({ fit })}
+            aria-pressed={(bg.fit ?? 'cover') === fit}
+            className={`rounded border px-2 py-1.5 text-[11px] font-semibold ${(bg.fit ?? 'cover') === fit ? 'border-accent text-accent bg-[#1b2927]' : 'border-[#364150] text-[#a8b1c0]'}`}>
+            {fit === 'cover' ? 'Fill / Crop' : 'Fit whole video'}
+          </button>
+        ))}
+      </div>
+      {sliders.map(({ label, field, min, max, step, fallback, format }) => {
+        const value = bg[field] ?? fallback;
+        return (
+          <label key={field} className="block space-y-1">
+            <span className="flex items-center justify-between text-[11px] text-[#c7d0dd]">
+              <span>{label}</span><span className="font-mono text-accent">{format(value)}</span>
+            </span>
+            <input type="range" min={min} max={max} step={step} value={value}
+              onChange={e => update({ [field]: Number(e.target.value) })}
+              className="w-full accent-emerald-400 cursor-pointer" />
+          </label>
+        );
+      })}
+      <p className="text-[10px] text-[#93a0b2]">Adjust landscape footage inside portrait videos (or vice versa). Changes apply to preview and export.</p>
+    </div>
+  );
+}
+
 export function LyricsVideoLayout() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const setVisualizerColor = (color: string) => useStore.getState().updateVisualizerSettings({ color });
@@ -448,6 +493,7 @@ export function LyricsVideoLayout() {
 
                 {mobileTab === 'bg' && (
                   <div className="space-y-3">
+                    <VideoFramingControls />
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
                         <ImageIcon size={12} className="text-accent" />
@@ -814,6 +860,8 @@ export function LyricsVideoLayout() {
                     {BACKGROUND_PRESETS.length + 1} styles · scroll
                   </span>
                 </div>
+
+                <VideoFramingControls />
 
                 {/* 3-Row Horizontal Scrolling Carousel */}
                 <div className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-1.5 overflow-x-auto pb-1.5 no-scrollbar select-none h-[210px]">
