@@ -53,6 +53,11 @@ export interface CanonicalBackgroundConfig {
   type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
   value: string;
   videoUrl?: string;
+  fit?: 'cover' | 'contain';
+  zoom?: number;
+  heightScale?: number;
+  offsetX?: number;
+  offsetY?: number;
   blurAlbumArt: boolean;
   blur?: number;
   dim?: number;
