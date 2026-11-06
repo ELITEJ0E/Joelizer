@@ -216,12 +216,12 @@ export const useDAWStore = create<DAWState>()(
         selectedTrackId: 'track-ai-music',
         selectedClipId: null,
 
-        timelineZoom: 70, // 70px per second
+        timelineZoom: 24, // overview-friendly starting zoom; users can zoom to individual beats
         timelineScrollX: 0,
         activeTool: 'select',
         snapToGrid: true,
         gridDivision: '1/4',
-        showLyricsRuler: true,
+        showLyricsRuler: false, // reveal lyrics only when the creator needs LRC alignment
 
         history: [defaultInitialTracks],
         historyIndex: 0,
@@ -275,7 +275,7 @@ export const useDAWStore = create<DAWState>()(
         // --- Timeline & Tools ---
         setActiveTool: (activeTool: TimelineTool) => set({ activeTool }),
         setTimelineZoom: (timelineZoom) => set(state => ({
-          timelineZoom: Math.max(20, Math.min(300, typeof timelineZoom === 'function' ? timelineZoom(state.timelineZoom) : timelineZoom))
+          timelineZoom: Math.max(4, Math.min(300, typeof timelineZoom === 'function' ? timelineZoom(state.timelineZoom) : timelineZoom))
         })),
         setTimelineScrollX: (timelineScrollX) => set(state => ({
           timelineScrollX: Math.max(0, typeof timelineScrollX === 'function' ? timelineScrollX(state.timelineScrollX) : timelineScrollX)
@@ -685,7 +685,10 @@ export const useDAWStore = create<DAWState>()(
         // --- Undo / Redo History ---
         commitHistory: () => {
           const { tracks, history, historyIndex } = get();
-          const trimmedHistory = history.slice(0, historyIndex + 1);
+          // Clip editing can send many updates during a pointer gesture.
+          // Keep only meaningful snapshots, and cap undo memory.
+          if (history[historyIndex] === tracks) return;
+          const trimmedHistory = history.slice(Math.max(0, historyIndex - 79), historyIndex + 1);
           set({
             history: [...trimmedHistory, tracks],
             historyIndex: trimmedHistory.length

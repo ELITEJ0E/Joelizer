@@ -20,6 +20,20 @@ Open **Music Studio** in the top navigation, next to MV Studio and separate from
 
 **6. Save and reopen portable sessions.** Use **Mix → Save Portable Session ZIP + Audio** to download the arrangement and audio assets together. Use **Open Session** in the DAW toolbar to restore a ZIP. This is the recommended save format for locally imported audio; the older JSON export does not include its audio bytes.
 
+## Professional workflow upgrade (November 2026)
+
+Music Studio now has a dedicated two-level transport and editing toolbar, with its project title, play/stop/record/loop controls, tempo, key, time signature, snapping, zoom, undo/redo, track creation, 24-bit WAV export and portable project save/open. The sample browser can be resized or hidden without losing imported samples. Use the **Inspector** toggle to edit selected channel levels, pan, EQ and compression or selected clip position, trim length, fades and volume. The **Mixer** toggle opens clear channel strips and a master output meter. **Fit** changes the timeline zoom to an arrangement overview.
+
+**Real effects**: the three-band low/mid/high EQ and compressor in each channel run in both live Web Audio playback and offline mixdown. Clip fade-in, fade-out and gain are likewise applied in both. The master volume is reflected in the WAV bounce, which uses 24-bit stereo PCM with a -1 dBFS sample-peak safety ceiling. These are sample-peak controls, not oversampled true-peak limiting or LUFS mastering.
+
+**Performance and navigation**: the visible time ruler is rendered on a viewport-sized canvas instead of allocating canvases thousands of pixels wide. Track headers stay synchronized when scrolling vertically; a lower default zoom and **Fit** improve long-song navigation. Clip drag and trim now preview locally and commit once at pointer release, reducing costly store updates and undo history churn. The transport reports UI time about 30 times per second while Web Audio handles sample-clock playback.
+
+**Shortcuts**: Space play/pause, R record, V select, E erase, S split, B browser, I inspector, M mixer, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+D duplicate clip, left/right arrows seek a beat and brackets set loop boundaries. Shortcuts don't override focused text fields or buttons.
+
+**Browser validation**: imports files into editable clips; exercises the sample drum rack, sampler piano roll, experimental synth, channel FX, panel toggles and short song 24-bit mixdown. Music Studio saves portable ZIP sessions containing audio data.
+
+**Current limitations**: this is a browser-based DAW, not a fully-featured desktop VST host. Advanced MIDI editing, persistent editable MIDI instruments, plugin hosting, automation lanes, time-stretch algorithms, full sends/buses, sidechain routing, oversampled limiting and a curated pro sample library are not implemented. The experimental procedural phonk synth is not the recommended route to polished commercial phonk; use quality recordings or licensed samples in the sampler/drum rack.
+
 ## Important limitations
 
 - **No VST/AU plugin hosting** is implemented: browsers cannot directly run desktop VST3/AU plugins like a desktop DAW.

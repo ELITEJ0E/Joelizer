@@ -128,8 +128,8 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
 
       {/* RIGHT: Aspect Ratio, Audio Modal Trigger, Shortcuts, and Export */}
       <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-        {/* Aspect Ratio Selector Dropdown */}
-        <div className="flex items-center">
+        {/* Video canvas controls do not belong in the music workstation. */}
+        {activeTab !== 'daw' && <div className="flex items-center">
           <Select value={aspectRatio} onValueChange={(val: AspectRatio) => setAspectRatio(val)}>
             <SelectTrigger
               id="topbar-aspect-ratio-select"
@@ -148,10 +148,10 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
               <SelectItem value="4:3">4:3 (Standard)</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </div>}
 
-        {/* Audio Manager Button */}
-        <StudioButton
+        {/* Music Studio has its own audio browser; avoid overlapping libraries. */}
+        {activeTab !== 'daw' && <StudioButton
           variant="secondary"
           size="compact"
           id="topbar-audio-btn"
@@ -165,10 +165,10 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
         >
           <Music size={12} style={{ color: activeColor }} />
           <span className="hidden sm:inline">Audio</span>
-        </StudioButton>
+        </StudioButton>}
 
-        {/* Shortcuts Button */}
-        {onOpenShortcutsModal && (
+        {/* Music Studio has context-aware shortcuts in its own toolbar. */}
+        {activeTab !== 'daw' && onOpenShortcutsModal && (
           <StudioButton
             variant="secondary"
             size="compact"
@@ -183,8 +183,8 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
           </StudioButton>
         )}
 
-        {/* Primary Export Button */}
-        <StudioButton
+        {/* Music Studio exports WAV/session files from its internal command bar. */}
+        {activeTab !== 'daw' && <StudioButton
           variant="primary"
           size="compact"
           id="topbar-export-btn"
@@ -195,7 +195,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
         >
           <Download size={12} strokeWidth={2.5} />
           <span>Export</span>
-        </StudioButton>
+        </StudioButton>}
       </div>
 
       <AudioSourceModal

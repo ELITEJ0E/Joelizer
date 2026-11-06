@@ -9,6 +9,7 @@ import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
 import { exportMusicSession, importMusicSession } from '../../lib/musicStudioArchive';
+import { dawProjectAudioEnd } from '../../lib/dawMixing';
 import { TrackType, TimelineTool } from '../../types/daw';
 
 const KEYS = [
@@ -85,11 +86,18 @@ export function DAWTopBar() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${millis.toString().padStart(2, '0')}`;
   };
 
+  const mixDuration = () => {
+    const audioEnd = dawProjectAudioEnd(tracks);
+    if (audioEnd <= 0) throw new Error('Add or import an audio clip before exporting.');
+    // Pad only a short safety tail, not the entire empty editing canvas.
+    return Math.max(.2, Math.min(projectDuration, audioEnd + .1));
+  };
+
   const handleExportWav = async () => {
     try {
       setIsExporting(true);
-      setExportNotice('Rendering multitrack master mix to WAV...');
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration);
+      setExportNotice('Rendering 24-bit stereo master with clip fades and -1 dBFS sample-peak safety...');
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, mixDuration(), 44100, masterVolume, 24);
       const url = URL.createObjectURL(wavBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -110,12 +118,13 @@ export function DAWTopBar() {
     try {
       setIsExporting(true);
       setExportNotice('Bouncing multitrack mix for Music Video Studio...');
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration);
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, mixDuration(), 44100, masterVolume, 24);
       const audioUrl = URL.createObjectURL(wavBlob);
+      const renderedDuration = mixDuration();
 
       // Load into primary project store
       const primaryStore = useStore.getState();
-      primaryStore.setAudio(wavBlob, audioUrl, projectDuration, undefined);
+      primaryStore.setAudio(wavBlob, audioUrl, renderedDuration, undefined);
       primaryStore.setName(projectName);
 
       // Add to MV studio timeline
@@ -125,9 +134,9 @@ export function DAWTopBar() {
           id: `mv-clip-master-${Date.now()}`,
           assetId: `asset-master-${Date.now()}`,
           startTime: 0,
-          endTime: projectDuration,
+          endTime: renderedDuration,
           trimStart: 0,
-          trimEnd: projectDuration,
+          trimEnd: renderedDuration,
           locked: false
         }
       ]);
@@ -192,307 +201,158 @@ export function DAWTopBar() {
   };
 
   return (
-    <div className="h-14 bg-[#0c0d12] border-b border-white/10 px-3 sm:px-4 flex items-center justify-between gap-2 shrink-0 select-none text-slate-200 z-30">
-      {/* Toast Notice */}
-      {exportNotice && (
-        <div 
-          className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full border text-xs font-black uppercase tracking-wider text-black shadow-2xl flex items-center gap-2 animate-bounce"
-          style={{ backgroundColor: activeColor, borderColor: '#ffffff', boxShadow: `0 0 20px ${activeColor}` }}
-        >
-          <Sparkles size={14} />
-          {exportNotice}
-        </div>
-      )}
-
-      {/* LEFT: Project Title & Global Musical Specs */}
-      <div className="flex items-center gap-3 min-w-0">
-        <input
-          type="text"
-          value={projectName}
-          onChange={e => setProjectName(e.target.value)}
-          className="bg-transparent text-sm font-black text-white hover:bg-white/5 focus:bg-black/60 px-2 py-1 rounded border border-transparent focus:border-white/20 focus:outline-none max-w-[140px] sm:max-w-[200px] truncate"
-          title="Click to rename project"
-        />
-
-        {/* BPM Input */}
-        <div className="hidden sm:flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
-          <span className="text-[10px] text-slate-500 font-bold uppercase">BPM</span>
-          <input
-            type="number"
-            min={40}
-            max={280}
-            value={bpm}
-            onChange={e => setBpm(parseInt(e.target.value) || 120)}
-            className="w-11 bg-transparent text-center font-black text-emerald-400 focus:outline-none"
-          />
+    <header aria-label="Music Studio transport and project controls"
+      className="relative z-40 shrink-0 border-b border-white/10 bg-[#0a101a] text-slate-200 shadow-[0_6px_24px_rgba(0,0,0,.28)]">
+      {exportNotice && <div role="status" className="absolute left-1/2 top-full z-50 max-w-[90vw] -translate-x-1/2 rounded-b-lg border border-cyan-400/25 bg-[#132231] px-4 py-2 text-xs font-semibold text-cyan-100 shadow-xl">
+        {exportNotice}
+      </div>}
+      <div className="flex min-h-[66px] flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-3 py-2 sm:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-300/10 sm:flex">
+            <Sparkles size={19} className="text-cyan-300"/>
+          </div>
+          <div className="min-w-0">
+            <input aria-label="DAW project name" value={projectName}
+              onChange={e=>setProjectName(e.target.value)}
+              spellCheck={false}
+              className="block w-full max-w-[240px] truncate rounded-md border border-transparent bg-transparent px-1 py-0.5 text-[14px] font-semibold tracking-tight text-white hover:border-white/15 focus:border-cyan-400/50 focus:outline-none"/>
+            <span className="block px-1 text-[10px] font-medium text-slate-500">JOELIZER MUSIC STUDIO · MULTITRACK</span>
+          </div>
         </div>
 
-        {/* Key Selector */}
-        <div className="hidden md:flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
-          <span className="text-[10px] text-slate-500 font-bold uppercase">KEY</span>
-          <select
-            value={key}
-            onChange={e => setKey(e.target.value)}
-            className="bg-transparent text-xs font-bold text-slate-200 focus:outline-none cursor-pointer"
-          >
-            {KEYS.map(k => (
-              <option key={k} value={k} className="bg-[#0c0d12] text-white">{k}</option>
-            ))}
-          </select>
+        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#101927] p-1.5 shadow-inner">
+          <button type="button" onClick={stop} aria-label="Stop" title="Stop"
+            className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"><Square size={15} fill="currentColor"/></button>
+          <button type="button" onClick={isPlaying?pause:play} aria-label={isPlaying?'Pause':'Play'} title="Play / pause (Space)"
+            className="flex h-10 w-12 items-center justify-center rounded-lg bg-cyan-400 text-slate-950 shadow-[0_0_18px_rgba(34,211,238,.2)] hover:bg-cyan-300">
+            {isPlaying?<Pause size={19} fill="currentColor"/>:<Play size={19} fill="currentColor"/>}
+          </button>
+          <button type="button" onClick={isRecording?stopRecording:()=>void startRecording()}
+            aria-label={isRecording?'Stop recording':'Record'} title={armedTrackId?'Record armed track (R)':'Arm a track then record (R)'}
+            className={isRecording?'rounded-lg bg-rose-500/25 p-2 text-rose-300 animate-pulse':'rounded-lg p-2 text-rose-400 hover:bg-rose-500/10'}>
+            <Circle size={18} fill={isRecording?'currentColor':'none'}/>
+          </button>
+          <button type="button" onClick={toggleLoop} aria-pressed={isLooping} aria-label="Loop playback"
+            title="Loop playback" className={isLooping?'rounded-lg bg-cyan-400/15 p-2 text-cyan-300':'rounded-lg p-2 text-slate-400 hover:bg-white/10'}>
+            <Repeat size={16}/>
+          </button>
+          <div className="min-w-[96px] border-l border-white/10 px-3 text-center font-mono text-[15px] font-semibold tabular-nums tracking-wider text-cyan-200 sm:min-w-[116px] sm:text-lg">
+            {formatTransportTime(currentTime)}
+          </div>
         </div>
 
-        {/* Time Signature */}
-        <div className="hidden lg:flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
-          <select
-            value={timeSignature}
-            onChange={e => setTimeSignature(e.target.value)}
-            className="bg-transparent text-xs font-bold text-slate-300 focus:outline-none cursor-pointer"
-          >
-            <option value="4/4" className="bg-[#0c0d12]">4/4</option>
-            <option value="3/4" className="bg-[#0c0d12]">3/4</option>
-            <option value="6/8" className="bg-[#0c0d12]">6/8</option>
-          </select>
+        <div className="flex shrink-0 items-center gap-2">
+          <input ref={sessionInputRef} aria-label="Open Music Studio session ZIP" type="file" accept=".zip,application/zip"
+            className="hidden" onChange={e=>{const file=e.target.files?.[0];if(file)void handleOpenSession(file);e.target.value='';}}/>
+          <button type="button" disabled={isExporting} onClick={()=>sessionInputRef.current?.click()}
+            className="hidden rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold hover:bg-white/10 disabled:opacity-40 sm:block">
+            Open project
+          </button>
+          <button type="button" disabled={isExporting} onClick={()=>void handleSaveSession()}
+            className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-400/20 disabled:opacity-40">
+            Save session
+          </button>
+        <div className="relative shrink-0">
+          <button type="button" aria-expanded={showAddTrackMenu} onClick={()=>setShowAddTrackMenu(!showAddTrackMenu)}
+            className="flex items-center gap-1 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1.5 font-semibold text-cyan-200 hover:bg-cyan-400/20">
+            <Plus size={13}/> Add track <ChevronDown size={12}/>
+          </button>
+          {showAddTrackMenu && <div className="absolute left-0 top-full z-[90] mt-2 max-h-80 w-44 overflow-y-auto rounded-xl border border-white/15 bg-[#172333] p-1.5 shadow-2xl">
+            {(['VOCAL','GUITAR','DRUMS','SYNTH','KEYS','BASS','AUDIO','AI'] as TrackType[]).map(type=>
+              <button type="button" key={type}
+                className="block w-full rounded-lg px-3 py-2 text-left text-xs text-slate-200 hover:bg-white/10"
+                onClick={()=>{addTrack(type);setShowAddTrackMenu(false);}}>+ {type.charAt(0)+type.slice(1).toLowerCase()}</button>)}
+          </div>}
+        </div>
+          <div className="relative">
+            <button type="button" aria-expanded={showExportMenu} disabled={isExporting}
+              onClick={()=>setShowExportMenu(!showExportMenu)}
+              className="flex items-center gap-1.5 rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-[#06151d] hover:bg-cyan-300 disabled:opacity-50">
+              <Download size={14}/> Export <ChevronDown size={12}/>
+            </button>
+            {showExportMenu && <div className="absolute right-0 top-full z-[90] mt-2 w-60 rounded-xl border border-white/15 bg-[#162232] p-1.5 shadow-2xl">
+              <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs hover:bg-white/10"
+                onClick={()=>void handleExportWav()}><Download size={14} className="text-cyan-300"/> Export 24-bit WAV</button>
+              <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs hover:bg-white/10"
+                onClick={()=>void handleSendToMVStudio()}><Layers size={14} className="text-sky-300"/> Send mix to MV Studio</button>
+              <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs hover:bg-white/10"
+                onClick={()=>void handleSaveSession()}><Settings size={14} className="text-emerald-300"/> Save session with audio</button>
+              <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs text-slate-400 hover:bg-white/10"
+                onClick={handleExportProjectJson}><Settings size={14}/> Export reference-only JSON</button>
+              <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs hover:bg-white/10 sm:hidden"
+                onClick={()=>{setShowExportMenu(false);sessionInputRef.current?.click();}}>Open project ZIP</button>
+            </div>}
+          </div>
         </div>
       </div>
 
-      {/* CENTER: Transport Controls (Play, Pause, Stop, Record, Display) */}
-      <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* Time Display */}
-        <div className="bg-black border border-white/15 px-3 py-1 rounded-lg text-xs font-mono font-black text-emerald-400 tracking-wider shadow-inner hidden sm:block">
-          {formatTransportTime(currentTime)}
-        </div>
-
-        {/* Stop Button */}
-        <button
-          onClick={stop}
-          className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-colors"
-          title="Stop & Reset to 0:00 (Space)"
-        >
-          <Square size={14} className="fill-current" />
-        </button>
-
-        {/* Play / Pause Toggle */}
-        <button
-          onClick={isPlaying ? pause : play}
-          className="p-2.5 rounded-xl border text-black font-black transition-all shadow-lg active:scale-95"
-          style={{ 
-            backgroundColor: activeColor, 
-            borderColor: '#ffffff',
-            boxShadow: `0 0 15px ${activeColor}60`
-          }}
-          title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-        >
-          {isPlaying ? (
-            <Pause size={16} className="fill-black" />
-          ) : (
-            <Play size={16} className="fill-black ml-0.5" />
-          )}
-        </button>
-
-        {/* Record Take Button */}
-        <button
-          onClick={isRecording ? stopRecording : startRecording}
-          className={`p-2.5 rounded-xl border font-bold transition-all ${
-            isRecording
-              ? 'bg-rose-600 border-rose-400 text-white animate-pulse shadow-lg shadow-rose-600/50'
-              : armedTrackId
-              ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 hover:bg-rose-500/30'
-              : 'bg-white/5 border-white/10 text-slate-400 hover:text-rose-400'
-          }`}
-          title={isRecording ? 'Stop Recording Take' : 'Record Audio Take (R)'}
-        >
-          <Circle size={15} className={isRecording ? 'fill-white' : 'fill-current'} />
-        </button>
-
-        {/* Loop Toggle */}
-        <button
-          onClick={toggleLoop}
-          className={`p-2 rounded-lg border transition-colors ${
-            isLooping
-              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-              : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-          }`}
-          title="Toggle Loop Cycle"
-        >
-          <Repeat size={14} />
-        </button>
-      </div>
-
-      {/* RIGHT: Tools, Zoom, Add Track, Mix & Export */}
-      <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* Tool Switcher */}
-        <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5">
-          <button
-            onClick={() => setActiveTool('select')}
-            className={`p-1.5 rounded transition-all ${activeTool === 'select' ? 'bg-white/20 text-white' : 'text-slate-400 hover:text-white'}`}
-            title="Pointer / Select Tool (V)"
-          >
-            <MousePointer size={13} />
-          </button>
-          <button
-            onClick={() => setActiveTool('split')}
-            className={`p-1.5 rounded transition-all ${activeTool === 'split' ? 'bg-white/20 text-white' : 'text-slate-400 hover:text-white'}`}
-            title="Razor / Split Tool (S)"
-          >
-            <Scissors size={13} />
-          </button>
-          <button
-            onClick={() => setActiveTool('erase')}
-            className={`p-1.5 rounded transition-all ${activeTool === 'erase' ? 'bg-white/20 text-white' : 'text-slate-400 hover:text-white'}`}
-            title="Eraser Tool (E)"
-          >
-            <Trash2 size={13} />
-          </button>
-        </div>
-
-        {/* Snap to Grid */}
-        <div className="hidden xl:flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs">
-          <button
-            onClick={() => setSnapToGrid(!snapToGrid)}
-            className={`text-[10px] font-mono font-bold uppercase transition-colors ${snapToGrid ? 'text-emerald-400' : 'text-slate-500'}`}
-          >
-            Snap: {snapToGrid ? 'ON' : 'OFF'}
-          </button>
-          <select
-            value={gridDivision}
-            onChange={e => setGridDivision(e.target.value as any)}
-            className="bg-transparent text-[10px] font-mono font-bold text-slate-300 focus:outline-none"
-          >
-            <option value="1/1" className="bg-[#0c0d12]">1/1 Bar</option>
-            <option value="1/2" className="bg-[#0c0d12]">1/2</option>
-            <option value="1/4" className="bg-[#0c0d12]">1/4 Beat</option>
-            <option value="1/8" className="bg-[#0c0d12]">1/8</option>
-            <option value="1/16" className="bg-[#0c0d12]">1/16</option>
+      <div className="flex min-h-[48px] items-center gap-2 overflow-x-auto px-3 py-1.5 text-[11px] sm:px-4">
+        <div className="flex shrink-0 items-center gap-2 border-r border-white/10 pr-3">
+          <label className="flex items-center gap-1.5 text-slate-400">BPM
+            <input aria-label="Tempo BPM" type="number" min={40} max={280} value={bpm}
+              onChange={e=>setBpm(Number(e.target.value)||120)}
+              className="w-[53px] rounded border border-white/10 bg-white/5 px-1.5 py-1 text-center font-mono font-bold text-cyan-300 outline-none focus:border-cyan-400/50"/>
+          </label>
+          <select aria-label="Song key" value={key} onChange={e=>setKey(e.target.value)}
+            className="max-w-[100px] rounded border border-white/10 bg-[#172333] px-1.5 py-1 text-[11px] text-slate-200">
+            {KEYS.map(item=><option key={item}>{item}</option>)}
+          </select>
+          <select aria-label="Time signature" value={timeSignature} onChange={e=>setTimeSignature(e.target.value)}
+            className="rounded border border-white/10 bg-[#172333] px-1.5 py-1 text-[11px] text-slate-200">
+            {['4/4','3/4','6/8'].map(item=><option key={item}>{item}</option>)}
           </select>
         </div>
-
-        {/* Zoom */}
-        <div className="hidden lg:flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-lg p-0.5">
-          <button
-            onClick={() => setTimelineZoom(z => z - 15)}
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10"
-            title="Zoom Out"
-          >
-            <ZoomOut size={13} />
-          </button>
-          <span className="text-[9px] font-mono px-1 text-slate-400">{Math.round(timelineZoom)}px</span>
-          <button
-            onClick={() => setTimelineZoom(z => z + 15)}
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10"
-            title="Zoom In"
-          >
-            <ZoomIn size={13} />
-          </button>
+        <div className="flex shrink-0 items-center gap-1 border-r border-white/10 pr-2">
+          {([
+            ['select','Select clip','Pointer / select (V)',MousePointer],
+            ['split','Split clip','Split (S)',Scissors],
+            ['erase','Erase clip','Erase (E)',Trash2]
+          ] as const).map(([tool, aria, title, Icon])=>
+            <button type="button" key={tool} aria-label={aria} aria-pressed={activeTool===tool}
+              title={title} onClick={()=>setActiveTool(tool)}
+              className={activeTool===tool?'rounded-lg bg-cyan-400/15 p-2 text-cyan-200':'rounded-lg p-2 text-slate-400 hover:bg-white/10'}>
+              <Icon size={15}/>
+            </button>)}
         </div>
-
-        {/* Undo / Redo */}
-        <div className="hidden sm:flex items-center gap-0.5">
-          <button
-            onClick={undo}
-            disabled={historyIndex <= 0}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:bg-white/5"
-            title="Undo (Ctrl+Z)"
-          >
-            <Undo2 size={13} />
+        <div className="flex shrink-0 items-center gap-1 border-r border-white/10 pr-3">
+          <button type="button" aria-label="Toggle snap" aria-pressed={snapToGrid}
+            onClick={()=>setSnapToGrid(!snapToGrid)}
+            className={snapToGrid?'rounded-md bg-cyan-400/15 px-2 py-1.5 font-semibold text-cyan-200':'rounded-md bg-white/5 px-2 py-1.5 text-slate-400'}>
+            Snap {snapToGrid?'On':'Off'}
           </button>
-          <button
-            onClick={redo}
-            disabled={historyIndex >= history.length - 1}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:bg-white/5"
-            title="Redo (Ctrl+Y)"
-          >
-            <Redo2 size={13} />
-          </button>
+          <select aria-label="Snap grid" value={gridDivision}
+            onChange={e=>setGridDivision(e.target.value as typeof gridDivision)}
+            className="rounded border border-white/10 bg-[#172333] px-1.5 py-1.5 text-[11px]">
+            {['1/1','1/2','1/4','1/8','1/16','1/32','off'].map(item=><option key={item} value={item}>{item}</option>)}
+          </select>
         </div>
-
-        {/* Add Track Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setShowAddTrackMenu(!showAddTrackMenu)}
-            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition-colors"
-          >
-            <Plus size={13} />
-            <span className="hidden sm:inline">Track</span>
-            <ChevronDown size={11} className="text-slate-400" />
-          </button>
-
-          {showAddTrackMenu && (
-            <div className="absolute right-0 top-full mt-1.5 w-44 bg-[#12131a] border border-white/15 rounded-xl shadow-2xl py-1 z-50 text-xs">
-              {(['VOCAL', 'GUITAR', 'DRUMS', 'SYNTH', 'KEYS', 'BASS', 'AUDIO', 'AI'] as TrackType[]).map(type => (
-                <button
-                  key={type}
-                  onClick={() => {
-                    addTrack(type);
-                    setShowAddTrackMenu(false);
-                  }}
-                  className="w-full px-3 py-2 text-left hover:bg-white/10 flex items-center justify-between text-slate-200 font-bold transition-colors"
-                >
-                  <span>+ {type} Track</span>
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: useDAWStore.getState().tracks[0]?.color }} />
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="flex shrink-0 items-center gap-1 border-r border-white/10 pr-3">
+          <button type="button" aria-label="Zoom out" title="Zoom out" onClick={()=>setTimelineZoom(v=>v-15)}
+            className="rounded-md p-1.5 text-slate-400 hover:bg-white/10"><ZoomOut size={16}/></button>
+          <span className="w-11 text-center font-mono text-slate-400">{Math.round(timelineZoom)}px</span>
+          <button type="button" aria-label="Zoom in" title="Zoom in" onClick={()=>setTimelineZoom(v=>v+15)}
+            className="rounded-md p-1.5 text-slate-400 hover:bg-white/10"><ZoomIn size={16}/></button>
+          <button type="button" aria-label="Fit song to timeline" title="Fit song to timeline"
+            onClick={()=>{
+              const length=Math.max(15,dawProjectAudioEnd(tracks)||projectDuration);
+              const visible=Math.max(360,Math.min(1400,window.innerWidth*.58));
+              setTimelineZoom(Math.max(4,Math.min(300,visible/length)));
+            }}
+            className="rounded border border-white/10 px-2 py-1 text-[10px] font-semibold text-slate-300 hover:bg-white/10">Fit</button>
         </div>
-
-        <input type="file" ref={sessionInputRef} className="hidden" accept=".zip,application/zip"
-          aria-label="Open Music Studio session ZIP"
-          onChange={e => {
-            const file = e.target.files?.[0];
-            if (file) void handleOpenSession(file);
-            e.target.value = '';
-          }} />
-        <button type="button" title="Open a portable Music Studio session ZIP including its audio files"
-          onClick={() => sessionInputRef.current?.click()} disabled={isExporting}
-          className="px-2 py-1.5 rounded-lg border border-white/15 bg-white/5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-40">
-          Open Session
-        </button>
-
-        {/* Export / Mix Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
-            disabled={isExporting}
-            className="px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5 transition-all shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer"
-            style={{ backgroundColor: activeColor }}
-          >
-            <Download size={13} />
-            <span>Mix</span>
-            <ChevronDown size={11} />
-          </button>
-
-          {showExportMenu && (
-            <div className="absolute right-0 top-full mt-1.5 w-56 bg-[#12131a] border border-white/15 rounded-xl shadow-2xl p-1.5 z-50 text-xs space-y-1">
-              <button
-                onClick={handleExportWav}
-                className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg flex items-center gap-2 text-white font-bold"
-              >
-                <Download size={13} className="text-emerald-400" />
-                <span>Bounce Master WAV</span>
-              </button>
-              <button
-                onClick={handleSendToMVStudio}
-                className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg flex items-center gap-2 text-white font-bold"
-              >
-                <Layers size={13} className="text-cyan-400" />
-                <span>Send Mix to MV Studio</span>
-              </button>
-              <button type="button" onClick={() => void handleSaveSession()}
-                className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg flex items-center gap-2 text-white font-semibold">
-                <Download size={13} className="text-cyan-400" />
-                <span>Save Portable Session ZIP + Audio</span>
-              </button>
-              <button
-                onClick={handleExportProjectJson}
-                className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg flex items-center gap-2 text-slate-300 font-bold"
-              >
-                <Settings size={13} className="text-purple-400" />
-                <span>Export Project JSON</span>
-              </button>
-            </div>
-          )}
+        <div className="flex shrink-0 items-center gap-1 border-r border-white/10 pr-3">
+          <button type="button" aria-label="Undo" disabled={historyIndex===0} title="Undo" onClick={undo}
+            className="rounded p-1.5 text-slate-400 hover:bg-white/10 disabled:opacity-25"><Undo2 size={15}/></button>
+          <button type="button" aria-label="Redo" disabled={historyIndex>=history.length-1} title="Redo" onClick={redo}
+            className="rounded p-1.5 text-slate-400 hover:bg-white/10 disabled:opacity-25"><Redo2 size={15}/></button>
         </div>
+        <label className="ml-auto flex shrink-0 items-center gap-2 pl-2 text-[10px] text-slate-500">
+          <Volume2 size={14} className="text-cyan-300"/> Master
+          <input aria-label="Master level" type="range" min="0" max="1.5" step=".01" value={masterVolume}
+            className="w-20 accent-cyan-400" onChange={e=>setMasterVolume(Number(e.target.value))}/>
+          <span className="w-8 font-mono tabular-nums text-slate-300">{Math.round(masterVolume*100)}%</span>
+        </label>
       </div>
-    </div>
+    </header>
   );
 }

@@ -26,6 +26,15 @@ export interface DAWClip {
   isMuted?: boolean;
 }
 
+export interface DAWTrackEffects {
+  lowShelfDb: number;
+  midDb: number;
+  highShelfDb: number;
+  compressorEnabled: boolean;
+  compressorThresholdDb: number;
+  compressorRatio: number;
+}
+
 export interface DAWTrack {
   id: string;
   name: string;
@@ -37,6 +46,7 @@ export interface DAWTrack {
   solo: boolean;
   armed: boolean;       // Armed for microphone/guitar recording
   clips: DAWClip[];
+  fx?: Partial<DAWTrackEffects>;
 }
 
 export interface DAWProject {

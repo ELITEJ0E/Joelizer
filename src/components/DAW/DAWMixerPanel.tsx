@@ -4,7 +4,7 @@ import { useDAWStore } from '../../store/useDAWStore';
 import { useStore } from '../../store/useStore';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
 
-export function DAWMixerPanel() {
+export function DAWMixerPanel({ expanded, onExpandedChange }: { expanded?: boolean; onExpandedChange?: (open: boolean) => void } = {}) {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   
   const tracks = useDAWStore(s => s.tracks);
@@ -20,7 +20,9 @@ export function DAWMixerPanel() {
   const setMasterVolume = useDAWStore(s => s.setMasterVolume);
   const isPlaying = useDAWStore(s => s.isPlaying);
 
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = expanded ?? internalExpanded;
+  const setIsExpanded = onExpandedChange ?? setInternalExpanded;
   const [masterLevel, setMasterLevel] = useState(0);
 
   // Poll master audio level when playing
@@ -38,165 +40,82 @@ export function DAWMixerPanel() {
   }, [isPlaying]);
 
   return (
-    <div className="border-t border-white/10 bg-[#0a0b0f] text-slate-200 shrink-0 z-20 select-none">
-      {/* Collapsible Bar Header */}
-      <div 
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="h-7 px-4 bg-black/60 flex items-center justify-between cursor-pointer hover:bg-black/80 transition-colors text-[10px] font-mono font-bold"
-      >
-        <div className="flex items-center gap-2">
-          <Sliders size={12} style={{ color: activeColor }} />
-          <span className="uppercase tracking-wider">Console Mixer ({tracks.length} Channels + Master Bus)</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Mini Master VU Meter Indicator */}
-          <div className="w-20 h-2 bg-black rounded-full overflow-hidden border border-white/10 flex">
-            <div 
-              className="h-full transition-all duration-75"
-              style={{ 
-                width: `${Math.min(100, masterLevel * 140)}%`,
-                backgroundColor: masterLevel > 0.85 ? '#f43f5e' : activeColor
-              }}
-            />
-          </div>
-          {isExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-        </div>
-      </div>
-
-      {/* Expanded Mixer Channels */}
-      {isExpanded && (
-        <div className="h-44 p-3 flex gap-2 overflow-x-auto bg-[#07080c]">
-          {/* Individual Track Channel Strips */}
-          {tracks.map(track => {
-            const isSelected = selectedTrackId === track.id;
-
-            return (
-              <div
-                key={track.id}
-                onClick={() => setSelectedTrackId(track.id)}
-                className={`w-28 shrink-0 rounded-xl p-2.5 flex flex-col justify-between border transition-all ${
-                  isSelected 
-                    ? 'bg-[#12131c] border-white/30 shadow-lg' 
-                    : 'bg-[#0d0e14] border-white/10 hover:border-white/20'
-                }`}
-                style={isSelected ? { borderTop: `3px solid ${track.color}` } : {}}
-              >
-                {/* Track Name */}
-                <div className="text-center truncate">
-                  <span className="text-[10px] font-black text-white truncate block">{track.name}</span>
-                  <span className="text-[8px] font-mono text-slate-500 uppercase">{track.type}</span>
-                </div>
-
-                {/* Mute, Solo, Rec Buttons */}
-                <div className="flex items-center justify-center gap-1 my-1">
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      toggleTrackMute(track.id);
-                    }}
-                    className={`w-6 h-5 rounded text-[9px] font-mono font-bold ${
-                      track.muted ? 'bg-amber-500 text-black font-black' : 'bg-white/5 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    M
-                  </button>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      toggleTrackSolo(track.id);
-                    }}
-                    className={`w-6 h-5 rounded text-[9px] font-mono font-bold ${
-                      track.solo ? 'bg-cyan-400 text-black font-black' : 'bg-white/5 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    S
-                  </button>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      toggleTrackArmed(track.id);
-                    }}
-                    className={`w-6 h-5 rounded text-[9px] font-mono font-bold ${
-                      track.armed ? 'bg-rose-600 text-white animate-pulse' : 'bg-white/5 text-slate-400 hover:text-rose-400'
-                    }`}
-                  >
-                    R
-                  </button>
-                </div>
-
-                {/* Vertical Fader & Level Readout */}
-                <div className="flex items-center justify-center gap-2 h-16">
-                  <input
-                    type="range"
-                    min="0"
-                    max="1.2"
-                    step="0.01"
-                    value={track.volume}
-                    onChange={e => setTrackVolume(track.id, parseFloat(e.target.value))}
-                    onClick={e => e.stopPropagation()}
-                    className="h-16 w-3 bg-black/60 rounded appearance-none cursor-pointer accent-emerald-400 [writing-mode:bt-lr] [-webkit-appearance:slider-vertical]"
-                  />
-                  <span className="text-[9px] font-mono text-slate-400 w-6">
-                    {Math.round(track.volume * 100)}%
-                  </span>
-                </div>
-
-                {/* Pan Slider */}
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-[8px] font-mono text-slate-500">P</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.05"
-                    value={track.pan}
-                    onChange={e => setTrackPan(track.id, parseFloat(e.target.value))}
-                    onClick={e => e.stopPropagation()}
-                    className="w-full h-1 bg-white/10 rounded appearance-none cursor-pointer accent-cyan-400"
-                  />
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Master Bus Channel Strip */}
-          <div className="w-32 shrink-0 rounded-xl p-2.5 flex flex-col justify-between border border-emerald-500/30 bg-[#0e1713] ml-auto">
-            <div className="text-center">
-              <span className="text-[11px] font-black text-emerald-400 uppercase tracking-wider block">MASTER</span>
-              <span className="text-[8px] font-mono text-slate-400">STEREO OUT</span>
-            </div>
-
-            {/* Master Fader + Dual VU Meter */}
-            <div className="flex items-center justify-center gap-3 h-20 my-1">
-              <input
-                type="range"
-                min="0"
-                max="1.5"
-                step="0.01"
-                value={masterVolume}
-                onChange={e => setMasterVolume(parseFloat(e.target.value))}
-                className="h-20 w-4 bg-black rounded appearance-none cursor-pointer accent-emerald-400 [writing-mode:bt-lr] [-webkit-appearance:slider-vertical]"
-              />
-              
-              {/* Stereo VU Meter Bar */}
-              <div className="w-3 h-20 bg-black rounded overflow-hidden border border-white/20 flex flex-col justify-end p-0.5">
-                <div 
-                  className="w-full rounded transition-all duration-75"
-                  style={{ 
-                    height: `${Math.min(100, masterLevel * 140)}%`,
-                    backgroundColor: masterLevel > 0.85 ? '#f43f5e' : activeColor
-                  }}
-                />
+    <section aria-label="Music Studio mixer console"
+      className="shrink-0 border-t border-white/10 bg-[#0a111b] text-slate-200">
+      <button type="button" aria-expanded={isExpanded} onClick={()=>setIsExpanded(!isExpanded)}
+        className="flex h-8 w-full items-center justify-between border-b border-white/[0.06] px-4 text-[11px] font-semibold hover:bg-white/5">
+        <span className="flex items-center gap-2"><Sliders size={14} className="text-cyan-300"/> MIXER CONSOLE
+          <span className="font-mono font-normal text-slate-500">{tracks.length} channels · Stereo output</span></span>
+        {isExpanded?<ChevronDown size={15}/>:<ChevronUp size={15}/>}
+      </button>
+      {isExpanded && <div className="flex h-[194px] items-stretch gap-2 overflow-x-auto px-3 py-3">
+        {tracks.map(track=>{
+          const selected=selectedTrackId===track.id;
+          const db=track.volume<=0.0001?'-∞':(20*Math.log10(track.volume)).toFixed(1);
+          return <div key={track.id} onClick={()=>setSelectedTrackId(track.id)}
+            className={selected
+              ? 'flex w-[165px] shrink-0 flex-col gap-2 rounded-xl border border-cyan-300/40 bg-[#172233] p-2.5 shadow-lg'
+              : 'flex w-[165px] shrink-0 flex-col gap-2 rounded-xl border border-white/10 bg-[#101926] p-2.5 hover:border-white/25'}
+            style={{borderTop:'3px solid '+track.color}}>
+            <div className="min-w-0">
+              <div className="truncate text-xs font-semibold text-white" title={track.name}>{track.name}</div>
+              <div className="flex items-center justify-between text-[10px] text-slate-500">
+                <span>{track.type}</span>
+                <span>{track.fx?.compressorEnabled?'COMP ':''}{(track.fx?.lowShelfDb||track.fx?.midDb||track.fx?.highShelfDb)?'EQ':''}</span>
               </div>
             </div>
-
-            <div className="text-center text-[10px] font-mono font-black text-emerald-400">
-              {Math.round(masterVolume * 100)}%
+            <div className="flex items-center gap-1">
+              <button type="button" aria-label={'Mute '+track.name} aria-pressed={track.muted}
+                onClick={e=>{e.stopPropagation();toggleTrackMute(track.id);}}
+                className={track.muted?'rounded bg-amber-400/20 px-2 py-1 text-[10px] font-bold text-amber-200':'rounded bg-white/10 px-2 py-1 text-[10px] font-bold text-slate-400'}>M</button>
+              <button type="button" aria-label={'Solo '+track.name} aria-pressed={track.solo}
+                onClick={e=>{e.stopPropagation();toggleTrackSolo(track.id);}}
+                className={track.solo?'rounded bg-cyan-400/20 px-2 py-1 text-[10px] font-bold text-cyan-200':'rounded bg-white/10 px-2 py-1 text-[10px] font-bold text-slate-400'}>S</button>
+              <button type="button" aria-label={'Arm '+track.name} aria-pressed={track.armed}
+                onClick={e=>{e.stopPropagation();toggleTrackArmed(track.id);}}
+                className={track.armed?'rounded bg-rose-400/20 px-2 py-1 text-[10px] font-bold text-rose-200':'rounded bg-white/10 px-2 py-1 text-[10px] font-bold text-slate-400'}>REC</button>
             </div>
+            <label className="flex-1 space-y-1">
+              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <span>Level</span><span className="font-mono text-cyan-200">{db} dB</span>
+              </div>
+              <input type="range" aria-label={'Volume '+track.name} min="0" max="1.5" step=".01"
+                value={track.volume} onChange={e=>setTrackVolume(track.id,Number(e.target.value))}
+                onClick={e=>e.stopPropagation()} className="w-full accent-cyan-400"/>
+            </label>
+            <label className="space-y-1">
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>Pan</span><span className="font-mono">{Math.round(track.pan*100)}</span>
+              </div>
+              <input type="range" aria-label={'Pan '+track.name} min="-1" max="1" step=".01"
+                value={track.pan} onChange={e=>setTrackPan(track.id,Number(e.target.value))}
+                onClick={e=>e.stopPropagation()} className="w-full accent-sky-400"/>
+            </label>
+          </div>;
+        })}
+        <div className="ml-auto flex w-[190px] shrink-0 flex-col gap-2 rounded-xl border border-cyan-400/30 bg-[#102129] p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan-200">Master</span>
+            <span className="text-[10px] text-slate-400">STEREO OUT</span>
           </div>
+          <div className="flex h-8 items-end gap-1 rounded-md border border-white/10 bg-black/40 p-1">
+            <div className="h-full w-full overflow-hidden rounded bg-white/5">
+              <div className="h-full origin-left rounded bg-gradient-to-r from-cyan-500 to-emerald-400 transition-transform duration-75"
+                style={{transform:'scaleX('+Math.max(0,Math.min(1,masterLevel*1.5))+')'}}/>
+            </div>
+            <span className="w-10 shrink-0 text-right font-mono text-[10px] text-cyan-200">
+              {masterLevel>0?(20*Math.log10(masterLevel)).toFixed(0)+'dB':'-∞'}
+            </span>
+          </div>
+          <label className="mt-auto space-y-1 text-[10px] text-slate-400">
+            <span className="flex justify-between"><span>Output level</span><span className="font-mono text-cyan-200">{Math.round(masterVolume*100)}%</span></span>
+            <input type="range" aria-label="Mixer master volume" min="0" max="1.5" step=".01" value={masterVolume}
+              onChange={e=>setMasterVolume(Number(e.target.value))}
+              className="w-full accent-cyan-400"/>
+          </label>
+          <div className="text-[10px] leading-4 text-slate-500">24-bit WAV export · -1 dBFS sample-peak ceiling</div>
         </div>
-      )}
-    </div>
+      </div>}
+    </section>
   );
 }

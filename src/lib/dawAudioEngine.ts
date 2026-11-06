@@ -1,4 +1,6 @@
 import { DAWClip, DAWTrack } from '../types/daw';
+import { scheduleDawClipEnvelope, dawSafePeakGain } from './dawMixing';
+import { encodeLabWav, type WavBitDepth } from './audioLabEngine';
 
 export class DAWAudioEngine {
   private ctx: AudioContext | null = null;
@@ -6,7 +8,11 @@ export class DAWAudioEngine {
   private masterAnalyser: AnalyserNode | null = null;
   
   // Track node graph cache: trackId -> { gain, panner }
-  private trackNodes: Map<string, { gain: GainNode; panner: StereoPannerNode }> = new Map();
+  private trackNodes: Map<string, {
+    gain: GainNode; panner: StereoPannerNode;
+    low: BiquadFilterNode; mid: BiquadFilterNode;
+    high: BiquadFilterNode; compressor: DynamicsCompressorNode;
+  }> = new Map();
   
   // AudioBuffer cache: url -> AudioBuffer
   private bufferCache: Map<string, AudioBuffer> = new Map();
@@ -19,6 +25,7 @@ export class DAWAudioEngine {
   private playheadPosition = 0; // Current time in seconds
   private playbackStartTime = 0; // AudioContext.currentTime when playback was initiated
   private animFrameId: number | null = null;
+  private lastUiTick = 0;
   private onTimeUpdateCallback: ((time: number) => void) | null = null;
   
   // Recording state
@@ -116,41 +123,61 @@ export class DAWAudioEngine {
     return peaks;
   }
 
-  // Ensure track routing nodes exist
-  private getOrCreateTrackNode(track: DAWTrack): { gain: GainNode; panner: StereoPannerNode } {
+  // One persistent per-track graph. Keeping nodes alive avoids clicks and
+  // decoder churn when changing EQ, compression, mute, pan or volume.
+  private getOrCreateTrackNode(track: DAWTrack) {
     const ctx = this.getContext();
-    if (this.trackNodes.has(track.id)) {
-      return this.trackNodes.get(track.id)!;
-    }
+    const existing = this.trackNodes.get(track.id);
+    if (existing) return existing;
 
     const gain = ctx.createGain();
     const panner = ctx.createStereoPanner();
-
-    panner.connect(gain);
+    const low = ctx.createBiquadFilter();
+    const mid = ctx.createBiquadFilter();
+    const high = ctx.createBiquadFilter();
+    const compressor = ctx.createDynamicsCompressor();
+    low.type = 'lowshelf'; low.frequency.value = 180;
+    mid.type = 'peaking'; mid.frequency.value = 1150; mid.Q.value = 0.8;
+    high.type = 'highshelf'; high.frequency.value = 7200;
+    compressor.attack.value = 0.008;
+    compressor.release.value = 0.13;
+    compressor.knee.value = 8;
+    panner.connect(low);
+    low.connect(mid);
+    mid.connect(high);
+    high.connect(compressor);
+    compressor.connect(gain);
     gain.connect(this.masterGain!);
-
-    const nodeEntry = { gain, panner };
-    this.trackNodes.set(track.id, nodeEntry);
-    return nodeEntry;
+    const nodes = { gain, panner, low, mid, high, compressor };
+    this.trackNodes.set(track.id, nodes);
+    return nodes;
   }
 
-  // Update track volume, pan, mute, and solo states
   public updateTrackParameters(tracks: DAWTrack[]) {
-    const hasSolo = tracks.some(t => t.solo);
-
+    const hasSolo = tracks.some(track => track.solo);
+    const ctx = this.getContext();
+    const now = ctx.currentTime;
+    const clampValue = (value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
     for (const track of tracks) {
-      const { gain, panner } = this.getOrCreateTrackNode(track);
-      
-      // Calculate effective volume considering mute & solo
-      let effectiveVolume = track.volume;
-      if (track.muted) {
-        effectiveVolume = 0;
-      } else if (hasSolo && !track.solo) {
-        effectiveVolume = 0;
-      }
-
-      gain.gain.setTargetAtTime(effectiveVolume, this.getContext().currentTime, 0.02);
-      panner.pan.setTargetAtTime(Math.max(-1, Math.min(1, track.pan)), this.getContext().currentTime, 0.02);
+      const {gain,panner,low,mid,high,compressor}=this.getOrCreateTrackNode(track);
+      const volume = track.muted || (hasSolo && !track.solo) ? 0 : track.volume;
+      gain.gain.setTargetAtTime(clampValue(volume,0,1.5),now,.012);
+      panner.pan.setTargetAtTime(clampValue(track.pan,-1,1),now,.012);
+      low.gain.setTargetAtTime(clampValue(track.fx?.lowShelfDb ?? 0,-18,18),now,.02);
+      mid.gain.setTargetAtTime(clampValue(track.fx?.midDb ?? 0,-18,18),now,.02);
+      high.gain.setTargetAtTime(clampValue(track.fx?.highShelfDb ?? 0,-18,18),now,.02);
+      compressor.threshold.setTargetAtTime(clampValue(track.fx?.compressorThresholdDb ?? -18,-48,0),now,.02);
+      compressor.ratio.setTargetAtTime(track.fx?.compressorEnabled
+        ? clampValue(track.fx.compressorRatio ?? 2,1,12) : 1,now,.02);
+    }
+    // Release routing nodes for removed tracks, keeping an active session lean.
+    const ids=new Set(tracks.map(t=>t.id));
+    for (const [id,node] of this.trackNodes) {
+      if (ids.has(id)) continue;
+      node.panner.disconnect();
+      node.low.disconnect();node.mid.disconnect();node.high.disconnect();
+      node.compressor.disconnect();node.gain.disconnect();
+      this.trackNodes.delete(id);
     }
   }
 
@@ -223,9 +250,9 @@ export class DAWAudioEngine {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
 
-      // Clip local gain node for fade-ins, fade-outs, and per-clip volume
+      // Apply the same gain/fade automation used by offline WAV mixdown.
       const clipGain = ctx.createGain();
-      clipGain.gain.value = clip.volume ?? 1.0;
+      clipGain.gain.value = 0;
 
       source.connect(clipGain);
       clipGain.connect(destinationNode);
@@ -238,6 +265,7 @@ export class DAWAudioEngine {
         // Playhead is BEFORE clip start: schedule to start in future
         const delaySeconds = timelineClipStart - playbackStartOffset;
         const when = ctx.currentTime + delaySeconds;
+        scheduleDawClipEnvelope(clipGain.gain, clip, when, 0, clipDuration);
         source.start(when, audioSourceOffset, clipDuration);
       } else {
         // Playhead is INSIDE the clip: start immediately with offset
@@ -246,6 +274,7 @@ export class DAWAudioEngine {
         const newSourceOffset = audioSourceOffset + elapsedIntoClip;
 
         if (remainingDuration > 0) {
+          scheduleDawClipEnvelope(clipGain.gain, clip, ctx.currentTime, elapsedIntoClip, remainingDuration);
           source.start(ctx.currentTime, newSourceOffset, remainingDuration);
         }
       }
@@ -278,7 +307,10 @@ export class DAWAudioEngine {
         return;
       }
 
-      if (this.onTimeUpdateCallback) {
+      // Avoid re-rendering the entire React DAW tree at the display's 120 Hz
+      // refresh rate; audio scheduling remains on the Web Audio clock.
+      if (this.onTimeUpdateCallback && (this.getContext().currentTime - this.lastUiTick >= 1/30)) {
+        this.lastUiTick = this.getContext().currentTime;
         this.onTimeUpdateCallback(current);
       }
 
@@ -483,12 +515,15 @@ export class DAWAudioEngine {
   // --- MULTITRACK MIXDOWN & EXPORT ---
 
   public async bounceProjectToWav(
-    tracks: DAWTrack[], 
+    tracks: DAWTrack[],
     duration: number,
-    sampleRate = 44100
+    sampleRate = 44100,
+    masterVolume = 1,
+    bitDepth: WavBitDepth = 24
   ): Promise<Blob> {
     const offlineCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
     const offlineMasterGain = offlineCtx.createGain();
+    offlineMasterGain.gain.value = Math.max(0, Math.min(1.5, masterVolume));
     offlineMasterGain.connect(offlineCtx.destination);
 
     const hasSolo = tracks.some(t => t.solo);
@@ -506,7 +541,24 @@ export class DAWAudioEngine {
       const trackPanner = offlineCtx.createStereoPanner();
       trackPanner.pan.value = Math.max(-1, Math.min(1, track.pan));
 
-      trackPanner.connect(trackGain);
+      // Match the real-time channel strip exactly during offline bouncing.
+      const low = offlineCtx.createBiquadFilter();
+      low.type='lowshelf';low.frequency.value=180;
+      low.gain.value=Math.max(-18,Math.min(18,track.fx?.lowShelfDb??0));
+      const mid = offlineCtx.createBiquadFilter();
+      mid.type='peaking';mid.frequency.value=1150;mid.Q.value=.8;
+      mid.gain.value=Math.max(-18,Math.min(18,track.fx?.midDb??0));
+      const high = offlineCtx.createBiquadFilter();
+      high.type='highshelf';high.frequency.value=7200;
+      high.gain.value=Math.max(-18,Math.min(18,track.fx?.highShelfDb??0));
+      const compressor=offlineCtx.createDynamicsCompressor();
+      compressor.knee.value=8;compressor.attack.value=.008;compressor.release.value=.13;
+      compressor.threshold.value=Math.max(-48,Math.min(0,track.fx?.compressorThresholdDb??-18));
+      compressor.ratio.value=track.fx?.compressorEnabled
+        ? Math.max(1,Math.min(12,track.fx.compressorRatio??2)) : 1;
+      trackPanner.connect(low);
+      low.connect(mid);mid.connect(high);high.connect(compressor);
+      compressor.connect(trackGain);
       trackGain.connect(offlineMasterGain);
 
       for (const clip of track.clips) {
@@ -521,17 +573,35 @@ export class DAWAudioEngine {
         source.buffer = buffer;
 
         const clipGain = offlineCtx.createGain();
-        clipGain.gain.value = clip.volume ?? 1.0;
+        clipGain.gain.value = 0;
 
         source.connect(clipGain);
         clipGain.connect(trackPanner);
 
-        source.start(clip.startTime, clip.sourceStart, clip.duration);
+        const actualDuration = Math.min(clip.duration, buffer.duration - clip.sourceStart, duration - clip.startTime);
+        if (actualDuration <= 0) continue;
+        scheduleDawClipEnvelope(clipGain.gain, clip, clip.startTime, 0, actualDuration);
+        source.start(clip.startTime, clip.sourceStart, actualDuration);
       }
     }
 
     const renderedBuffer = await offlineCtx.startRendering();
-    return this.audioBufferToWavBlob(renderedBuffer);
+    let peak = 0;
+    for (let channel = 0; channel < renderedBuffer.numberOfChannels; channel++) {
+      const data = renderedBuffer.getChannelData(channel);
+      for (let sample = 0; sample < data.length; sample++) {
+        const magnitude = Math.abs(data[sample]);
+        if (magnitude > peak) peak = magnitude;
+      }
+    }
+    const gain = dawSafePeakGain(peak, -1);
+    if (gain < 1) {
+      for (let channel = 0; channel < renderedBuffer.numberOfChannels; channel++) {
+        const data = renderedBuffer.getChannelData(channel);
+        for (let sample = 0; sample < data.length; sample++) data[sample] *= gain;
+      }
+    }
+    return encodeLabWav(renderedBuffer, bitDepth);
   }
 
   // Convert AudioBuffer to standard 16-bit PCM WAV Blob

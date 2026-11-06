@@ -12,6 +12,7 @@ export function DAWTimeline() {
 
   const tracks = useDAWStore(s => s.tracks);
   const selectedTrackId = useDAWStore(s => s.selectedTrackId);
+  const setSelectedTrackId = useDAWStore(s => s.setSelectedTrackId);
   const selectedClipId = useDAWStore(s => s.selectedClipId);
   const setSelectedClipId = useDAWStore(s => s.setSelectedClipId);
 
@@ -31,80 +32,67 @@ export function DAWTimeline() {
   const setLoopRegion = useDAWStore(s => s.setLoopRegion);
 
   const timelineContainerRef = useRef<HTMLDivElement | null>(null);
+  const trackHeaderScrollRef = useRef<HTMLDivElement | null>(null);
   const rulerCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const totalWidth = Math.max(1200, (projectDuration + 10) * timelineZoom);
 
-  // Draw Time & Beat Ruler Canvas
+  // A viewport-sized time ruler avoids enormous 12k+ pixel canvases.
   useEffect(() => {
-    const canvas = rulerCanvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const w = totalWidth;
-    const h = 32;
-
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.scale(dpr, dpr);
-
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = '#08080c';
-    ctx.fillRect(0, 0, w, h);
-
-    // Grid lines & time markings
-    const beatSec = 60 / bpm;
-    const barSec = beatSec * 4;
-    const totalBars = Math.ceil(projectDuration / barSec) + 2;
-
-    ctx.font = 'bold 9px monospace';
-
-    for (let bar = 0; bar < totalBars; bar++) {
-      const barX = bar * barSec * timelineZoom;
-      
-      // Bar Mark
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(barX, 14);
-      ctx.lineTo(barX, h);
-      ctx.stroke();
-
-      // Bar Number & Seconds Label
-      const timeStr = `${Math.floor(bar * barSec / 60)}:${Math.floor((bar * barSec) % 60).toString().padStart(2, '0')}`;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.fillText(`BAR ${bar + 1} (${timeStr})`, barX + 4, 11);
-
-      // 4 Beat Subdivisions inside Bar
-      for (let beat = 1; beat < 4; beat++) {
-        const beatX = barX + beat * beatSec * timelineZoom;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.beginPath();
-        ctx.moveTo(beatX, 22);
-        ctx.lineTo(beatX, h);
-        ctx.stroke();
+    const canvas=rulerCanvasRef.current;
+    const viewport=timelineContainerRef.current;
+    if(!canvas||!viewport)return;
+    let frame=0;
+    const draw=()=>{
+      frame=0;
+      const scale=Math.min(2,window.devicePixelRatio||1);
+      const width=Math.max(1,viewport.clientWidth);
+      const scroll=viewport.scrollLeft;
+      canvas.style.width=width+'px';
+      canvas.style.transform='translate3d('+scroll+'px,0,0)';
+      const pw=Math.ceil(width*scale);
+      if(canvas.width!==pw)canvas.width=pw;
+      if(canvas.height!==Math.ceil(32*scale))canvas.height=Math.ceil(32*scale);
+      const ctx=canvas.getContext('2d');
+      if(!ctx)return;
+      ctx.setTransform(scale,0,0,scale,0,0);
+      ctx.fillStyle='#0b1220';ctx.fillRect(0,0,width,32);
+      const beat=60/bpm,bar=beat*4;
+      const first=Math.max(0,Math.floor(scroll/(bar*timelineZoom))-1);
+      const last=Math.ceil((scroll+width)/(bar*timelineZoom))+1;
+      ctx.font='600 10px monospace';
+      for(let i=first;i<=last;i++){
+        const x=i*bar*timelineZoom-scroll;
+        ctx.strokeStyle='rgba(148,163,184,.35)';
+        ctx.beginPath();ctx.moveTo(Math.round(x)+.5,14);ctx.lineTo(Math.round(x)+.5,32);ctx.stroke();
+        const time=i*bar;
+        ctx.fillStyle='rgba(203,213,225,.85)';
+        const labelStride=Math.max(1,Math.ceil(88/(bar*timelineZoom)));
+        if (i % labelStride===0)
+          ctx.fillText((i+1)+' · '+Math.floor(time/60)+':'+String(Math.floor(time%60)).padStart(2,'0'),x+5,11);
+        for(let j=1;j<4;j++){
+          const bx=x+j*beat*timelineZoom;
+          ctx.strokeStyle='rgba(148,163,184,.12)';
+          ctx.beginPath();ctx.moveTo(Math.round(bx)+.5,22);ctx.lineTo(Math.round(bx)+.5,32);ctx.stroke();
+        }
       }
-    }
-
-    // Draw Loop Region on Ruler if Active
-    if (isLooping && loopEnd > loopStart) {
-      const lx1 = loopStart * timelineZoom;
-      const lx2 = loopEnd * timelineZoom;
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
-      ctx.fillRect(lx1, 0, lx2 - lx1, h);
-
-      ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(lx1, 0, lx2 - lx1, h);
-    }
-  }, [totalWidth, timelineZoom, bpm, projectDuration, isLooping, loopStart, loopEnd]);
+      if(isLooping&&loopEnd>loopStart){
+        const left=loopStart*timelineZoom-scroll,right=loopEnd*timelineZoom-scroll;
+        ctx.fillStyle='rgba(34,211,238,.14)';ctx.fillRect(left,0,right-left,32);
+        ctx.strokeStyle='#22d3ee';ctx.strokeRect(left,0,right-left,32);
+      }
+    };
+    const schedule=()=>{if(!frame)frame=requestAnimationFrame(draw);};
+    const resize=new ResizeObserver(schedule);
+    resize.observe(viewport);
+    viewport.addEventListener('scroll',schedule,{passive:true});
+    schedule();
+    return()=>{resize.disconnect();viewport.removeEventListener('scroll',schedule);if(frame)cancelAnimationFrame(frame);};
+  },[timelineZoom,bpm,isLooping,loopStart,loopEnd]);
 
   // Handle click / drag on Ruler to seek playhead
   const handleRulerMouseDown = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect = timelineContainerRef.current?.getBoundingClientRect() ?? e.currentTarget.getBoundingClientRect();
     const scrollLeft = timelineContainerRef.current?.scrollLeft || 0;
     const clickX = e.clientX - rect.left + scrollLeft;
     const targetTime = Math.max(0, clickX / timelineZoom);
@@ -164,7 +152,11 @@ export function DAWTimeline() {
           )}
 
           {/* Track Headers List */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div ref={trackHeaderScrollRef} onScroll={e=>{
+            const timeline=timelineContainerRef.current;
+            if(timeline&&Math.abs(timeline.scrollTop-e.currentTarget.scrollTop)>1)
+              timeline.scrollTop=e.currentTarget.scrollTop;
+          }} className="flex-1 overflow-y-auto overflow-x-hidden">
             {tracks.map(track => (
               <DAWTrackHeader
                 key={track.id}
@@ -178,6 +170,11 @@ export function DAWTimeline() {
         {/* RIGHT COLUMN: Scrolling Timeline Canvas & Lanes */}
         <div 
           ref={timelineContainerRef}
+          onScroll={e=>{
+            const headers=trackHeaderScrollRef.current;
+            if(headers&&Math.abs(headers.scrollTop-e.currentTarget.scrollTop)>1)
+              headers.scrollTop=e.currentTarget.scrollTop;
+          }}
           className="flex-1 overflow-x-auto overflow-y-auto relative bg-[#050507]"
         >
           {/* Internal Canvas Content Wrapper */}
@@ -187,12 +184,12 @@ export function DAWTimeline() {
               onMouseDown={handleRulerMouseDown}
               className="h-8 border-b border-white/10 bg-[#08080c] sticky top-0 z-30 cursor-pointer"
             >
-              <canvas ref={rulerCanvasRef} className="w-full h-full block" />
+              <canvas ref={rulerCanvasRef} className="absolute left-0 top-0 h-full block pointer-events-none" />
             </div>
 
             {/* 2. Synchronized Lyrics Ruler Track */}
             {showLyricsRuler && (
-              <div className="h-7 border-b border-white/10 bg-[#0a0b10] relative flex items-center overflow-hidden z-10">
+              <div className="sticky top-8 z-20 flex h-7 items-center overflow-hidden border-b border-white/10 bg-[#0a0b10]">
                 {lyricsLines.map((line, idx) => {
                   const lineX = line.startTime * timelineZoom;
                   const lineW = Math.max(40, ((line.endTime || line.startTime + 3) - line.startTime) * timelineZoom);
@@ -238,7 +235,7 @@ export function DAWTimeline() {
                       track={track}
                       isSelected={selectedClipId === clip.id}
                       zoom={timelineZoom}
-                      onSelect={(id) => setSelectedClipId(id)}
+                      onSelect={(id) => { setSelectedClipId(id); setSelectedTrackId(track.id); }}
                     />
                   ))}
                 </div>
