@@ -200,6 +200,20 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height }: 
     transform = `scale(1.1) translateX(${(clipProgress - 0.5) * 4}%)`;
   }
 
+  // A clip's framing is independent of timeline effects and must survive MP4 export.
+  const offsetX = Math.max(-1, Math.min(1, clip.offsetX ?? 0));
+  const offsetY = Math.max(-1, Math.min(1, clip.offsetY ?? 0));
+  const zoom = Math.max(0.25, Math.min(4, clip.zoom ?? 1));
+  const vertical = Math.max(0.25, Math.min(3, clip.heightScale ?? 1));
+  const framing = `translate(${offsetX * 50}%, ${offsetY * 50}%) scale(${zoom}, ${zoom * vertical})`;
+  const mediaStyle: React.CSSProperties = {
+    width: '100%', height: '100%',
+    objectFit: clip.fit === 'contain' ? 'contain' : 'cover',
+    objectPosition: 'center',
+    transform: `${framing} ${transform}`,
+    transformOrigin: 'center'
+  };
+
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       {clip.type === 'video' ? (
@@ -207,7 +221,7 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height }: 
           <Video
             src={clip.url}
             muted
-            style={{ width: '100%', height: '100%', objectFit: 'cover', transform }}
+            style={mediaStyle}
             startFrom={Math.round(clip.trimStart * fps)}
             endAt={Math.round((clip.trimStart + clip.duration) * fps)}
           />
@@ -215,7 +229,7 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height }: 
       ) : (
         <Img 
           src={clip.url} 
-          style={{ width: '100%', height: '100%', objectFit: 'cover', transform }} 
+          style={mediaStyle} 
         />
       )}
     </div>
