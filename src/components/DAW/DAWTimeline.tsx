@@ -67,7 +67,9 @@ export function DAWTimeline() {
         ctx.beginPath();ctx.moveTo(Math.round(x)+.5,14);ctx.lineTo(Math.round(x)+.5,32);ctx.stroke();
         const time=i*bar;
         ctx.fillStyle='rgba(203,213,225,.85)';
-        ctx.fillText((i+1)+' · '+Math.floor(time/60)+':'+String(Math.floor(time%60)).padStart(2,'0'),x+5,11);
+        const labelStride=Math.max(1,Math.ceil(88/(bar*timelineZoom)));
+        if (i % labelStride===0)
+          ctx.fillText((i+1)+' · '+Math.floor(time/60)+':'+String(Math.floor(time%60)).padStart(2,'0'),x+5,11);
         for(let j=1;j<4;j++){
           const bx=x+j*beat*timelineZoom;
           ctx.strokeStyle='rgba(148,163,184,.12)';
@@ -187,7 +189,7 @@ export function DAWTimeline() {
 
             {/* 2. Synchronized Lyrics Ruler Track */}
             {showLyricsRuler && (
-              <div className="h-7 border-b border-white/10 bg-[#0a0b10] sticky top-8 relative flex items-center overflow-hidden z-20">
+              <div className="sticky top-8 z-20 flex h-7 items-center overflow-hidden border-b border-white/10 bg-[#0a0b10]">
                 {lyricsLines.map((line, idx) => {
                   const lineX = line.startTime * timelineZoom;
                   const lineW = Math.max(40, ((line.endTime || line.startTime + 3) - line.startTime) * timelineZoom);
