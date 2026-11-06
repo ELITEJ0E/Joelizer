@@ -25,6 +25,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const aspectRatio = useStore(s => s.aspectRatio);
 
   const videoAssets = useMVStore(s => s.videoAssets);
+  const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
+  const customBackground = useLyricsVideoStore(s => s.customBackground);
+  const setCustomBackground = useLyricsVideoStore(s => s.setCustomBackground);
+  const [adjustVideo, setAdjustVideo] = useState(false);
+  const adjustmentGesture = useRef<{ x: number; y: number; startX: number; startY: number; zoom: number; height: number; operation: 'move' | 'resize' } | null>(null);
   const timelineClips = useMVStore(s => s.timelineClips);
   const storeVideoMode = useLyricsVideoStore(s => s.videoMode);
   const videoMode = mode || storeVideoMode;
@@ -32,6 +37,46 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const activeClip = timelineClips.find(c => currentTime >= c.startTime && currentTime <= c.endTime);
   const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
   const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
+  const editableClip = videoMode === 'music-video' && activeClip && (activeClip.type === 'video' || activeClip.type === 'image');
+  const editableVideo = videoMode === 'lyrics-video' ? customBackground.type === 'video' : !!editableClip;
+  const frameSettings = videoMode === 'lyrics-video' ? customBackground : activeClip;
+  const updateFrameSettings = (settings: { offsetX?: number; offsetY?: number; zoom?: number; heightScale?: number; fit?: 'contain' | 'cover' }) => {
+    if (videoMode === 'lyrics-video') setCustomBackground(settings);
+    else if (editableClip && !editableClip.locked) updateTimelineClip(editableClip.id, settings);
+  };
+  const startAdjustment = (e: React.PointerEvent, operation: 'move' | 'resize') => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!editableVideo || (editableClip && editableClip.locked)) return;
+    adjustmentGesture.current = {
+      x: e.clientX, y: e.clientY,
+      startX: frameSettings?.offsetX ?? 0,
+      startY: frameSettings?.offsetY ?? 0,
+      zoom: frameSettings?.zoom ?? 1,
+      height: frameSettings?.heightScale ?? 1,
+      operation
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const moveAdjustment = (e: React.PointerEvent) => {
+    const gesture = adjustmentGesture.current;
+    if (!gesture) return;
+    const rect = canvasContainerRef.current?.getBoundingClientRect();
+    if (!rect?.width || !rect.height) return;
+    const dx = e.clientX - gesture.x;
+    const dy = e.clientY - gesture.y;
+    if (gesture.operation === 'move') {
+      updateFrameSettings({
+        offsetX: Math.max(-1, Math.min(1, gesture.startX + 2 * dx / rect.width)),
+        offsetY: Math.max(-1, Math.min(1, gesture.startY + 2 * dy / rect.height))
+      });
+    } else {
+      updateFrameSettings({
+        zoom: Math.max(0.25, Math.min(4, gesture.zoom * (1 + dx / rect.width * 2))),
+        heightScale: Math.max(0.25, Math.min(3, gesture.height * (1 + dy / rect.height * 2)))
+      });
+    }
+  };
 
   // Interactive drag, resize, and alignment overlay in both Lyrics mode and compatible MV Studio scenes
   const showOverlay = videoMode === 'lyrics-video' ||
@@ -566,13 +611,50 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           />
 
           {/* Interactive Drag & Drop Overlay inside exact canvas boundaries */}
-          {showOverlay && (
+          {showOverlay && !adjustVideo && (
             <InteractiveStageOverlay
               stageWidth={stageDimensions.width}
               stageHeight={stageDimensions.height}
               filterKeys={videoMode === 'music-video' ? mvFilterKeys : undefined}
               mode={videoMode}
             />
+          )}
+
+          {editableVideo && (
+            <div className="absolute top-12 left-2 z-40 flex flex-col items-start gap-1 pointer-events-auto">
+              <button type="button" onClick={() => setAdjustVideo(v => !v)}
+                className={`rounded border px-2 py-1.5 text-[10px] font-semibold shadow-lg ${adjustVideo ? 'border-accent bg-accent text-black' : 'border-white/30 bg-black/70 text-white'}`}
+                title="Select the video to drag, resize, or reframe">
+                {adjustVideo ? 'Done adjusting' : 'Adjust video'}
+              </button>
+              {adjustVideo && (
+                <div className="flex gap-1 rounded bg-black/75 p-1">
+                  <button type="button" className="text-white text-[10px] px-1.5" onClick={() => updateFrameSettings({ fit: frameSettings?.fit === 'contain' ? 'cover' : 'contain' })}>
+                    {frameSettings?.fit === 'contain' ? 'Fit whole' : 'Fill / Crop'}
+                  </button>
+                  <button type="button" className="text-white text-[10px] px-1.5" onClick={() => updateFrameSettings({ zoom: 1, heightScale: 1, offsetX: 0, offsetY: 0 })}>
+                    Reset
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {adjustVideo && editableVideo && (
+            <div className="absolute inset-0 z-30 border-2 border-accent/70 cursor-move touch-none"
+              aria-label="Drag to reposition video"
+              onPointerDown={e => startAdjustment(e, 'move')}
+              onPointerMove={moveAdjustment}
+              onPointerUp={() => { adjustmentGesture.current = null; }}
+              onPointerCancel={() => { adjustmentGesture.current = null; }}>
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded bg-black/60 text-white text-[10px] px-2 py-1 pointer-events-none">Drag to move video</div>
+              <div
+                onPointerDown={e => startAdjustment(e, 'resize')}
+                onPointerMove={moveAdjustment}
+                onPointerUp={e => { e.stopPropagation(); adjustmentGesture.current = null; }}
+                onPointerCancel={() => { adjustmentGesture.current = null; }}
+                className="absolute bottom-0 right-0 h-7 w-7 rounded-tl border border-accent bg-black/80 text-accent flex items-center justify-center cursor-nwse-resize touch-none"
+                title="Drag corner horizontally to zoom, vertically to adjust height">↘</div>
+            </div>
           )}
 
           {/* Transport appears only on the video surface, never under a dialog. */}
