@@ -23,6 +23,7 @@ jobs:
       - run: npx tsx src/tests/audioMasteringLab.test.ts
       - run: npx tsx src/tests/phonkSynthEngine.test.ts
       - run: npx tsx src/tests/musicStudioArchive.test.ts
+      - run: npx tsx src/tests/dawProWorkflow.test.ts
       - run: npx tsx src/tests/browserExportClock.test.ts
       - run: npx tsx src/tests/videoPlaybackSync.test.ts
       - run: npx tsx src/tests/export1080pStress.test.ts
