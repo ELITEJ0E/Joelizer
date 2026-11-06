@@ -28,6 +28,11 @@ export interface TimelineClip {
   trimStart: number; // Start trim within media asset
   trimEnd: number;   // End trim within media asset
   locked?: boolean;
+  fit?: 'cover' | 'contain';
+  zoom?: number;
+  heightScale?: number;
+  offsetX?: number;
+  offsetY?: number;
   type?: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
   effect?: 'ken-burns-in' | 'ken-burns-out' | 'pan-left' | 'pan-right' | 'pan-up' | 'pan-down' | 'none';
   transition?: 'cut' | 'fade' | 'dissolve' | 'glitch';
