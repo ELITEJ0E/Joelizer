@@ -56,6 +56,10 @@ try {
   await sourceInput.setInputFiles({ name: 'example.wav', mimeType: 'audio/wav', buffer: wav });
   await dialog.getByText('Original', { exact: true }).waitFor();
   await dialog.getByText('22050', { exact: false }).count();
+  const blend = dialog.getByRole('slider', { name: /Original \/ processed blend/i });
+  await blend.waitFor();
+  await blend.fill('65');
+  assert.equal(await blend.inputValue(), '65', 'Parallel processing blend control must be adjustable');
   await dialog.getByRole('button', { name: 'Render local master' }).click();
   await dialog.getByRole('button', { name: 'Download WAV' }).waitFor({ timeout: 30000 });
   await dialog.getByText('Joelizer-rendered master', { exact: true }).waitFor();
