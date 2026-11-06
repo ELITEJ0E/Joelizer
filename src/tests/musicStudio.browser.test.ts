@@ -65,6 +65,33 @@ try {
   assert.ok(state.some(track => track.name.includes('synth-example') && track.clips > 0),
     'Imported audio must create an editable DAW timeline clip');
 
+  // Verify workstation ergonomics: browser remains mounted when collapsed,
+  // inspector writes actual channel DSP settings and mixer can be expanded.
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  const inspector = page.getByRole('complementary', { name: 'Music Studio inspector' });
+  await inspector.waitFor({ state: 'visible' });
+  await inspector.getByRole('slider', { name: 'Low EQ (dB)' }).fill('3');
+  await inspector.getByRole('checkbox', { name: 'Channel compressor' }).check();
+  await inspector.getByRole('slider', { name: 'Threshold (dB)' }).fill('-24');
+  const fxState = await page.evaluate(async () => {
+    const path='/src/store/useDAWStore.ts';
+    const { useDAWStore } = await import(/* @vite-ignore */ path);
+    const state=useDAWStore.getState();
+    return state.tracks.find((track:{id:string})=>track.id===state.selectedTrackId)?.fx;
+  });
+  assert.equal(fxState?.lowShelfDb,3,'EQ slider must change the selected track audio effect');
+  assert.equal(fxState?.compressorEnabled,true,'Compressor toggle must change channel processing');
+  assert.equal(fxState?.compressorThresholdDb,-24);
+  await page.getByRole('button', { name: 'Mixer', exact: true }).click();
+  await page.getByText(/Console Mixer \(/).waitFor({ state: 'visible' });
+  await page.getByRole('button', { name: 'Mixer', exact: true }).click();
+  await page.getByRole('button', { name: 'Browser', exact: true }).click();
+  await browserPane.waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Browser', exact: true }).click();
+  await browserPane.waitFor({ state: 'visible' });
+  await browserPane.getByText('synth-example.wav').waitFor();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+
   await browserPane.getByRole('button', { name: 'Drums', exact: true }).click();
   await browserPane.getByLabel('Kick sample').selectOption({ label: 'synth-example.wav' });
   await browserPane.getByRole('button', { name: 'Render & insert beat' }).click();
