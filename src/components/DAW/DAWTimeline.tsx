@@ -12,6 +12,7 @@ export function DAWTimeline() {
 
   const tracks = useDAWStore(s => s.tracks);
   const selectedTrackId = useDAWStore(s => s.selectedTrackId);
+  const setSelectedTrackId = useDAWStore(s => s.setSelectedTrackId);
   const selectedClipId = useDAWStore(s => s.selectedClipId);
   const setSelectedClipId = useDAWStore(s => s.setSelectedClipId);
 
@@ -232,7 +233,7 @@ export function DAWTimeline() {
                       track={track}
                       isSelected={selectedClipId === clip.id}
                       zoom={timelineZoom}
-                      onSelect={(id) => setSelectedClipId(id)}
+                      onSelect={(id) => { setSelectedClipId(id); setSelectedTrackId(track.id); }}
                     />
                   ))}
                 </div>
