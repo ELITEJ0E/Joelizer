@@ -4,7 +4,7 @@ import { useDAWStore } from '../../store/useDAWStore';
 import { useStore } from '../../store/useStore';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
 
-export function DAWMixerPanel() {
+export function DAWMixerPanel({ expanded, onExpandedChange }: { expanded?: boolean; onExpandedChange?: (open: boolean) => void } = {}) {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   
   const tracks = useDAWStore(s => s.tracks);
@@ -20,7 +20,9 @@ export function DAWMixerPanel() {
   const setMasterVolume = useDAWStore(s => s.setMasterVolume);
   const isPlaying = useDAWStore(s => s.isPlaying);
 
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = expanded ?? internalExpanded;
+  const setIsExpanded = onExpandedChange ?? setInternalExpanded;
   const [masterLevel, setMasterLevel] = useState(0);
 
   // Poll master audio level when playing
@@ -40,7 +42,9 @@ export function DAWMixerPanel() {
   return (
     <div className="border-t border-white/10 bg-[#0a0b0f] text-slate-200 shrink-0 z-20 select-none">
       {/* Collapsible Bar Header */}
-      <div 
+      <div
+        role="button" tabIndex={0} aria-expanded={isExpanded}
+        onKeyDown={event => { if(event.key === 'Enter' || event.key === ' ') {event.preventDefault();setIsExpanded(!isExpanded);} }}
         onClick={() => setIsExpanded(!isExpanded)}
         className="h-7 px-4 bg-black/60 flex items-center justify-between cursor-pointer hover:bg-black/80 transition-colors text-[10px] font-mono font-bold"
       >
