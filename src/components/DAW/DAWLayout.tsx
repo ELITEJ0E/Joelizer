@@ -159,11 +159,12 @@ export function DAWLayout() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {browserOpen && <div className="relative hidden min-w-[250px] shrink-0 md:block" style={{width:browserWidth}}>
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+        {browserOpen && <div className="relative h-52 w-full shrink-0 border-b border-white/10 md:h-full md:w-[var(--browser-width)] md:border-b-0"
+          style={{'--browser-width': browserWidth + 'px'} as React.CSSProperties}>
           <MusicStudioBrowser />
           <div role="separator" aria-orientation="vertical" aria-label="Resize sample browser"
-            className="absolute right-0 top-0 z-40 h-full w-1.5 cursor-col-resize hover:bg-cyan-300/50"
+            className="absolute right-0 top-0 z-40 hidden h-full w-1.5 cursor-col-resize hover:bg-cyan-300/50 md:block"
             onPointerDown={event=>{
               const startX=event.clientX;
               const startWidth=browserWidth;
@@ -172,7 +173,7 @@ export function DAWLayout() {
               window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);
             }} />
         </div>}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {helpOpen && <div className="flex shrink-0 flex-wrap gap-x-5 gap-y-1 border-b border-cyan-400/20 bg-cyan-400/5 px-4 py-2 text-[11px] text-slate-300">
             <span><strong className="text-cyan-200">Space</strong> Play / pause</span>
             <span><strong className="text-cyan-200">R</strong> Record</span>
@@ -181,10 +182,11 @@ export function DAWLayout() {
             <span><strong className="text-cyan-200">Ctrl/Cmd+Z</strong> Undo</span>
             <span><strong className="text-cyan-200">[ / ]</strong> Loop points</span>
           </div>}
-          {browserOpen && <div className="min-h-0 h-48 shrink-0 border-b border-white/10 md:hidden"><MusicStudioBrowser /></div>}
           <DAWTimeline />
         </div>
-        {inspectorOpen && <div className="hidden w-[278px] shrink-0 lg:block"><DAWInspector onClose={()=>setInspectorOpen(false)} /></div>}
+        {inspectorOpen && <div className="absolute bottom-0 right-0 top-0 z-30 w-[min(320px,90vw)] shadow-2xl lg:relative lg:w-[278px] lg:shadow-none">
+          <DAWInspector onClose={()=>setInspectorOpen(false)} />
+        </div>}
       </div>
       <div className={mixerOpen ? 'shrink-0' : 'hidden'}>
         <DAWMixerPanel expanded={mixerOpen} onExpandedChange={setMixerOpen}/>
