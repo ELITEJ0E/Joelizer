@@ -76,9 +76,6 @@ try {
   await dialog.getByRole('button', { name: 'Phonk Synth & FX Designer' }).click();
   await dialog.getByRole('button', { name: /808 Cowbell/ }).waitFor();
   await dialog.getByRole('button', { name: 'Generate sound' }).click();
-  await page.waitForTimeout(1200);
-  console.log('Phonk sound render status:', await dialog.getByRole('status').allTextContents());
-  console.log('Phonk browser runtime errors:', runtimeErrors);
   await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).waitFor({ timeout: 30000 });
   const soundDownload = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).click();
