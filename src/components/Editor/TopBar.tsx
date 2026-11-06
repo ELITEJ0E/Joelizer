@@ -148,7 +148,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
               <SelectItem value="4:3">4:3 (Standard)</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </div>}
 
         {/* Music Studio has its own audio browser; avoid overlapping libraries. */}
         {activeTab !== 'daw' && <StudioButton
