@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import JSZip from 'jszip';
 import {
   AudioLines, Download, Drum, Music2, Pause, Play, RotateCcw, Save,
   SlidersHorizontal, Sparkles, WandSparkles
@@ -157,6 +158,57 @@ export function PhonkSynthDesigner() {
     a.click();
     a.remove();
   };
+  const downloadSoundPack = async () => {
+    if (busy) return;
+    const sequence = ++renderId.current;
+    setBusy(true);
+    setStatus('Building all nine original phonk effects...');
+    await new Promise<void>(resolve => setTimeout(resolve, 25));
+    try {
+      const zip = new JSZip();
+      for (let i = 0; i < PHONK_SOUNDS.length; i++) {
+        const { id } = PHONK_SOUNDS[i];
+        const soundSettings: PhonkSettings = {
+          ...settings, type: id,
+          duration: id === 'atmosphere' ? 6 : id === 'riser' ? 3 :
+            id === 'impact' ? 2 : id === 'bass' ? 1.5 :
+            id === 'hat' ? 0.3 : id === 'kick' ? 0.7 :
+            id === 'snare' ? 0.5 : Math.max(0.5, Math.min(2, settings.duration)),
+          seed: settings.seed + i * 12345
+        };
+        const pcm = normalizePhonkPCM(renderPhonkOneShot(soundSettings));
+        const wav = encodeLabWav(createPhonkAudioBuffer(pcm), 24);
+        zip.file(filenameForPhonk(id, style), wav);
+        if (destroyed.current || sequence !== renderId.current) return;
+        setStatus('Generated ' + (i + 1) + ' / ' + PHONK_SOUNDS.length + ' sounds...');
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+      }
+      const manifest = {
+        generatedBy: 'Joelizer Phonk Synth & FX Designer',
+        createdAt: new Date().toISOString(), style, note: noteName(settings.note),
+        sampleRate: 44100, channels: 2, bitDepth: 24,
+        provenance: 'Original procedural synthesis with no external samples',
+        description: 'Nine original sounds generated from oscillators and deterministic noise'
+      };
+      zip.file('README.json', JSON.stringify(manifest, null, 2));
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 3 } });
+      if (destroyed.current || sequence !== renderId.current) return;
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = 'joelizer-' + style + '-phonk-fx-pack.zip';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setStatus('Downloaded nine original phonk WAV effects as a ZIP.');
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : 'Could not build sound pack.');
+    } finally {
+      if (!destroyed.current && sequence === renderId.current) setBusy(false);
+    }
+  };
+
   const addToPlaylist = () => {
     if (!exported) return;
     // Persist a distinct object URL: the transient preview URL is released on
@@ -305,6 +357,9 @@ export function PhonkSynthDesigner() {
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" className={primary} disabled={busy} onClick={() => void render(mode)}>
             <WandSparkles size={14} className="mr-1 inline" /> {busy ? 'Rendering...' : mode === 'beat' ? 'Generate beat loop' : 'Generate sound'}
+          </button>
+          <button type="button" className={action} disabled={busy} onClick={() => void downloadSoundPack()}>
+            <Download size={14} className="mr-1 inline" /> Export all 9 FX (ZIP)
           </button>
           {exported && (
             <>
