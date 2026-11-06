@@ -45,9 +45,9 @@ try {
   await page.locator('#topbar-tab-daw').click();
   const browserPane = page.getByRole('complementary', { name: 'Music Studio sample and instrument browser' });
   await browserPane.waitFor({ state: 'visible' });
-  assert.equal(await browserPane.getByRole('button', { name: 'Samples' }).count(), 1);
-  assert.equal(await browserPane.getByRole('button', { name: 'Drums' }).count(), 1);
-  assert.equal(await browserPane.getByRole('button', { name: 'Piano' }).count(), 1);
+  assert.equal(await browserPane.getByRole('button', { name: 'Samples', exact: true }).count(), 1);
+  assert.equal(await browserPane.getByRole('button', { name: 'Drums', exact: true }).count(), 1);
+  assert.equal(await browserPane.getByRole('button', { name: 'Piano', exact: true }).count(), 1);
 
   await browserPane.locator('input[type=file]').setInputFiles({
     name: 'synth-example.wav', mimeType: 'audio/wav', buffer: wav
@@ -65,12 +65,12 @@ try {
   assert.ok(state.some(track => track.name.includes('synth-example') && track.clips > 0),
     'Imported audio must create an editable DAW timeline clip');
 
-  await browserPane.getByRole('button', { name: 'Drums' }).click();
+  await browserPane.getByRole('button', { name: 'Drums', exact: true }).click();
   await browserPane.getByLabel('Kick sample').selectOption({ label: 'synth-example.wav' });
   await browserPane.getByRole('button', { name: 'Render & insert beat' }).click();
   await browserPane.getByText(/Rendered a .* sample-based beat and inserted/i).waitFor({ timeout: 45000 });
 
-  await browserPane.getByRole('button', { name: 'Piano' }).click();
+  await browserPane.getByRole('button', { name: 'Piano', exact: true }).click();
   await browserPane.getByLabel('Piano roll instrument').selectOption({ label: 'synth-example.wav' });
   await browserPane.getByRole('button', { name: 'Piano C4 step 1', exact: true }).click();
   await browserPane.getByRole('button', { name: 'Render piano roll to DAW' }).click();
