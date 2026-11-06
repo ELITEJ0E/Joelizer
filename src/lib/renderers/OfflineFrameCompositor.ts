@@ -321,7 +321,12 @@ export class OfflineFrameCompositor {
           brightness: project.background.brightness,
           contrast: project.background.contrast,
           saturation: project.background.saturation,
-          vignette: project.background.vignette
+          vignette: project.background.vignette,
+          fit: project.background.fit,
+          zoom: project.background.zoom,
+          heightScale: project.background.heightScale,
+          offsetX: project.background.offsetX,
+          offsetY: project.background.offsetY
         },
         typographyOverride: project.lyrics,
         artworkOverride: project.artwork,
