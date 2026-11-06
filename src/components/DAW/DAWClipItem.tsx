@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { Scissors, Copy, Trash2, Volume2, VolumeX, Move } from 'lucide-react';
 import { DAWClip, DAWTrack } from '../../types/daw';
 import { useDAWStore } from '../../store/useDAWStore';
+import { snapDawTime, clampDawTrim } from '../../lib/dawGrid';
 
 interface DAWClipItemProps {
   key?: React.Key;
@@ -24,6 +25,7 @@ export function DAWClipItem({ clip, track, isSelected, zoom, onSelect }: DAWClip
   const currentTime = useDAWStore(s => s.currentTime);
   const activeTool = useDAWStore(s => s.activeTool);
   const snapToGrid = useDAWStore(s => s.snapToGrid);
+  const gridDivision = useDAWStore(s => s.gridDivision);
   const bpm = useDAWStore(s => s.bpm);
 
   const clipLeft = clip.startTime * zoom;
@@ -77,13 +79,17 @@ export function DAWClipItem({ clip, track, isSelected, zoom, onSelect }: DAWClip
     }
   }, [clip.peaks, clipWidth, track.color, isSelected]);
 
-  // Handle Dragging Clip to Reposition in Time
-  const handleMouseDownMove = (e: React.MouseEvent) => {
+  // Drag feedback is drawn directly on the element and applied once at
+  // pointer-up. Rewriting the full Zustand track tree at every mousemove
+  // previously caused audio glitches and hundreds of undo snapshots.
+  const handleMouseDownMove = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
+    if (e.button !== 0) return;
     onSelect(clip.id);
-
+    const element = e.currentTarget;
     if (activeTool === 'split') {
-      splitClip(clip.id, currentTime);
+      const offset = Math.max(0, Math.min(clip.duration, (e.clientX - element.getBoundingClientRect().left) / zoom));
+      splitClip(clip.id, snapDawTime(clip.startTime + offset, bpm, gridDivision, snapToGrid));
       return;
     }
     if (activeTool === 'erase') {
@@ -92,78 +98,71 @@ export function DAWClipItem({ clip, track, isSelected, zoom, onSelect }: DAWClip
     }
 
     const startX = e.clientX;
-    const initialStartTime = clip.startTime;
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaSec = deltaX / zoom;
-      let newTime = Math.max(0, initialStartTime + deltaSec);
-
-      if (snapToGrid) {
-        const beatSec = 60 / bpm;
-        newTime = Math.round(newTime / (beatSec / 4)) * (beatSec / 4);
-      }
-
-      moveClip(clip.id, clip.trackId, newTime);
+    const initialStart = clip.startTime;
+    let pending = initialStart;
+    const onMouseMove = (event: MouseEvent) => {
+      pending = snapDawTime(initialStart + (event.clientX - startX) / zoom,bpm,gridDivision,snapToGrid);
+      element.style.transform = 'translate3d(' + ((pending - initialStart) * zoom) + 'px,0,0)';
     };
-
     const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+      element.style.transform = '';
+      window.removeEventListener('mousemove',onMouseMove);
+      window.removeEventListener('mouseup',onMouseUp);
+      if (Math.abs(pending-initialStart) > 0.00001)
+        moveClip(clip.id,clip.trackId,pending);
     };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('mousemove',onMouseMove);
+    window.addEventListener('mouseup',onMouseUp);
   };
 
-  // Handle Left Trim Handle
-  const handleMouseDownTrimLeft = (e: React.MouseEvent) => {
+  const handleMouseDownTrimLeft = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    const startX = e.clientX;
-    const initialStartTime = clip.startTime;
-    const initialDuration = clip.duration;
-    const initialSourceStart = clip.sourceStart;
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaSec = deltaX / zoom;
-      const newDuration = Math.max(0.2, initialDuration - deltaSec);
-      const newStartTime = Math.max(0, initialStartTime + deltaSec);
-      const newSourceStart = Math.max(0, initialSourceStart + deltaSec);
-
-      trimClip(clip.id, newStartTime, newDuration, newSourceStart, clip.sourceEnd);
+    if(e.button!==0)return;
+    const element = e.currentTarget.parentElement;
+    if(!element)return;
+    const startX=e.clientX;
+    let next={start:clip.startTime,duration:clip.duration,offset:0};
+    const onMove=(event:MouseEvent)=>{
+      const intended=snapToGrid?
+        snapDawTime(clip.startTime+(event.clientX-startX)/zoom,bpm,gridDivision,true)-clip.startTime
+        :(event.clientX-startX)/zoom;
+      const sourceLimit=Math.max(-clip.sourceStart,intended);
+      next=clampDawTrim(clip.startTime,clip.duration,sourceLimit,true);
+      element.style.left=(next.start*zoom)+'px';
+      element.style.width=(next.duration*zoom)+'px';
     };
-
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+    const onUp=()=>{
+      element.style.left='';element.style.width='';
+      window.removeEventListener('mousemove',onMove);
+      window.removeEventListener('mouseup',onUp);
+      if(Math.abs(next.offset)>0.00001)
+        trimClip(clip.id,next.start,next.duration,clip.sourceStart+next.offset,clip.sourceEnd);
     };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
   };
 
-  // Handle Right Trim Handle
-  const handleMouseDownTrimRight = (e: React.MouseEvent) => {
+  const handleMouseDownTrimRight = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    const startX = e.clientX;
-    const initialDuration = clip.duration;
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaSec = deltaX / zoom;
-      const newDuration = Math.max(0.2, initialDuration + deltaSec);
-
-      trimClip(clip.id, clip.startTime, newDuration, clip.sourceStart, clip.sourceStart + newDuration);
+    if(e.button!==0)return;
+    const element=e.currentTarget.parentElement;
+    if(!element)return;
+    const startX=e.clientX;
+    let duration=clip.duration;
+    const onMove=(event:MouseEvent)=>{
+      const desired=snapDawTime(clip.startTime+clip.duration+(event.clientX-startX)/zoom,bpm,gridDivision,snapToGrid);
+      duration=Math.max(0.1,desired-clip.startTime);
+      element.style.width=(duration*zoom)+'px';
     };
-
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+    const onUp=()=>{
+      element.style.width='';
+      window.removeEventListener('mousemove',onMove);
+      window.removeEventListener('mouseup',onUp);
+      if(Math.abs(duration-clip.duration)>0.00001)
+        trimClip(clip.id,clip.startTime,duration,clip.sourceStart,clip.sourceStart+duration);
     };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
   };
 
   return (
