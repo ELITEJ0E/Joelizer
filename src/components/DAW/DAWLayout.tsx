@@ -8,7 +8,7 @@ import { MusicStudioBrowser } from './MusicStudioBrowser';
 import { DAWInspector } from './DAWInspector';
 import { ArrangementMarkers } from './ArrangementMarkers';
 import './studio.css';
-import { Circle, Mic, Volume2, Sparkles, Plus, Layers, Zap, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Circle, Mic, Volume2, Sparkles, Plus, Layers, Zap, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
 
 export function DAWLayout() {
@@ -147,10 +147,10 @@ export function DAWLayout() {
       {/* Top Workstation Bar */}
       <DAWTopBar />
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-[#0c111b] shrink-0 text-slate-300">
-        <button className="studio-action" aria-expanded={browserOpen} aria-label={browserOpen ? 'Collapse instrument browser' : 'Expand instrument browser'} onClick={() => { setBrowserOpen(v => !v); if (window.innerWidth < 900) setInspectorOpen(false); }}><PanelLeftOpen size={13}/>Library</button>
+        <button className="studio-action" aria-expanded={browserOpen} aria-label={browserOpen ? 'Collapse instrument browser' : 'Expand instrument browser'} onClick={() => { setBrowserOpen(v => !v); if (window.innerWidth < 900) setInspectorOpen(false); }}>{browserOpen ? <PanelLeftClose size={13}/> : <PanelLeftOpen size={13}/>}Library</button>
         <span className="flex-1 text-[10px] uppercase tracking-[.15em] text-slate-500 truncate">{tracks.length} tracks · {tracks.reduce((n,t) => n + t.clips.length,0)} clips</span>
         <button className="studio-action" aria-pressed={helpOpen} onClick={() => setHelpOpen(v => !v)}>Shortcuts</button>
-        <button className="studio-action" aria-expanded={inspectorOpen} onClick={() => { setInspectorOpen(v => !v); if (window.innerWidth < 900) setBrowserOpen(false); }}>Inspector</button>
+        <button className="studio-action" aria-expanded={inspectorOpen} aria-label="Inspector" title={inspectorOpen ? 'Collapse inspector' : 'Expand inspector'} onClick={() => { setInspectorOpen(v => !v); if (window.innerWidth < 900) setBrowserOpen(false); }}>{inspectorOpen ? <PanelRightClose size={13}/> : <PanelRightOpen size={13}/>}Inspector</button>
       </div>
       {helpOpen && <div className="px-3 py-2 text-[11px] text-slate-300 bg-violet-400/10 border-b border-violet-400/20 shrink-0 leading-6">Space: play / pause · R: record · S: split · M: add marker · L: loop clip · Shift + arrows: markers · Ctrl / Cmd + D: duplicate · Ctrl / Cmd + Z: undo · Delete: remove clip</div>}
       <ArrangementMarkers />
@@ -160,12 +160,12 @@ export function DAWLayout() {
         <div className={browserOpen
           ? 'absolute inset-0 z-40 md:relative md:inset-auto w-full md:w-[300px] lg:w-[320px] min-w-0 shrink-0 overflow-hidden border-r border-white/10'
           : 'hidden'}>
-          <MusicStudioBrowser />
+          <MusicStudioBrowser onClose={() => setBrowserOpen(false)} />
         </div>
         <div className="relative flex min-w-0 flex-1 flex-col">
           <DAWTimeline />
         </div>
-        {inspectorOpen && <div className="absolute inset-0 z-40 md:left-auto md:w-[280px] xl:static xl:shrink-0 border-l border-white/10"><DAWInspector /></div>}
+        {inspectorOpen && <div className="absolute inset-0 z-40 md:relative md:inset-auto md:w-[280px] lg:w-[300px] md:shrink-0 border-l border-white/10"><DAWInspector onClose={() => setInspectorOpen(false)} /></div>}
       </div>
 
       {/* Console Mixer Strip */}

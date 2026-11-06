@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Scissors, Repeat, VolumeX, SlidersHorizontal, AudioLines } from 'lucide-react';
+import { Copy, Scissors, Repeat, VolumeX, SlidersHorizontal, AudioLines, X } from 'lucide-react';
 import { useDAWStore } from '../../store/useDAWStore';
 import { DAWClip } from '../../types/daw';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
@@ -18,7 +18,7 @@ export function NumericField({ label, value, min = 0, max, step = .01, onCommit 
   </label>;
 }
 
-export function DAWInspector() {
+export function DAWInspector({ onClose }: { onClose?: () => void }) {
   const tracks = useDAWStore(s => s.tracks);
   const selectedId = useDAWStore(s => s.selectedClipId);
   const selectedTrackId = useDAWStore(s => s.selectedTrackId);
@@ -30,7 +30,10 @@ export function DAWInspector() {
   const edit = (updates: Partial<DAWClip>) => { if (clip) s().editClip(clip.id, updates); };
   const eq = track?.eq ?? { low: 0, mid: 0, high: 0, bypass: false };
   return <aside aria-label="Clip and track inspector" className="h-full overflow-y-auto bg-[#10141e] p-4 text-slate-200">
-    <div className="flex gap-2 items-center text-[10px] uppercase tracking-[.18em] text-slate-400 mb-4"><SlidersHorizontal size={13}/>Inspector</div>
+    <div className="flex gap-2 items-center text-[10px] uppercase tracking-[.18em] text-slate-400 mb-4">
+      <SlidersHorizontal size={13}/><span className="flex-1">Inspector</span>
+      {onClose && <button type="button" className="studio-icon" aria-label="Close inspector" title="Close inspector" onClick={onClose}><X size={15}/></button>}
+    </div>
     {!clip ? <div className="py-6 text-center text-slate-400 text-xs leading-relaxed"><AudioLines className="mx-auto mb-3 text-slate-600" size={28}/>Select a clip to shape its timing, gain and fades.</div> : <section key={clip.id} aria-label="Clip properties" className="space-y-4">
       <div><div className="studio-label">Audio clip</div>
         <input aria-label="Clip name" defaultValue={clip.name} key={clip.name} maxLength={120} className="studio-input w-full mt-1 text-sm font-semibold"
