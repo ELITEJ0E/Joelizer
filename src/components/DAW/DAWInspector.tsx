@@ -20,6 +20,19 @@ const Field = ({label, value, onChange, min=0, max=99999, step=0.01}: {
   />
 </label>;
 
+function FxSlider({ label, value, min, max, step = .5, onChange, onCommit }: {
+  label: string; value: number; min: number; max: number; step?: number;
+  onChange: (n: number) => void; onCommit: () => void;
+}) {
+  return <label className="block space-y-1">
+    <span className="flex justify-between text-[11px] text-slate-400"><span>{label}</span><strong className="font-mono text-cyan-200">{value.toFixed(1)}</strong></span>
+    <input type="range" aria-label={label} min={min} max={max} step={step} value={value}
+      onChange={e => onChange(Number(e.target.value))}
+      onPointerUp={onCommit} onKeyUp={onCommit}
+      className="w-full accent-cyan-400" />
+  </label>;
+}
+
 export function DAWInspector({ onClose }: { onClose: () => void }) {
   const selectedTrackId = useDAWStore(s => s.selectedTrackId);
   const selectedClipId = useDAWStore(s => s.selectedClipId);
@@ -37,6 +50,10 @@ export function DAWInspector({ onClose }: { onClose: () => void }) {
   const track = tracks.find(t => t.id === selectedTrackId);
   const clipTrack = tracks.find(t => t.clips.some(c => c.id === selectedClipId));
   const clip = clipTrack?.clips.find(c => c.id === selectedClipId);
+  const setFx = (key: string, value: number | boolean) => {
+    if (!track) return;
+    updateTrack(track.id, { fx: { ...track.fx, [key]: value } });
+  };
   return <aside aria-label="Music Studio inspector" className="flex h-full min-h-0 w-full flex-col border-l border-white/10 bg-[#0b111b] text-slate-200">
     <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-3">
       <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider"><SlidersHorizontal size={15} className="text-cyan-300"/> Inspector</span>
@@ -61,6 +78,35 @@ export function DAWInspector({ onClose }: { onClose: () => void }) {
           <input type="range" aria-label="Channel pan" min="-1" max="1" step=".01" value={track.pan}
             className="w-full accent-cyan-400" onChange={e=>setTrackPan(track.id,Number(e.target.value))}/>
         </label>
+        <div className="space-y-3 border-t border-white/10 pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Channel effects</h3>
+            <button type="button" className="text-[10px] text-cyan-300 hover:text-cyan-100"
+              onClick={()=>{updateTrack(track.id,{fx:undefined});commitHistory();}}>Reset FX</button>
+          </div>
+          <p className="text-[10px] leading-4 text-slate-500">Three-band EQ and dynamics run in real time and during export.</p>
+          <FxSlider label="Low EQ (dB)" min={-18} max={18} value={track.fx?.lowShelfDb??0}
+            onChange={v=>setFx('lowShelfDb',v)} onCommit={commitHistory}/>
+          <FxSlider label="Mid EQ (dB)" min={-18} max={18} value={track.fx?.midDb??0}
+            onChange={v=>setFx('midDb',v)} onCommit={commitHistory}/>
+          <FxSlider label="High EQ (dB)" min={-18} max={18} value={track.fx?.highShelfDb??0}
+            onChange={v=>setFx('highShelfDb',v)} onCommit={commitHistory}/>
+          <label className="flex cursor-pointer items-center justify-between rounded-md border border-white/10 bg-white/[0.025] p-2 text-[11px] text-slate-300">
+            Compressor
+            <input type="checkbox" aria-label="Channel compressor"
+              checked={!!track.fx?.compressorEnabled}
+              onChange={e=>{setFx('compressorEnabled',e.target.checked);setTimeout(()=>useDAWStore.getState().commitHistory(),0);}}
+              className="accent-cyan-400"/>
+          </label>
+          {track.fx?.compressorEnabled && <>
+            <FxSlider label="Threshold (dB)" min={-48} max={0} step={1}
+              value={track.fx?.compressorThresholdDb??-18}
+              onChange={v=>setFx('compressorThresholdDb',v)} onCommit={commitHistory}/>
+            <FxSlider label="Ratio (:1)" min={1} max={12} step={.5}
+              value={track.fx?.compressorRatio??2}
+              onChange={v=>setFx('compressorRatio',v)} onCommit={commitHistory}/>
+          </>}
+        </div>
       </section> : <p className="text-xs text-slate-500">Select a channel to edit its level and pan.</p>}
       {clip ? <section className="space-y-3 border-t border-white/10 pt-4">
         <div className="flex items-center justify-between">
