@@ -84,7 +84,7 @@ try {
   await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).click();
   assert.equal((await soundDownload).suggestedFilename(), 'joelizer-drift-phonk-cowbell.wav');
   await dialog.getByRole('button', { name: /16-step beat maker/ }).click();
-  await dialog.getByRole('button', { name: 'kick step 1' }).click();
+  await dialog.getByRole('button', { name: 'kick step 1', exact: true }).click();
   await dialog.getByLabel('Loop bars').selectOption('1');
   await dialog.getByRole('button', { name: 'Generate beat loop' }).click();
   await dialog.getByText(/joelizer-drift-phonk-beat.wav/).waitFor({ timeout: 30000 });
