@@ -48,3 +48,13 @@ export function dawSafePeakGain(peak: number,ceilingDb=-1): number {
   const ceiling=Math.pow(10,Math.max(-12,Math.min(-.1,ceilingDb))/20);
   return Math.min(1,ceiling/peak);
 }
+
+/** Length of actual arranged audio, ignoring the DAW's editing canvas reserve. */
+export function dawProjectAudioEnd(tracks: Array<{clips:Array<{startTime:number;duration:number}>}>): number {
+  let end = 0;
+  for (const track of tracks) for (const clip of track.clips) {
+    if (Number.isFinite(clip.startTime) && Number.isFinite(clip.duration) && clip.duration > 0)
+      end = Math.max(end, Math.max(0,clip.startTime) + clip.duration);
+  }
+  return end;
+}
