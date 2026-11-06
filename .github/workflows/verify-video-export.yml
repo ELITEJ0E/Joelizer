@@ -32,6 +32,8 @@ jobs:
         run: npx playwright install --with-deps chrome
       - name: Verify Audio Lab browser mastering and WAV export
         run: npx tsx src/tests/audioMasteringLab.browser.test.ts
+      - name: Verify dedicated Music Studio browser, sample import, drums and piano roll
+        run: npx tsx src/tests/musicStudio.browser.test.ts
       - name: Verify responsive preview, media dialogs and hover behavior
         run: npx tsx src/tests/mvStudioResponsive.browser.test.ts
       - name: Install FFmpeg for MP4 validation
