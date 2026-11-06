@@ -58,7 +58,7 @@ function previewPeaks(pcm: PhonkPCM): number[] {
   return result;
 }
 
-export function PhonkSynthDesigner() {
+export function PhonkSynthDesigner({ onInsert }: { onInsert?: (blob: Blob, name: string, duration: number) => void } = {}) {
   const [mode, setMode] = useState<'sound' | 'beat'>('sound');
   const [style, setStyle] = useState<PhonkStyle>('drift');
   const [settings, setSettings] = useState<PhonkSettings>(() => makePhonkSettings('drift', 'cowbell'));
@@ -217,6 +217,11 @@ export function PhonkSynthDesigner() {
 
   const addToPlaylist = () => {
     if (!exported) return;
+    if (onInsert) {
+      onInsert(exported.blob, exported.name, exported.duration);
+      setStatus('Inserted generated audio into Music Studio multitrack timeline.');
+      return;
+    }
     // Persist a distinct object URL: the transient preview URL is released on
     // unmount and cannot be shared with the global playlist.
     const trackUrl = URL.createObjectURL(exported.blob);
@@ -377,7 +382,7 @@ export function PhonkSynthDesigner() {
                 <Download size={14} className="mr-1 inline" /> Download 24-bit WAV
               </button>
               <button type="button" className={action} onClick={addToPlaylist}>
-                <Save size={14} className="mr-1 inline" /> Add to Joelizer playlist
+                <Save size={14} className="mr-1 inline" /> {onInsert ? 'Insert on DAW timeline' : 'Add to Joelizer playlist'}
               </button>
             </>
           )}
