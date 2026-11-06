@@ -84,7 +84,7 @@ try {
   assert.equal(fxState?.compressorEnabled,true,'Compressor toggle must change channel processing');
   assert.equal(fxState?.compressorThresholdDb,-24);
   await page.getByRole('button', { name: 'Mixer', exact: true }).click();
-  await page.getByText(/Console Mixer \(/).waitFor({ state: 'visible' });
+  await page.getByText('MIXER CONSOLE', { exact: true }).waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Mixer', exact: true }).click();
   await page.getByRole('button', { name: 'Browser', exact: true }).click();
   await browserPane.waitFor({ state: 'hidden' });
