@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { PhonkSynthDesigner } from './PhonkSynthDesigner';
 import { useStore } from '../../store/useStore';
 import { Activity, AudioLines, Download, FileAudio, FileSearch, ShieldCheck, SlidersHorizontal, Upload, X } from 'lucide-react';
 import {
@@ -96,6 +97,7 @@ function RangeField({ label, value, min, max, step, unit = '', onChange }: {
 }
 
 export function AudioMasteringLabModal({ onClose, currentAudio, currentName, embedded = false }: Props) {
+  const [activeTool, setActiveTool] = useState<'mastering' | 'phonk'>('mastering');
   const [original, setOriginal] = useState<LoadedFile | null>(null);
   const [comparison, setComparison] = useState<LoadedFile | null>(null);
   const [master, setMaster] = useState<MasteredFile | null>(null);
@@ -287,7 +289,26 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
           <button type="button" aria-label={embedded ? 'Back to MV Studio' : 'Close Audio Lab'} onClick={onClose}
             className={actionStyle}>{embedded ? 'Back to MV Studio' : <X size={16} />}</button>
         </header>
-
+        <nav className="flex shrink-0 flex-wrap gap-2 border-b border-white/10 bg-[#0e151d] px-3 py-2 sm:px-5"
+          aria-label="Audio Lab tools">
+          <button type="button" aria-pressed={activeTool === 'mastering'}
+            onClick={() => setActiveTool('mastering')}
+            className={activeTool === 'mastering' ? accentStyle : actionStyle}>
+            <SlidersHorizontal size={13} className="mr-1 inline" /> Mastering & Comparison
+          </button>
+          <button type="button" aria-pressed={activeTool === 'phonk'}
+            onClick={() => setActiveTool('phonk')}
+            className={activeTool === 'phonk'
+              ? 'rounded-lg border border-violet-400/40 bg-violet-500/15 px-3 py-2 text-xs font-bold text-violet-200'
+              : actionStyle}>
+            <AudioLines size={13} className="mr-1 inline" /> Phonk Synth & FX Designer
+          </button>
+        </nav>
+        {activeTool === 'phonk' ? (
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
+            <PhonkSynthDesigner />
+          </div>
+        ) : (
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 sm:p-5">
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-[11px] leading-relaxed text-amber-100">
             <strong>Important:</strong> This tool cannot authenticate human authorship, detect every hidden fingerprint, or erase an audio watermark.
@@ -492,6 +513,7 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
             )}
           </section>
         </div>
+        )}
       </section>
     </div>
   );
