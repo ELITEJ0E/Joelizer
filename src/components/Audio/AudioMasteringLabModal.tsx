@@ -391,6 +391,7 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
               <RangeField label="Warmth / low shelf" value={settings.lowShelfDb} min={-6} max={6} step={0.5} unit=" dB" onChange={v => setSettings(s => ({ ...s, lowShelfDb: v }))} />
               <RangeField label="Presence" value={settings.presenceDb} min={-6} max={6} step={0.5} unit=" dB" onChange={v => setSettings(s => ({ ...s, presenceDb: v }))} />
               <RangeField label="Air / high shelf" value={settings.airDb} min={-6} max={6} step={0.5} unit=" dB" onChange={v => setSettings(s => ({ ...s, airDb: v }))} />
+              <RangeField label="Original / processed blend" value={settings.wetMixPercent ?? 100} min={0} max={100} step={5} unit="% processed" onChange={v => setSettings(s => ({ ...s, wetMixPercent: v }))} />
               <RangeField label="Compression threshold" value={settings.compressorThresholdDb} min={-35} max={-6} step={1} unit=" dB" onChange={v => setSettings(s => ({ ...s, compressorThresholdDb: v }))} />
               <RangeField label="Compression ratio" value={settings.compressorRatio} min={1} max={6} step={0.2} unit=":1" onChange={v => setSettings(s => ({ ...s, compressorRatio: v }))} />
               <RangeField label="RMS target (not LUFS)" value={settings.targetRmsDbfs} min={-24} max={-10} step={0.5} unit=" dBFS" onChange={v => setSettings(s => ({ ...s, targetRmsDbfs: v }))} />
@@ -427,10 +428,26 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
               <p className="mb-3 text-xs text-slate-400">
                 Applied gain: {numberText(master.gainDb)} dB. Peak ceiling is sample-level, not inter-sample true-peak limiting.
               </p>
+              {master.metrics.rmsDbfs < master.settings.targetRmsDbfs - 0.5 && (
+                <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-100">
+                  RMS target not reached: {numberText(master.metrics.rmsDbfs)} dBFS achieved vs {numberText(master.settings.targetRmsDbfs)} dBFS requested.
+                  Peak ceiling takes priority to prevent clipping. Try gentler EQ/compression or a lower RMS target.
+                </div>
+              )}
+              {master.metrics.stereoCorrelation !== null && master.metrics.stereoCorrelation < 0.2 && (
+                <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-100">
+                  Low stereo correlation detected. Check mono compatibility and phase before release.
+                </div>
+              )}
+              {master.metrics.clippedPercent > 0 && (
+                <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-[11px] text-red-200">
+                  Samples near or above clipping were detected. Reduce processing or output gain.
+                </div>
+              )}
               <Metrics label="Joelizer-rendered master" metrics={master.metrics} />
             </div>}
             <p className="mt-3 text-[11px] text-slate-500">
-              Non-destructive EQ, Web Audio compression, peak-safe normalization and dithered PCM WAV export.
+              Non-destructive EQ, parallel original/processed blend, Web Audio compression, peak-safe normalization and dithered PCM WAV export.
               Complex mastering may benefit from dedicated DAW tools and professional review.
             </p>
           </section>
