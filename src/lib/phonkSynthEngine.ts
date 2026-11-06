@@ -99,6 +99,9 @@ export function renderPhonkOneShot(
   const tone = clamp(params.tone, 0, 100) / 100;
   const glide = clamp(params.glide, 0, 100) / 100;
   const space = clamp(params.space, 0, 100) / 100;
+  // Changing the seed also changes deterministic oscillator character, not
+  // only noise-based timbres.
+  const character = 0.985 + ((params.seed >>> 0) % 997) / 997 * 0.03;
   const type = params.type;
   let phase = 0;
   let phase2 = 0;
@@ -123,7 +126,7 @@ export function renderPhonkOneShot(
         // A tuned pair of inharmonic oscillators, reminiscent of metallic 808 percussion.
         hz = base * (1 + glide * 0.22 * Math.exp(-t * 15));
         phase += hz / rate;
-        phase2 += hz * 1.48 / rate;
+        phase2 += hz * 1.48 * character / rate;
         raw = 0.58 * Math.tanh(4.5 * sine(phase)) + 0.4 * Math.tanh(4.0 * sine(phase2));
         amp = (1 - Math.exp(-t * 240)) * Math.exp(-t * (2.3 + 7 * (1 - tone)));
         break;
@@ -131,7 +134,7 @@ export function renderPhonkOneShot(
       case 'lead': {
         hz = base * (1 + glide * 0.64 * Math.exp(-t * 13));
         phase += hz / rate;
-        phase2 += hz * (1.003 + 0.009 * glide) / rate;
+        phase2 += hz * (1.003 + 0.009 * glide) * character / rate;
         phase3 += hz * 2.03 / rate;
         const f = sine(phase2) * (0.22 + 0.8 * tone);
         raw = 0.55 * saw(phase + f * 0.13) + 0.25 * saw(phase2) + 0.22 * sine(phase3);
@@ -141,7 +144,7 @@ export function renderPhonkOneShot(
       case 'bass': {
         hz = base * 0.5 * (1 + (0.25 + 2.1 * glide) * Math.exp(-t * (12 + 22 * (1 - glide))));
         phase += hz / rate;
-        raw = sine(phase) + 0.25 * sine(phase * 2) * drive;
+        raw = sine(phase) + (0.25 * character) * sine(phase * 2) * drive;
         amp = (1 - Math.exp(-t * 300)) * Math.exp(-t * (1.5 + 3.5 * (1 - tone)));
         break;
       }
