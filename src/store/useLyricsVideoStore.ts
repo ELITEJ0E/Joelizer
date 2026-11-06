@@ -33,6 +33,11 @@ export interface LyricsVideoState {
     type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
     value: string;
     videoUrl?: string;
+    fit?: 'cover' | 'contain';
+    zoom?: number;
+    heightScale?: number;
+    offsetX?: number;
+    offsetY?: number;
     blur?: number;
     dim?: number;
     brightness?: number;
