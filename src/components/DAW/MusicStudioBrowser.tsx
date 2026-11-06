@@ -241,7 +241,7 @@ export function MusicStudioBrowser() {
             <h4 className="text-xs font-semibold text-white">Sample-based 16-step drum rack</h4>
             <p className="text-[11px] text-slate-400">Assign imported one-shots to four pads. Each pad triggers the actual source sound, not a procedural imitation.</p>
             {samples.length === 0 && (
-              <button type="button" className={accentBtn} onClick={() => { setTab('samples'); fileInput.current?.click(); }}>Import drum samples first</button>
+              <button type="button" className={accentBtn} onClick={() => setTab('samples')}>Open Samples to import drum one-shots</button>
             )}
             <div className="flex items-center gap-3 text-xs">
               <label>Bars <select aria-label="Drum rack bars" value={bars} onChange={event => setBars(Number(event.target.value))}
