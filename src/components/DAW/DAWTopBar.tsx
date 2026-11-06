@@ -88,8 +88,8 @@ export function DAWTopBar() {
   const handleExportWav = async () => {
     try {
       setIsExporting(true);
-      setExportNotice('Rendering multitrack master mix to WAV...');
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration);
+      setExportNotice('Rendering 24-bit stereo master with clip fades and -1 dBFS sample-peak safety...');
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration, 44100, masterVolume, 24);
       const url = URL.createObjectURL(wavBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -110,7 +110,7 @@ export function DAWTopBar() {
     try {
       setIsExporting(true);
       setExportNotice('Bouncing multitrack mix for Music Video Studio...');
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration);
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration, 44100, masterVolume, 24);
       const audioUrl = URL.createObjectURL(wavBlob);
 
       // Load into primary project store
