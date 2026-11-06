@@ -782,7 +782,11 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
           : (artworkOverride?.sizeScale ?? 1.0);
 
         const leftPx = pos.x * stageWidth - size.w / 2;
-        const topPx = pos.y * stageHeight - size.h / 2;
+        // Song metadata is drawn with a top-aligned anchor in both Canvas
+        // and Remotion; the editing hit targets must cover that exact text.
+        const topPx = key === 'meta'
+          ? pos.y * stageHeight - 2
+          : pos.y * stageHeight - size.h / 2;
 
         return (
           <div
