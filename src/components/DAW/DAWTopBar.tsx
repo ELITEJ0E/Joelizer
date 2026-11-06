@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   Play, Pause, Square, Circle, Repeat, Scissors, MousePointer, 
   Trash2, ZoomIn, ZoomOut, Undo2, Redo2, Plus, Download, 
@@ -8,6 +8,7 @@ import { useDAWStore } from '../../store/useDAWStore';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
+import { exportMusicSession, importMusicSession } from '../../lib/musicStudioArchive';
 import { TrackType, TimelineTool } from '../../types/daw';
 
 const KEYS = [
@@ -74,6 +75,7 @@ export function DAWTopBar() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const sessionInputRef = useRef<HTMLInputElement>(null);
 
   // Format time MM:SS:ms
   const formatTransportTime = (sec: number) => {
@@ -142,6 +144,40 @@ export function DAWTopBar() {
       setIsExporting(false);
       setShowExportMenu(false);
     }
+  };
+
+  const handleSaveSession = async () => {
+    try {
+      setIsExporting(true);
+      setExportNotice('Packaging DAW project and original audio files...');
+      const zip = await exportMusicSession(getCanonicalProjectJson());
+      const url = URL.createObjectURL(zip);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = projectName.replace(/[^a-z0-9._-]+/gi, '_').slice(0, 80) + '.joelizer-session.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+      setExportNotice('Portable project archive downloaded.');
+    } catch (e) {
+      setExportNotice('Session save failed: ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setIsExporting(false);
+      setShowExportMenu(false);
+    }
+  };
+
+  const handleOpenSession = async (file: File) => {
+    try {
+      setIsExporting(true);
+      setExportNotice('Restoring portable project and audio assets...');
+      const { project, fileCount } = await importMusicSession(file);
+      useDAWStore.getState().loadCanonicalProjectJson(project);
+      setExportNotice('Restored "' + project.name + '" with ' + fileCount + ' audio assets.');
+    } catch (e) {
+      setExportNotice('Session restore failed: ' + (e instanceof Error ? e.message : String(e)));
+    } finally { setIsExporting(false); }
   };
 
   const handleExportProjectJson = () => {
@@ -399,6 +435,19 @@ export function DAWTopBar() {
           )}
         </div>
 
+        <input type="file" ref={sessionInputRef} className="hidden" accept=".zip,application/zip"
+          aria-label="Open Music Studio session ZIP"
+          onChange={e => {
+            const file = e.target.files?.[0];
+            if (file) void handleOpenSession(file);
+            e.target.value = '';
+          }} />
+        <button type="button" title="Open a portable Music Studio session ZIP including its audio files"
+          onClick={() => sessionInputRef.current?.click()} disabled={isExporting}
+          className="px-2 py-1.5 rounded-lg border border-white/15 bg-white/5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-40">
+          Open Session
+        </button>
+
         {/* Export / Mix Dropdown */}
         <div className="relative">
           <button
@@ -427,6 +476,11 @@ export function DAWTopBar() {
               >
                 <Layers size={13} className="text-cyan-400" />
                 <span>Send Mix to MV Studio</span>
+              </button>
+              <button type="button" onClick={() => void handleSaveSession()}
+                className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg flex items-center gap-2 text-white font-semibold">
+                <Download size={13} className="text-cyan-400" />
+                <span>Save Portable Session ZIP + Audio</span>
               </button>
               <button
                 onClick={handleExportProjectJson}
