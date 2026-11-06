@@ -56,6 +56,8 @@ function LayerVisibilityControls() {
   const setShowArtwork = useLyricsVideoStore(s => s.setShowArtwork);
   const showVisualizer = useLyricsVideoStore(s => s.showVisualizer !== false);
   const setShowVisualizer = useLyricsVideoStore(s => s.setShowVisualizer);
+  const showMeta = useLyricsVideoStore(s => s.showMeta !== false);
+  const setShowMeta = useLyricsVideoStore(s => s.setShowMeta);
 
   return (
     <div className="space-y-2 rounded border border-[#232933] bg-[#0e1115] p-2.5">
@@ -84,6 +86,16 @@ function LayerVisibilityControls() {
           Visualizer {showVisualizer ? 'ON' : 'OFF'}
         </button>
       </div>
+      <button
+        type="button"
+        onClick={() => setShowMeta(!showMeta)}
+        aria-pressed={showMeta}
+        title="Show or hide the song title and artist on preview and exported video"
+        className={cn("w-full rounded border px-2 py-2 text-[11px] font-semibold transition-colors cursor-pointer",
+          showMeta ? "border-accent text-accent bg-[#181d26]" : "border-[#232933] text-[#7e8999] bg-[#12161c]")}
+      >
+        Song Title / Artist {showMeta ? 'ON' : 'OFF'}
+      </button>
     </div>
   );
 }
