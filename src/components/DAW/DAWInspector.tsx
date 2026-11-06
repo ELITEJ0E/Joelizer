@@ -8,6 +8,18 @@ function formatDb(gain: number) {
   return gain <= 0.00001 ? '-∞' : (20 * Math.log10(gain)).toFixed(1);
 }
 
+const Field = ({label, value, onChange, min=0, max=99999, step=0.01}: {
+  label:string; value:number; onChange:(n:number)=>void; min?:number; max?:number; step?:number
+}) => <label className="space-y-1 text-[11px] text-slate-400">
+  <span>{label}</span>
+  <input aria-label={label} className={panel} type="number" min={min} max={max} step={step}
+    value={Number(value.toFixed(3))}
+    onChange={e => { const n=Number(e.target.value); if(Number.isFinite(n)) onChange(Math.max(min,Math.min(max,n))); }}
+    onBlur={useDAWStore.getState().commitHistory}
+    onKeyDown={e=>e.stopPropagation()}
+  />
+</label>;
+
 export function DAWInspector({ onClose }: { onClose: () => void }) {
   const selectedTrackId = useDAWStore(s => s.selectedTrackId);
   const selectedClipId = useDAWStore(s => s.selectedClipId);
@@ -25,17 +37,6 @@ export function DAWInspector({ onClose }: { onClose: () => void }) {
   const track = tracks.find(t => t.id === selectedTrackId);
   const clipTrack = tracks.find(t => t.clips.some(c => c.id === selectedClipId));
   const clip = clipTrack?.clips.find(c => c.id === selectedClipId);
-  const Field = ({label, value, onChange, min=0, max=99999, step=0.01}: {
-    label:string; value:number; onChange:(n:number)=>void; min?:number; max?:number; step?:number
-  }) => <label className="space-y-1 text-[11px] text-slate-400">
-    <span>{label}</span>
-    <input aria-label={label} className={panel} type="number" min={min} max={max} step={step}
-      value={Number(value.toFixed(3))}
-      onChange={e => { const n=Number(e.target.value); if(Number.isFinite(n)) onChange(Math.max(min,Math.min(max,n))); }}
-      onBlur={commitHistory}
-      onKeyDown={e=>e.stopPropagation()}
-    />
-  </label>;
   return <aside aria-label="Music Studio inspector" className="flex h-full min-h-0 w-full flex-col border-l border-white/10 bg-[#0b111b] text-slate-200">
     <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-3">
       <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider"><SlidersHorizontal size={15} className="text-cyan-300"/> Inspector</span>
