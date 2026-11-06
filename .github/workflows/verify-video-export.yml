@@ -7,6 +7,10 @@ on:
     branches: [main, fix/video-export-timeline-freeze-20261103]
   workflow_dispatch:
 
+concurrency:
+  group: verify-video-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
