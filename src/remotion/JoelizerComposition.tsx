@@ -280,8 +280,20 @@ function BackgroundLayer({ bg, albumArt, width, height, currentTime }: { bg: any
   if (bg?.type === 'video' && bg.videoUrl) {
     return (
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-        <Video src={bg.videoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />
+        <Video
+          src={bg.videoUrl}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: bg.fit === 'contain' ? 'contain' : 'cover',
+            objectPosition: 'center',
+            transform: `translate(${Math.max(-1, Math.min(1, bg.offsetX ?? 0)) * 50}%, ${Math.max(-1, Math.min(1, bg.offsetY ?? 0)) * 50}%) scaleX(${Math.max(0.25, Math.min(4, bg.zoom ?? 1))}) scaleY(${Math.max(0.25, Math.min(4, bg.zoom ?? 1)) * Math.max(0.25, Math.min(3, bg.heightScale ?? 1))})`,
+            transformOrigin: 'center center'
+          }}
+        />
+        {(bg.dim ?? 0) > 0 && (
+          <div style={{ position: 'absolute', inset: 0, background: `rgba(0,0,0,${bg.dim})` }} />
+        )}
       </div>
     );
   }
