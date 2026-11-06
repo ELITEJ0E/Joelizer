@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { chromium } from 'playwright';
@@ -119,6 +120,18 @@ try {
   assert.ok(final.some(track => track.type === 'DRUMS'));
   assert.ok(final.some(track => track.type === 'SYNTH'));
   assert.ok(final.some(track => track.type === 'AUDIO'));
+  // Export a real session to disk. The new bounce must be a 24-bit WAV and
+  // must not include the default 3 minutes of empty DAW canvas.
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  const masterDownload = page.waitForEvent('download', { timeout: 45000 });
+  await page.getByRole('button', { name: 'Export 24-bit WAV' }).click();
+  const wavDownload = await masterDownload;
+  assert.ok(wavDownload.suggestedFilename().endsWith('_Master.wav'));
+  const renderBytes = await readFile(await wavDownload.path());
+  assert.equal(renderBytes.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(renderBytes.toString('ascii', 8, 12), 'WAVE');
+  assert.equal(renderBytes.readUInt16LE(34), 24, 'Master WAV must export 24-bit PCM');
+  assert.ok(renderBytes.length < 10_000_000, 'Short DAW session must not export minutes of silence');
   assert.deepEqual(errors, [], 'Music Studio must have no unhandled browser runtime errors');
   console.log('Music Studio standalone navigation, sample import, drum rack and piano roll verified.');
 } finally {
