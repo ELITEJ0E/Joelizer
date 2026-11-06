@@ -99,6 +99,11 @@ export interface CanonicalVideoClip {
   duration: number;  // Clip duration on timeline
   trimStart: number; // Internal trim start
   trimEnd: number;   // Internal trim end
+  fit?: 'cover' | 'contain';
+  zoom?: number;
+  heightScale?: number;
+  offsetX?: number;
+  offsetY?: number;
   effect?: 'ken-burns-in' | 'ken-burns-out' | 'pan-left' | 'pan-right' | 'pan-up' | 'pan-down' | 'none';
   transition?: 'cut' | 'fade' | 'dissolve' | 'glitch';
 }
