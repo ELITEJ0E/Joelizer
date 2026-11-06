@@ -48,7 +48,7 @@ malformed.file('project.json', JSON.stringify({
     ]}
   ]}
 }));
-await assert.rejects(() => importMusicSession(awaitZip(malformed)), /unsafe|unsupported/i);
+await assert.rejects(async () => importMusicSession(await awaitZip(malformed)), /unsafe|unsupported/i);
 async function awaitZip(archive: JSZip) {
   return archive.generateAsync({type:'blob'});
 }
