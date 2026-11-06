@@ -402,8 +402,11 @@ export class OfflineFrameCompositor {
       } else if (clip.type === 'visualizer') {
         // Deterministic non-live export. Audio-reactive animation needs
         // precomputed PCM analysis, not the unrelated preview AudioContext.
-        renderVisualizer(ctx, audio.frequency, audio.waveform,
-          useStore.getState().visualizerSettings, W, H);
+        // Export the recorded project settings, never transient live editor state.
+        if (project.showVisualizer ?? project.visualizer?.enabled ?? true) {
+          renderVisualizer(ctx, audio.frequency, audio.waveform,
+            { ...project.visualizer, enabled: true } as Parameters<typeof renderVisualizer>[3], W, H);
+        }
       }
       if (project.showLyrics !== false && project.lyrics.lines.length > 0) {
         const lyricsState = useLyricsVideoStore.getState();
