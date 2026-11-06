@@ -14,17 +14,22 @@ function getRGBA(hex: string, alpha: number): string {
 
 // Musically-calibrated logarithmic frequency mapper
 function getMusicalFrequency(i: number, total: number, frequencyData: Uint8Array): number {
-  const norm = i / total;
-  // A power curve of 1.6 groups more elements in the low and mid frequencies
-  const power = Math.pow(norm, 1.6);
-  // Cut off at 70% of frequency array because the top 30% is mostly cymbals or background air
-  const targetIndex = power * (frequencyData.length * 0.7);
-  
-  const lower = Math.floor(targetIndex);
-  const upper = Math.min(lower + 1, frequencyData.length - 1);
-  const frac = targetIndex - lower;
-  
-  return frequencyData[lower] * (1 - frac) + frequencyData[upper] * frac;
+  if (!frequencyData.length) return 0;
+  // Average a small *musical band* instead of sampling a single FFT bin.
+  // Single-bin sampling misses kick/snare energy and can leave the visualizer
+  // nearly static even while the song is playing.
+  const normalized = (i + 0.5) / Math.max(1, total);
+  const center = Math.pow(normalized, 1.6) * frequencyData.length * 0.7;
+  const radius = Math.max(2, Math.round(frequencyData.length * 0.007));
+  const first = Math.max(1, Math.floor(center - radius));
+  const last = Math.min(frequencyData.length - 1, Math.ceil(center + radius));
+  let sum = 0;
+  let count = 0;
+  for (let index = first; index <= last; index++) {
+    sum += frequencyData[index];
+    count++;
+  }
+  return count ? sum / count : 0;
 }
 
 // Draw a path with a true neon effect (bright core, colored heavy glow)
