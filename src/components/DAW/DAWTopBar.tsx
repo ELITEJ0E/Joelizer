@@ -332,6 +332,13 @@ export function DAWTopBar() {
           <span className="w-11 text-center font-mono text-slate-400">{Math.round(timelineZoom)}px</span>
           <button type="button" aria-label="Zoom in" title="Zoom in" onClick={()=>setTimelineZoom(v=>v+15)}
             className="rounded-md p-1.5 text-slate-400 hover:bg-white/10"><ZoomIn size={16}/></button>
+          <button type="button" aria-label="Fit song to timeline" title="Fit song to timeline"
+            onClick={()=>{
+              const length=Math.max(15,dawProjectAudioEnd(tracks)||projectDuration);
+              const visible=Math.max(360,Math.min(1400,window.innerWidth*.58));
+              setTimelineZoom(Math.max(4,Math.min(300,visible/length)));
+            }}
+            className="rounded border border-white/10 px-2 py-1 text-[10px] font-semibold text-slate-300 hover:bg-white/10">Fit</button>
         </div>
         <div className="flex shrink-0 items-center gap-1 border-r border-white/10 pr-3">
           <button type="button" aria-label="Undo" disabled={historyIndex===0} title="Undo" onClick={undo}
