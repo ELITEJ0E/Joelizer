@@ -9,6 +9,7 @@ import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
 import { exportMusicSession, importMusicSession } from '../../lib/musicStudioArchive';
+import { dawProjectAudioEnd } from '../../lib/dawMixing';
 import { TrackType, TimelineTool } from '../../types/daw';
 
 const KEYS = [
@@ -85,11 +86,18 @@ export function DAWTopBar() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${millis.toString().padStart(2, '0')}`;
   };
 
+  const mixDuration = () => {
+    const audioEnd = dawProjectAudioEnd(tracks);
+    if (audioEnd <= 0) throw new Error('Add or import an audio clip before exporting.');
+    // Pad only a short safety tail, not the entire empty editing canvas.
+    return Math.max(.2, Math.min(projectDuration, audioEnd + .1));
+  };
+
   const handleExportWav = async () => {
     try {
       setIsExporting(true);
       setExportNotice('Rendering 24-bit stereo master with clip fades and -1 dBFS sample-peak safety...');
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration, 44100, masterVolume, 24);
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, mixDuration(), 44100, masterVolume, 24);
       const url = URL.createObjectURL(wavBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -110,12 +118,13 @@ export function DAWTopBar() {
     try {
       setIsExporting(true);
       setExportNotice('Bouncing multitrack mix for Music Video Studio...');
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration, 44100, masterVolume, 24);
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, mixDuration(), 44100, masterVolume, 24);
       const audioUrl = URL.createObjectURL(wavBlob);
+      const renderedDuration = mixDuration();
 
       // Load into primary project store
       const primaryStore = useStore.getState();
-      primaryStore.setAudio(wavBlob, audioUrl, projectDuration, undefined);
+      primaryStore.setAudio(wavBlob, audioUrl, renderedDuration, undefined);
       primaryStore.setName(projectName);
 
       // Add to MV studio timeline
@@ -125,9 +134,9 @@ export function DAWTopBar() {
           id: `mv-clip-master-${Date.now()}`,
           assetId: `asset-master-${Date.now()}`,
           startTime: 0,
-          endTime: projectDuration,
+          endTime: renderedDuration,
           trimStart: 0,
-          trimEnd: projectDuration,
+          trimEnd: renderedDuration,
           locked: false
         }
       ]);
