@@ -5,7 +5,7 @@ export function gridStepSeconds(bpm: number, division: DAWGridDivision): number 
   const denominator = Number(division.split('/')[1]);
   if (!Number.isFinite(denominator) || denominator <= 0) return 0;
   // 1/1 means a whole 4/4 bar; 1/16 is one sixteenth note.
-  return (60 / Math.max(40,Math.min(280,bpm))) * (16 / denominator);
+  return (60 / Math.max(40,Math.min(280,bpm))) * (4 / denominator);
 }
 export function snapDawTime(time: number,bpm:number,division:DAWGridDivision,enabled:boolean): number {
   const value = Math.max(0,time);
