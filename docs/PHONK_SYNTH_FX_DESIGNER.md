@@ -20,6 +20,8 @@ Choose Drift, Brazilian or Dark Phonk. The generator provides nine standalone so
 
 Edit pitch, sound length, distortion/drive, brightness/tone, glide, echo/space, and seed variation. Use **Generate sound** then **Play preview**, **Download 24-bit WAV**, or **Add to Joelizer playlist**. Nothing plays until manually requested.
 
+Use **Export all 9 FX (ZIP)** to create an original nine-WAV sound pack for the chosen phonk style. The archive includes a generated README.json with audio format, style and procedural-synthesis provenance. The pack is rendered locally; no audio is uploaded.
+
 ## 16-step beat maker
 
 Switch to **16-step beat maker**, choose your style preset, then edit Kick, Snare, Hat and Cowbell lanes. Set BPM (60–220) and loop length (1, 2, 4, or 8 bars), press **Generate beat loop**, and preview/download the stereo WAV. Beats are synthesized locally and normalized to a maximum sample peak of -1 dBFS. The loop end is musically aligned to a bar; the next bar is not automatically blended into its tail.
