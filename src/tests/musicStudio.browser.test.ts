@@ -72,7 +72,7 @@ try {
 
   await browserPane.getByRole('button', { name: 'Piano' }).click();
   await browserPane.getByLabel('Piano roll instrument').selectOption({ label: 'synth-example.wav' });
-  await browserPane.getByRole('button', { name: 'Piano C5 step 1', exact: true }).click();
+  await browserPane.getByRole('button', { name: 'Piano C4 step 1', exact: true }).click();
   await browserPane.getByRole('button', { name: 'Render piano roll to DAW' }).click();
   await browserPane.getByText('Piano roll rendered and inserted into the multitrack arrangement.').waitFor({ timeout: 45000 });
 
