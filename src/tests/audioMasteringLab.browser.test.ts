@@ -71,11 +71,30 @@ try {
 
   await dialog.getByRole('button', { name: 'Compute file SHA-256' }).click();
   await dialog.getByText('SHA-256:', { exact: false }).waitFor();
+  // Phonk sound engine: generate a cowbell, inspect its WAV download, and
+  // verify an edited 16-step loop can be rendered without network services.
+  await dialog.getByRole('button', { name: 'Phonk Synth & FX Designer' }).click();
+  await dialog.getByRole('button', { name: /808 Cowbell/ }).waitFor();
+  await dialog.getByRole('button', { name: 'Generate sound' }).click();
+  await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).waitFor({ timeout: 30000 });
+  const soundDownload = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).click();
+  assert.equal((await soundDownload).suggestedFilename(), 'joelizer-drift-phonk-cowbell.wav');
+  await dialog.getByRole('button', { name: /16-step beat maker/ }).click();
+  await dialog.getByRole('button', { name: 'kick step 1' }).click();
+  await dialog.getByLabel('Loop bars').selectOption('1');
+  await dialog.getByRole('button', { name: 'Generate beat loop' }).click();
+  await dialog.getByText(/joelizer-drift-phonk-beat.wav/).waitFor({ timeout: 30000 });
+  const beatDownload = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download 24-bit WAV' }).click();
+  assert.equal((await beatDownload).suggestedFilename(), 'joelizer-drift-phonk-beat.wav');
+  await dialog.getByRole('button', { name: 'Mastering & Comparison' }).click();
+  await dialog.getByText('Joelizer-rendered master', { exact: true }).waitFor();
   assert.equal(runtimeErrors.length, 0, 'Audio Lab must not throw browser runtime errors: ' + runtimeErrors.join('; '));
   await dialog.getByRole('button', { name: 'Back to MV Studio' }).click();
   await dialog.waitFor({ state: 'hidden' });
   await page.locator('#topbar-tab-mv-studio').waitFor({ state: 'visible' });
-  console.log('Audio Lab workspace navigation, upload, local master, WAV download and SHA-256 UI verified.');
+  console.log('Audio Lab mastering, original phonk one-shots and 16-step beat WAV export verified.');
 } finally {
   await browser?.close();
   server.kill();
