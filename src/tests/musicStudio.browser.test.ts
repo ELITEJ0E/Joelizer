@@ -76,6 +76,12 @@ try {
   await browserPane.getByRole('button', { name: 'Render piano roll to DAW' }).click();
   await browserPane.getByText('Piano roll rendered and inserted into the multitrack arrangement.').waitFor({ timeout: 45000 });
 
+  await browserPane.getByRole('button', { name: 'Synth', exact: true }).click();
+  await browserPane.getByRole('button', { name: /808 Cowbell/ }).waitFor();
+  await browserPane.getByRole('button', { name: 'Generate sound', exact: true }).click();
+  await browserPane.getByRole('button', { name: 'Insert on DAW timeline' }).waitFor({ timeout: 35000 });
+  await browserPane.getByRole('button', { name: 'Insert on DAW timeline' }).click();
+
   const final = await page.evaluate(async () => {
     const path = '/src/store/useDAWStore.ts';
     const { useDAWStore } = await import(/* @vite-ignore */ path);
