@@ -24,12 +24,17 @@ function getMusicalFrequency(i: number, total: number, frequencyData: Uint8Array
   const first = Math.max(1, Math.floor(center - radius));
   const last = Math.min(frequencyData.length - 1, Math.ceil(center + radius));
   let sum = 0;
+  let peak = 0;
   let count = 0;
   for (let index = first; index <= last; index++) {
-    sum += frequencyData[index];
+    const value = frequencyData[index];
+    sum += value;
+    peak = Math.max(peak, value);
     count++;
   }
-  return count ? sum / count : 0;
+  // Pure averaging dilutes narrow kick/bass harmonics across FFT bins.
+  // Blend each band's peak with its mean to preserve musical transients.
+  return count ? (sum / count) * 0.55 + peak * 0.45 : 0;
 }
 
 // Draw a path with a true neon effect (bright core, colored heavy glow)
