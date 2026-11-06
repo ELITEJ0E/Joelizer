@@ -69,7 +69,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
     const dy = e.clientY - gesture.y;
     if (gesture.operation === 'move') {
       updateFrameSettings({
-        offsetX: Math.max(-1, Math.min(1, gesture.startX + 2 * dx / rect.width)),
+        // MV Studio defaults to vertical-only panning for portrait footage
+        // cropped into a landscape frame; keep Lyrics Video's 2-axis controls.
+        offsetX: videoMode === 'music-video'
+          ? gesture.startX
+          : Math.max(-1, Math.min(1, gesture.startX + 2 * dx / rect.width)),
         offsetY: Math.max(-1, Math.min(1, gesture.startY + 2 * dy / rect.height))
       });
     } else {
@@ -622,7 +626,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             />
           )}
 
-          {editableVideo && (
+          {editableVideo && videoMode === 'lyrics-video' && (
             <div className="absolute top-12 left-2 z-40 flex flex-col items-start gap-1 pointer-events-auto">
               <button type="button" onClick={() => setAdjustVideo(v => !v)}
                 className={`rounded border px-2 py-1.5 text-[10px] font-semibold shadow-lg ${adjustVideo ? 'border-accent bg-accent text-black' : 'border-white/30 bg-black/70 text-white'}`}
@@ -641,21 +645,27 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               )}
             </div>
           )}
-          {adjustVideo && editableVideo && (
-            <div className="absolute inset-0 z-30 border-2 border-accent/70 cursor-move touch-none"
-              aria-label="Drag to reposition video"
+          {/* MV clips: drag the footage directly without any obstructing controls.
+              Lyrics Video retains its explicit adjustment mode and resize handle. */}
+          {editableVideo && (videoMode === 'music-video' || adjustVideo) && (
+            <div
+              className={`absolute inset-0 z-30 touch-none select-none ${adjustmentGesture.current ? 'cursor-grabbing' : 'cursor-grab'} ${videoMode === 'lyrics-video' ? 'border-2 border-accent/70' : ''}`}
+              aria-label={videoMode === 'music-video' ? 'Drag video up or down to reposition crop' : 'Drag to reposition video'}
+              title={videoMode === 'music-video' ? 'Drag up or down to reposition video' : undefined}
               onPointerDown={e => startAdjustment(e, 'move')}
               onPointerMove={moveAdjustment}
               onPointerUp={() => { adjustmentGesture.current = null; }}
-              onPointerCancel={() => { adjustmentGesture.current = null; }}>
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded bg-black/60 text-white text-[10px] px-2 py-1 pointer-events-none">Drag to move video</div>
-              <div
-                onPointerDown={e => startAdjustment(e, 'resize')}
-                onPointerMove={moveAdjustment}
-                onPointerUp={e => { e.stopPropagation(); adjustmentGesture.current = null; }}
-                onPointerCancel={() => { adjustmentGesture.current = null; }}
-                className="absolute bottom-0 right-0 h-7 w-7 rounded-tl border border-accent bg-black/80 text-accent flex items-center justify-center cursor-nwse-resize touch-none"
-                title="Drag corner horizontally to zoom, vertically to adjust height">↘</div>
+              onPointerCancel={() => { adjustmentGesture.current = null; }}
+            >
+              {videoMode === 'lyrics-video' && (
+                <div
+                  onPointerDown={e => startAdjustment(e, 'resize')}
+                  onPointerMove={moveAdjustment}
+                  onPointerUp={e => { e.stopPropagation(); adjustmentGesture.current = null; }}
+                  onPointerCancel={() => { adjustmentGesture.current = null; }}
+                  className="absolute bottom-0 right-0 h-7 w-7 rounded-tl border border-accent bg-black/80 text-accent flex items-center justify-center cursor-nwse-resize touch-none"
+                  title="Drag corner horizontally to zoom, vertically to adjust height">↘</div>
+              )}
             </div>
           )}
 
@@ -668,7 +678,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
                 setIsPlaying(!isPlaying);
               }}
               className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#0e1115]/85 border border-white/20 flex items-center justify-center text-white backdrop-blur-md transition-opacity duration-150 shadow-xl focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent ${
-                stageHovered && !dialogOpen
+                stageHovered && !dialogOpen && !editableVideo
                   ? 'opacity-100 pointer-events-auto hover:scale-105 cursor-pointer'
                   : 'opacity-0 pointer-events-none'
               }`}
