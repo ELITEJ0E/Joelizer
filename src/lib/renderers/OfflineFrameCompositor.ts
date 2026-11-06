@@ -10,6 +10,7 @@ import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useStore, type LyricLine } from '../../store/useStore';
 import { renderVisualizer } from '../renderers';
+import { drawFramedMedia } from '../lyricsBackgrounds';
 
 type StageMedia = { element: HTMLVideoElement; lastFrame: number };
 
@@ -364,7 +365,7 @@ export class OfflineFrameCompositor {
                 reject(new Error(`VideoDecoder stalled on clip "${clip.id}" at ${sourceTime.toFixed(2)}s`)), 25000))
             ]);
             try {
-              cover(ctx, frame, W, H, frame.displayWidth, frame.displayHeight);
+              drawFramedMedia(ctx, frame, W, H, frame.displayWidth, frame.displayHeight, clip);
             } finally {
               try { frame.close(); } catch {}
             }
@@ -381,7 +382,7 @@ export class OfflineFrameCompositor {
           const media = this.videos.get(clip.url);
           if (!media) throw new Error('Missing prepared video clip ' + clip.id);
           await atTime(media, sourceTime);
-          cover(ctx, media.element, W, H, media.element.videoWidth, media.element.videoHeight);
+          drawFramedMedia(ctx, media.element, W, H, media.element.videoWidth, media.element.videoHeight, clip);
         }
       } else if (clip.type === 'image') {
         const image = this.images.get(clip.url);
