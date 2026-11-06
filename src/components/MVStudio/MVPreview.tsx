@@ -9,6 +9,7 @@ import { LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { renderLyricsVideoFrame, renderLyricsOverlayFrame, syncLyricsBackgroundVideo, pauseInactiveLyricsBackgroundVideos } from '../../lib/lyricsEngine';
 import { audioManager } from '../../lib/audio';
 import { renderVisualizer } from '../../lib/renderers';
+import { drawFramedMedia } from '../../lib/lyricsBackgrounds';
 import { drawPositionedLyricsVisualizer } from '../../lib/positionedLyricsVisualizer';
 import { getDefaultPositions } from '../../lib/lyricsLayout';
 import { InteractiveStageOverlay } from '../LyricsStudio/InteractiveStageOverlay';
@@ -400,14 +401,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               if (videoEl.readyState >= 2) {
                 const vW = videoEl.videoWidth || 1920;
                 const vH = videoEl.videoHeight || 1080;
-                const scale = Math.max(W / vW, H / vH);
-                const drawW = vW * scale;
-                const drawH = vH * scale;
-                const cx = (W - drawW) / 2;
-                const cy = (H - drawH) / 2;
-
                 try {
-                  ctx.drawImage(videoEl, cx, cy, drawW, drawH);
+                  drawFramedMedia(ctx, videoEl, W, H, vW, vH, activeClip);
                   drewFrame = true;
                   sampleBrowserExportVideo(activeClip.id, videoEl.currentTime);
                 } catch (e) {
@@ -425,10 +420,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
                   imageElementsRef.current.set(asset.thumbnail, thumbImg);
                 }
                 if (thumbImg.complete && thumbImg.naturalWidth > 0) {
-                  const iScale = Math.max(W / thumbImg.naturalWidth, H / thumbImg.naturalHeight);
-                  const drawW = thumbImg.naturalWidth * iScale;
-                  const drawH = thumbImg.naturalHeight * iScale;
-                  ctx.drawImage(thumbImg, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
+                  drawFramedMedia(ctx, thumbImg, W, H, thumbImg.naturalWidth, thumbImg.naturalHeight, activeClip);
                 } else {
                   ctx.fillStyle = '#0d0e15';
                   ctx.fillRect(0, 0, W, H);
