@@ -149,7 +149,11 @@ export function DAWTimeline() {
           )}
 
           {/* Track Headers List */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div ref={trackHeaderScrollRef} onScroll={e=>{
+            const timeline=timelineContainerRef.current;
+            if(timeline&&Math.abs(timeline.scrollTop-e.currentTarget.scrollTop)>1)
+              timeline.scrollTop=e.currentTarget.scrollTop;
+          }} className="flex-1 overflow-y-auto overflow-x-hidden">
             {tracks.map(track => (
               <DAWTrackHeader
                 key={track.id}
@@ -163,6 +167,11 @@ export function DAWTimeline() {
         {/* RIGHT COLUMN: Scrolling Timeline Canvas & Lanes */}
         <div 
           ref={timelineContainerRef}
+          onScroll={e=>{
+            const headers=trackHeaderScrollRef.current;
+            if(headers&&Math.abs(headers.scrollTop-e.currentTarget.scrollTop)>1)
+              headers.scrollTop=e.currentTarget.scrollTop;
+          }}
           className="flex-1 overflow-x-auto overflow-y-auto relative bg-[#050507]"
         >
           {/* Internal Canvas Content Wrapper */}
@@ -172,12 +181,12 @@ export function DAWTimeline() {
               onMouseDown={handleRulerMouseDown}
               className="h-8 border-b border-white/10 bg-[#08080c] sticky top-0 z-30 cursor-pointer"
             >
-              <canvas ref={rulerCanvasRef} className="w-full h-full block" />
+              <canvas ref={rulerCanvasRef} className="absolute left-0 top-0 h-full block pointer-events-none" />
             </div>
 
             {/* 2. Synchronized Lyrics Ruler Track */}
             {showLyricsRuler && (
-              <div className="h-7 border-b border-white/10 bg-[#0a0b10] relative flex items-center overflow-hidden z-10">
+              <div className="h-7 border-b border-white/10 bg-[#0a0b10] sticky top-8 relative flex items-center overflow-hidden z-20">
                 {lyricsLines.map((line, idx) => {
                   const lineX = line.startTime * timelineZoom;
                   const lineW = Math.max(40, ((line.endTime || line.startTime + 3) - line.startTime) * timelineZoom);
