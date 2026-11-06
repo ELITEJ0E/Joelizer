@@ -4,6 +4,7 @@ import { useDAWStore } from '../../store/useDAWStore';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
 import { encodeLabWav } from '../../lib/audioLabEngine';
 import { PhonkSynthDesigner } from '../Audio/PhonkSynthDesigner';
+import { MusicStudioPianoRoll } from './MusicStudioPianoRoll';
 import type { TrackType } from '../../types/daw';
 
 type Sample = {
@@ -76,7 +77,7 @@ async function bounceDrumRack(
 }
 
 export function MusicStudioBrowser() {
-  const [tab, setTab] = useState<'samples' | 'drums' | 'synth'>('samples');
+  const [tab, setTab] = useState<'samples' | 'drums' | 'piano' | 'synth'>('samples');
   const [samples, setSamples] = useState<Sample[]>([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('Import your own licensed sample packs or audio recordings.');
@@ -184,9 +185,10 @@ export function MusicStudioBrowser() {
         <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
           Sample-based production · original synthesizers · multitrack clips
         </p>
-        <div className="mt-3 grid grid-cols-3 gap-1">
+        <div className="mt-3 grid grid-cols-4 gap-1">
           <button className={tab === 'samples' ? accentBtn : btn} aria-pressed={tab === 'samples'} onClick={() => setTab('samples')}>Samples</button>
-          <button className={tab === 'drums' ? accentBtn : btn} aria-pressed={tab === 'drums'} onClick={() => setTab('drums')}>Drum Rack</button>
+          <button className={tab === 'drums' ? accentBtn : btn} aria-pressed={tab === 'drums'} onClick={() => setTab('drums')}>Drums</button>
+          <button className={tab === 'piano' ? accentBtn : btn} aria-pressed={tab === 'piano'} onClick={() => setTab('piano')}>Piano</button>
           <button className={tab === 'synth' ? accentBtn : btn} aria-pressed={tab === 'synth'} onClick={() => setTab('synth')}>Synth</button>
         </div>
       </header>
@@ -276,6 +278,10 @@ export function MusicStudioBrowser() {
               <Disc3 size={13} className="mr-1 inline"/> Render & insert beat
             </button>
           </div>
+        )}
+        {tab === 'piano' && (
+          <MusicStudioPianoRoll samples={samples} bpm={bpm} onInsert={(blob,name,duration) =>
+            insertAudio(blob,name,duration,'SYNTH')} />
         )}
         {tab === 'synth' && (
           <div className="space-y-3">
