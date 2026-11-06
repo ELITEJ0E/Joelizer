@@ -21,6 +21,8 @@ export interface DAWClip {
   volume: number;       // 0 to 1.5 linear gain
   fadeIn: number;       // Fade in duration in seconds
   fadeOut: number;      // Fade out duration in seconds
+  /** A slice of the original envelope, preserving gain when a faded clip is split. */
+  fadeEnvelope?: { duration: number; offset: number; fadeIn: number; fadeOut: number };
   color?: string;
   peaks?: number[];     // Visual waveform peak array
   isMuted?: boolean;
@@ -37,6 +39,8 @@ export interface DAWTrack {
   solo: boolean;
   armed: boolean;       // Armed for microphone/guitar recording
   clips: DAWClip[];
+  /** Original fixed-frequency three-band EQ, gains in dB (-12 to +12). */
+  eq?: { low: number; mid: number; high: number; bypass?: boolean };
 }
 
 export interface DAWProject {
@@ -54,6 +58,7 @@ export interface DAWProject {
   createdAt: number;
   updatedAt: number;
   sourceAiPrompt?: string;
+  markers?: import('../lib/dawArrangement').ArrangementMarker[];
 }
 
 export interface RecordedTake {

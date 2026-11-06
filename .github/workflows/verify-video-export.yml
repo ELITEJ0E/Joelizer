@@ -17,12 +17,13 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-      # The existing package-lock.json is stale; install from package.json for this verification run.
-      - run: npm install --no-package-lock --no-audit --no-fund
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run lint
       - run: npx tsx src/tests/audioMasteringLab.test.ts
       - run: npx tsx src/tests/phonkSynthEngine.test.ts
       - run: npx tsx src/tests/musicStudioArchive.test.ts
+      - run: npx tsx src/tests/dawArrangement.test.ts
+      - run: npx tsx src/tests/dawAudioProcessing.test.ts
       - run: npx tsx src/tests/browserExportClock.test.ts
       - run: npx tsx src/tests/videoPlaybackSync.test.ts
       - run: npx tsx src/tests/export1080pStress.test.ts
@@ -35,6 +36,10 @@ jobs:
         run: npx tsx src/tests/audioMasteringLab.browser.test.ts
       - name: Verify dedicated Music Studio browser, sample import, drums and piano roll
         run: npx tsx src/tests/musicStudio.browser.test.ts
+      - name: Verify DAW audio processing against rendered PCM
+        run: npx tsx src/tests/dawAudioEngine.browser.test.ts
+      - name: Verify arrangement editing, sessions and responsive DAW UI
+        run: npx tsx src/tests/dawArrangement.browser.test.ts
       - name: Verify responsive preview, media dialogs and hover behavior
         run: npx tsx src/tests/mvStudioResponsive.browser.test.ts
       - name: Install FFmpeg for MP4 validation
@@ -63,7 +68,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-      - run: npm install --no-package-lock --no-audit --no-fund
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Install Chrome browser
         run: npx playwright install chrome
       - name: Install FFmpeg

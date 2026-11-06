@@ -4,6 +4,8 @@ import { DAWClip, DAWProject, DAWTrack, TimelineTool, TrackType } from '../types
 import { dawAudioEngine } from '../lib/dawAudioEngine';
 import { useStore } from './useStore';
 import { useMVStore } from './useMVStore';
+import { ArrangementMarker, ArrangementSnapshot, normalizeMarkers, normalizeClipEdit, snapTime } from '../lib/dawArrangement';
+import { splitClipFades } from '../lib/dawAudioProcessing';
 
 export const TRACK_TYPE_COLORS: Record<TrackType, string> = {
   VOCAL: '#f43f5e',   // Rose
@@ -96,6 +98,14 @@ interface DAWState {
   tracks: DAWTrack[];
   selectedTrackId: string | null;
   selectedClipId: string | null;
+  markers: ArrangementMarker[];
+  addMarker: (name?: string) => void;
+  updateMarker: (id: string, updates: Partial<ArrangementMarker>) => void;
+  removeMarker: (id: string) => void;
+  navigateMarker: (direction: -1 | 1) => void;
+  loopSelectedClip: () => void;
+  repeatClip: (clipId: string, count: number) => void;
+  editClip: (clipId: string, updates: Partial<DAWClip>) => void;
   
   // Timeline View & UI
   timelineZoom: number; // Pixels per second (e.g. 80)
@@ -106,7 +116,7 @@ interface DAWState {
   showLyricsRuler: boolean;
 
   // History Undo/Redo
-  history: DAWTrack[][];
+  history: ArrangementSnapshot[];
   historyIndex: number;
 
   // Actions - Transport
@@ -190,6 +200,7 @@ export const useDAWStore = create<DAWState>()(
         // Sync with primary useStore currentTime for lyrics & visualizer
         useStore.getState().setCurrentTime(time);
       });
+      const initialMarkers: ArrangementMarker[] = [];
 
       return {
         projectId: `proj-${Date.now()}`,
@@ -215,6 +226,7 @@ export const useDAWStore = create<DAWState>()(
         tracks: defaultInitialTracks,
         selectedTrackId: 'track-ai-music',
         selectedClipId: null,
+        markers: initialMarkers,
 
         timelineZoom: 70, // 70px per second
         timelineScrollX: 0,
@@ -223,12 +235,13 @@ export const useDAWStore = create<DAWState>()(
         gridDivision: '1/4',
         showLyricsRuler: true,
 
-        history: [defaultInitialTracks],
+        history: [{ tracks: defaultInitialTracks, markers: initialMarkers }],
         historyIndex: 0,
 
         // --- Transport Implementation ---
         play: () => {
           const { currentTime, tracks, isLooping, loopStart, loopEnd } = get();
+          dawAudioEngine.setMasterVolume(get().masterVolume);
           dawAudioEngine.play(currentTime, tracks, isLooping, loopStart, loopEnd);
           set({ isPlaying: true });
           useStore.getState().setIsPlaying(true);
@@ -267,7 +280,8 @@ export const useDAWStore = create<DAWState>()(
         },
 
         setLoopRegion: (loopStart: number, loopEnd: number) => {
-          set({ loopStart: Math.max(0, loopStart), loopEnd: Math.max(loopStart + 0.5, loopEnd) });
+          const start = Number.isFinite(loopStart) ? Math.max(0, loopStart) : 0;
+          set({ loopStart: start, loopEnd: Number.isFinite(loopEnd) ? Math.max(start + .01, loopEnd) : start + .01 });
         },
 
         toggleLoop: () => set(state => ({ isLooping: !state.isLooping })),
@@ -285,10 +299,10 @@ export const useDAWStore = create<DAWState>()(
         setShowLyricsRuler: (showLyricsRuler) => set({ showLyricsRuler }),
 
         // --- Track Management ---
-        setSelectedTrackId: (selectedTrackId) => set({ selectedTrackId }),
+        setSelectedTrackId: (selectedTrackId) => set({ selectedTrackId, selectedClipId: null }),
 
         addTrack: (type: TrackType = 'AUDIO', name?: string) => {
-          const newId = `track-${Date.now()}`;
+          const newId = `track-${crypto.randomUUID()}`;
           const trackCount = get().tracks.filter(t => t.type === type).length + 1;
           const trackName = name || `${type.charAt(0) + type.slice(1).toLowerCase()} ${trackCount}`;
 
@@ -310,7 +324,8 @@ export const useDAWStore = create<DAWState>()(
             dawAudioEngine.updateTrackParameters(updated);
             return {
               tracks: updated,
-              selectedTrackId: newId
+              selectedTrackId: newId,
+              selectedClipId: null
             };
           });
 
@@ -324,7 +339,9 @@ export const useDAWStore = create<DAWState>()(
             dawAudioEngine.updateTrackParameters(updated);
             return {
               tracks: updated,
-              selectedTrackId: state.selectedTrackId === trackId ? (updated[0]?.id || null) : state.selectedTrackId
+              selectedTrackId: state.selectedTrackId === trackId ? (updated[0]?.id || null) : state.selectedTrackId,
+              selectedClipId: updated.some(t => t.clips.some(c => c.id === state.selectedClipId)) ? state.selectedClipId : null,
+              armedTrackId: state.armedTrackId === trackId ? null : state.armedTrackId
             };
           });
           get().commitHistory();
@@ -395,7 +412,59 @@ export const useDAWStore = create<DAWState>()(
         },
 
         // --- Clip Management ---
-        setSelectedClipId: (selectedClipId) => set({ selectedClipId }),
+        setSelectedClipId: (selectedClipId) => set(state => ({ selectedClipId,
+          selectedTrackId: state.tracks.find(t => t.clips.some(c => c.id === selectedClipId))?.id ?? state.selectedTrackId })),
+
+        addMarker: (name) => {
+          const s = get();
+          if (s.markers.length >= 500) return;
+          const marker = { id: crypto.randomUUID(), name: name?.trim().slice(0, 80) || `Marker ${s.markers.length + 1}`,
+            time: snapTime(s.currentTime, s.bpm, s.gridDivision, s.snapToGrid), color: '#a78bfa' };
+          set({ markers: [...s.markers, marker].sort((a, b) => a.time - b.time) });
+          get().commitHistory();
+        },
+        updateMarker: (id, updates) => {
+          set(s => ({ markers: normalizeMarkers(s.markers.map(m => m.id === id ? { ...m, ...updates, id } : m)) }));
+          get().commitHistory();
+        },
+        removeMarker: (id) => {
+          set(s => ({ markers: s.markers.filter(m => m.id !== id) }));
+          get().commitHistory();
+        },
+        navigateMarker: (direction) => {
+          const s = get();
+          const ordered = direction === 1 ? s.markers : [...s.markers].reverse();
+          const marker = ordered.find(m => direction === 1 ? m.time > s.currentTime + .01 : m.time < s.currentTime - .01);
+          if (marker) s.seek(marker.time);
+        },
+        loopSelectedClip: () => {
+          const s = get();
+          const clip = s.tracks.flatMap(t => t.clips).find(c => c.id === s.selectedClipId);
+          if (clip) {
+            set({ loopStart: clip.startTime, loopEnd: clip.startTime + clip.duration, isLooping: true });
+            get().seek(clip.startTime);
+          }
+        },
+        editClip: (id, updates) => {
+          const s = get();
+          const clip = s.tracks.flatMap(t => t.clips).find(c => c.id === id);
+          if (!clip) return;
+          s.updateClip(id, normalizeClipEdit(clip, updates));
+          get().commitHistory();
+        },
+        repeatClip: (id, count) => {
+          const s = get();
+          const track = s.tracks.find(t => t.clips.some(c => c.id === id));
+          const clip = track?.clips.find(c => c.id === id);
+          if (!track || !clip || !Number.isFinite(count)) return;
+          const copies = Array.from({ length: Math.max(0, Math.min(32, Math.floor(count))) }, (_, i) => ({
+            ...clip, id: crypto.randomUUID(), startTime: clip.startTime + clip.duration * (i + 1)
+          }));
+          if (!copies.length) return;
+          set({ tracks: s.tracks.map(t => t.id === track.id ? { ...t, clips: [...t.clips, ...copies] } : t),
+            projectDuration: Math.max(s.projectDuration, copies.at(-1)!.startTime + clip.duration + 5) });
+          get().commitHistory();
+        },
 
         addClip: (trackId: string, clipData) => {
           const clipId = clipData.id || `clip-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -453,7 +522,14 @@ export const useDAWStore = create<DAWState>()(
               ...track,
               clips: track.clips.map(clip => {
                 if (clip.id === clipId) {
-                  const merged = { ...clip, ...updates };
+                  let merged = { ...clip, ...updates };
+                  if (clip.fadeEnvelope && !Object.prototype.hasOwnProperty.call(updates, 'fadeEnvelope') &&
+                      (updates.sourceStart !== undefined || updates.duration !== undefined)) {
+                    const offset = clip.fadeEnvelope.offset + merged.sourceStart - clip.sourceStart;
+                    merged.fadeEnvelope = offset >= 0 && offset + merged.duration <= clip.fadeEnvelope.duration + .000001
+                      ? { ...clip.fadeEnvelope, offset } : undefined;
+                    if (merged.fadeEnvelope) merged = { ...merged, ...splitClipFades(merged, merged.duration).left };
+                  }
                   maxEnd = Math.max(maxEnd, merged.startTime + merged.duration + 5);
                   return merged;
                 }
@@ -480,6 +556,7 @@ export const useDAWStore = create<DAWState>()(
         },
 
         moveClip: (clipId: string, newTrackId: string, newStartTime: number) => {
+          if (!get().tracks.some(t => t.id === newTrackId)) return;
           const clampedStart = Math.max(0, newStartTime);
           set(state => {
             let targetClip: DAWClip | null = null;
@@ -547,16 +624,19 @@ export const useDAWStore = create<DAWState>()(
 
             const leftDuration = splitTime - clipStart;
             const rightDuration = clipEnd - splitTime;
+            const fades = splitClipFades(originalClip, leftDuration);
 
             const leftClip: DAWClip = {
               ...originalClip,
+              ...fades.left,
               duration: leftDuration,
               sourceEnd: originalClip.sourceStart + leftDuration
             };
 
             const rightClip: DAWClip = {
               ...originalClip,
-              id: `clip-split-${Date.now()}`,
+              ...fades.right,
+              id: `clip-split-${crypto.randomUUID()}`,
               startTime: splitTime,
               duration: rightDuration,
               sourceStart: originalClip.sourceStart + leftDuration,
@@ -684,11 +764,13 @@ export const useDAWStore = create<DAWState>()(
 
         // --- Undo / Redo History ---
         commitHistory: () => {
-          const { tracks, history, historyIndex } = get();
+          const { tracks, markers, history, historyIndex } = get();
+          if (history[historyIndex]?.tracks === tracks && history[historyIndex]?.markers === markers) return;
           const trimmedHistory = history.slice(0, historyIndex + 1);
+          const next = [...trimmedHistory, { tracks, markers }].slice(-100);
           set({
-            history: [...trimmedHistory, tracks],
-            historyIndex: trimmedHistory.length
+            history: next,
+            historyIndex: next.length - 1
           });
         },
 
@@ -696,10 +778,11 @@ export const useDAWStore = create<DAWState>()(
           const { history, historyIndex } = get();
           if (historyIndex > 0) {
             const newIndex = historyIndex - 1;
-            const restoredTracks = history[newIndex];
+            const { tracks: restoredTracks, markers } = history[newIndex];
             dawAudioEngine.updateTrackParameters(restoredTracks);
             set({
               tracks: restoredTracks,
+              markers,
               historyIndex: newIndex
             });
           }
@@ -709,10 +792,11 @@ export const useDAWStore = create<DAWState>()(
           const { history, historyIndex } = get();
           if (historyIndex < history.length - 1) {
             const newIndex = historyIndex + 1;
-            const restoredTracks = history[newIndex];
+            const { tracks: restoredTracks, markers } = history[newIndex];
             dawAudioEngine.updateTrackParameters(restoredTracks);
             set({
               tracks: restoredTracks,
+              markers,
               historyIndex: newIndex
             });
           }
@@ -799,6 +883,9 @@ export const useDAWStore = create<DAWState>()(
 
         newProject: () => {
           dawAudioEngine.stop();
+          dawAudioEngine.setMasterVolume(1);
+          useStore.getState().setIsPlaying(false);
+          const markers: ArrangementMarker[] = [];
           set({
             projectId: `proj-${Date.now()}`,
             projectName: 'Untitled DAW Session',
@@ -812,7 +899,9 @@ export const useDAWStore = create<DAWState>()(
             tracks: defaultInitialTracks,
             selectedTrackId: defaultInitialTracks[0].id,
             selectedClipId: null,
-            history: [defaultInitialTracks],
+            markers,
+            isLooping: false, loopStart: 0, loopEnd: 32,
+            history: [{ tracks: defaultInitialTracks, markers }],
             historyIndex: 0
           });
         },
@@ -827,6 +916,7 @@ export const useDAWStore = create<DAWState>()(
             timeSignature: s.timeSignature,
             duration: s.projectDuration,
             tracks: s.tracks,
+            markers: s.markers,
             masterVolume: s.masterVolume,
             loopStart: s.loopStart,
             loopEnd: s.loopEnd,
@@ -838,6 +928,8 @@ export const useDAWStore = create<DAWState>()(
 
         loadCanonicalProjectJson: (project: DAWProject) => {
           dawAudioEngine.stop();
+          useStore.getState().setIsPlaying(false);
+          const markers = normalizeMarkers(project.markers);
           set({
             projectId: project.id,
             projectName: project.name || 'Imported Project',
@@ -847,15 +939,20 @@ export const useDAWStore = create<DAWState>()(
             projectDuration: project.duration || 180,
             masterVolume: project.masterVolume ?? 1.0,
             tracks: project.tracks || defaultInitialTracks,
+            markers,
             loopStart: project.loopStart || 0,
             loopEnd: project.loopEnd || 32,
             isLooping: !!project.isLooping,
             currentTime: 0,
             isPlaying: false,
-            history: [project.tracks || defaultInitialTracks],
+            selectedClipId: null,
+            selectedTrackId: project.tracks?.[0]?.id || null,
+            history: [{ tracks: project.tracks || defaultInitialTracks, markers }],
             historyIndex: 0
           });
           dawAudioEngine.updateTrackParameters(project.tracks || defaultInitialTracks);
+          dawAudioEngine.setMasterVolume(project.masterVolume ?? 1);
+          preloadProjectAudio(project.id, project.tracks || defaultInitialTracks);
         }
       };
     },
@@ -869,12 +966,49 @@ export const useDAWStore = create<DAWState>()(
         key: state.key,
         timeSignature: state.timeSignature,
         tracks: state.tracks,
+        markers: state.markers,
         projectDuration: state.projectDuration,
         masterVolume: state.masterVolume,
         loopStart: state.loopStart,
         loopEnd: state.loopEnd,
         isLooping: state.isLooping
-      })
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.markers = normalizeMarkers(state.markers);
+          state.history = [{ tracks: state.tracks, markers: state.markers }];
+          state.historyIndex = 0;
+          dawAudioEngine.setMasterVolume(state.masterVolume);
+        }
+      }
     }
   )
 );
+
+// Scheduling is a snapshot: edits and cycle changes must refresh it during playback.
+useDAWStore.subscribe((state, previous) => {
+  const clipsChanged = state.tracks !== previous.tracks && (state.tracks.length !== previous.tracks.length ||
+    state.tracks.some((track, i) => track.id !== previous.tracks[i]?.id || track.clips !== previous.tracks[i]?.clips));
+  if (state.isPlaying && (clipsChanged || state.isLooping !== previous.isLooping ||
+      state.loopStart !== previous.loopStart || state.loopEnd !== previous.loopEnd)) {
+    dawAudioEngine.seek(dawAudioEngine.currentTime, state.tracks, state.isLooping, state.loopStart, state.loopEnd);
+  }
+});
+
+// Restored clips need decoded source lengths for accurate waveform crops and trims.
+// Peak generation is derived data, so update history snapshots without adding edits.
+function preloadProjectAudio(projectId: string, tracks: DAWTrack[]) {
+  for (const url of new Set(tracks.flatMap(t => t.clips.map(c => c.audioUrl)))) {
+    void dawAudioEngine.loadAudioBuffer(url).then(buffer => {
+      const peaks = dawAudioEngine.computePeaks(buffer);
+      useDAWStore.setState(state => {
+        if (state.projectId !== projectId) return state;
+        const refresh = (list: DAWTrack[]) => list.map(t => ({ ...t,
+          clips: t.clips.map(c => c.audioUrl === url ? { ...c, peaks } : c) }));
+        const nextTracks = refresh(state.tracks);
+        return { tracks: nextTracks, history: state.history.map(snapshot => ({ ...snapshot,
+          tracks: snapshot.tracks === state.tracks ? nextTracks : refresh(snapshot.tracks) })) };
+      });
+    }).catch(() => { /* Missing source assets remain recoverable via portable sessions. */ });
+  }
+}

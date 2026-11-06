@@ -3,11 +3,13 @@ import { useStore } from '../../store/useStore';
 import { audioManager } from '../../lib/audio';
 import { useGlobalKeyboardShortcuts } from '../../hooks/useGlobalKeyboardShortcuts';
 import { getStreamableAudioUrl } from '../../lib/utils';
+import { useDAWStore } from '../../store/useDAWStore';
 
 export function GlobalAudioPlayer() {
   useGlobalKeyboardShortcuts();
   
   const audioRef = useRef<HTMLAudioElement>(null);
+  const isDAW = useStore(s => s.activeTab === 'daw');
   const audioUrl = useStore(s => s.audioUrl);
   const streamUrl = getStreamableAudioUrl(audioUrl);
   const audioFile = useStore(s => s.audioFile);
@@ -78,6 +80,7 @@ export function GlobalAudioPlayer() {
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
+    if (isDAW) return;
 
     const trackChanged = prevTrackIndexRef.current !== currentTrackIndex || prevAudioUrlRef.current !== streamUrl;
     if (trackChanged) {
@@ -88,12 +91,13 @@ export function GlobalAudioPlayer() {
     } else if (Math.abs(el.currentTime - currentTime) > 0.35) {
       el.currentTime = currentTime;
     }
-  }, [currentTrackIndex, streamUrl, currentTime]);
+  }, [currentTrackIndex, streamUrl, currentTime, isDAW]);
 
   // Sync play/pause state safely
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
+    if (isDAW) { el.pause(); return; }
 
     let isSubscribed = true;
 
@@ -139,7 +143,7 @@ export function GlobalAudioPlayer() {
     return () => {
       isSubscribed = false;
     };
-  }, [isPlaying, streamUrl, setIsPlaying]);
+  }, [isPlaying, streamUrl, setIsPlaying, isDAW]);
 
   // Sync loop state
   useEffect(() => {
@@ -150,7 +154,7 @@ export function GlobalAudioPlayer() {
 
   // High-frequency continuous clock sync during active playback (eliminates 250ms ontimeupdate stutter)
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || isDAW) return;
 
     let animId: number;
     let lastDispatchedTime = -1;
@@ -167,7 +171,7 @@ export function GlobalAudioPlayer() {
 
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, [isPlaying]);
+  }, [isPlaying, isDAW]);
 
   // Sync MediaSession metadata and action handlers for browser/keyboard/bluetooth controls
   useEffect(() => {
@@ -183,19 +187,24 @@ export function GlobalAudioPlayer() {
 
       try {
         navigator.mediaSession.setActionHandler('play', () => {
-          setIsPlaying(true);
+          if (useStore.getState().activeTab === 'daw') useDAWStore.getState().play();
+          else setIsPlaying(true);
         });
         navigator.mediaSession.setActionHandler('pause', () => {
-          setIsPlaying(false);
+          if (useStore.getState().activeTab === 'daw') useDAWStore.getState().pause();
+          else setIsPlaying(false);
         });
         navigator.mediaSession.setActionHandler('stop', () => {
-          setIsPlaying(false);
+          if (useStore.getState().activeTab === 'daw') useDAWStore.getState().stop();
+          else setIsPlaying(false);
         });
         navigator.mediaSession.setActionHandler('previoustrack', () => {
-          previousTrack();
+          if (useStore.getState().activeTab === 'daw') useDAWStore.getState().navigateMarker(-1);
+          else previousTrack();
         });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-          nextTrack();
+          if (useStore.getState().activeTab === 'daw') useDAWStore.getState().navigateMarker(1);
+          else nextTrack();
         });
       } catch (err) {
         console.warn('MediaSession handler setup:', err);
@@ -209,10 +218,10 @@ export function GlobalAudioPlayer() {
       src={streamUrl || undefined}
       crossOrigin={(!streamUrl || streamUrl.startsWith('blob:') || streamUrl.startsWith('/')) ? undefined : "anonymous"}
       preload="auto"
-      onPlay={() => setIsPlaying(true)}
-      onPause={() => setIsPlaying(false)}
+      onPlay={() => { if (useStore.getState().activeTab !== 'daw') setIsPlaying(true); }}
+      onPause={() => { if (useStore.getState().activeTab !== 'daw') setIsPlaying(false); }}
       onTimeUpdate={() => {
-        if (audioRef.current) {
+        if (audioRef.current && useStore.getState().activeTab !== 'daw') {
           setCurrentTime(audioRef.current.currentTime);
         }
       }}
@@ -222,6 +231,7 @@ export function GlobalAudioPlayer() {
         }
       }}
       onEnded={() => {
+        if (useStore.getState().activeTab === 'daw') return;
         if (useStore.getState().exportResolutionOverride) {
           return;
         }

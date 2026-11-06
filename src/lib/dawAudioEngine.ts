@@ -1,12 +1,16 @@
 import { DAWClip, DAWTrack } from '../types/daw';
+import { applyTrackEQ, clampGain, createTrackEQ, scheduleClipEnvelope, TrackEQNodes } from './dawAudioProcessing';
 
 export class DAWAudioEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private masterAnalyser: AnalyserNode | null = null;
+  private masterVolume = 1;
+  private playbackGeneration = 0;
+  private currentTracks: DAWTrack[] = [];
   
-  // Track node graph cache: trackId -> { gain, panner }
-  private trackNodes: Map<string, { gain: GainNode; panner: StereoPannerNode }> = new Map();
+  // Per-track EQ -> pan -> fader, shared by all clips on the track.
+  private trackNodes: Map<string, { gain: GainNode; panner: StereoPannerNode; eq: TrackEQNodes }> = new Map();
   
   // AudioBuffer cache: url -> AudioBuffer
   private bufferCache: Map<string, AudioBuffer> = new Map();
@@ -40,7 +44,7 @@ export class DAWAudioEngine {
       this.ctx = new AudioContextClass();
       
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = 1.0;
+      this.masterGain.gain.value = this.masterVolume;
       
       this.masterAnalyser = this.ctx.createAnalyser();
       this.masterAnalyser.fftSize = 1024;
@@ -71,6 +75,10 @@ export class DAWAudioEngine {
 
   public setOnTimeUpdate(cb: ((time: number) => void) | null) {
     this.onTimeUpdateCallback = cb;
+  }
+
+  public getCachedBuffer(url: string): AudioBuffer | undefined {
+    return this.bufferCache.get(url);
   }
 
   // Preload and decode an audio buffer from URL or Blob
@@ -117,7 +125,7 @@ export class DAWAudioEngine {
   }
 
   // Ensure track routing nodes exist
-  private getOrCreateTrackNode(track: DAWTrack): { gain: GainNode; panner: StereoPannerNode } {
+  private getOrCreateTrackNode(track: DAWTrack) {
     const ctx = this.getContext();
     if (this.trackNodes.has(track.id)) {
       return this.trackNodes.get(track.id)!;
@@ -125,38 +133,59 @@ export class DAWAudioEngine {
 
     const gain = ctx.createGain();
     const panner = ctx.createStereoPanner();
+    const eq = createTrackEQ(ctx);
 
+    eq.high.connect(panner);
     panner.connect(gain);
     gain.connect(this.masterGain!);
 
-    const nodeEntry = { gain, panner };
+    const nodeEntry = { gain, panner, eq };
     this.trackNodes.set(track.id, nodeEntry);
     return nodeEntry;
   }
 
   // Update track volume, pan, mute, and solo states
-  public updateTrackParameters(tracks: DAWTrack[]) {
+  public updateTrackParameters(tracks: DAWTrack[], smooth = true) {
+    this.currentTracks = tracks;
     const hasSolo = tracks.some(t => t.solo);
+    const trackIds = new Set(tracks.map(track => track.id));
+    for (const [id, nodes] of this.trackNodes) {
+      if (!trackIds.has(id)) {
+        nodes.eq.low.disconnect(); nodes.eq.mid.disconnect(); nodes.eq.high.disconnect();
+        nodes.panner.disconnect(); nodes.gain.disconnect();
+        this.trackNodes.delete(id);
+      }
+    }
 
     for (const track of tracks) {
-      const { gain, panner } = this.getOrCreateTrackNode(track);
+      const { gain, panner, eq } = this.getOrCreateTrackNode(track);
       
       // Calculate effective volume considering mute & solo
-      let effectiveVolume = track.volume;
+      let effectiveVolume = clampGain(track.volume);
       if (track.muted) {
         effectiveVolume = 0;
       } else if (hasSolo && !track.solo) {
         effectiveVolume = 0;
       }
 
-      gain.gain.setTargetAtTime(effectiveVolume, this.getContext().currentTime, 0.02);
-      panner.pan.setTargetAtTime(Math.max(-1, Math.min(1, track.pan)), this.getContext().currentTime, 0.02);
+      const when = this.getContext().currentTime;
+      const pan = Math.max(-1, Math.min(1, track.pan));
+      if (smooth) {
+        gain.gain.setTargetAtTime(effectiveVolume, when, 0.02);
+        panner.pan.setTargetAtTime(pan, when, 0.02);
+      } else {
+        gain.gain.cancelScheduledValues(when); panner.pan.cancelScheduledValues(when);
+        gain.gain.setValueAtTime(effectiveVolume, when);
+        panner.pan.setValueAtTime(pan, when);
+      }
+      applyTrackEQ(eq, track.eq, when, smooth);
     }
   }
 
   public setMasterVolume(vol: number) {
+    this.masterVolume = clampGain(vol);
     if (this.masterGain) {
-      this.masterGain.gain.setTargetAtTime(Math.max(0, Math.min(1.5, vol)), this.getContext().currentTime, 0.02);
+      this.masterGain.gain.setTargetAtTime(this.masterVolume, this.getContext().currentTime, 0.02);
     }
   }
 
@@ -170,12 +199,13 @@ export class DAWAudioEngine {
   ) {
     const ctx = this.getContext();
     this.stopAllSources();
+    const generation = this.playbackGeneration;
 
     this.playheadPosition = startTime;
     this.playbackStartTime = ctx.currentTime;
     this._isPlaying = true;
 
-    this.updateTrackParameters(tracks);
+    this.updateTrackParameters(tracks, false);
 
     // Schedule all visible clips across all tracks
     for (const track of tracks) {
@@ -194,19 +224,19 @@ export class DAWAudioEngine {
             // Lazy load buffer in background
             this.loadAudioBuffer(clip.audioUrl)
               .then(loadedBuffer => {
-                if (this._isPlaying) {
-                  this.scheduleClip(clip, loadedBuffer, trackNodes.panner, startTime);
+                if (this._isPlaying && generation === this.playbackGeneration) {
+                  this.scheduleClip(clip, loadedBuffer, trackNodes.eq.low, this.currentTime);
                 }
               })
               .catch(err => console.warn(`Failed to preload clip "${clip.name}":`, err));
           } else {
-            this.scheduleClip(clip, buffer, trackNodes.panner, startTime);
+            this.scheduleClip(clip, buffer, trackNodes.eq.low, startTime);
           }
         }
       }
     }
 
-    this.startTimeLoop(isLooping, loopStart, loopEnd, tracks);
+    this.startTimeLoop(isLooping, loopStart, loopEnd);
   }
 
   // Schedule an individual clip buffer to start at its calculated offset
@@ -220,39 +250,31 @@ export class DAWAudioEngine {
     if (!ctx || !this._isPlaying) return;
 
     try {
+      // Decode may finish after transport has advanced; never replay late audio.
+      const transportTime = Math.max(playbackStartOffset, this.currentTime);
+      const elapsed = Math.max(0, transportTime - clip.startTime);
+      const sourceOffset = Math.max(0, clip.sourceStart) + elapsed;
+      const remaining = Math.min(clip.duration - elapsed, buffer.duration - sourceOffset,
+        (clip.sourceEnd ?? buffer.duration) - sourceOffset);
+      if (!(remaining > 0)) return;
+      const when = ctx.currentTime + Math.max(0, clip.startTime - transportTime);
       const source = ctx.createBufferSource();
       source.buffer = buffer;
 
       // Clip local gain node for fade-ins, fade-outs, and per-clip volume
       const clipGain = ctx.createGain();
-      clipGain.gain.value = clip.volume ?? 1.0;
+      scheduleClipEnvelope(clipGain.gain, clip, when, elapsed);
 
       source.connect(clipGain);
       clipGain.connect(destinationNode);
 
-      const timelineClipStart = clip.startTime;
-      const audioSourceOffset = clip.sourceStart;
-      const clipDuration = clip.duration;
-
-      if (playbackStartOffset <= timelineClipStart) {
-        // Playhead is BEFORE clip start: schedule to start in future
-        const delaySeconds = timelineClipStart - playbackStartOffset;
-        const when = ctx.currentTime + delaySeconds;
-        source.start(when, audioSourceOffset, clipDuration);
-      } else {
-        // Playhead is INSIDE the clip: start immediately with offset
-        const elapsedIntoClip = playbackStartOffset - timelineClipStart;
-        const remainingDuration = clipDuration - elapsedIntoClip;
-        const newSourceOffset = audioSourceOffset + elapsedIntoClip;
-
-        if (remainingDuration > 0) {
-          source.start(ctx.currentTime, newSourceOffset, remainingDuration);
-        }
-      }
+      source.start(when, sourceOffset, remaining);
 
       this.activeSources.set(clip.id, source);
 
       source.onended = () => {
+        source.disconnect();
+        clipGain.disconnect();
         if (this.activeSources.get(clip.id) === source) {
           this.activeSources.delete(clip.id);
         }
@@ -262,7 +284,7 @@ export class DAWAudioEngine {
     }
   }
 
-  private startTimeLoop(isLooping: boolean, loopStart: number, loopEnd: number, tracks: DAWTrack[]) {
+  private startTimeLoop(isLooping: boolean, loopStart: number, loopEnd: number) {
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
     }
@@ -274,7 +296,7 @@ export class DAWAudioEngine {
 
       if (isLooping && loopEnd > loopStart && current >= loopEnd) {
         // Loop back to loopStart
-        this.play(loopStart, tracks, isLooping, loopStart, loopEnd);
+        this.play(loopStart, this.currentTracks, isLooping, loopStart, loopEnd);
         return;
       }
 
@@ -335,6 +357,8 @@ export class DAWAudioEngine {
   }
 
   private stopAllSources() {
+    // Invalidates decodes still pending from an earlier play/seek operation.
+    this.playbackGeneration++;
     for (const source of this.activeSources.values()) {
       try {
         source.stop();
@@ -485,16 +509,19 @@ export class DAWAudioEngine {
   public async bounceProjectToWav(
     tracks: DAWTrack[], 
     duration: number,
-    sampleRate = 44100
+    sampleRate = 44100,
+    masterVolume = this.masterVolume
   ): Promise<Blob> {
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error('Mix duration must be positive.');
     const offlineCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
     const offlineMasterGain = offlineCtx.createGain();
+    offlineMasterGain.gain.value = clampGain(masterVolume);
     offlineMasterGain.connect(offlineCtx.destination);
 
     const hasSolo = tracks.some(t => t.solo);
 
     for (const track of tracks) {
-      let effectiveVolume = track.volume;
+      let effectiveVolume = clampGain(track.volume);
       if (track.muted || (hasSolo && !track.solo)) {
         effectiveVolume = 0;
       }
@@ -505,28 +532,37 @@ export class DAWAudioEngine {
 
       const trackPanner = offlineCtx.createStereoPanner();
       trackPanner.pan.value = Math.max(-1, Math.min(1, track.pan));
+      const eq = createTrackEQ(offlineCtx);
+      applyTrackEQ(eq, track.eq, 0);
+      eq.high.connect(trackPanner);
 
       trackPanner.connect(trackGain);
       trackGain.connect(offlineMasterGain);
 
       for (const clip of track.clips) {
-        if (clip.isMuted) continue;
+        if (clip.isMuted || clip.startTime >= duration) continue;
 
         let buffer = this.bufferCache.get(clip.audioUrl);
         if (!buffer) {
           buffer = await this.loadAudioBuffer(clip.audioUrl);
         }
+        const elapsed = Math.max(0, -clip.startTime);
+        const sourceOffset = Math.max(0, clip.sourceStart) + elapsed;
+        const remaining = Math.min(clip.duration - elapsed, buffer.duration - sourceOffset,
+          (clip.sourceEnd ?? buffer.duration) - sourceOffset, duration - Math.max(0, clip.startTime));
+        if (!(remaining > 0)) continue;
+        const when = Math.max(0, clip.startTime);
 
         const source = offlineCtx.createBufferSource();
         source.buffer = buffer;
 
         const clipGain = offlineCtx.createGain();
-        clipGain.gain.value = clip.volume ?? 1.0;
+        scheduleClipEnvelope(clipGain.gain, clip, when, elapsed);
 
         source.connect(clipGain);
-        clipGain.connect(trackPanner);
+        clipGain.connect(eq.low);
 
-        source.start(clip.startTime, clip.sourceStart, clip.duration);
+        source.start(when, sourceOffset, remaining);
       }
     }
 

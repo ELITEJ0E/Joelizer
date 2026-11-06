@@ -76,6 +76,11 @@ export function DAWTopBar() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const sessionInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!exportNotice || isExporting) return;
+    const timer = window.setTimeout(() => setExportNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [exportNotice, isExporting]);
 
   // Format time MM:SS:ms
   const formatTransportTime = (sec: number) => {
@@ -89,7 +94,7 @@ export function DAWTopBar() {
     try {
       setIsExporting(true);
       setExportNotice('Rendering multitrack master mix to WAV...');
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration);
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration, 44100, masterVolume);
       const url = URL.createObjectURL(wavBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -110,7 +115,7 @@ export function DAWTopBar() {
     try {
       setIsExporting(true);
       setExportNotice('Bouncing multitrack mix for Music Video Studio...');
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration);
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(tracks, projectDuration, 44100, masterVolume);
       const audioUrl = URL.createObjectURL(wavBlob);
 
       // Load into primary project store
@@ -192,12 +197,12 @@ export function DAWTopBar() {
   };
 
   return (
-    <div className="h-14 bg-[#0c0d12] border-b border-white/10 px-3 sm:px-4 flex items-center justify-between gap-2 shrink-0 select-none text-slate-200 z-30">
+    <div className="studio-topbar bg-[#0c0d12] border-b border-white/10 px-3 sm:px-4 flex items-center justify-between gap-2 shrink-0 select-none text-slate-200 z-50">
       {/* Toast Notice */}
       {exportNotice && (
         <div 
-          className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full border text-xs font-black uppercase tracking-wider text-black shadow-2xl flex items-center gap-2 animate-bounce"
-          style={{ backgroundColor: activeColor, borderColor: '#ffffff', boxShadow: `0 0 20px ${activeColor}` }}
+          role="status" className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 w-max max-w-[90vw] px-4 py-2 rounded-lg border text-xs text-slate-200 shadow-xl flex items-center gap-2"
+          style={{ backgroundColor: '#122321', borderColor: `${activeColor}66` }}
         >
           <Sparkles size={14} />
           {exportNotice}
@@ -208,6 +213,7 @@ export function DAWTopBar() {
       <div className="flex items-center gap-3 min-w-0">
         <input
           type="text"
+          aria-label="Project name"
           value={projectName}
           onChange={e => setProjectName(e.target.value)}
           className="bg-transparent text-sm font-black text-white hover:bg-white/5 focus:bg-black/60 px-2 py-1 rounded border border-transparent focus:border-white/20 focus:outline-none max-w-[140px] sm:max-w-[200px] truncate"
@@ -215,10 +221,11 @@ export function DAWTopBar() {
         />
 
         {/* BPM Input */}
-        <div className="hidden sm:flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
+        <div className="flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
           <span className="text-[10px] text-slate-500 font-bold uppercase">BPM</span>
           <input
             type="number"
+            aria-label="Tempo (BPM)"
             min={40}
             max={280}
             value={bpm}
@@ -228,9 +235,10 @@ export function DAWTopBar() {
         </div>
 
         {/* Key Selector */}
-        <div className="hidden md:flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
+        <div className="flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
           <span className="text-[10px] text-slate-500 font-bold uppercase">KEY</span>
           <select
+            aria-label="Project key"
             value={key}
             onChange={e => setKey(e.target.value)}
             className="bg-transparent text-xs font-bold text-slate-200 focus:outline-none cursor-pointer"
@@ -242,8 +250,9 @@ export function DAWTopBar() {
         </div>
 
         {/* Time Signature */}
-        <div className="hidden lg:flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
+        <div className="flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
           <select
+            aria-label="Time signature"
             value={timeSignature}
             onChange={e => setTimeSignature(e.target.value)}
             className="bg-transparent text-xs font-bold text-slate-300 focus:outline-none cursor-pointer"
@@ -258,13 +267,14 @@ export function DAWTopBar() {
       {/* CENTER: Transport Controls (Play, Pause, Stop, Record, Display) */}
       <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Time Display */}
-        <div className="bg-black border border-white/15 px-3 py-1 rounded-lg text-xs font-mono font-black text-emerald-400 tracking-wider shadow-inner hidden sm:block">
+        <div aria-label="Transport time" className="bg-black border border-white/15 px-3 py-1 rounded-lg text-xs font-mono font-black text-emerald-400 tracking-wider shadow-inner">
           {formatTransportTime(currentTime)}
         </div>
 
         {/* Stop Button */}
         <button
           onClick={stop}
+          aria-label="Stop playback"
           className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-colors"
           title="Stop & Reset to 0:00 (Space)"
         >
@@ -274,6 +284,7 @@ export function DAWTopBar() {
         {/* Play / Pause Toggle */}
         <button
           onClick={isPlaying ? pause : play}
+          aria-label={isPlaying ? 'Pause playback' : 'Play playback'}
           className="p-2.5 rounded-xl border text-black font-black transition-all shadow-lg active:scale-95"
           style={{ 
             backgroundColor: activeColor, 
@@ -292,6 +303,7 @@ export function DAWTopBar() {
         {/* Record Take Button */}
         <button
           onClick={isRecording ? stopRecording : startRecording}
+          aria-label={isRecording ? 'Stop recording' : 'Record audio'}
           className={`p-2.5 rounded-xl border font-bold transition-all ${
             isRecording
               ? 'bg-rose-600 border-rose-400 text-white animate-pulse shadow-lg shadow-rose-600/50'
@@ -307,6 +319,7 @@ export function DAWTopBar() {
         {/* Loop Toggle */}
         <button
           onClick={toggleLoop}
+          aria-label="Loop playback" aria-pressed={isLooping}
           className={`p-2 rounded-lg border transition-colors ${
             isLooping
               ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
@@ -346,7 +359,7 @@ export function DAWTopBar() {
         </div>
 
         {/* Snap to Grid */}
-        <div className="hidden xl:flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs">
+        <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs">
           <button
             onClick={() => setSnapToGrid(!snapToGrid)}
             className={`text-[10px] font-mono font-bold uppercase transition-colors ${snapToGrid ? 'text-emerald-400' : 'text-slate-500'}`}
@@ -354,15 +367,18 @@ export function DAWTopBar() {
             Snap: {snapToGrid ? 'ON' : 'OFF'}
           </button>
           <select
+            aria-label="Snap grid division"
             value={gridDivision}
             onChange={e => setGridDivision(e.target.value as any)}
             className="bg-transparent text-[10px] font-mono font-bold text-slate-300 focus:outline-none"
           >
-            <option value="1/1" className="bg-[#0c0d12]">1/1 Bar</option>
+            <option value="1/1" className="bg-[#0c0d12]">1/1</option>
             <option value="1/2" className="bg-[#0c0d12]">1/2</option>
-            <option value="1/4" className="bg-[#0c0d12]">1/4 Beat</option>
+            <option value="1/4" className="bg-[#0c0d12]">1/4</option>
             <option value="1/8" className="bg-[#0c0d12]">1/8</option>
             <option value="1/16" className="bg-[#0c0d12]">1/16</option>
+            <option value="1/32" className="bg-[#0c0d12]">1/32</option>
+            <option value="off" className="bg-[#0c0d12]">Off</option>
           </select>
         </div>
 
@@ -386,7 +402,7 @@ export function DAWTopBar() {
         </div>
 
         {/* Undo / Redo */}
-        <div className="hidden sm:flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5">
           <button
             onClick={undo}
             disabled={historyIndex <= 0}

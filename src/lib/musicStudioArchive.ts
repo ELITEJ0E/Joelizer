@@ -43,7 +43,8 @@ export async function exportMusicSession(project: DAWProject): Promise<Blob> {
         : blob.type.includes('flac') ? 'flac'
         : blob.type.includes('mp4') ? 'm4a' : 'wav';
       const path = 'audio/clip-' + assetPaths.size + '.' + extension;
-      zip.file(path, blob);
+      // ArrayBuffer works in browsers and Node's native Blob implementation.
+      zip.file(path, await blob.arrayBuffer());
       assetPaths.set(clip.audioUrl, path);
       clip.audioUrl = path;
     }
@@ -60,7 +61,7 @@ export async function exportMusicSession(project: DAWProject): Promise<Blob> {
 /** Returns object URLs that must remain valid for the duration of the session. */
 export async function importMusicSession(file: Blob): Promise<MusicSessionArchive> {
   if (file.size > MAX_TOTAL_BYTES) throw new Error('Session archive exceeds 800 MB.');
-  const zip = await JSZip.loadAsync(file);
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const manifest = zip.file('project.json');
   if (!manifest) throw new Error('This file is missing Music Studio project.json.');
   const parsed = JSON.parse(await manifest.async('string'));

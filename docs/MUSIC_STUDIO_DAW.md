@@ -2,6 +2,8 @@
 
 **Status:** A dedicated, integrated browser DAW using Joelizer's existing transport, editing and audio engine. This is a functional production foundation, not yet a complete replacement for FL Studio, GarageBand, or BandLab.
 
+The [arrangement and mixing update](DAW_IMPLEMENTATION.md) adds persistent song markers, a precise clip inspector, repeat and loop-selection workflows, three-band track EQ, matching playback/export fades and gain, and responsive pointer/keyboard editing. See that report for the exact delivered scope, checks and remaining work.
+
 ## Where it is
 
 Open **Music Studio** in the top navigation, next to MV Studio and separate from **Audio Lab**. The shortcut is **5**. Audio Lab remains focused on mastering, A/B analysis and file provenance.

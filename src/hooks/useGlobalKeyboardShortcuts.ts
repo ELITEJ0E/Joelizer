@@ -9,6 +9,8 @@ import { audioManager } from '../lib/audio';
 export function useGlobalKeyboardShortcuts() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Music Studio owns transport, marker and clip keyboard gestures.
+      if (useStore.getState().activeTab === 'daw') return;
       // Ignore keyboard shortcuts if video export is active
       if (useStore.getState().exportResolutionOverride) {
         return;
@@ -17,7 +19,7 @@ export function useGlobalKeyboardShortcuts() {
       // Ignore if user is typing in an input, textarea, or contentEditable element
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) {
         return;
       }
 

@@ -76,7 +76,7 @@ async function bounceDrumRack(
   return encodeLabWav(rendered, 24);
 }
 
-export function MusicStudioBrowser() {
+export function MusicStudioBrowser({ onClose }: { onClose?: () => void }) {
   const [tab, setTab] = useState<'samples' | 'drums' | 'piano' | 'synth'>('samples');
   const [samples, setSamples] = useState<Sample[]>([]);
   const [search, setSearch] = useState('');
@@ -180,7 +180,9 @@ export function MusicStudioBrowser() {
     <aside aria-label="Music Studio sample and instrument browser" className="flex h-full w-full flex-col overflow-hidden border-r border-white/10 bg-[#0b0e15] text-slate-200">
       <header className="border-b border-white/10 p-3">
         <div className="flex items-center gap-2 font-semibold text-sm text-white">
-          <Layers size={16} className="text-cyan-300" /> Browser & Instruments
+          <Layers size={16} className="text-cyan-300" />
+          <span className="min-w-0 flex-1 truncate">Browser & Instruments</span>
+          {onClose && <button type="button" className="studio-icon" aria-label="Close instrument browser" title="Close browser" onClick={onClose}><X size={15}/></button>}
         </div>
         <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
           Sample-based production · original synthesizers · multitrack clips
