@@ -137,6 +137,11 @@ export async function buildCanonicalProjectJson(options?: {
       duration: Number((clip.endTime - clip.startTime).toFixed(3)),
       trimStart: Number(clip.trimStart.toFixed(3)),
       trimEnd: Number(clip.trimEnd.toFixed(3)),
+      fit: clip.fit,
+      zoom: clip.zoom,
+      heightScale: clip.heightScale,
+      offsetX: clip.offsetX,
+      offsetY: clip.offsetY,
       effect: clip.effect || 'none',
       transition: clip.transition || 'cut'
     });
