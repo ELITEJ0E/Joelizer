@@ -1,4 +1,6 @@
 import { DAWClip, DAWTrack } from '../types/daw';
+import { scheduleDawClipEnvelope, dawSafePeakGain } from './dawMixing';
+import { encodeLabWav, type WavBitDepth } from './audioLabEngine';
 
 export class DAWAudioEngine {
   private ctx: AudioContext | null = null;
@@ -19,6 +21,7 @@ export class DAWAudioEngine {
   private playheadPosition = 0; // Current time in seconds
   private playbackStartTime = 0; // AudioContext.currentTime when playback was initiated
   private animFrameId: number | null = null;
+  private lastUiTick = 0;
   private onTimeUpdateCallback: ((time: number) => void) | null = null;
   
   // Recording state
@@ -223,9 +226,9 @@ export class DAWAudioEngine {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
 
-      // Clip local gain node for fade-ins, fade-outs, and per-clip volume
+      // Apply the same gain/fade automation used by offline WAV mixdown.
       const clipGain = ctx.createGain();
-      clipGain.gain.value = clip.volume ?? 1.0;
+      clipGain.gain.value = 0;
 
       source.connect(clipGain);
       clipGain.connect(destinationNode);
@@ -238,6 +241,7 @@ export class DAWAudioEngine {
         // Playhead is BEFORE clip start: schedule to start in future
         const delaySeconds = timelineClipStart - playbackStartOffset;
         const when = ctx.currentTime + delaySeconds;
+        scheduleDawClipEnvelope(clipGain.gain, clip, when, 0, clipDuration);
         source.start(when, audioSourceOffset, clipDuration);
       } else {
         // Playhead is INSIDE the clip: start immediately with offset
@@ -246,6 +250,7 @@ export class DAWAudioEngine {
         const newSourceOffset = audioSourceOffset + elapsedIntoClip;
 
         if (remainingDuration > 0) {
+          scheduleDawClipEnvelope(clipGain.gain, clip, ctx.currentTime, elapsedIntoClip, remainingDuration);
           source.start(ctx.currentTime, newSourceOffset, remainingDuration);
         }
       }
@@ -278,7 +283,10 @@ export class DAWAudioEngine {
         return;
       }
 
-      if (this.onTimeUpdateCallback) {
+      // Avoid re-rendering the entire React DAW tree at the display's 120 Hz
+      // refresh rate; audio scheduling remains on the Web Audio clock.
+      if (this.onTimeUpdateCallback && (this.getContext().currentTime - this.lastUiTick >= 1/30)) {
+        this.lastUiTick = this.getContext().currentTime;
         this.onTimeUpdateCallback(current);
       }
 
@@ -483,12 +491,15 @@ export class DAWAudioEngine {
   // --- MULTITRACK MIXDOWN & EXPORT ---
 
   public async bounceProjectToWav(
-    tracks: DAWTrack[], 
+    tracks: DAWTrack[],
     duration: number,
-    sampleRate = 44100
+    sampleRate = 44100,
+    masterVolume = 1,
+    bitDepth: WavBitDepth = 24
   ): Promise<Blob> {
     const offlineCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
     const offlineMasterGain = offlineCtx.createGain();
+    offlineMasterGain.gain.value = Math.max(0, Math.min(1.5, masterVolume));
     offlineMasterGain.connect(offlineCtx.destination);
 
     const hasSolo = tracks.some(t => t.solo);
@@ -521,17 +532,35 @@ export class DAWAudioEngine {
         source.buffer = buffer;
 
         const clipGain = offlineCtx.createGain();
-        clipGain.gain.value = clip.volume ?? 1.0;
+        clipGain.gain.value = 0;
 
         source.connect(clipGain);
         clipGain.connect(trackPanner);
 
-        source.start(clip.startTime, clip.sourceStart, clip.duration);
+        const actualDuration = Math.min(clip.duration, buffer.duration - clip.sourceStart, duration - clip.startTime);
+        if (actualDuration <= 0) continue;
+        scheduleDawClipEnvelope(clipGain.gain, clip, clip.startTime, 0, actualDuration);
+        source.start(clip.startTime, clip.sourceStart, actualDuration);
       }
     }
 
     const renderedBuffer = await offlineCtx.startRendering();
-    return this.audioBufferToWavBlob(renderedBuffer);
+    let peak = 0;
+    for (let channel = 0; channel < renderedBuffer.numberOfChannels; channel++) {
+      const data = renderedBuffer.getChannelData(channel);
+      for (let sample = 0; sample < data.length; sample++) {
+        const magnitude = Math.abs(data[sample]);
+        if (magnitude > peak) peak = magnitude;
+      }
+    }
+    const gain = dawSafePeakGain(peak, -1);
+    if (gain < 1) {
+      for (let channel = 0; channel < renderedBuffer.numberOfChannels; channel++) {
+        const data = renderedBuffer.getChannelData(channel);
+        for (let sample = 0; sample < data.length; sample++) data[sample] *= gain;
+      }
+    }
+    return encodeLabWav(renderedBuffer, bitDepth);
   }
 
   // Convert AudioBuffer to standard 16-bit PCM WAV Blob
