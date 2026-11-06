@@ -39,13 +39,15 @@ export function DAWClipItem({ clip, track, isSelected, zoom, onSelect }: DAWClip
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.max(1, canvas.clientWidth);
+    const h = Math.max(1, canvas.clientHeight);
 
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.scale(dpr, dpr);
+    // Wide clips at high zoom can exceed browser canvas limits. Draw a capped
+    // raster and let CSS stretch it across the timeline instead.
+    canvas.width = Math.min(4096, Math.ceil(w * dpr));
+    canvas.height = Math.min(512, Math.ceil(h * dpr));
+    ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
 
     ctx.clearRect(0, 0, w, h);
 
