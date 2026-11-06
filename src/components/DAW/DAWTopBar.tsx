@@ -252,6 +252,18 @@ export function DAWTopBar() {
             className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-400/20 disabled:opacity-40">
             Save session
           </button>
+        <div className="relative shrink-0">
+          <button type="button" aria-expanded={showAddTrackMenu} onClick={()=>setShowAddTrackMenu(!showAddTrackMenu)}
+            className="flex items-center gap-1 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1.5 font-semibold text-cyan-200 hover:bg-cyan-400/20">
+            <Plus size={13}/> Add track <ChevronDown size={12}/>
+          </button>
+          {showAddTrackMenu && <div className="absolute left-0 top-full z-[90] mt-2 max-h-80 w-44 overflow-y-auto rounded-xl border border-white/15 bg-[#172333] p-1.5 shadow-2xl">
+            {(['VOCAL','GUITAR','DRUMS','SYNTH','KEYS','BASS','AUDIO','AI'] as TrackType[]).map(type=>
+              <button type="button" key={type}
+                className="block w-full rounded-lg px-3 py-2 text-left text-xs text-slate-200 hover:bg-white/10"
+                onClick={()=>{addTrack(type);setShowAddTrackMenu(false);}}>+ {type.charAt(0)+type.slice(1).toLowerCase()}</button>)}
+          </div>}
+        </div>
           <div className="relative">
             <button type="button" aria-expanded={showExportMenu} disabled={isExporting}
               onClick={()=>setShowExportMenu(!showExportMenu)}
@@ -326,18 +338,6 @@ export function DAWTopBar() {
             className="rounded p-1.5 text-slate-400 hover:bg-white/10 disabled:opacity-25"><Undo2 size={15}/></button>
           <button type="button" aria-label="Redo" disabled={historyIndex>=history.length-1} title="Redo" onClick={redo}
             className="rounded p-1.5 text-slate-400 hover:bg-white/10 disabled:opacity-25"><Redo2 size={15}/></button>
-        </div>
-        <div className="relative shrink-0">
-          <button type="button" aria-expanded={showAddTrackMenu} onClick={()=>setShowAddTrackMenu(!showAddTrackMenu)}
-            className="flex items-center gap-1 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1.5 font-semibold text-cyan-200 hover:bg-cyan-400/20">
-            <Plus size={13}/> Add track <ChevronDown size={12}/>
-          </button>
-          {showAddTrackMenu && <div className="absolute left-0 top-full z-[90] mt-2 max-h-80 w-44 overflow-y-auto rounded-xl border border-white/15 bg-[#172333] p-1.5 shadow-2xl">
-            {(['VOCAL','GUITAR','DRUMS','SYNTH','KEYS','BASS','AUDIO','AI'] as TrackType[]).map(type=>
-              <button type="button" key={type}
-                className="block w-full rounded-lg px-3 py-2 text-left text-xs text-slate-200 hover:bg-white/10"
-                onClick={()=>{addTrack(type);setShowAddTrackMenu(false);}}>+ {type.charAt(0)+type.slice(1).toLowerCase()}</button>)}
-          </div>}
         </div>
         <label className="ml-auto flex shrink-0 items-center gap-2 pl-2 text-[10px] text-slate-500">
           <Volume2 size={14} className="text-cyan-300"/> Master
