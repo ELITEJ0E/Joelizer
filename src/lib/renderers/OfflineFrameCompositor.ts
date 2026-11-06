@@ -120,14 +120,6 @@ async function atTime(media: StageMedia, seconds: number): Promise<void> {
   media.lastFrame = target;
 }
 
-function cover(ctx: CanvasRenderingContext2D, source: CanvasImageSource, width: number, height: number, sw: number, sh: number) {
-  const scale = Math.max(width / sw, height / sh);
-  const dw = sw * scale, dh = sh * scale;
-  ctx.drawImage(source, (width - dw) / 2, (height - dh) / 2, dw, dh);
-}
-
-
-
 export class OfflineFrameCompositor {
   readonly canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
