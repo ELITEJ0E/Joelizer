@@ -265,6 +265,37 @@ export interface DrawBackgroundSettings {
   vignette?: number;
 }
 
+export interface MediaFrameSettings {
+  fit?: 'cover' | 'contain';
+  zoom?: number;
+  heightScale?: number;
+  offsetX?: number;
+  offsetY?: number;
+}
+
+/** Same user-selected crop and position for live MV frames and offline exports. */
+export function drawFramedMedia(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  canvasW: number,
+  canvasH: number,
+  sourceW: number,
+  sourceH: number,
+  settings: MediaFrameSettings = {}
+): void {
+  if (sourceW <= 0 || sourceH <= 0) return;
+  const base = settings.fit === 'contain'
+    ? Math.min(canvasW / sourceW, canvasH / sourceH)
+    : Math.max(canvasW / sourceW, canvasH / sourceH);
+  const zoom = Math.max(0.25, Math.min(4, settings.zoom ?? 1));
+  const height = Math.max(0.25, Math.min(3, settings.heightScale ?? 1));
+  const drawW = sourceW * base * zoom;
+  const drawH = sourceH * base * zoom * height;
+  const x = (canvasW - drawW) / 2 + Math.max(-1, Math.min(1, settings.offsetX ?? 0)) * canvasW * 0.5;
+  const y = (canvasH - drawH) / 2 + Math.max(-1, Math.min(1, settings.offsetY ?? 0)) * canvasH * 0.5;
+  ctx.drawImage(source, x, y, drawW, drawH);
+}
+
 // Helper to draw background video or animated particle canvas
 export function drawBackgroundCanvas(
   ctx: CanvasRenderingContext2D,
