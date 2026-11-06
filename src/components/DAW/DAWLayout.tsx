@@ -52,74 +52,69 @@ export function DAWLayout() {
     return () => clearInterval(interval);
   }, [isRecording]);
 
-  // Global Keyboard Shortcuts
+  // Install one stable keyboard handler. Reading the current Zustand snapshot
+  // avoids removing/reinstalling listeners 30 times per second as time advances.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing inside an input/textarea
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName) || (e.target as HTMLElement)?.isContentEditable) {
+      const target = e.target as HTMLElement | null;
+      if (!target || target.isContentEditable ||
+          ['INPUT','TEXTAREA','SELECT','BUTTON'].includes(target.tagName) ||
+          e.altKey) return;
+      const state = useDAWStore.getState();
+      const key = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) state.redo();
+        else state.undo();
         return;
       }
-
-      if (e.altKey || (e.ctrlKey && e.key.toLowerCase() !== 'z' && e.key.toLowerCase() !== 'y')) return;
-
-      // Space: Play / Pause
+      if ((e.ctrlKey || e.metaKey) && key === 'y') {
+        e.preventDefault(); state.redo(); return;
+      }
+      if ((e.ctrlKey || e.metaKey) && key === 'd' && state.selectedClipId) {
+        e.preventDefault(); state.duplicateClip(state.selectedClipId); return;
+      }
+      if (e.ctrlKey || e.metaKey) return;
       if (e.code === 'Space') {
         e.preventDefault();
-        if (isPlaying) pause();
-        else play();
-      }
-
-      // R: Record
-      if (e.key.toLowerCase() === 'r' && !e.metaKey && !e.ctrlKey) {
+        if (state.isPlaying) state.pause(); else state.play();
+      } else if (key === 'r') {
         e.preventDefault();
-        if (isRecording) stopRecording();
-        else startRecording();
-      }
-
-      // S: Split selected clip at playhead
-      if (e.key.toLowerCase() === 's' && !e.metaKey && !e.ctrlKey) {
-        if (selectedClipId) {
+        if (state.isRecording) void state.stopRecording();
+        else void state.startRecording();
+      } else if (key === 'v') {
+        state.setActiveTool('select');
+      } else if (key === 'e') {
+        state.setActiveTool('erase');
+      } else if (key === 's') {
+        if (state.selectedClipId) {
           e.preventDefault();
-          splitClip(selectedClipId, currentTime);
-        }
-      }
-
-      // Delete / Backspace: Remove selected clip
-      if (e.key === 'Backspace' || e.key === 'Delete') {
-        if (selectedClipId) {
-          e.preventDefault();
-          removeClip(selectedClipId);
-        }
-      }
-
-      // Cmd+Z / Ctrl+Z: Undo
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+          state.splitClip(state.selectedClipId,state.currentTime);
+        } else state.setActiveTool('split');
+      } else if ((key === 'delete' || key === 'backspace') && state.selectedClipId) {
         e.preventDefault();
-        undo();
-      }
-
-      // Cmd+Shift+Z / Ctrl+Y: Redo
-      if ((e.metaKey || e.ctrlKey) && ((e.shiftKey && e.key.toLowerCase() === 'z') || e.key.toLowerCase() === 'y')) {
+        state.removeClip(state.selectedClipId);
+      } else if (key === 'b') {
+        setBrowserOpen(open=>!open);
+      } else if (key === 'i') {
+        setInspectorOpen(open=>!open);
+      } else if (key === 'm') {
+        setMixerOpen(open=>!open);
+      } else if (e.code === 'BracketLeft') {
         e.preventDefault();
-        redo();
-      }
-
-      // [ : Set Loop Region Start
-      if ((e.key === '[' || (!e.shiftKey && e.code === 'BracketLeft')) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        state.setLoopRegion(state.currentTime,Math.max(state.currentTime+.5,state.loopEnd));
+      } else if (e.code === 'BracketRight') {
         e.preventDefault();
-        setLoopRegion(currentTime, Math.max(currentTime + 0.5, loopEnd));
-      }
-
-      // ] : Set Loop Region End
-      if ((e.key === ']' || (!e.shiftKey && e.code === 'BracketRight')) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        state.setLoopRegion(Math.min(state.loopStart,Math.max(0,state.currentTime-.5)),state.currentTime);
+      } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
         e.preventDefault();
-        setLoopRegion(Math.min(loopStart, Math.max(0, currentTime - 0.5)), currentTime);
+        const beat=60/state.bpm;
+        state.seek(Math.max(0,state.currentTime+(e.code==='ArrowLeft'?-beat:beat)));
       }
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, isRecording, play, pause, startRecording, stopRecording, selectedClipId, currentTime, splitClip, removeClip, undo, redo, setLoopRegion, loopStart, loopEnd]);
+    window.addEventListener('keydown',handleKeyDown);
+    return () => window.removeEventListener('keydown',handleKeyDown);
+  },[]);
 
   const armedTrack = tracks.find(t => t.id === armedTrackId);
   const clipCount = tracks.reduce((count, track) => count + track.clips.length, 0);
@@ -180,6 +175,10 @@ export function DAWLayout() {
             <span><strong className="text-cyan-200">S</strong> Split at playhead</span>
             <span><strong className="text-cyan-200">Delete</strong> Remove selected clip</span>
             <span><strong className="text-cyan-200">Ctrl/Cmd+Z</strong> Undo</span>
+            <span><strong className="text-cyan-200">V / E</strong> Select / Erase</span>
+            <span><strong className="text-cyan-200">B / I / M</strong> Browser / Inspector / Mixer</span>
+            <span><strong className="text-cyan-200">Ctrl/Cmd+D</strong> Duplicate clip</span>
+            <span><strong className="text-cyan-200">← / →</strong> Seek one beat</span>
             <span><strong className="text-cyan-200">[ / ]</strong> Loop points</span>
           </div>}
           <DAWTimeline />
