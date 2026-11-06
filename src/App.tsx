@@ -10,6 +10,7 @@ import { KeyboardShortcutsModal } from './components/Shell/KeyboardShortcutsModa
 import { ExportModal } from './components/Editor/ExportModal';
 import { AudioSourceModal } from './components/Audio/AudioSourceModal';
 import { AudioMasteringLabModal } from './components/Audio/AudioMasteringLabModal';
+import { DAWLayout } from './components/DAW/DAWLayout';
 import { StudioLayout } from './components/Studio/StudioLayout';
 import { GlobalAudioPlayer } from './components/Audio/GlobalAudioPlayer';
 import { MVStudioLayout } from './components/MVStudio/MVStudioLayout';
@@ -74,6 +75,8 @@ export default function App() {
         setActiveTab('mv-studio');
       } else if (e.key === '4') {
         setActiveTab('audio-lab');
+      } else if (e.key === '5') {
+        setActiveTab('daw');
       }
     };
 
@@ -119,6 +122,12 @@ export default function App() {
         {activeTab === 'mv-studio' && (
           <div className="flex-1 overflow-hidden relative animate-in fade-in duration-150">
             <MVStudioLayout />
+          </div>
+        )}
+
+        {activeTab === 'daw' && (
+          <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden relative">
+            <DAWLayout />
           </div>
         )}
 
