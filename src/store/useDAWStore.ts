@@ -685,7 +685,10 @@ export const useDAWStore = create<DAWState>()(
         // --- Undo / Redo History ---
         commitHistory: () => {
           const { tracks, history, historyIndex } = get();
-          const trimmedHistory = history.slice(0, historyIndex + 1);
+          // Clip editing can send many updates during a pointer gesture.
+          // Keep only meaningful snapshots, and cap undo memory.
+          if (history[historyIndex] === tracks) return;
+          const trimmedHistory = history.slice(Math.max(0, historyIndex - 79), historyIndex + 1);
           set({
             history: [...trimmedHistory, tracks],
             historyIndex: trimmedHistory.length
