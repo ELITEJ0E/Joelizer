@@ -12,6 +12,8 @@ export interface MasterSettings {
   presenceDb: number;
   airDb: number;
   compressionEnabled: boolean;
+  /** Parallel processing mix: 0 = original, 100 = processed. */
+  wetMixPercent: number;
   compressorThresholdDb: number;
   compressorRatio: number;
   targetRmsDbfs: number;
@@ -41,22 +43,22 @@ export const SPECTRAL_BANDS = [
 export const MASTER_PRESETS: Record<MasterPreset, MasterSettings> = {
   balanced: {
     highPassHz: 25, lowShelfDb: 0, presenceDb: 0.8, airDb: 0.6,
-    compressionEnabled: true, compressorThresholdDb: -20, compressorRatio: 2,
+    compressionEnabled: true, wetMixPercent: 85, compressorThresholdDb: -20, compressorRatio: 2,
     targetRmsDbfs: -16, samplePeakCeilingDbfs: -1, bitDepth: 24
   },
   warm: {
     highPassHz: 25, lowShelfDb: 1.6, presenceDb: -0.4, airDb: 0,
-    compressionEnabled: true, compressorThresholdDb: -22, compressorRatio: 2.2,
+    compressionEnabled: true, wetMixPercent: 75, compressorThresholdDb: -22, compressorRatio: 2.2,
     targetRmsDbfs: -16, samplePeakCeilingDbfs: -1, bitDepth: 24
   },
   bright: {
     highPassHz: 28, lowShelfDb: -0.5, presenceDb: 1.2, airDb: 1.8,
-    compressionEnabled: true, compressorThresholdDb: -19, compressorRatio: 2,
+    compressionEnabled: true, wetMixPercent: 75, compressorThresholdDb: -19, compressorRatio: 2,
     targetRmsDbfs: -16, samplePeakCeilingDbfs: -1, bitDepth: 24
   },
   transparent: {
     highPassHz: 20, lowShelfDb: 0, presenceDb: 0, airDb: 0,
-    compressionEnabled: false, compressorThresholdDb: -20, compressorRatio: 2,
+    compressionEnabled: false, wetMixPercent: 100, compressorThresholdDb: -20, compressorRatio: 2,
     targetRmsDbfs: -18, samplePeakCeilingDbfs: -1, bitDepth: 24
   }
 };
@@ -227,6 +229,19 @@ export async function masterLabAudio(
   node.connect(offline.destination);
   input.start(0);
   const rendered = await offline.startRendering();
+  // Blend the processed signal with the original before normalization.
+  // Parallel blending retains some original transient character and can
+  // reduce audible over-processing without changing the source file.
+  const wet = clamp(settings.wetMixPercent ?? 100, 0, 100) / 100;
+  if (wet < 1) {
+    for (let channel = 0; channel < rendered.numberOfChannels; channel++) {
+      const processed = rendered.getChannelData(channel);
+      const dry = source.getChannelData(channel);
+      for (let i = 0; i < processed.length; i++) {
+        processed[i] = processed[i] * wet + dry[i] * (1 - wet);
+      }
+    }
+  }
   const measured = measureAudio(rendered);
   const desired = Math.pow(10, clamp(settings.targetRmsDbfs - measured.rmsDbfs, -24, 12) / 20);
   const ceiling = Math.pow(10, clamp(settings.samplePeakCeilingDbfs, -6, -0.1) / 20);
