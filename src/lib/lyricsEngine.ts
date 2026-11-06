@@ -40,6 +40,11 @@ export interface RenderLyricsVideoOptions {
     videoUrl?: string;
     imageElement?: HTMLImageElement | null;
     videoElement?: HTMLVideoElement | VideoFrame | null;
+    fit?: 'cover' | 'contain';
+    zoom?: number;
+    heightScale?: number;
+    offsetX?: number;
+    offsetY?: number;
     blur?: number;
     dim?: number;
     brightness?: number;
@@ -1420,6 +1425,11 @@ export function renderLyricsVideoFrame(
       type: bgType,
       value: bgValue,
       videoElement: videoElem,
+      fit: options.customBackground?.fit,
+      zoom: options.customBackground?.zoom,
+      heightScale: options.customBackground?.heightScale,
+      offsetX: options.customBackground?.offsetX,
+      offsetY: options.customBackground?.offsetY,
       imageElement: bgType === 'image'
         ? selectedBackgroundImg
         : (options.customBackground?.imageElement || albumArtImg),
