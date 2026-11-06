@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
 import { 
-  Download, Music, AlignLeft, Disc3, Film, Keyboard, Monitor, SlidersHorizontal
+  Download, Music, AlignLeft, Disc3, Film, Keyboard, Monitor, SlidersHorizontal, Piano
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StudioButton } from '../ui/StudioButton';
@@ -41,6 +41,12 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
       label: 'MV Studio',
       title: 'MV Studio — Cinematic Multi-Track Video Timeline',
       icon: Film
+    },
+    {
+      id: 'daw' as const,
+      label: 'Music Studio',
+      title: 'Music Studio — Multitrack DAW, instruments, samples and mixing',
+      icon: Piano
     },
     {
       id: 'audio-lab' as const,
@@ -111,7 +117,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
                   strokeWidth={isActive ? 2.2 : 1.8}
                 />
                 <span className="font-medium tracking-wide">
-                  <span className="sm:hidden">{ws.id === 'lrc' ? 'LRC' : ws.id === 'lyrics' ? 'Lyrics' : ws.id === 'mv-studio' ? 'MV' : 'Audio Lab'}</span>
+                  <span className="sm:hidden">{ws.id === 'lrc' ? 'LRC' : ws.id === 'lyrics' ? 'Lyrics' : ws.id === 'mv-studio' ? 'MV' : ws.id === 'daw' ? 'DAW' : 'Audio Lab'}</span>
                   <span className="hidden sm:inline">{ws.label}</span>
                 </span>
               </StudioButton>
