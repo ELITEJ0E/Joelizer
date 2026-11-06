@@ -42,11 +42,12 @@ try {
   const runtimeErrors: string[] = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
   await page.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'domcontentloaded' });
-  // Audio Lab is a workspace tab immediately beside MV Studio.
-  const adjacent = await page.locator('#topbar-tab-mv-studio').evaluate((mv) =>
-    mv.nextElementSibling?.id === 'topbar-tab-audio-lab'
+  // Music Studio now sits between MV Studio and the separate mastering Audio Lab.
+  const correctlyOrdered = await page.locator('#topbar-tab-mv-studio').evaluate((mv) =>
+    mv.nextElementSibling?.id === 'topbar-tab-daw' &&
+    mv.nextElementSibling?.nextElementSibling?.id === 'topbar-tab-audio-lab'
   );
-  assert.ok(adjacent, 'Audio Lab should be beside MV Studio in the main navigation');
+  assert.ok(correctlyOrdered, 'Music Studio must have its own tab before the separate Audio Lab');
   await page.locator('#topbar-tab-audio-lab').click();
 
   const dialog = page.getByRole('region', { name: 'Joelizer Audio Mastering and Provenance Lab' });
