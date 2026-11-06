@@ -56,6 +56,7 @@ export default function App() {
       if (
         target?.tagName === 'INPUT' ||
         target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT' ||
         target?.isContentEditable
       ) {
         return;

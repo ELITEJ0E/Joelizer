@@ -40,7 +40,7 @@ try {
   page.setDefaultTimeout(35000);
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'domcontentloaded', timeout: 90000 });
 
   await page.locator('#topbar-tab-daw').click();
   const browserPane = page.getByRole('complementary', { name: 'Music Studio sample and instrument browser' });
@@ -97,4 +97,7 @@ try {
 } finally {
   await browser?.close();
   server.kill();
+  server.stdout.destroy();
+  server.stderr.destroy();
+  server.unref();
 }

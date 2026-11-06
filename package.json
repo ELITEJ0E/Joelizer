@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/tests/productionAudit.test.ts"
+    "test": "tsx src/tests/productionAudit.test.ts",
+    "test:daw:unit": "tsx src/tests/dawArrangement.test.ts && tsx src/tests/dawAudioProcessing.test.ts && tsx src/tests/musicStudioArchive.test.ts",
+    "test:daw:browser": "tsx src/tests/dawAudioEngine.browser.test.ts && tsx src/tests/dawArrangement.browser.test.ts && tsx src/tests/musicStudio.browser.test.ts"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",

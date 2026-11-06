@@ -5,6 +5,9 @@ import { DAWTopBar } from './DAWTopBar';
 import { DAWTimeline } from './DAWTimeline';
 import { DAWMixerPanel } from './DAWMixerPanel';
 import { MusicStudioBrowser } from './MusicStudioBrowser';
+import { DAWInspector } from './DAWInspector';
+import { ArrangementMarkers } from './ArrangementMarkers';
+import './studio.css';
 import { Circle, Mic, Volume2, Sparkles, Plus, Layers, Zap, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { dawAudioEngine } from '../../lib/dawAudioEngine';
 
@@ -31,7 +34,15 @@ export function DAWLayout() {
   const loopEnd = useDAWStore(s => s.loopEnd);
 
   const [inputLevel, setInputLevel] = useState(0);
-  const [browserOpen, setBrowserOpen] = useState(true);
+  const [browserOpen, setBrowserOpen] = useState(() => window.innerWidth >= 900);
+  const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth >= 1280);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => () => {
+    const state = useDAWStore.getState();
+    if (state.isPlaying) state.pause();
+    if (state.isRecording) void state.stopRecording();
+  }, []);
 
   // Monitor live input level during recording
   useEffect(() => {
@@ -51,8 +62,22 @@ export function DAWLayout() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing inside an input/textarea
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+      if (e.defaultPrevented || (e.target as HTMLElement)?.closest('input,textarea,select,[contenteditable=true],[role=dialog]')) {
         return;
+      }
+      if (e.code === 'Space' && (e.target as HTMLElement)?.closest('button')) return;
+
+      const state = useDAWStore.getState();
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key.toLowerCase() === 'm') { e.preventDefault(); state.addMarker(); }
+        if (e.key.toLowerCase() === 'l') { e.preventDefault(); state.loopSelectedClip(); }
+        if (e.key.toLowerCase() === 'v') state.setActiveTool('select');
+        if (e.key.toLowerCase() === 'e') state.setActiveTool('erase');
+        if (e.shiftKey && e.key === 'ArrowLeft') { e.preventDefault(); state.navigateMarker(-1); }
+        if (e.shiftKey && e.key === 'ArrowRight') { e.preventDefault(); state.navigateMarker(1); }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && state.selectedClipId) {
+        e.preventDefault(); state.duplicateClip(state.selectedClipId);
       }
 
       // Space: Play / Pause
@@ -118,26 +143,29 @@ export function DAWLayout() {
   const recordingDuration = Math.max(0, currentTime - recordingStartTime);
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#050508] overflow-hidden select-none font-sans relative">
+    <div className="music-workstation flex flex-col h-full w-full bg-[#080c14] overflow-hidden select-none font-sans relative">
       {/* Top Workstation Bar */}
       <DAWTopBar />
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-[#0c111b] shrink-0 text-slate-300">
+        <button className="studio-action" aria-expanded={browserOpen} aria-label={browserOpen ? 'Collapse instrument browser' : 'Expand instrument browser'} onClick={() => { setBrowserOpen(v => !v); if (window.innerWidth < 900) setInspectorOpen(false); }}><PanelLeftOpen size={13}/>Library</button>
+        <span className="flex-1 text-[10px] uppercase tracking-[.15em] text-slate-500 truncate">{tracks.length} tracks · {tracks.reduce((n,t) => n + t.clips.length,0)} clips</span>
+        <button className="studio-action" aria-pressed={helpOpen} onClick={() => setHelpOpen(v => !v)}>Shortcuts</button>
+        <button className="studio-action" aria-expanded={inspectorOpen} onClick={() => { setInspectorOpen(v => !v); if (window.innerWidth < 900) setBrowserOpen(false); }}>Inspector</button>
+      </div>
+      {helpOpen && <div className="px-3 py-2 text-[11px] text-slate-300 bg-violet-400/10 border-b border-violet-400/20 shrink-0 leading-6">Space: play / pause · R: record · S: split · M: add marker · L: loop clip · Shift + arrows: markers · Ctrl / Cmd + D: duplicate · Ctrl / Cmd + Z: undo · Delete: remove clip</div>}
+      <ArrangementMarkers />
 
       {/* Dedicated DAW — arrange clips against the transport alongside the sample library. */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
         <div className={browserOpen
-          ? 'w-[300px] sm:w-[340px] max-w-[40vw] min-w-0 shrink-0 overflow-hidden border-r border-white/10'
+          ? 'absolute inset-0 z-40 md:relative md:inset-auto w-full md:w-[300px] lg:w-[320px] min-w-0 shrink-0 overflow-hidden border-r border-white/10'
           : 'hidden'}>
           <MusicStudioBrowser />
         </div>
         <div className="relative flex min-w-0 flex-1 flex-col">
-          <button type="button" onClick={() => setBrowserOpen(v => !v)}
-            aria-label={browserOpen ? 'Collapse instrument browser' : 'Expand instrument browser'}
-            title={browserOpen ? 'Collapse instrument browser' : 'Expand instrument browser'}
-            className="absolute left-1 top-1 z-30 flex items-center justify-center rounded border border-white/20 bg-[#131a25] p-1.5 text-slate-300 hover:text-white">
-            {browserOpen ? <PanelLeftClose size={13}/> : <PanelLeftOpen size={13}/>}
-          </button>
           <DAWTimeline />
         </div>
+        {inspectorOpen && <div className="absolute inset-0 z-40 md:left-auto md:w-[280px] xl:static xl:shrink-0 border-l border-white/10"><DAWInspector /></div>}
       </div>
 
       {/* Console Mixer Strip */}
