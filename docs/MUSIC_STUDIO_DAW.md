@@ -18,10 +18,12 @@ Open **Music Studio** in the top navigation, next to MV Studio and separate from
 
 **5. Arrange, mix, record and export.** The existing DAW provides a multitrack timeline, split/trim/duplicate, drag clips, snap-to-grid, zoom, play/pause/seek, looping, microphone recording, track-level volume/pan/mute/solo, mixer panel, undo/redo, and WAV master bounce. The Music Studio top bar also supports exporting its mix into MV Studio.
 
+**6. Save and reopen portable sessions.** Use **Mix → Save Portable Session ZIP + Audio** to download the arrangement and audio assets together. Use **Open Session** in the DAW toolbar to restore a ZIP. This is the recommended save format for locally imported audio; the older JSON export does not include its audio bytes.
+
 ## Important limitations
 
 - **No VST/AU plugin hosting** is implemented: browsers cannot directly run desktop VST3/AU plugins like a desktop DAW.
-- Browser audio files imported as local object URLs remain usable **in the current session**. The existing project JSON records their clip references but does not embed original file bytes. Keep the sample files and exported master; a cold reload may require reimporting local assets.
+- Browser audio files imported as local object URLs remain usable **in the current session**. Use **portable session ZIP** for reopenable sessions including audio assets. The separate existing project JSON export is reference-only; a cold reload of JSON alone may require reimporting local assets.
 - The piano roll currently renders note grids into PCM audio clips; it is not a persistent MIDI editor or MIDI file importer.
 - Drum-rack and piano-roll sample playback is offline-rendered, with no automatic time-stretching of source samples. Long sample tails can be truncated at pattern boundaries.
 - The music studio's real-sample workflow is separate from Audio Lab's mastering and C2PA/provenance inspection.
