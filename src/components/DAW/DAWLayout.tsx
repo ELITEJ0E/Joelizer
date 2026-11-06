@@ -155,7 +155,9 @@ export function DAWLayout() {
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-        {browserOpen && <div className="relative h-52 w-full shrink-0 border-b border-white/10 md:h-full md:w-[var(--browser-width)] md:border-b-0"
+        <div className={browserOpen
+          ? "relative h-52 w-full shrink-0 border-b border-white/10 md:h-full md:w-[var(--browser-width)] md:border-b-0"
+          : "hidden"}
           style={{'--browser-width': browserWidth + 'px'} as React.CSSProperties}>
           <MusicStudioBrowser />
           <div role="separator" aria-orientation="vertical" aria-label="Resize sample browser"
@@ -167,7 +169,7 @@ export function DAWLayout() {
               const onUp=()=>{window.removeEventListener('pointermove',onMove);window.removeEventListener('pointerup',onUp);};
               window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);
             }} />
-        </div>}
+        </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {helpOpen && <div className="flex shrink-0 flex-wrap gap-x-5 gap-y-1 border-b border-cyan-400/20 bg-cyan-400/5 px-4 py-2 text-[11px] text-slate-300">
             <span><strong className="text-cyan-200">Space</strong> Play / pause</span>
