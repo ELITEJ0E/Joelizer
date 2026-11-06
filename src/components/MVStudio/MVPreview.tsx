@@ -37,7 +37,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const activeClip = timelineClips.find(c => currentTime >= c.startTime && currentTime <= c.endTime);
   const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
   const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
-  const editableClip = videoMode === 'music-video' && activeClip && (activeClip.type === 'video' || activeClip.type === 'image');
+  const activeAssetType = videoAssets.find(a => a.id === activeClip?.assetId)?.type;
+  const editableClip = videoMode === 'music-video' && activeClip &&
+    (activeClip.type === 'video' || (!activeClip.type && activeAssetType === 'video'));
   const editableVideo = videoMode === 'lyrics-video' ? customBackground.type === 'video' : !!editableClip;
   const frameSettings = videoMode === 'lyrics-video' ? customBackground : activeClip;
   const updateFrameSettings = (settings: { offsetX?: number; offsetY?: number; zoom?: number; heightScale?: number; fit?: 'contain' | 'cover' }) => {
