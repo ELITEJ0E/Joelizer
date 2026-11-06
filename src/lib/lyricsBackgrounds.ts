@@ -252,6 +252,11 @@ export interface DrawBackgroundSettings {
   videoUrl?: string;
   imageElement?: HTMLImageElement | null;
   videoElement?: HTMLVideoElement | VideoFrame | null;
+  fit?: 'cover' | 'contain';
+  zoom?: number;
+  heightScale?: number;
+  offsetX?: number;
+  offsetY?: number;
   blur?: number;
   dim?: number;
   brightness?: number;
@@ -360,13 +365,20 @@ export function drawBackgroundCanvas(
       // export timestamp. Never initiate an asynchronous seek from a draw.
       const vW = decodedFrame ? video.displayWidth : (video as HTMLVideoElement).videoWidth || 1280;
       const vH = decodedFrame ? video.displayHeight : (video as HTMLVideoElement).videoHeight || 720;
-      const scale = Math.max(W / vW, H / vH);
-      const drawW = vW * scale;
-      const drawH = vH * scale;
+      const baseScale = bgSettings.fit === 'contain'
+        ? Math.min(W / vW, H / vH) : Math.max(W / vW, H / vH);
+      const zoom = Math.max(0.25, Math.min(4, bgSettings.zoom ?? 1));
+      const heightScale = Math.max(0.25, Math.min(3, bgSettings.heightScale ?? 1));
+      const drawW = vW * baseScale * zoom;
+      const drawH = vH * baseScale * zoom * heightScale;
+      const offsetX = Math.max(-1, Math.min(1, bgSettings.offsetX ?? 0)) * W * 0.5;
+      const offsetY = Math.max(-1, Math.min(1, bgSettings.offsetY ?? 0)) * H * 0.5;
 
       const filterStr = buildImageFilter();
       if (filterStr !== 'none') ctx.filter = filterStr;
-      ctx.drawImage(video, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(video, (W - drawW) / 2 + offsetX, (H - drawH) / 2 + offsetY, drawW, drawH);
       if (filterStr !== 'none') ctx.filter = 'none';
 
       // Explicit dim control: if user specified dim, respect it (0 = perfectly sharp un-dimmed video)
