@@ -42,6 +42,26 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   const setShowSafeArea = useLyricsVideoStore(s => s.setShowSafeArea);
 
   const aspectRatio = useStore(s => s.aspectRatio);
+  const currentTrackIndex = useStore(s => s.currentTrackIndex);
+  const currentTrack = useStore(s => s.tracks[s.currentTrackIndex]);
+  const updateTrackMetadata = useStore(s => s.updateTrackMetadata);
+  const [editingMetaField, setEditingMetaField] = useState<'name' | 'artist' | null>(null);
+  const [metaDraft, setMetaDraft] = useState('');
+
+  const beginMetaEdit = (field: 'name' | 'artist') => {
+    const track = useStore.getState().tracks[useStore.getState().currentTrackIndex];
+    if (!track) return;
+    setSelectedElement('meta');
+    setEditingMetaField(field);
+    setMetaDraft(field === 'name' ? track.name : (track.artist || ''));
+  };
+
+  const finishMetaEdit = (save: boolean) => {
+    if (save && metaDraft.trim() && editingMetaField !== null) {
+      updateTrackMetadata(currentTrackIndex, { [editingMetaField]: metaDraft.trim() });
+    }
+    setEditingMetaField(null);
+  };
   const visualizerSettings = useStore(s => s.visualizerSettings);
   const updateVisualizerSettings = useStore(s => s.updateVisualizerSettings);
 
@@ -102,11 +122,11 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       case 'meta': {
         const title = currentTrack?.name || 'Untitled Track';
         const artist = currentTrack?.artist || 'Joelizer Studio';
-        const fontSize = Math.max(12, Math.round(stageHeight * 0.024));
+        const fontSize = Math.max(14, Math.round(stageHeight * (isVertical ? 0.026 : 0.028)));
         const titleW = title.length * fontSize * 0.55;
         const artistW = artist.length * (fontSize * 0.8) * 0.55;
         const w = Math.min(stageWidth * 0.88, Math.max(110, Math.max(titleW, artistW) + 28));
-        const h = Math.max(28, Math.round(fontSize * 2.5 + 8));
+        const h = Math.max(36, Math.round(fontSize * 2.5 + 8));
         return { w, h };
       }
       case 'lyrics': {
@@ -509,7 +529,9 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   // Double click resets scale to 100%
   const handleDoubleClick = (e: React.MouseEvent, key: ElementKey) => {
     e.stopPropagation();
-    if (key === 'visualizer') {
+    if (key === 'meta') {
+      beginMetaEdit('name');
+    } else if (key === 'visualizer') {
       updateVisualizerSettings({ scale: 1.0 });
     } else if (key === 'artwork') {
       updateArtworkOverride({ sizeScale: 1.0 });
@@ -780,6 +802,42 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
               touchAction: 'none'
             }}
           >
+            {key === 'meta' && currentTrack && (
+              <div className="absolute inset-0 flex flex-col items-stretch justify-center z-20" style={{ touchAction: 'auto' }}>
+                {(['name', 'artist'] as const).map(field => (
+                  editingMetaField === field ? (
+                    <input
+                      key={field}
+                      autoFocus
+                      aria-label={field === 'name' ? 'Edit song title' : 'Edit artist name'}
+                      value={metaDraft}
+                      onChange={e => setMetaDraft(e.target.value)}
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => e.stopPropagation()}
+                      onDoubleClick={e => e.stopPropagation()}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); finishMetaEdit(true); }
+                        if (e.key === 'Escape') { e.preventDefault(); finishMetaEdit(false); }
+                      }}
+                      onBlur={() => finishMetaEdit(true)}
+                      className="w-full rounded bg-[#0e1115]/95 border border-accent text-white text-center outline-none px-1 shadow-xl"
+                      style={{ height: '50%', fontSize: field === 'name' ? Math.max(12, stageHeight * 0.026) : Math.max(11, stageHeight * 0.020) }}
+                    />
+                  ) : (
+                    <button
+                      key={field}
+                      type="button"
+                      aria-label={field === 'name' ? 'Click to edit song title' : 'Click to edit artist name'}
+                      title={field === 'name' ? 'Click to edit song title' : 'Click to edit artist name'}
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); beginMetaEdit(field); }}
+                      onDoubleClick={e => e.stopPropagation()}
+                      className="w-full h-1/2 bg-transparent hover:bg-accent/10 focus-visible:bg-accent/10 cursor-text border-0 rounded"
+                    />
+                  )
+                ))}
+              </div>
+            )}
             {isSelected && (
               <>
                 {/* Element Badge (Canva / PPT Header) */}
