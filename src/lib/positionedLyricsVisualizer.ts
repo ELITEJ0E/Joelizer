@@ -18,8 +18,11 @@ export function drawPositionedLyricsVisualizer(
   if (settings.enabled === false) return;
   const portrait = height > width;
   const scale = Math.max(0.2, settings.scale ?? 1);
-  const boxW = Math.round((portrait ? Math.min(width * 0.62, 280) : Math.min(width * 0.28, 300)) * scale);
-  const boxH = Math.round(Math.min(height * 0.082, 52) * scale);
+  // Size in video-relative units, not fixed screen pixels. The previous
+  // 280x52 hard cap made a 1080p/4K exported spectrum almost invisible.
+  // Keep the same relative size in editor preview and encoded frames.
+  const boxW = Math.round((portrait ? width * 0.62 : width * 0.28) * scale);
+  const boxH = Math.round((portrait ? height * 0.045 : height * 0.082) * scale);
   const frequency = frequencyData?.length ? frequencyData : new Uint8Array(1024);
   const waveform = timeData?.length ? timeData : new Uint8Array(1024).fill(128);
 
