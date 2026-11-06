@@ -801,6 +801,9 @@ function renderSongMeta(
     ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
     ctx.shadowBlur = 8;
     const titleText = truncateWithEllipsis(ctx, metadata.title, maxWidth);
+    ctx.lineWidth = Math.max(2, fontSize * 0.13);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.88)';
+    ctx.strokeText(titleText, posX, posY);
     ctx.fillText(titleText, posX, posY);
   }
 
@@ -810,6 +813,9 @@ function renderSongMeta(
     ctx.fillStyle = 'rgba(255, 255, 255, 0.70)';
     ctx.shadowBlur = 4;
     const artistText = truncateWithEllipsis(ctx, metadata.artist, maxWidth);
+    ctx.lineWidth = Math.max(2, artistSize * 0.12);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.88)';
+    ctx.strokeText(artistText, posX, posY + fontSize * 1.35);
     ctx.fillText(artistText, posX, posY + fontSize * 1.35);
   }
 
@@ -1482,7 +1488,7 @@ export function renderLyricsVideoFrame(
   }
 
   // 4. Render Song Title & Artist - suppressed when showMeta is false
-  if (options.showMeta !== false && (template.layout.showSongTitle || template.layout.showArtist)) {
+  if (options.showMeta !== false && (metadata.title || metadata.artist)) {
     renderSongMeta(ctx, W, H, metadata, template, metaPos, options);
   }
 
