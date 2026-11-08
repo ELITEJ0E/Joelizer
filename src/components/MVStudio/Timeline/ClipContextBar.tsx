@@ -103,13 +103,17 @@ export function ClipContextBar({
       {onUpdateTransition && (
         <div className="relative flex items-center">
           <select
-            value={clip.transition || 'cut'}
+            value={clip.transition || 'crossfade'}
             onChange={(e) => onUpdateTransition(e.target.value)}
             disabled={clip.locked}
             className="bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] rounded px-2 py-0.5 text-[10px] text-[#c9d1d9] outline-none cursor-pointer appearance-none pr-4.5"
           >
             <option value="cut" className="bg-[#0e1115]">Trans: Cut</option>
+            <option value="crossfade" className="bg-[#0e1115]">Crossfade / Mix</option>
             <option value="fade" className="bg-[#0e1115]">Fade</option>
+            <option value="morph" className="bg-[#0e1115]">Morph</option>
+            <option value="slide" className="bg-[#0e1115]">Slide</option>
+            <option value="zoom" className="bg-[#0e1115]">Zoom</option>
             <option value="dissolve" className="bg-[#0e1115]">Dissolve</option>
             <option value="glitch" className="bg-[#0e1115]">Glitch</option>
           </select>
