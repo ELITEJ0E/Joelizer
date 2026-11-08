@@ -1,3 +1,4 @@
+import { StyledSelect } from '../ui/StyledSelect';
 import React, { useEffect, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import {
@@ -293,11 +294,11 @@ export function PhonkSynthDesigner({ onInsert }: { onInsert?: (blob: Blob, name:
             <div className="space-y-4">
               <label className="flex items-center justify-between gap-2">
                 <span className={label}>Pitch / key</span>
-                <select aria-label="Synth pitch" value={settings.note}
+                <StyledSelect aria-label="Synth pitch" value={settings.note}
                   className="rounded border border-white/15 bg-[#121a24] px-3 py-1.5 text-xs text-white"
                   onChange={e => update('note', Number(e.target.value))}>
                   {midiNotes.map(n => <option key={n} value={n}>{noteName(n)}</option>)}
-                </select>
+                </StyledSelect>
               </label>
               <Knob title="Sound length" value={settings.duration} min={0.2} max={8} step={0.1}
                 unit=" s" onChange={v => update('duration', v)} />
@@ -327,10 +328,10 @@ export function PhonkSynthDesigner({ onInsert }: { onInsert?: (blob: Blob, name:
                 value={tempo} onChange={e => setTempo(Math.max(60, Math.min(220, Number(e.target.value) || 60)))} /> BPM
             </label>
             <label className={label}>Bars
-              <select aria-label="Loop bars" value={bars} onChange={e => setBars(Number(e.target.value))}
+              <StyledSelect aria-label="Loop bars" value={bars} onChange={e => setBars(Number(e.target.value))}
                 className="ml-2 rounded border border-white/15 bg-[#121a24] px-2 py-1.5 text-white">
                 {[1, 2, 4, 8].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
+              </StyledSelect>
             </label>
             <button type="button" className={action} onClick={() =>
               setPattern(Object.fromEntries(PHONK_LANES.map(lane => [lane, [...PHONK_PATTERNS[style][lane]]])) as PhonkPattern)}>
