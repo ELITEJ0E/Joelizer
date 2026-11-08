@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
@@ -638,29 +639,34 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <label className="min-w-0 space-y-1">
                     <span className="block text-xs font-medium text-slate-300">Aspect ratio</span>
-                    <select value={aspectRatio}
-                      onChange={e => handleAspectRatioChange(e.target.value as AspectRatioType)}
-                      className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-2.5 text-xs text-white outline-none focus:border-accent">
-                      {(['16:9', '9:16', '1:1', '4:5', '3:4', '4:3'] as AspectRatioType[]).map(value =>
-                        <option key={value} value={value}>{value}</option>)}
-                    </select>
+                    <Select value={aspectRatio} onValueChange={v => handleAspectRatioChange(v as AspectRatioType)}>
+                      <SelectTrigger aria-label="Video aspect ratio" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
+                      <SelectContent className="z-[110] bg-[#121820]">
+                        {(['16:9', '9:16', '1:1', '4:5', '3:4', '4:3'] as AspectRatioType[]).map(value =>
+                          <SelectItem key={value} value={value}>{value}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </label>
                   <label className="min-w-0 space-y-1">
                     <span className="block text-xs font-medium text-slate-300">Resolution</span>
-                    <select value={resolution} onChange={e => setResolution(e.target.value as ExportResolutionType)}
-                      className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-2.5 text-xs text-white outline-none focus:border-accent">
-                      <option value="1080p">1080p</option>
-                      <option value="720p">720p</option>
-                      <option value="360p">360p</option>
-                    </select>
+                    <Select value={resolution} onValueChange={v => setResolution(v as ExportResolutionType)}>
+                      <SelectTrigger aria-label="Export resolution" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
+                      <SelectContent className="z-[110] bg-[#121820]">
+                        <SelectItem value="1080p">1080p</SelectItem>
+                        <SelectItem value="720p">720p</SelectItem>
+                        <SelectItem value="360p">360p</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </label>
                   <label className="min-w-0 space-y-1">
                     <span className="block text-xs font-medium text-slate-300">Frame rate</span>
-                    <select value={fps} onChange={e => setFps(Number(e.target.value) as 30 | 60)}
-                      className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-2.5 text-xs text-white outline-none focus:border-accent">
-                      <option value={30}>30 FPS</option>
-                      <option value={60}>60 FPS</option>
-                    </select>
+                    <Select value={String(fps)} onValueChange={v => setFps(Number(v) as 30 | 60)}>
+                      <SelectTrigger aria-label="Export frame rate" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
+                      <SelectContent className="z-[110] bg-[#121820]">
+                        <SelectItem value="30">30 FPS</SelectItem>
+                        <SelectItem value="60">60 FPS</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </label>
                 </div>
 
@@ -709,16 +715,17 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1">
             <label className="block space-y-1.5">
               <span className="block text-xs font-medium text-slate-300">Format</span>
-              <select value={selectedLyricFormat}
-                onChange={e => setSelectedLyricFormat(e.target.value as LyricFormatType)}
-                className="h-10 w-full rounded-lg border border-white/15 bg-[#171c23] px-3 text-sm text-white outline-none focus:border-accent">
-                <option value="lrc">LRC · Synced lyrics</option>
-                <option value="enhanced-lrc">Enhanced LRC · Word timing</option>
-                <option value="srt">SRT · Subtitles</option>
-                <option value="ass">ASS · Styled subtitles</option>
-                <option value="txt">TXT · Plain text</option>
-                <option value="json">JSON · Data</option>
-              </select>
+              <Select value={selectedLyricFormat} onValueChange={v => setSelectedLyricFormat(v as LyricFormatType)}>
+                <SelectTrigger aria-label="Export lyric format" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[110] bg-[#121820]">
+                  <SelectItem value="lrc">LRC · Synced lyrics</SelectItem>
+                  <SelectItem value="enhanced-lrc">Enhanced LRC · Word timing</SelectItem>
+                  <SelectItem value="srt">SRT · Subtitles</SelectItem>
+                  <SelectItem value="ass">ASS · Styled subtitles</SelectItem>
+                  <SelectItem value="txt">TXT · Plain text</SelectItem>
+                  <SelectItem value="json">JSON · Data</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             <p className="text-xs text-slate-400">{lyricsLines.length} lyric lines</p>
             <button type="button" disabled={lyricsLines.length === 0}
