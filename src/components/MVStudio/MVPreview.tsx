@@ -136,7 +136,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
       window.removeEventListener('orientationchange', measure);
       window.visualViewport?.removeEventListener('resize', measure);
     };
-  }, []);
+  }, [isFallbackFullscreen]);
 
   // Sync canvas container dimensions for accurate interactive stage drag overlay
   useEffect(() => {
