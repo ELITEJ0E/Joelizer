@@ -322,3 +322,84 @@ export function generateAutoEdit(options: AutoEditOptions): {
     songAnalysis
   };
 }
+
+
+/**
+ * Generate clips ONLY for empty spans of an existing edit.
+ * Existing clips are temporarily treated as locked during generation, even
+ * when the user did not explicitly lock them. Nothing in the original timeline
+ * is returned for replacement, so hand-trimmed, moved and styled clips survive.
+ */
+export function generateGapFill(options: AutoEditOptions): TimelineClip[] {
+  const current = options.existingClips || [];
+  const duration = Math.max(0, options.songDuration);
+  if (duration <= 0 || options.mediaAssets.length === 0) return [];
+
+  const occupied = [...current]
+    .filter(clip => Number.isFinite(clip.startTime) && Number.isFinite(clip.endTime) &&
+      clip.endTime > 0 && clip.startTime < duration)
+    .sort((a, b) => a.startTime - b.startTime);
+  const gaps: { start: number; end: number }[] = [];
+  let cursor = 0;
+  for (const clip of occupied) {
+    const start = Math.max(0, clip.startTime);
+    if (start - cursor >= 0.1) gaps.push({ start: cursor, end: start });
+    cursor = Math.max(cursor, Math.min(duration, clip.endTime));
+  }
+  if (duration - cursor >= 0.1) gaps.push({ start: cursor, end: duration });
+  if (gaps.length === 0) return [];
+
+  // Existing edits provide the effective aesthetic when users have overridden
+  // individual clip transitions/effects.
+  const mostCommon = <T extends string>(values: (T | undefined)[]): T | undefined => {
+    const counts = new Map<T, number>();
+    values.forEach(value => { if (value) counts.set(value, (counts.get(value) || 0) + 1); });
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+  const predominantTransition = mostCommon(occupied.map(c => c.transition));
+  const predominantImageEffect = mostCommon(occupied
+    .filter(c => c.type === 'image').map(c => c.effect));
+
+  // Lock the *temporary* generation input, not the real timeline.
+  const generated = generateAutoEdit({
+    ...options,
+    existingClips: current.map(c => ({ ...c, locked: true }))
+  }).timelineClips;
+  const originalIds = new Set(current.map(c => c.id));
+  const available = generated.filter(c => !originalIds.has(c.id));
+  const result: TimelineClip[] = [];
+
+  // Intersect generated candidates with actual empty spans. This also handles
+  // rounding, unusual gaps, and protects all manually edited positions.
+  for (const gap of gaps) {
+    let position = gap.start;
+    const candidates = available.filter(c => c.endTime > gap.start + 0.0001 &&
+      c.startTime < gap.end - 0.0001).sort((a, b) => a.startTime - b.startTime);
+    for (const candidate of candidates) {
+      const start = Math.max(position, gap.start, candidate.startTime);
+      const end = Math.min(gap.end, candidate.endTime);
+      if (end - start < 0.1 - 0.0001) continue;
+      const trimmedStart = candidate.trimStart + (start - candidate.startTime);
+      const asset = options.mediaAssets.find(a => a.id === candidate.assetId);
+      const validEnd = asset?.type === 'video' && asset.duration > 0
+        ? Math.min(end, start + Math.max(0, asset.duration - trimmedStart))
+        : end;
+      if (validEnd - start < 0.1 - 0.0001) continue;
+      result.push({
+        ...candidate,
+        id: `gap-${options.seed}-${result.length}-${Math.round(start * 1000)}`,
+        startTime: Math.round(start * 1000) / 1000,
+        endTime: Math.round(validEnd * 1000) / 1000,
+        trimStart: Math.round(trimmedStart * 1000) / 1000,
+        trimEnd: Math.round((trimmedStart + validEnd - start) * 1000) / 1000,
+        locked: false,
+        transition: predominantTransition ?? candidate.transition,
+        effect: candidate.type === 'image'
+          ? (predominantImageEffect ?? candidate.effect)
+          : candidate.effect
+      });
+      position = validEnd;
+    }
+  }
+  return result;
+}
