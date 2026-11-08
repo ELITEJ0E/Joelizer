@@ -32,6 +32,8 @@ export interface TimelineClip {
   editOrigin?: 'auto' | 'manual';
   /** Set automatically after a real user edit; protects an auto clip on re-run. */
   manuallyEdited?: boolean;
+  /** Only a deliberate per-clip transition change overrides the global Auto Edit transition. */
+  transitionManuallyEdited?: boolean;
   fit?: 'cover' | 'contain';
   zoom?: number;
   heightScale?: number;
@@ -447,7 +449,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
             clip.startTime < 0) continue;
         if (result.some(other => clip.startTime < other.endTime - 0.0001 &&
           clip.endTime > other.startTime + 0.0001)) continue;
-        result.push({ ...clip, editOrigin: 'auto', manuallyEdited: false });
+        result.push({ ...clip, editOrigin: 'auto', manuallyEdited: false, transitionManuallyEdited: false });
         inserted++;
       }
       return { timelineClips: placed(result) };
@@ -469,7 +471,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
           clip.startTime < existing.endTime - 0.0001 &&
           clip.endTime > existing.startTime + 0.0001);
         if (collides) continue;
-        result.push({ ...clip, editOrigin: 'auto', manuallyEdited: false });
+        result.push({ ...clip, editOrigin: 'auto', manuallyEdited: false, transitionManuallyEdited: false });
         knownIds.add(clip.id);
         inserted++;
       }
@@ -493,6 +495,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       ...newClip,
       editOrigin: newClip.editOrigin ?? 'manual',
       manuallyEdited: newClip.manuallyEdited ?? false,
+      transitionManuallyEdited: newClip.transitionManuallyEdited ?? (newClip.editOrigin !== 'auto' && newClip.transition !== undefined),
       startTime: Number(start.toFixed(2)),
       endTime: Number((start + clipDur).toFixed(2))
     };
@@ -508,7 +511,9 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       const edited = avoidClipCollision(c, { ...c, ...updates }, s.timelineClips);
       // A click without movement must not turn an auto clip into a manual edit.
       if (sameClipProperties(c, edited)) return c;
-      return { ...edited, manuallyEdited: true, editOrigin: 'manual' };
+      return { ...edited, manuallyEdited: true, editOrigin: 'manual',
+        transitionManuallyEdited: c.transitionManuallyEdited ||
+          (updates.transition !== undefined && updates.transition !== c.transition) };
     })
   })),
   setClipAutoManaged: (id, enabled) => set((s) => ({
