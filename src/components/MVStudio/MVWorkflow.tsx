@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { useMVStore } from '../../store/useMVStore';
+import { useMVStore, isAutoManagedClip } from '../../store/useMVStore';
 import { generateAutoEdit, generateGapFill } from '../../lib/mvAutoEdit';
 import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { pollinationsProvider } from '../../lib/providers/PollinationsImageProvider';
@@ -60,8 +60,12 @@ export function MVWorkflow() {
           assetsToUse = [defaultSample];
         }
 
-        const currentClips = useMVStore.getState().timelineClips;
-
+        const mv = useMVStore.getState();
+        // Treat manually changed clips as immutable anchors for generation,
+        // even when the user never pressed the Lock button.
+        const protectedClips = mv.timelineClips
+          .filter(clip => !isAutoManagedClip(clip))
+          .map(clip => ({ ...clip, locked: true }));
         const editResult = generateAutoEdit({
           songDuration: songDur,
           lyricsLines: lyrics,
@@ -70,16 +74,21 @@ export function MVWorkflow() {
           pacing,
           beatSync,
           seed: targetSeed,
-          existingClips: currentClips,
-          songAnalysis: useMVStore.getState().songAnalysis
+          existingClips: protectedClips,
+          songAnalysis: mv.songAnalysis
         });
 
-        useMVStore.getState().setSongAnalysis(editResult.songAnalysis);
-        useMVStore.getState().setWordTimings(editResult.wordTimings);
-        useMVStore.getState().setTimelineClips(editResult.timelineClips);
+        const generatedOnly = editResult.timelineClips.filter(clip =>
+          !protectedClips.some(protectedClip => protectedClip.id === clip.id));
+        // One atomic replacement: previously generated clips may change,
+        // but manual clips retain exactly the same timing and presentation.
+        const count = mv.applyAutoEditClips(generatedOnly);
+        mv.setSongAnalysis(editResult.songAnalysis);
+        mv.setWordTimings(editResult.wordTimings);
+        useMVStore.getState().commitTimeline();
 
         setProgress(100);
-        setStatusText('Auto Edit Generated!');
+        setStatusText(`Auto Edit completed: ${count} automatic scenes; manual edits preserved.`);
 
         setTimeout(() => {
           setIsProcessing(false);
@@ -195,7 +204,9 @@ export function MVWorkflow() {
     window.dispatchEvent(new CustomEvent('open-export-modal'));
   };
 
-  const hasTimeline = useMVStore(s => s.timelineClips).length > 0;
+  const currentTimeline = useMVStore(s => s.timelineClips);
+  const hasTimeline = currentTimeline.length > 0;
+  const manuallyProtected = currentTimeline.filter(c => !isAutoManagedClip(c)).length;
 
   return (
     <div className="flex flex-col h-full bg-[#08080c] text-slate-300">
@@ -245,13 +256,17 @@ export function MVWorkflow() {
             ) : (
               <>
                 <Wand2 size={15} />
-                <span>{hasTimeline ? 'Re-Run Auto Edit' : '✦ AUTO EDIT'}</span>
+                <span>{hasTimeline ? 'Re-Run Auto Edit (Keep Manual)' : '✦ AUTO EDIT'}</span>
               </>
             )}
           </button>
 
           {hasTimeline && (
             <>
+              <p className="text-[10px] text-slate-400 relative z-10">
+                {manuallyProtected} manual or locked clip{manuallyProtected === 1 ? '' : 's'} protected.
+                Re-run only replaces automatically generated clips.
+              </p>
               <button
                 onClick={handleRegenerate}
                 disabled={isProcessing}
@@ -262,7 +277,7 @@ export function MVWorkflow() {
                 ) : (
                   <RefreshCw size={12} />
                 )}
-                <span>Regenerate (New Seed)</span>
+                <span>Regenerate Auto Clips (New Seed)</span>
               </button>
               <button
                 onClick={handleFillEmptyGaps}
