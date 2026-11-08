@@ -1,3 +1,4 @@
+import { StyledSelect } from '../ui/StyledSelect';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, 
@@ -410,7 +411,7 @@ export function GeminiComposerModal({ isOpen, onClose }: GeminiComposerModalProp
             </div>
             <div>
               <label className="text-xs font-semibold text-slate-400 block mb-1">Key & Scale</label>
-              <select
+              <StyledSelect
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500/60"
@@ -426,7 +427,7 @@ export function GeminiComposerModal({ isOpen, onClose }: GeminiComposerModalProp
                 <option value="Bb Major">Bb Major</option>
                 <option value="Eb Major">Eb Major</option>
                 <option value="F# Minor">F# Minor</option>
-              </select>
+              </StyledSelect>
             </div>
           </div>
 
