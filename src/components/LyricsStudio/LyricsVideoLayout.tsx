@@ -3,6 +3,7 @@ import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useStore, AspectRatio } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { MVPreview } from '../MVStudio/MVPreview';
+import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem, SelectGroup, SelectLabel } from '../ui/select';
 import { VideoFramingControls } from '../shared/VideoFramingControls';
 import { OverlayEffectsPanel } from '../shared/OverlayEffectsPanel';
 import { GlobalSettingsPanel } from '../MVStudio/GlobalSettingsPanel';
@@ -529,25 +530,26 @@ export function LyricsVideoLayout() {
                         <span className="text-[11px] font-semibold text-[#7e8999]">Font Family</span>
                         <span className="text-[10px] font-mono text-accent">{typographyOverride.fontFamily}</span>
                       </div>
-                      <select
-                        value={typographyOverride.fontFamily}
-                        onChange={(e) => updateTypographyOverride({ fontFamily: e.target.value })}
-                        className="w-full bg-[#0e1115] border border-[#232933] rounded px-2.5 py-2 text-xs text-[#f0f3f6] font-medium cursor-pointer outline-none hover:border-[#2b3442] focus:border-accent transition-colors"
-                      >
-                        {['Modern Sans', 'Display / Urban', 'Retro / Synth', 'Serif & Luxury', 'Bold Poster'].map(groupName => {
-                          const groupFonts = CURATED_FONTS.filter(f => f.category === groupName);
-                          if (groupFonts.length === 0) return null;
-                          return (
-                            <optgroup key={groupName} label={groupName} className="bg-[#12161c] text-[#7e8999] font-bold">
-                              {groupFonts.map(f => (
-                                <option key={f.family} value={f.family} className="bg-[#161b22] text-[#f0f3f6] font-normal">
-                                  {f.family} — {f.previewText}
-                                </option>
-                              ))}
-                            </optgroup>
-                          );
-                        })}
-                      </select>
+                      <Select value={typographyOverride.fontFamily}
+                    onValueChange={fontFamily => updateTypographyOverride({ fontFamily })}>
+                    <SelectTrigger aria-label="Lyric font" className="w-full border-[#303846] bg-[#0e1115] h-10 text-xs text-[#f0f3f6] normal-case">
+                      <SelectValue placeholder="Choose font" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[110] max-h-[65vh] bg-[#111820] border-[#303846]">
+                      {['Modern Sans', 'Display / Urban', 'Retro / Synth', 'Serif & Luxury', 'Bold Poster'].map(groupName => {
+                        const groupFonts = CURATED_FONTS.filter(f => f.category === groupName);
+                        if (!groupFonts.length) return null;
+                        return (
+                          <SelectGroup key={groupName}>
+                            <SelectLabel>{groupName}</SelectLabel>
+                            {groupFonts.map(f => (
+                              <SelectItem key={f.family} value={f.family}>{f.family} — {f.previewText}</SelectItem>
+                            ))}
+                          </SelectGroup>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                     </div>
 
                     {/* Accent Color Swatches & Picker */}
@@ -1012,25 +1014,26 @@ export function LyricsVideoLayout() {
                     <span className="text-[11px] font-semibold text-[#7e8999]">Font Family</span>
                     <span className="text-[10px] font-mono text-accent">{typographyOverride.fontFamily}</span>
                   </div>
-                  <select
-                    value={typographyOverride.fontFamily}
-                    onChange={(e) => updateTypographyOverride({ fontFamily: e.target.value })}
-                    className="w-full bg-[#0e1115] border border-[#232933] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] font-medium cursor-pointer outline-none hover:border-[#2b3442] focus:border-accent transition-colors"
-                  >
-                    {['Modern Sans', 'Display / Urban', 'Retro / Synth', 'Serif & Luxury', 'Bold Poster'].map(groupName => {
-                      const groupFonts = CURATED_FONTS.filter(f => f.category === groupName);
-                      if (groupFonts.length === 0) return null;
-                      return (
-                        <optgroup key={groupName} label={groupName} className="bg-[#12161c] text-[#7e8999] font-bold">
-                          {groupFonts.map(f => (
-                            <option key={f.family} value={f.family} className="bg-[#161b22] text-[#f0f3f6] font-normal">
-                              {f.family} — {f.previewText}
-                            </option>
-                          ))}
-                        </optgroup>
-                      );
-                    })}
-                  </select>
+                  <Select value={typographyOverride.fontFamily}
+                    onValueChange={fontFamily => updateTypographyOverride({ fontFamily })}>
+                    <SelectTrigger aria-label="Lyric font" className="w-full border-[#303846] bg-[#0e1115] h-9 text-xs text-[#f0f3f6] normal-case">
+                      <SelectValue placeholder="Choose font" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[110] max-h-[65vh] bg-[#111820] border-[#303846]">
+                      {['Modern Sans', 'Display / Urban', 'Retro / Synth', 'Serif & Luxury', 'Bold Poster'].map(groupName => {
+                        const groupFonts = CURATED_FONTS.filter(f => f.category === groupName);
+                        if (!groupFonts.length) return null;
+                        return (
+                          <SelectGroup key={groupName}>
+                            <SelectLabel>{groupName}</SelectLabel>
+                            {groupFonts.map(f => (
+                              <SelectItem key={f.family} value={f.family}>{f.family} — {f.previewText}</SelectItem>
+                            ))}
+                          </SelectGroup>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Visible Lines Selector */}
