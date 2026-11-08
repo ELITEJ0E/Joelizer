@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
-import { generateAutoEdit } from '../../lib/mvAutoEdit';
+import { generateAutoEdit, generateGapFill } from '../../lib/mvAutoEdit';
 import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { pollinationsProvider } from '../../lib/providers/PollinationsImageProvider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -94,6 +94,52 @@ export function MVWorkflow() {
     handleRunBasicAutoEdit(nextSeed);
   };
 
+  // Fill only the uncovered timeline spans. Manual clips, trims, effects,
+  // captions, and existing song analysis are never regenerated or replaced.
+  const handleFillEmptyGaps = () => {
+    const state = useMVStore.getState();
+    const media = state.videoAssets.filter(asset =>
+      (asset.type === 'image' || asset.type === 'video') &&
+      asset.status !== 'error' && !!asset.url
+    );
+    if (media.length === 0) {
+      setStatusText('Import an image or video before filling gaps.');
+      return;
+    }
+    const songDuration = audioDuration || Math.max(0, ...state.timelineClips.map(c => c.endTime));
+    if (songDuration <= 0) {
+      setStatusText('Load audio before filling timeline gaps.');
+      return;
+    }
+    setIsProcessing(true);
+    setStatusText('Filling uncovered timeline slots...');
+    setProgress(20);
+    try {
+      const additions = generateGapFill({
+        songDuration,
+        lyricsLines: lyrics,
+        mediaAssets: media,
+        style: state.style,
+        pacing: state.pacing,
+        beatSync: state.beatSync,
+        seed: state.editSeed,
+        existingClips: state.timelineClips,
+        songAnalysis: state.songAnalysis
+      });
+      const count = state.addGapFillClips(additions);
+      if (count) useMVStore.getState().commitTimeline();
+      setProgress(100);
+      setStatusText(count > 0
+        ? `Filled ${count} empty slot${count === 1 ? '' : 's'}; existing edits preserved.`
+        : 'No additional slots could be filled with available media.');
+    } catch (error) {
+      console.error('[MVWorkflow] Gap fill failed:', error);
+      setStatusText('Could not fill gaps. Existing edits were preserved.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleAutoFillVisuals = async () => {
     setIsProcessing(true);
     setProgress(10);
@@ -135,17 +181,13 @@ export function MVWorkflow() {
         setProgress(30 + ((i + 1) / prompts.length) * 40);
       }
       
-      setStatusText('Media Generated. Running Auto Edit...');
-      setTimeout(() => {
-        handleRunBasicAutoEdit();
-      }, 1000);
+      setStatusText('New visuals added to library. Filling timeline gaps...');
+      handleFillEmptyGaps();
       
     } catch (err: any) {
       console.error(err);
-      setStatusText('Pollinations.ai generation failed. Running fallback Auto Edit...');
-      setTimeout(() => {
-        handleRunBasicAutoEdit();
-      }, 1500);
+      setStatusText('AI generation unavailable. Filling gaps from existing media...');
+      handleFillEmptyGaps();
     }
   };
 
@@ -223,6 +265,18 @@ export function MVWorkflow() {
                 <span>Regenerate (New Seed)</span>
               </button>
               <button
+                onClick={handleFillEmptyGaps}
+                disabled={isProcessing}
+                className="w-full py-2 rounded bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 relative z-10 disabled:opacity-50"
+                title="Fill empty video slots without changing any existing edited clips"
+              >
+                <Wand2 size={13} />
+                <span>Fill Empty Gaps — Keep My Edits</span>
+              </button>
+              <p className="text-[10px] leading-relaxed text-slate-400 relative z-10">
+                Uses your current editing style, pacing and imported footage. Only uncovered video slots are filled.
+              </p>
+              <button
                 onClick={handleAutoFillVisuals}
                 disabled={isProcessing}
                 className="w-full py-1.5 rounded bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 text-purple-200 text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 relative z-10 shadow"
@@ -232,7 +286,7 @@ export function MVWorkflow() {
                 ) : (
                   <ImageIcon size={12} />
                 )}
-                <span>Auto Fill Missing Visuals (AI)</span>
+                <span>Generate AI Visuals + Fill Gaps</span>
               </button>
             </>
           )}
