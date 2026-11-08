@@ -401,5 +401,55 @@ export function generateGapFill(options: AutoEditOptions): TimelineClip[] {
       position = validEnd;
     }
   }
+  // A generated video can be shorter than the requested slot. Finish any
+  // remaining holes with short, repeatable media segments (or still images),
+  // rather than silently leaving blank sections in the final edit.
+  const fallbackMedia = options.mediaAssets.filter(a =>
+    a.type === 'image' || (a.type === 'video' && Number.isFinite(a.duration) && a.duration >= 0.1)
+  );
+  const pick = createPRNG(options.seed + 117);
+  for (const gap of gaps) {
+    const finished = result.filter(c => c.startTime < gap.end && c.endTime > gap.start)
+      .sort((a, b) => a.startTime - b.startTime);
+    const spans: { start: number; end: number }[] = [];
+    let at = gap.start;
+    for (const clip of finished) {
+      if (clip.startTime - at >= 0.1 - 0.0001) spans.push({ start: at, end: clip.startTime });
+      at = Math.max(at, clip.endTime);
+    }
+    if (gap.end - at >= 0.1 - 0.0001) spans.push({ start: at, end: gap.end });
+
+    for (const span of spans) {
+      let start = span.start;
+      let attempts = 0;
+      while (span.end - start >= 0.1 - 0.0001 && attempts++ < 1000 && fallbackMedia.length) {
+        const asset = fallbackMedia[Math.floor(pick() * fallbackMedia.length)];
+        const maximum = asset.type === 'video' ? asset.duration : Infinity;
+        const preferred = options.pacing === 'Fast' ? 1.5 :
+          options.pacing === 'Slow' ? 5 : 3;
+        let length = Math.min(span.end - start, preferred, maximum);
+        if (span.end - start - length < 0.1) length = Math.min(span.end - start, maximum);
+        if (length < 0.1 - 0.0001) break;
+        const trimStart = asset.type === 'video'
+          ? Math.max(0, (asset.duration - length) * pick()) : 0;
+        const end = Math.min(span.end, start + length);
+        const isImage = asset.type === 'image';
+        result.push({
+          id: `gap-extra-${options.seed}-${result.length}-${Math.round(start * 1000)}`,
+          assetId: asset.id,
+          type: asset.type,
+          startTime: Math.round(start * 1000) / 1000,
+          endTime: Math.round(end * 1000) / 1000,
+          trimStart: Math.round(trimStart * 1000) / 1000,
+          trimEnd: Math.round((trimStart + end - start) * 1000) / 1000,
+          locked: false,
+          transition: predominantTransition ?? 'crossfade',
+          effect: isImage ? (predominantImageEffect ?? 'ken-burns-in') : 'none'
+        });
+        start = end;
+      }
+    }
+  }
+  result.sort((a, b) => a.startTime - b.startTime);
   return result;
 }
