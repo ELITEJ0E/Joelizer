@@ -1,3 +1,4 @@
+import { getEffectiveMVTransition } from './mvTransitionSettings';
 import { useStore } from '../store/useStore';
 import { useMVStore } from '../store/useMVStore';
 import { useLyricsVideoStore } from '../store/useLyricsVideoStore';
@@ -127,6 +128,9 @@ export async function buildCanonicalProjectJson(options?: {
       }
     }
 
+    const transition = getEffectiveMVTransition(
+      clip, mvStore.autoTransitions, mvStore.defaultTransition, mvStore.transitionDuration
+    );
     canonicalClips.push({
       id: clip.id,
       assetId: clip.assetId,
@@ -143,8 +147,8 @@ export async function buildCanonicalProjectJson(options?: {
       offsetX: clip.offsetX,
       offsetY: clip.offsetY,
       effect: clip.effect || 'none',
-      transition: clip.transition || (mvStore.autoTransitions ? mvStore.defaultTransition : 'cut'),
-      transitionDuration: clip.transitionDuration ?? mvStore.transitionDuration
+      transition: transition.type,
+      transitionDuration: transition.duration
     });
   }
 
