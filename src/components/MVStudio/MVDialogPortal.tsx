@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 
 let openDialogCount = 0;
 let previousBodyOverflow = '';
@@ -23,6 +24,9 @@ export function MVDialogPortal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const { handleClose } = usePopstateModal(true, () => closeRef.current());
+  const handleCloseRef = useRef(handleClose);
+  handleCloseRef.current = handleClose;
 
   useEffect(() => {
     const updateHost = () => setHost(document.fullscreenElement || document.body);
@@ -47,9 +51,10 @@ export function MVDialogPortal({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (document.querySelector('[role="listbox"][data-state="open"]')) return;
         event.preventDefault();
         event.stopPropagation();
-        closeRef.current();
+        handleCloseRef.current();
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -88,7 +93,7 @@ export function MVDialogPortal({
       className="fixed inset-0 z-[10000] bg-[#030509]/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto overscroll-contain"
       onPointerDown={event => {
         event.stopPropagation();
-        if (event.target === event.currentTarget) closeRef.current();
+        if (event.target === event.currentTarget) handleCloseRef.current();
       }}
       onClick={event => event.stopPropagation()}
       onDragOver={event => { event.preventDefault(); event.stopPropagation(); }}
