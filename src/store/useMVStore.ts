@@ -28,6 +28,10 @@ export interface TimelineClip {
   trimStart: number; // Start trim within media asset
   trimEnd: number;   // End trim within media asset
   locked?: boolean;
+  /** Tracks whether this clip was generated or explicitly placed by a user. */
+  editOrigin?: 'auto' | 'manual';
+  /** Set automatically after a real user edit; protects an auto clip on re-run. */
+  manuallyEdited?: boolean;
   fit?: 'cover' | 'contain';
   zoom?: number;
   heightScale?: number;
@@ -44,6 +48,18 @@ export interface TimelineClip {
 const MIN_CLIP_SECONDS = 0.1;
 const roundTime = (time: number) => Math.round(time * 100) / 100;
 const placed = (clips: TimelineClip[]) => [...clips].sort((a, b) => a.startTime - b.startTime);
+
+/** Older saved Auto Edit clips lacked provenance; keep their old ID convention working. */
+export function isAutoManagedClip(clip: TimelineClip): boolean {
+  if (clip.locked || clip.manuallyEdited || clip.editOrigin === 'manual') return false;
+  return clip.editOrigin === 'auto' ||
+    (!clip.editOrigin && /^(clip-gen-|clip-auto-|gap-)/.test(clip.id));
+}
+
+function sameClipProperties(a: TimelineClip, b: TimelineClip): boolean {
+  return Object.keys(b).every(key =>
+    a[key as keyof TimelineClip] === b[key as keyof TimelineClip]);
+}
 function avoidClipCollision(current: TimelineClip, proposed: TimelineClip, others: TimelineClip[]): TimelineClip {
   const neighbors = placed(others.filter(c => c.id !== current.id));
   const duration = current.endTime - current.startTime;
@@ -202,6 +218,7 @@ export interface MVProjectState {
   setWordTimings: (timings: TimelineText[]) => void;
 
   setTimelineClips: (clips: TimelineClip[]) => void;
+  applyAutoEditClips: (clips: TimelineClip[]) => number;
   addGapFillClips: (clips: TimelineClip[]) => number;
   addTimelineClip: (clip: TimelineClip) => void;
   updateTimelineClip: (id: string, updates: Partial<TimelineClip>) => void;
@@ -416,6 +433,27 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     const start = Math.max(0, previous ? Math.max(clip.startTime, previous.endTime) : clip.startTime);
     return [...result, { ...clip, startTime: roundTime(start), endTime: roundTime(start + Math.max(MIN_CLIP_SECONDS, clip.endTime - clip.startTime)) }];
   }, []) }),
+  // Re-Run Auto Edit: preserve EVERY manually placed, edited or locked clip
+  // unchanged. Swap only system-managed clips, with a final collision guard.
+  applyAutoEditClips: (clips) => {
+    let inserted = 0;
+    set(state => {
+      const preserved = state.timelineClips.filter(c => !isAutoManagedClip(c));
+      const preservedIds = new Set(preserved.map(c => c.id));
+      const result = [...preserved];
+      for (const clip of placed(clips)) {
+        if (preservedIds.has(clip.id) || !Number.isFinite(clip.startTime) ||
+            !Number.isFinite(clip.endTime) || clip.endTime - clip.startTime < MIN_CLIP_SECONDS - 0.0001 ||
+            clip.startTime < 0) continue;
+        if (result.some(other => clip.startTime < other.endTime - 0.0001 &&
+          clip.endTime > other.startTime + 0.0001)) continue;
+        result.push({ ...clip, editOrigin: 'auto', manuallyEdited: false });
+        inserted++;
+      }
+      return { timelineClips: placed(result) };
+    });
+    return inserted;
+  },
   // This action never touches pre-existing clips. Reject any generated piece
   // that would overlap an occupied interval or another accepted fill piece.
   addGapFillClips: (clips) => {
@@ -431,7 +469,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
           clip.startTime < existing.endTime - 0.0001 &&
           clip.endTime > existing.startTime + 0.0001);
         if (collides) continue;
-        result.push(clip);
+        result.push({ ...clip, editOrigin: 'auto', manuallyEdited: false });
         knownIds.add(clip.id);
         inserted++;
       }
@@ -453,6 +491,8 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
 
     const adjustedClip: TimelineClip = {
       ...newClip,
+      editOrigin: newClip.editOrigin ?? 'manual',
+      manuallyEdited: newClip.manuallyEdited ?? false,
       startTime: Number(start.toFixed(2)),
       endTime: Number((start + clipDur).toFixed(2))
     };
@@ -463,8 +503,13 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     };
   }),
   updateTimelineClip: (id, updates) => set((s) => ({
-    timelineClips: s.timelineClips.map((c) => c.id === id && !c.locked
-      ? avoidClipCollision(c, { ...c, ...updates }, s.timelineClips) : c)
+    timelineClips: s.timelineClips.map((c) => {
+      if (c.id !== id || c.locked) return c;
+      const edited = avoidClipCollision(c, { ...c, ...updates }, s.timelineClips);
+      // A click without movement must not turn an auto clip into a manual edit.
+      if (sameClipProperties(c, edited)) return c;
+      return { ...edited, manuallyEdited: true, editOrigin: 'manual' };
+    })
   })),
   toggleLockClip: (id) => set((s) => ({
     timelineClips: s.timelineClips.map((c) => c.id === id ? { ...c, locked: !c.locked } : c)
@@ -483,6 +528,8 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     const clonedClip: TimelineClip = {
       ...clip,
       id: `clip-dup-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      editOrigin: 'manual',
+      manuallyEdited: true,
       startTime: Number(newStart.toFixed(2)),
       endTime: Number(newEnd.toFixed(2)),
       locked: false
@@ -503,6 +550,8 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     
     const clip1: TimelineClip = {
       ...clip,
+      editOrigin: 'manual',
+      manuallyEdited: true,
       endTime: splitTime,
       trimEnd: clip.trimStart + splitOffset
     };
@@ -510,6 +559,8 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     const clip2: TimelineClip = {
       ...clip,
       id: `clip-split-${Date.now()}`,
+      editOrigin: 'manual',
+      manuallyEdited: true,
       startTime: splitTime,
       trimStart: clip.trimStart + splitOffset,
       locked: false
