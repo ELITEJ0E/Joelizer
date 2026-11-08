@@ -57,6 +57,32 @@ export function isAutoManagedClip(clip: TimelineClip): boolean {
   return !clip.locked && !clip.manuallyEdited && clip.editOrigin === 'auto';
 }
 
+/** Insert at the requested time, pushing only the *new* clip forward
+ * until it fits. Existing timeline content is never moved or overwritten. */
+function findNonOverlappingStart(clips: TimelineClip[], requested: number, duration: number): number {
+  let start = Math.max(0, Number.isFinite(requested) ? requested : 0);
+  for (const other of placed(clips)) {
+    if (start + duration <= other.startTime + 0.0001) break;
+    if (start < other.endTime - 0.0001 && start + duration > other.startTime + 0.0001) {
+      start = other.endTime;
+    }
+  }
+  return roundTime(start);
+}
+
+function cloneTimelineClip(clip: TimelineClip, startTime: number): TimelineClip {
+  const duration = Math.max(MIN_CLIP_SECONDS, clip.endTime - clip.startTime);
+  return {
+    ...clip,
+    id: `clip-copy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    startTime: roundTime(startTime),
+    endTime: roundTime(startTime + duration),
+    editOrigin: 'manual',
+    manuallyEdited: true,
+    locked: false
+  };
+}
+
 function sameClipProperties(a: TimelineClip, b: TimelineClip): boolean {
   return Object.keys(b).every(key =>
     a[key as keyof TimelineClip] === b[key as keyof TimelineClip]);
@@ -227,6 +253,9 @@ export interface MVProjectState {
   setClipAutoManaged: (id: string, enabled: boolean) => void;
   removeTimelineClip: (id: string) => void;
   duplicateTimelineClip: (id: string) => void;
+  copiedTimelineClip: TimelineClip | null;
+  copyTimelineClip: (id: string) => void;
+  pasteTimelineClip: (atTime: number) => void;
   splitTimelineClip: (id: string, splitTime: number) => void;
   timelineHistory: TimelineClip[][];
   historyIndex: number;
@@ -336,6 +365,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   setUseGemini: (useGemini) => set({ useGemini }),
   setStockFolder: (stockFolder) => set({ stockFolder }),
   setMediaSourceFilter: (mediaSourceFilter) => set({ mediaSourceFilter }),
+  copiedTimelineClip: null,
   timelineHistory: [[]],
   historyIndex: 0,
   commitTimeline: () => {
@@ -529,27 +559,26 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     timelineClips: s.timelineClips.filter((c) => c.id !== id),
     selectedClipId: s.selectedClipId === id ? null : s.selectedClipId
   })),
-  duplicateTimelineClip: (id) => set((s) => {
-    const clip = s.timelineClips.find(c => c.id === id);
-    if (!clip) return s;
-    const dur = Math.max(0.5, clip.endTime - clip.startTime);
-    const newStart = Math.max(clip.endTime, ...s.timelineClips.map(c => c.endTime));
-    const newEnd = newStart + dur;
-
-    const clonedClip: TimelineClip = {
-      ...clip,
-      id: `clip-dup-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      editOrigin: 'manual',
-      manuallyEdited: true,
-      startTime: Number(newStart.toFixed(2)),
-      endTime: Number(newEnd.toFixed(2)),
-      locked: false
-    };
-
-    return {
-      timelineClips: [...s.timelineClips, clonedClip],
-      selectedClipId: clonedClip.id
-    };
+  copyTimelineClip: (id) => set(state => {
+    const clip = state.timelineClips.find(c => c.id === id);
+    return clip ? { copiedTimelineClip: { ...clip } } : state;
+  }),
+  pasteTimelineClip: (atTime) => set(state => {
+    const source = state.copiedTimelineClip;
+    if (!source) return state;
+    const duration = Math.max(MIN_CLIP_SECONDS, source.endTime - source.startTime);
+    const requested = Math.max(0, atTime);
+    const start = findNonOverlappingStart(state.timelineClips, requested, duration);
+    const inserted = cloneTimelineClip(source, start);
+    return { timelineClips: placed([...state.timelineClips, inserted]), selectedClipId: inserted.id };
+  }),
+  duplicateTimelineClip: (id) => set(state => {
+    const clip = state.timelineClips.find(c => c.id === id);
+    if (!clip) return state;
+    const duration = Math.max(MIN_CLIP_SECONDS, clip.endTime - clip.startTime);
+    const start = findNonOverlappingStart(state.timelineClips, clip.endTime, duration);
+    const duplicated = cloneTimelineClip(clip, start);
+    return { timelineClips: placed([...state.timelineClips, duplicated]), selectedClipId: duplicated.id };
   }),
   splitTimelineClip: (id, splitTime) => set((s) => {
     const clipIndex = s.timelineClips.findIndex(c => c.id === id);
