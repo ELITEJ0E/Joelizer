@@ -337,7 +337,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               template: tmpl,
               aspectRatio: storeState.aspectRatio,
               animationStyle: lyricsVideoState.animationStyle,
-              visibleLineCount: lyricsVideoState.visibleLineCount,
+              visibleLineCount: activeVideoMode === 'music-video' ? (mvState.captionLineCount ?? 2) : lyricsVideoState.visibleLineCount,
               customBackground: lyricsVideoState.customBackground,
               typographyOverride: lyricsVideoState.typographyOverride,
               artworkOverride: lyricsVideoState.artworkOverride,
