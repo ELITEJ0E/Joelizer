@@ -40,7 +40,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const activeAssetType = videoAssets.find(a => a.id === activeClip?.assetId)?.type;
   const editableClip = videoMode === 'music-video' && activeClip &&
     (activeClip.type === 'video' || (!activeClip.type && activeAssetType === 'video')) ? activeClip : undefined;
-  const editableVideo = videoMode === 'lyrics-video' ? customBackground.type === 'video' : !!editableClip;
+  const editableVideo = videoMode === 'lyrics-video' ? (customBackground.type === 'video' || customBackground.type === 'image') : !!editableClip;
   const frameSettings = videoMode === 'lyrics-video' ? customBackground : activeClip;
   const updateFrameSettings = (settings: { offsetX?: number; offsetY?: number; zoom?: number; heightScale?: number; fit?: 'contain' | 'cover' }) => {
     if (videoMode === 'lyrics-video') setCustomBackground(settings);
