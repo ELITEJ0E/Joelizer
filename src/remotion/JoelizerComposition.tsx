@@ -201,11 +201,11 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height }: 
   }
 
   // A clip's framing is independent of timeline effects and must survive MP4 export.
-  const offsetX = Math.max(-1, Math.min(1, clip.offsetX ?? 0));
-  const offsetY = Math.max(-1, Math.min(1, clip.offsetY ?? 0));
+  const offsetX = Math.max(-3, Math.min(3, clip.offsetX ?? 0));
+  const offsetY = Math.max(-3, Math.min(3, clip.offsetY ?? 0));
   const zoom = Math.max(0.25, Math.min(4, clip.zoom ?? 1));
   const vertical = Math.max(0.25, Math.min(3, clip.heightScale ?? 1));
-  const framing = `translate(${offsetX * 50}%, ${offsetY * 50}%) scale(${zoom}, ${zoom * vertical})`;
+  const framing = `translate(${offsetX * width * 0.5}px, ${offsetY * height * 0.5}px) scale(${zoom}, ${zoom * vertical})`;
   const mediaStyle: React.CSSProperties = {
     width: '100%', height: '100%',
     objectFit: clip.fit === 'contain' ? 'contain' : 'cover',
@@ -301,7 +301,7 @@ function BackgroundLayer({ bg, albumArt, width, height, currentTime }: { bg: any
             height: '100%',
             objectFit: bg.fit === 'contain' ? 'contain' : 'cover',
             objectPosition: 'center',
-            transform: `translate(${Math.max(-1, Math.min(1, bg.offsetX ?? 0)) * 50}%, ${Math.max(-1, Math.min(1, bg.offsetY ?? 0)) * 50}%) scaleX(${Math.max(0.25, Math.min(4, bg.zoom ?? 1))}) scaleY(${Math.max(0.25, Math.min(4, bg.zoom ?? 1)) * Math.max(0.25, Math.min(3, bg.heightScale ?? 1))})`,
+            transform: `translate(${Math.max(-3, Math.min(3, bg.offsetX ?? 0)) * width * 0.5}px, ${Math.max(-3, Math.min(3, bg.offsetY ?? 0)) * height * 0.5}px) scaleX(${Math.max(0.25, Math.min(4, bg.zoom ?? 1))}) scaleY(${Math.max(0.25, Math.min(4, bg.zoom ?? 1)) * Math.max(0.25, Math.min(3, bg.heightScale ?? 1))})`,
             transformOrigin: 'center center'
           }}
         />
