@@ -291,8 +291,8 @@ export function drawFramedMedia(
   const height = Math.max(0.25, Math.min(3, settings.heightScale ?? 1));
   const drawW = sourceW * base * zoom;
   const drawH = sourceH * base * zoom * height;
-  const x = (canvasW - drawW) / 2 + Math.max(-1, Math.min(1, settings.offsetX ?? 0)) * canvasW * 0.5;
-  const y = (canvasH - drawH) / 2 + Math.max(-1, Math.min(1, settings.offsetY ?? 0)) * canvasH * 0.5;
+  const x = (canvasW - drawW) / 2 + Math.max(-3, Math.min(3, settings.offsetX ?? 0)) * canvasW * 0.5;
+  const y = (canvasH - drawH) / 2 + Math.max(-3, Math.min(3, settings.offsetY ?? 0)) * canvasH * 0.5;
   ctx.drawImage(source, x, y, drawW, drawH);
 }
 
@@ -402,8 +402,8 @@ export function drawBackgroundCanvas(
       const heightScale = Math.max(0.25, Math.min(3, bgSettings.heightScale ?? 1));
       const drawW = vW * baseScale * zoom;
       const drawH = vH * baseScale * zoom * heightScale;
-      const offsetX = Math.max(-1, Math.min(1, bgSettings.offsetX ?? 0)) * W * 0.5;
-      const offsetY = Math.max(-1, Math.min(1, bgSettings.offsetY ?? 0)) * H * 0.5;
+      const offsetX = Math.max(-3, Math.min(3, bgSettings.offsetX ?? 0)) * W * 0.5;
+      const offsetY = Math.max(-3, Math.min(3, bgSettings.offsetY ?? 0)) * H * 0.5;
 
       const filterStr = buildImageFilter();
       if (filterStr !== 'none') ctx.filter = filterStr;
