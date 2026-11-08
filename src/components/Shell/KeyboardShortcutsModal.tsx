@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { X, Keyboard } from 'lucide-react';
 
 interface KeyboardShortcutsModalProps {
@@ -7,6 +8,15 @@ interface KeyboardShortcutsModalProps {
 }
 
 export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsModalProps) {
+  const { handleClose } = usePopstateModal(isOpen, onClose);
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); handleClose(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, handleClose]);
   if (!isOpen) return null;
 
   const shortcuts = [
@@ -42,7 +52,8 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 select-none">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 select-none"
+      onPointerDown={event => { if (event.target === event.currentTarget) handleClose(); }}>
       <div 
         role="dialog"
         aria-modal="true"
@@ -56,7 +67,7 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
             <span id="shortcuts-title">Workstation Keyboard Shortcuts</span>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-[#7e8999] hover:text-[#f0f3f6] p-1 rounded transition-colors cursor-pointer"
           >
             <X size={14} />
