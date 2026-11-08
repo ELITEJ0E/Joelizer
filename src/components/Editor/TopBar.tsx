@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
 import { 
   Download, Music, AlignLeft, Disc3, Film, Keyboard, Monitor, SlidersHorizontal, Piano
@@ -22,6 +22,17 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
   const activeColor = useStore(s => s.visualizerSettings?.color) || '#00e676';
 
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const studioNavRef = useRef<HTMLElement>(null);
+
+  // Keep the active studio visible without shifting the entire page.
+  useEffect(() => {
+    const nav = studioNavRef.current;
+    const selected = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !selected) return;
+    const destination = selected.offsetLeft - nav.offsetLeft - (nav.clientWidth - selected.offsetWidth) / 2;
+    nav.scrollTo({ left: Math.max(0, destination), behavior: 'smooth' });
+  }, [activeTab]);
+
 
   const workspaces = [
     {
@@ -92,21 +103,12 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
 
         <div className="h-4 w-[1px] bg-[#232933] hidden xs:block" />
 
-        {/* Compact native selector on phones: no clipped horizontal tabs. */}
-        <label className="min-w-0 flex-1 sm:hidden">
-          <span className="sr-only">Choose studio</span>
-          <select
-            aria-label="Choose studio"
-            value={activeTab}
-            onChange={event => setActiveTab(event.target.value as typeof activeTab)}
-            className="h-8 w-full min-w-0 truncate rounded-lg border border-[#323b49] bg-[#12161c] px-1.5 text-[11px] font-semibold text-[#f0f3f6]"
-          >
-            {workspaces.map(ws => <option key={ws.id} value={ws.id}>{ws.label}</option>)}
-          </select>
-        </label>
-
-        {/* Studio Switcher Tabs (LRC Studio, Lyrics Video, MV Studio, Audio Lab) */}
-        <nav aria-label="Studio Navigation" className="hidden sm:flex min-w-0 items-center overflow-x-auto no-scrollbar bg-[#12161c] border border-[#232933] rounded-lg p-0.5 gap-0.5">
+        {/* Swipeable mobile navigation: desktop tabs remain unchanged. */}
+        <nav
+          ref={studioNavRef}
+          aria-label="Studio Navigation"
+          className="flex flex-1 min-w-0 items-center overflow-x-auto overscroll-x-contain touch-pan-x no-scrollbar bg-[#12161c] border border-[#232933] rounded-lg p-0.5 gap-0.5 scroll-smooth snap-x snap-proximity"
+        >
           {workspaces.map(ws => {
             const isActive = activeTab === ws.id;
             const Icon = ws.icon;
@@ -121,7 +123,8 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
                 type="button"
                 onClick={() => setActiveTab(ws.id)}
                 title={ws.title}
-                className="px-2 sm:px-3"
+                aria-current={isActive ? "page" : undefined}
+                className="shrink-0 whitespace-nowrap snap-center px-2 sm:px-3"
               >
                 <Icon
                   size={13}
@@ -130,8 +133,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
                   strokeWidth={isActive ? 2.2 : 1.8}
                 />
                 <span className="font-medium tracking-wide">
-                  <span className="sm:hidden">{ws.id === 'lrc' ? 'LRC' : ws.id === 'lyrics' ? 'Lyrics' : ws.id === 'mv-studio' ? 'MV' : ws.id === 'daw' ? 'DAW' : 'Audio Lab'}</span>
-                  <span className="hidden sm:inline">{ws.label}</span>
+                  {ws.label}
                 </span>
               </StudioButton>
             );
