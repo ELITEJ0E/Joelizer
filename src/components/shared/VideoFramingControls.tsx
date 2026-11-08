@@ -19,10 +19,10 @@ const sliders: {
   initial: number;
   description: string;
 }[] = [
-  { key: 'offsetX', label: 'Horizontal position', min: -3, max: 3, step: 0.01, initial: 0, description: 'Move video left or right' },
-  { key: 'offsetY', label: 'Vertical position', min: -3, max: 3, step: 0.01, initial: 0, description: 'Move video up or down' },
-  { key: 'zoom', label: 'Zoom', min: 0.25, max: 4, step: 0.05, initial: 1, description: 'Enlarge or reduce the footage' },
-  { key: 'heightScale', label: 'Video height', min: 0.25, max: 3, step: 0.05, initial: 1, description: 'Adjust height independently of width' },
+  { key: 'offsetX', label: 'Horizontal position', min: -3, max: 3, step: 0.01, initial: 0, description: 'Move image or video left or right' },
+  { key: 'offsetY', label: 'Vertical position', min: -3, max: 3, step: 0.01, initial: 0, description: 'Move image or video up or down' },
+  { key: 'zoom', label: 'Zoom', min: 0.25, max: 4, step: 0.05, initial: 1, description: 'Enlarge or reduce background' },
+  { key: 'heightScale', label: 'Video height', min: 0.25, max: 3, step: 0.05, initial: 1, description: 'Adjust image or video height independently of width' },
 ];
 
 /**
@@ -31,7 +31,7 @@ const sliders: {
  */
 export function VideoFramingControls({ value, onChange, disabled = false, label }: VideoFramingControlsProps) {
   return (
-    <section aria-label="Video framing controls" className="space-y-3 rounded-lg border border-[#303846] bg-[#111820] p-3 text-[#e6e9ed]">
+    <section aria-label="Background framing controls" className="space-y-3 rounded-lg border border-[#303846] bg-[#111820] p-3 text-[#e6e9ed]">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-[11px] font-bold uppercase tracking-wider">Video framing</h3>
@@ -56,7 +56,7 @@ export function VideoFramingControls({ value, onChange, disabled = false, label 
             aria-pressed={(value.fit ?? 'cover') === fit}
             className={`rounded border px-2 py-2 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${(value.fit ?? 'cover') === fit ? 'border-accent bg-[#1b2927] text-accent' : 'border-[#364150] text-[#a8b1c0] hover:border-[#66788b]'}`}
           >
-            {fit === 'cover' ? 'Fill / Crop' : 'Fit entire video'}
+            {fit === 'cover' ? 'Fill / Crop' : 'Fit entire image / video'}
           </button>
         ))}
       </div>
@@ -87,7 +87,7 @@ export function VideoFramingControls({ value, onChange, disabled = false, label 
         );
       })}
       <p className="text-[10px] leading-relaxed text-[#91a0b2]">
-        Position, crop and scale the video independently of the output aspect ratio. Changes appear in the preview and the export.
+        Position, crop and scale the background independently of the output aspect ratio. Changes appear in the preview and the export.
       </p>
     </section>
   );
