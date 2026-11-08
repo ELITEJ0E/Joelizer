@@ -19,8 +19,8 @@ const sliders: {
   initial: number;
   description: string;
 }[] = [
-  { key: 'offsetX', label: 'Horizontal position', min: -1, max: 1, step: 0.01, initial: 0, description: 'Move video left or right' },
-  { key: 'offsetY', label: 'Vertical position', min: -1, max: 1, step: 0.01, initial: 0, description: 'Move video up or down' },
+  { key: 'offsetX', label: 'Horizontal position', min: -3, max: 3, step: 0.01, initial: 0, description: 'Move video left or right' },
+  { key: 'offsetY', label: 'Vertical position', min: -3, max: 3, step: 0.01, initial: 0, description: 'Move video up or down' },
   { key: 'zoom', label: 'Zoom', min: 0.25, max: 4, step: 0.05, initial: 1, description: 'Enlarge or reduce the footage' },
   { key: 'heightScale', label: 'Video height', min: 0.25, max: 3, step: 0.05, initial: 1, description: 'Adjust height independently of width' },
 ];
