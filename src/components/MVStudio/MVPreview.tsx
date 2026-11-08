@@ -544,18 +544,20 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
                   translateY = clipProgress * (H * 0.08);
                 }
 
+                // Apply the motion effect around the canvas center, then
+                // compose the user's fit/crop, zoom and X/Y offsets using the
+                // same framing function already used for video clips.
                 ctx.translate(W / 2 + translateX, H / 2 + translateY);
                 ctx.scale(scale, scale);
-
-                const imgW = imgEl.naturalWidth;
-                const imgH = imgEl.naturalHeight;
-                const iScale = Math.max(W / imgW, H / imgH);
-                const drawW = imgW * iScale;
-                const drawH = imgH * iScale;
-
+                ctx.translate(-W / 2, -H / 2);
                 try {
-                  ctx.drawImage(imgEl, -drawW / 2, -drawH / 2, drawW, drawH);
-                } catch (e) {}
+                  drawFramedMedia(
+                    ctx, imgEl, W, H, imgEl.naturalWidth, imgEl.naturalHeight,
+                    activeClip
+                  );
+                } catch (error) {
+                  console.warn('[MVPreview] Unable to draw selected image frame:', error);
+                }
 
                 ctx.restore();
               }
