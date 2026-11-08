@@ -1,7 +1,8 @@
 import React from 'react';
 import { TimelineClip, isAutoManagedClip } from '../../../store/useMVStore';
-import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles, ChevronDown } from 'lucide-react';
+import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles } from 'lucide-react';
 import { formatTime } from '../../../lib/utils';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../ui/select';
 
 interface ClipContextBarProps {
   clip: TimelineClip;
@@ -115,45 +116,39 @@ export function ClipContextBar({
         {isAutoManagedClip(clip) ? 'AUTO · PROTECT' : 'MANUAL · KEEP'}
       </button>
 
-      {/* Motion / Effect Selector */}
+      {/* Styled Radix selects stay above the timeline and close on outside click/Escape. */}
       {onUpdateEffect && (
-        <div className="relative flex items-center">
-          <select
-            value={clip.effect || 'none'}
-            onChange={(e) => onUpdateEffect(e.target.value)}
-            disabled={clip.locked}
-            className="bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] rounded px-2 py-0.5 text-[10px] text-[#c9d1d9] outline-none cursor-pointer appearance-none pr-4.5"
-          >
-            <option value="none" className="bg-[#0e1115]">FX: None</option>
-            <option value="ken-burns-in" className="bg-[#0e1115]">Zoom In</option>
-            <option value="ken-burns-out" className="bg-[#0e1115]">Zoom Out</option>
-            <option value="pan-left" className="bg-[#0e1115]">Pan Left</option>
-            <option value="pan-right" className="bg-[#0e1115]">Pan Right</option>
-          </select>
-          <ChevronDown size={10} className="absolute right-1 text-[#7e8999] pointer-events-none" />
-        </div>
+        <Select value={clip.effect || 'none'} disabled={clip.locked} onValueChange={onUpdateEffect}>
+          <SelectTrigger aria-label="Clip motion effect"
+            className="h-7 w-[106px] border-[#303846] bg-[#161b22] px-2 text-[10px] normal-case">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="z-[110] bg-[#10151c]">
+            <SelectItem value="none">FX: None</SelectItem>
+            <SelectItem value="ken-burns-in">Zoom In</SelectItem>
+            <SelectItem value="ken-burns-out">Zoom Out</SelectItem>
+            <SelectItem value="pan-left">Pan Left</SelectItem>
+            <SelectItem value="pan-right">Pan Right</SelectItem>
+          </SelectContent>
+        </Select>
       )}
-
-      {/* Transition Selector */}
       {onUpdateTransition && (
-        <div className="relative flex items-center">
-          <select
-            value={clip.transition || 'crossfade'}
-            onChange={(e) => onUpdateTransition(e.target.value)}
-            disabled={clip.locked}
-            className="bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] rounded px-2 py-0.5 text-[10px] text-[#c9d1d9] outline-none cursor-pointer appearance-none pr-4.5"
-          >
-            <option value="cut" className="bg-[#0e1115]">Trans: Cut</option>
-            <option value="crossfade" className="bg-[#0e1115]">Crossfade / Mix</option>
-            <option value="fade" className="bg-[#0e1115]">Fade</option>
-            <option value="morph" className="bg-[#0e1115]">Morph</option>
-            <option value="slide" className="bg-[#0e1115]">Slide</option>
-            <option value="zoom" className="bg-[#0e1115]">Zoom</option>
-            <option value="dissolve" className="bg-[#0e1115]">Dissolve</option>
-            <option value="glitch" className="bg-[#0e1115]">Glitch</option>
-          </select>
-          <ChevronDown size={10} className="absolute right-1 text-[#7e8999] pointer-events-none" />
-        </div>
+        <Select value={clip.transition || 'crossfade'} disabled={clip.locked} onValueChange={onUpdateTransition}>
+          <SelectTrigger aria-label="Clip transition"
+            className="h-7 w-[120px] border-[#303846] bg-[#161b22] px-2 text-[10px] normal-case">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="z-[110] bg-[#10151c]">
+            <SelectItem value="cut">Trans: Cut</SelectItem>
+            <SelectItem value="crossfade">Crossfade / Mix</SelectItem>
+            <SelectItem value="fade">Fade</SelectItem>
+            <SelectItem value="morph">Morph</SelectItem>
+            <SelectItem value="slide">Slide</SelectItem>
+            <SelectItem value="zoom">Zoom</SelectItem>
+            <SelectItem value="dissolve">Dissolve</SelectItem>
+            <SelectItem value="glitch">Glitch</SelectItem>
+          </SelectContent>
+        </Select>
       )}
 
       {/* Delete button */}
