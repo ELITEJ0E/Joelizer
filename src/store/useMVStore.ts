@@ -136,6 +136,7 @@ export interface MVProjectState {
   style: string;
   pacing: string;
   beatSync: string;
+  captionLineCount: 1 | 2 | 5;
   editSeed: number;
   geminiKey: string;
   useGemini: boolean;
@@ -184,6 +185,7 @@ export interface MVProjectState {
   setStyle: (style: string) => void;
   setPacing: (pacing: string) => void;
   setBeatSync: (beatSync: string) => void;
+  setCaptionLineCount: (count: 1 | 2 | 5) => void;
   setEditSeed: (seed: number) => void;
   setGeminiKey: (key: string) => void;
   setUseGemini: (use: boolean) => void;
@@ -220,6 +222,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   style: 'Cinematic',
   pacing: 'Balanced',
   beatSync: 'Strong',
+  captionLineCount: 2,
   editSeed: 42,
   geminiKey: '',
   useGemini: false,
@@ -307,6 +310,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   setStyle: (style) => set({ style }),
   setPacing: (pacing) => set({ pacing }),
   setBeatSync: (beatSync) => set({ beatSync }),
+  setCaptionLineCount: (captionLineCount) => set({ captionLineCount }),
   setEditSeed: (editSeed) => set({ editSeed }),
   setGeminiKey: (geminiKey) => set({ geminiKey }),
   setUseGemini: (useGemini) => set({ useGemini }),
@@ -507,6 +511,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     style: state.style,
     pacing: state.pacing,
     beatSync: state.beatSync,
+    captionLineCount: state.captionLineCount,
     editSeed: state.editSeed,
     mediaSourceFilter: state.mediaSourceFilter,
     songAnalysis: state.songAnalysis,
