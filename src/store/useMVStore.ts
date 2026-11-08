@@ -49,11 +49,10 @@ const MIN_CLIP_SECONDS = 0.1;
 const roundTime = (time: number) => Math.round(time * 100) / 100;
 const placed = (clips: TimelineClip[]) => [...clips].sort((a, b) => a.startTime - b.startTime);
 
-/** Older saved Auto Edit clips lacked provenance; keep their old ID convention working. */
+/** Only clips explicitly marked as generated are replaceable. Older
+ * projects have no edit history, so protect their clips by default. */
 export function isAutoManagedClip(clip: TimelineClip): boolean {
-  if (clip.locked || clip.manuallyEdited || clip.editOrigin === 'manual') return false;
-  return clip.editOrigin === 'auto' ||
-    (!clip.editOrigin && /^(clip-gen-|clip-auto-|gap-)/.test(clip.id));
+  return !clip.locked && !clip.manuallyEdited && clip.editOrigin === 'auto';
 }
 
 function sameClipProperties(a: TimelineClip, b: TimelineClip): boolean {
@@ -223,6 +222,7 @@ export interface MVProjectState {
   addTimelineClip: (clip: TimelineClip) => void;
   updateTimelineClip: (id: string, updates: Partial<TimelineClip>) => void;
   toggleLockClip: (id: string) => void;
+  setClipAutoManaged: (id: string, enabled: boolean) => void;
   removeTimelineClip: (id: string) => void;
   duplicateTimelineClip: (id: string) => void;
   splitTimelineClip: (id: string, splitTime: number) => void;
@@ -510,6 +510,11 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       if (sameClipProperties(c, edited)) return c;
       return { ...edited, manuallyEdited: true, editOrigin: 'manual' };
     })
+  })),
+  setClipAutoManaged: (id, enabled) => set((s) => ({
+    timelineClips: s.timelineClips.map(c => c.id === id
+      ? { ...c, editOrigin: enabled ? 'auto' : 'manual', manuallyEdited: !enabled }
+      : c)
   })),
   toggleLockClip: (id) => set((s) => ({
     timelineClips: s.timelineClips.map((c) => c.id === id
