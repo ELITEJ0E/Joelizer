@@ -74,7 +74,7 @@ export function MVSettingsPanel() {
 
           <p className="text-[11px] leading-relaxed text-[#8c9aab]">
             Visual style, cutting pace and beat sync are configured in <strong>Auto Edit → Editing Aesthetics</strong>.
-            Those settings determine clip selection and timing; the transition controls above determine how adjacent scenes blend.
+            Scene transitions are also in Auto Edit, so the selected blending style is grouped with the editing workflow.
           </p>
 
           {/* Unified Caption & Lyric Style */}
