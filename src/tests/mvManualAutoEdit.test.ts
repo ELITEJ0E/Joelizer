@@ -8,6 +8,8 @@ const sample = (id: string, startTime: number, endTime: number): TimelineClip =>
 });
 
 const store = useMVStore.getState();
+assert.equal(isAutoManagedClip(sample('clip-gen-legacy', 0, 2)), false,
+  'Older clips must be protected because their editing history is unknown');
 useMVStore.setState({
   timelineClips: [
     { ...sample('clip-gen-old-1', 0, 3), editOrigin: 'auto' },
@@ -40,6 +42,12 @@ for (let i = 1; i < ordered.length; i++)
   assert.ok(ordered[i].startTime >= ordered[i - 1].endTime - 0.0001, 'No overlaps');
 
 const newAuto = after.find(c => isAutoManagedClip(c))!;
+store.setClipAutoManaged(newAuto.id, false);
+assert.equal(isAutoManagedClip(useMVStore.getState().timelineClips.find(c => c.id === newAuto.id)!), false,
+  'Protect button must remove a clip from future Auto Edit regeneration');
+store.setClipAutoManaged(newAuto.id, true);
+assert.equal(isAutoManagedClip(useMVStore.getState().timelineClips.find(c => c.id === newAuto.id)!), true,
+  'Users can explicitly give an unedited clip back to Auto Edit');
 store.toggleLockClip(newAuto.id);
 assert.equal(isAutoManagedClip(useMVStore.getState().timelineClips.find(c => c.id === newAuto.id)!), false,
   'Manually locked clips must remain protected even if later unlocked');
