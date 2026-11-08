@@ -202,6 +202,7 @@ export interface MVProjectState {
   setWordTimings: (timings: TimelineText[]) => void;
 
   setTimelineClips: (clips: TimelineClip[]) => void;
+  addGapFillClips: (clips: TimelineClip[]) => number;
   addTimelineClip: (clip: TimelineClip) => void;
   updateTimelineClip: (id: string, updates: Partial<TimelineClip>) => void;
   toggleLockClip: (id: string) => void;
@@ -415,6 +416,29 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     const start = Math.max(0, previous ? Math.max(clip.startTime, previous.endTime) : clip.startTime);
     return [...result, { ...clip, startTime: roundTime(start), endTime: roundTime(start + Math.max(MIN_CLIP_SECONDS, clip.endTime - clip.startTime)) }];
   }, []) }),
+  // This action never touches pre-existing clips. Reject any generated piece
+  // that would overlap an occupied interval or another accepted fill piece.
+  addGapFillClips: (clips) => {
+    let inserted = 0;
+    set(state => {
+      const result = [...state.timelineClips];
+      const knownIds = new Set(result.map(c => c.id));
+      for (const clip of [...clips].sort((a, b) => a.startTime - b.startTime)) {
+        if (knownIds.has(clip.id) || !Number.isFinite(clip.startTime) ||
+          !Number.isFinite(clip.endTime) || clip.startTime < 0 ||
+          clip.endTime - clip.startTime < MIN_CLIP_SECONDS - 0.0001) continue;
+        const collides = result.some(existing =>
+          clip.startTime < existing.endTime - 0.0001 &&
+          clip.endTime > existing.startTime + 0.0001);
+        if (collides) continue;
+        result.push(clip);
+        knownIds.add(clip.id);
+        inserted++;
+      }
+      return inserted ? { timelineClips: placed(result) } : state;
+    });
+    return inserted;
+  },
   addTimelineClip: (newClip) => set((s) => {
     const clipDur = Math.max(0.5, newClip.endTime - newClip.startTime);
     let start = newClip.startTime;
