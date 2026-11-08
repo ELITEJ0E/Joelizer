@@ -8,12 +8,12 @@ export type MVTransition = NonNullable<TimelineClip['transition']>;
  * Explicitly edited/manual scenes keep their own transition.
  */
 export function getEffectiveMVTransition(
-  clip: Pick<TimelineClip, 'transition' | 'transitionDuration' | 'editOrigin' | 'manuallyEdited'>,
+  clip: Pick<TimelineClip, 'transition' | 'transitionDuration' | 'editOrigin' | 'manuallyEdited' | 'transitionManuallyEdited'>,
   autoEnabled: boolean,
   defaultTransition: MVTransition,
   defaultDuration: number
 ): { type: MVTransition; duration: number } {
-  const manuallyChosen = clip.manuallyEdited === true || clip.editOrigin === 'manual';
+  const manuallyChosen = clip.transitionManuallyEdited === true;
   const type: MVTransition = manuallyChosen
     ? (clip.transition ?? (autoEnabled ? defaultTransition : 'cut'))
     : (autoEnabled ? defaultTransition : 'cut');
