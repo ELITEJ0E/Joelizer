@@ -1,3 +1,4 @@
+import { getEffectiveMVTransition } from '../../lib/mvTransitionSettings';
 import { getVideoSyncDecision } from '../../lib/videoPlaybackSync';
 import { layoutMVCaption, drawMVCaption, MVCaptionLayout } from '../../lib/mvCaptionLayout';
 import { getBrowserExportTime, sampleBrowserExportVideo } from '../../lib/browserExportClock';
@@ -584,9 +585,13 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           const ordered = [...clips].sort((a, b) => a.startTime - b.startTime);
           const index = ordered.findIndex(c => c.id === activeClip.id);
           const previous = index > 0 ? ordered[index - 1] : null;
-          const effect = activeClip.transition || (mvState.autoTransitions ? mvState.defaultTransition : 'cut');
-          const seconds = Math.min(activeClip.transitionDuration ?? mvState.transitionDuration ?? 0.5,
-            activeClip.endTime - activeClip.startTime);
+          const resolved = getEffectiveMVTransition(
+            activeClip, mvState.autoTransitions, mvState.defaultTransition, mvState.transitionDuration
+          );
+          const effect = resolved.type;
+          const seconds = Math.min(resolved.duration,
+            activeClip.endTime - activeClip.startTime,
+            previous ? previous.endTime - previous.startTime : resolved.duration);
           const eligible = previous && Math.abs(previous.endTime - activeClip.startTime) < 0.05
             && effect !== 'cut' && seconds > 0;
           const progress = eligible ? Math.max(0, Math.min(1, (curTime - activeClip.startTime) / seconds)) : 1;
@@ -596,30 +601,55 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             if (effect === 'fade') {
               ctx.fillStyle = `rgba(5,5,8,${1 - eased})`;
               ctx.fillRect(0, 0, W, H);
-            } else if (outgoingFrameRef.current?.clipId === previous.id) {
-              const previousCanvas = outgoingFrameRef.current.canvas;
-              ctx.globalAlpha = 1 - eased;
-              if (effect === 'slide') {
-                ctx.drawImage(previousCanvas, -W * eased, 0, W, H);
-              } else if (effect === 'zoom' || effect === 'morph') {
-                const scale = 1 - (effect === 'morph' ? 0.08 : 0.2) * eased;
-                ctx.translate(W / 2, H / 2);
-                ctx.scale(scale, scale);
-                ctx.drawImage(previousCanvas, -W / 2, -H / 2, W, H);
-              } else {
-                ctx.drawImage(previousCanvas, 0, 0, W, H);
-              }
             } else {
-              // Seeking straight into a transition has no outgoing frame cache.
-              ctx.fillStyle = `rgba(5,5,8,${1 - eased})`;
-              ctx.fillRect(0, 0, W, H);
+              const cached = outgoingFrameRef.current?.clipId === previous.id
+                ? outgoingFrameRef.current.canvas : null;
+              const previousAsset = assets.find(a => a.id === previous.assetId);
+              // On direct timeline seeks, the outgoing-frame cache may not
+              // exist. Fall back to the previously loaded image/thumbnail,
+              // instead of a black flash that looks like an abrupt hard cut.
+              const fallbackUrl = previousAsset?.type === 'image'
+                ? previousAsset.url : previousAsset?.thumbnail;
+              let fallback = fallbackUrl ? imageElementsRef.current.get(fallbackUrl) : undefined;
+              if (!cached && fallbackUrl && !fallback) {
+                fallback = new Image();
+                fallback.crossOrigin = 'anonymous';
+                fallback.src = fallbackUrl;
+                imageElementsRef.current.set(fallbackUrl, fallback);
+              }
+              const availableFallback = fallback?.complete && fallback.naturalWidth > 0
+                ? fallback : null;
+              if (cached || availableFallback) {
+                ctx.globalAlpha = 1 - eased;
+                if (effect === 'morph') {
+                  // Soft morph-like dissolve: opacity, subtle scale and
+                  // mid-transition blur, avoiding an abrupt frame snap.
+                  ctx.filter = `blur(${Math.sin(progress * Math.PI) * Math.min(W, H) * 0.004}px)`;
+                }
+                if (effect === 'slide') {
+                  ctx.translate(-W * eased, 0);
+                } else if (effect === 'zoom' || effect === 'morph') {
+                  const scale = 1 - (effect === 'morph' ? 0.08 : 0.2) * eased;
+                  ctx.translate(W / 2, H / 2);
+                  ctx.scale(scale, scale);
+                  ctx.translate(-W / 2, -H / 2);
+                }
+                if (cached) ctx.drawImage(cached, 0, 0, W, H);
+                else if (availableFallback) drawFramedMedia(ctx, availableFallback, W, H,
+                  availableFallback.naturalWidth, availableFallback.naturalHeight, previous);
+              } else {
+                // Only when neither decoded footage nor a thumbnail is
+                // available do we use the neutral fade fallback.
+                ctx.fillStyle = `rgba(5,5,8,${1 - eased})`;
+                ctx.fillRect(0, 0, W, H);
+              }
             }
             ctx.restore();
           }
           // Capture the last displayed frame shortly before its outgoing cut.
           // Reuse the same buffer while the clip stays active; do not allocate
           // a canvas for every animation frame.
-          if (activeClip.endTime - curTime <= 0.55 && activeClip.endTime > curTime) {
+          if (activeClip.endTime - curTime <= Math.max(0.6, mvState.transitionDuration) && activeClip.endTime > curTime) {
             let frame = outgoingFrameRef.current?.clipId === activeClip.id
               ? outgoingFrameRef.current.canvas : document.createElement('canvas');
             if (frame.width !== W || frame.height !== H) { frame.width = W; frame.height = H; }
