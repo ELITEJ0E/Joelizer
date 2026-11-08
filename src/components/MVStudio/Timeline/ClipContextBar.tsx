@@ -41,7 +41,7 @@ export function ClipContextBar({
 
   return (
     <div 
-      className="flex items-center gap-1.5 px-2.5 py-1 bg-[#0e1115] border border-[#232933] rounded shadow-[0_8px_30px_rgba(0,0,0,0.8)] text-[11px] text-[#f0f3f6] z-50 animate-in fade-in zoom-in-95 duration-150 select-none font-mono"
+      className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-1.5 max-w-[calc(100vw-16px)] px-2.5 py-1 bg-[#0e1115] border border-[#232933] rounded shadow-[0_8px_30px_rgba(0,0,0,0.8)] text-[11px] text-[#f0f3f6] z-50 animate-in fade-in zoom-in-95 duration-150 select-none font-mono"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Timing badge */}
