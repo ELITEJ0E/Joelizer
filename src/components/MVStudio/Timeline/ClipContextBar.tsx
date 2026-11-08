@@ -1,5 +1,5 @@
 import React from 'react';
-import { TimelineClip } from '../../../store/useMVStore';
+import { TimelineClip, isAutoManagedClip } from '../../../store/useMVStore';
 import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles, ChevronDown } from 'lucide-react';
 import { formatTime } from '../../../lib/utils';
 
@@ -10,6 +10,7 @@ interface ClipContextBarProps {
   onSplit: () => void;
   onDuplicate: () => void;
   onToggleLock: () => void;
+  onToggleAutoManaged: () => void;
   onDelete: () => void;
   onUpdateEffect?: (effect: any) => void;
   onUpdateTransition?: (transition: any) => void;
@@ -23,6 +24,7 @@ export function ClipContextBar({
   onSplit,
   onDuplicate,
   onToggleLock,
+  onToggleAutoManaged,
   onDelete,
   onUpdateEffect,
   onUpdateTransition,
@@ -78,6 +80,24 @@ export function ClipContextBar({
       >
         {clip.locked ? <Lock size={11} className="text-amber-400" /> : <Unlock size={11} />}
         <span>{clip.locked ? 'LOCKED' : 'LOCK'}</span>
+      </button>
+
+      {/* Auto Edit ownership: manual clips are preserved during regeneration. */}
+      <button
+        type="button"
+        onClick={onToggleAutoManaged}
+        disabled={clip.locked}
+        aria-pressed={!isAutoManagedClip(clip)}
+        title={isAutoManagedClip(clip)
+          ? 'Protect this clip from Auto Edit'
+          : 'Allow Auto Edit to regenerate this clip'}
+        className={`px-2 py-0.5 rounded border text-[10px] font-semibold cursor-pointer disabled:opacity-40 ${
+          isAutoManagedClip(clip)
+            ? 'border-[#344557] bg-[#161b22] text-[#aab5c5]'
+            : 'border-amber-700/60 bg-amber-950/30 text-amber-300'
+        }`}
+      >
+        {isAutoManagedClip(clip) ? 'AUTO · PROTECT' : 'MANUAL · KEEP'}
       </button>
 
       {/* Motion / Effect Selector */}
