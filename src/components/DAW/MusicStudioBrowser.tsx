@@ -1,3 +1,4 @@
+import { StyledSelect } from '../ui/StyledSelect';
 import React, { useRef, useState } from 'react';
 import { Disc3, Download, FolderOpen, Headphones, Layers, Music2, Play, Plus, SlidersHorizontal, Upload, X } from 'lucide-react';
 import { useDAWStore } from '../../store/useDAWStore';
@@ -246,22 +247,22 @@ export function MusicStudioBrowser({ onClose }: { onClose?: () => void }) {
               <button type="button" className={accentBtn} onClick={() => setTab('samples')}>Open Samples to import drum one-shots</button>
             )}
             <div className="flex items-center gap-3 text-xs">
-              <label>Bars <select aria-label="Drum rack bars" value={bars} onChange={event => setBars(Number(event.target.value))}
+              <label>Bars <StyledSelect aria-label="Drum rack bars" value={bars} onChange={event => setBars(Number(event.target.value))}
                 className="ml-1 rounded border border-white/15 bg-[#18202d] p-1">
                 {[1, 2, 4, 8].map(n => <option key={n}>{n}</option>)}
-              </select></label>
+              </StyledSelect></label>
               <span className="text-slate-400">{bpm} BPM (transport)</span>
             </div>
             <div className="space-y-3">{lanes.map(lane => (
               <div key={lane} className="space-y-1.5 rounded-lg border border-white/10 bg-white/[0.025] p-2">
                 <div className="flex items-center gap-2">
                   <div className="w-16 shrink-0 text-[11px] font-semibold">{lane}</div>
-                  <select aria-label={lane + ' sample'} value={assignments[lane]}
+                  <StyledSelect aria-label={lane + ' sample'} value={assignments[lane]}
                     onChange={e => setAssignments(old => ({...old,[lane]: e.target.value}))}
                     className="w-full min-w-0 rounded border border-white/10 bg-[#161e29] p-1 text-[10px]">
                     <option value="">Choose sample...</option>
                     {samples.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  </StyledSelect>
                 </div>
                 <div className="grid grid-cols-16 gap-[2px]" style={{gridTemplateColumns: 'repeat(16,minmax(0,1fr))'}}>
                   {pattern[lane].map((enabled,i) => (
