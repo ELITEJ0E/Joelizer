@@ -48,7 +48,8 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   const activeIndex = activeClip ? orderedClips.findIndex(c => c.id === activeClip.id) : -1;
   const outgoingClip = activeIndex > 0 ? orderedClips[activeIndex - 1] : undefined;
   const transitionType = activeClip?.transition || 'cut';
-  const transitionLength = Math.min(activeClip?.transitionDuration ?? 0.5, activeClip?.duration ?? 0);
+  const transitionLength = Math.min(activeClip?.transitionDuration ?? 0.5,
+    activeClip?.duration ?? 0, outgoingClip?.duration ?? Infinity);
   const transitionProgress = activeClip && outgoingClip &&
     Math.abs(outgoingClip.endTime - activeClip.startTime) < 0.05 &&
     transitionType !== 'cut' && transitionLength > 0 &&
@@ -64,7 +65,8 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
     transform: transitionType === 'slide' ? `translateX(${-100 * transitionEase}%)` :
       transitionType === 'zoom' || transitionType === 'morph'
         ? `scale(${1 - (transitionType === 'morph' ? 0.08 : 0.2) * transitionEase})` : undefined,
-    filter: transitionType === 'glitch' ? `hue-rotate(${transitionEase * 45}deg)` : undefined,
+    filter: transitionType === 'glitch' ? `hue-rotate(${transitionEase * 45}deg)` :
+      transitionType === 'morph' ? `blur(${Math.sin(transitionProgress * Math.PI) * Math.min(width, height) * 0.004}px)` : undefined,
     pointerEvents: 'none'
   };
 
