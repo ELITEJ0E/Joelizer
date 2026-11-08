@@ -31,12 +31,6 @@ export function MVSettingsPanel() {
   const setCaptionLineCount = useMVStore(s => s.setCaptionLineCount);
   
   
-  const autoTransitions = useMVStore(s => s.autoTransitions);
-  const setAutoTransitions = useMVStore(s => s.setAutoTransitions);
-  const defaultTransition = useMVStore(s => s.defaultTransition);
-  const setDefaultTransition = useMVStore(s => s.setDefaultTransition);
-  const transitionDuration = useMVStore(s => s.transitionDuration);
-  const setTransitionDuration = useMVStore(s => s.setTransitionDuration);
 
   useEffect(() => {
     animate('.mv-settings-anim > *', {
@@ -61,38 +55,6 @@ export function MVSettingsPanel() {
       <div className="flex-1 overflow-y-auto p-4 relative z-10">
         <div className="mv-settings-anim space-y-5">
           
-          <section className="space-y-3 rounded-lg border border-[#303846] bg-[#121a23] p-3" aria-label="Video clip transitions">
-            <label className="flex items-center justify-between gap-3 text-xs font-semibold">
-              <span>Scene transitions</span>
-              <input type="checkbox" checked={autoTransitions} onChange={e => setAutoTransitions(e.target.checked)}
-                aria-label="Enable transitions at adjacent clip boundaries" className="accent-emerald-400" />
-            </label>
-            <div className="space-y-1">
-              <label htmlFor="mv-default-transition" className="block text-[10px] text-[#9ba8b8]">Default transition</label>
-              <select id="mv-default-transition" disabled={!autoTransitions} value={defaultTransition}
-                onChange={e => setDefaultTransition(e.target.value as typeof defaultTransition)}
-                className="w-full rounded border border-[#303846] bg-[#0d1219] p-2 text-xs">
-                <option value="crossfade">Crossfade / Mix</option>
-                <option value="fade">Fade in / out</option>
-                <option value="dissolve">Dissolve</option>
-                <option value="morph">Morph (smooth blend)</option>
-                <option value="slide">Slide</option>
-                <option value="zoom">Smooth zoom</option>
-                <option value="glitch">Glitch</option>
-                <option value="cut">Hard cut</option>
-              </select>
-            </div>
-            <label className="block text-[10px] text-[#9ba8b8]" htmlFor="mv-transition-duration">
-              Transition duration: {transitionDuration.toFixed(1)}s
-            </label>
-            <input id="mv-transition-duration" type="range" min="0.1" max="2" step="0.1"
-              disabled={!autoTransitions} value={transitionDuration}
-              onChange={e => setTransitionDuration(Number(e.target.value))} className="w-full accent-emerald-400" />
-            <p className="text-[10px] text-[#9ba8b8]">
-              Clip transitions affect adjacent cuts. Trimming and moving clips cannot overwrite neighboring clips.
-            </p>
-          </section>
-
           {/* Video framing is an editing setting, not part of the media library. */}
           <div className="space-y-2">
             {framingClip ? (
