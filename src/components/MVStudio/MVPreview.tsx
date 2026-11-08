@@ -608,7 +608,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             template: tmpl,
             aspectRatio: storeState.aspectRatio,
             animationStyle: storeState.lyricsSettings?.animationStyle || lyricsVideoState.animationStyle,
-            visibleLineCount: storeState.lyricsSettings?.visibleLineCount ?? 2,
+            visibleLineCount: mvState.captionLineCount ?? 2,
             showLyrics: true,
             bilingualEnabled: storeState.lyricsSettings?.bilingualEnabled ?? lyricsVideoState.bilingualEnabled,
             fadeInDuration: storeState.lyricsSettings?.fadeInDuration ?? lyricsVideoState.fadeInDuration,
