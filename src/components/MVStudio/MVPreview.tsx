@@ -1,3 +1,5 @@
+import { useOverlayEffectsStore } from '../../store/useOverlayEffectsStore';
+import { drawOverlayEffects } from '../../lib/overlayEffects';
 import { getEffectiveMVTransition } from '../../lib/mvTransitionSettings';
 import { getVideoSyncDecision } from '../../lib/videoPlaybackSync';
 import { layoutMVCaption, drawMVCaption, MVCaptionLayout } from '../../lib/mvCaptionLayout';
@@ -688,6 +690,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             showSafeArea: false
           });
         }
+        // The same rendered canvas is used for playback and browser export.
+        // Apply timed effects after captions, not just to an HTML preview layer.
+        const overlays = useOverlayEffectsStore.getState();
+        drawOverlayEffects(ctx, W, H,
+          activeVideoMode === 'music-video' ? overlays.mv : overlays.lyrics, curTime);
       } catch (err) {
         console.error("Renderer Loop Exception:", err);
       }
