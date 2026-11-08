@@ -97,6 +97,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFallbackFullscreen, setIsFallbackFullscreen] = useState(false);
   const [stageDimensions, setStageDimensions] = useState({ width: 640, height: 360 });
   const [availableStage, setAvailableStage] = useState({ width: 0, height: 0 });
   const [stageHovered, setStageHovered] = useState(false);
@@ -143,19 +144,47 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
     return () => observer.disconnect();
   }, [aspectRatio]);
 
-  // Sync fullscreen state with document
+  // Native fullscreen can be disallowed in embedded browsers. Keep a
+  // viewport-sized fallback so the preview button still works in that case.
   useEffect(() => {
-    const handleFSChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFSChange = () => setIsFullscreen(document.fullscreenElement === stageRef.current || isFallbackFullscreen);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFallbackFullscreen) setIsFallbackFullscreen(false);
+    };
     document.addEventListener('fullscreenchange', handleFSChange);
-    return () => document.removeEventListener('fullscreenchange', handleFSChange);
-  }, []);
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFSChange);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isFallbackFullscreen]);
 
-  const handleToggleFullscreen = () => {
-    if (!stageRef.current) return;
-    if (!document.fullscreenElement) {
-      stageRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+  const handleToggleFullscreen = async () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    if (isFallbackFullscreen) {
+      setIsFallbackFullscreen(false);
+      setIsFullscreen(false);
+      return;
+    }
+    if (document.fullscreenElement === stage) {
+      try { await document.exitFullscreen(); } catch (error) {
+        console.warn('[MVPreview] Cannot exit native fullscreen:', error);
+      }
+      return;
+    }
+    try {
+      if (stage.requestFullscreen) {
+        await stage.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        setIsFallbackFullscreen(true);
+        setIsFullscreen(true);
+      }
+    } catch (error) {
+      console.warn('[MVPreview] Native fullscreen unavailable, using viewport fallback:', error);
+      setIsFallbackFullscreen(true);
+      setIsFullscreen(true);
     }
   };
 
@@ -647,7 +676,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
       {/* Main Stage Canvas Area - Perfectly Proportional & 1:1 Match for Preview & Export */}
       <div 
         ref={stageRef}
-        className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-[#0a0c0f]"
+        className={`flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-[#0a0c0f] ${isFallbackFullscreen ? 'fixed inset-0 !w-screen !h-screen z-[9999]' : ''} fullscreen:!w-screen fullscreen:!h-screen`}
       >
         <div
           ref={canvasContainerRef}
@@ -751,8 +780,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           {/* Fullscreen Toggle Button */}
           <button
             type="button"
-            onClick={handleToggleFullscreen}
-            className={`absolute top-2 right-2 z-20 bg-[#0e1115]/85 hover:bg-[#161b22] text-[#c9d1d9] hover:text-white p-2 rounded-lg border border-[#303846] cursor-pointer transition-all focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent ${stageHovered && !dialogOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            onClick={(event) => { event.stopPropagation(); void handleToggleFullscreen(); }}
+            onPointerDown={(event) => event.stopPropagation()}
+            className={`absolute top-2 right-2 z-[60] bg-[#0e1115]/85 hover:bg-[#161b22] text-[#c9d1d9] hover:text-white p-2 rounded-lg border border-[#303846] cursor-pointer transition-all focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent ${!dialogOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen preview'}
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview"}
           >
