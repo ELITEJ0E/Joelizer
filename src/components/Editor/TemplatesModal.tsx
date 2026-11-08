@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
@@ -13,6 +13,14 @@ interface TemplatesModalProps {
 
 export function TemplatesModal({ isOpen, onClose }: TemplatesModalProps) {
   const { handleClose } = usePopstateModal(isOpen, onClose);
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); handleClose(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, handleClose]);
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const selectedTemplateId = useLyricsVideoStore(s => s.selectedTemplateId);
   const setSelectedTemplateId = useLyricsVideoStore(s => s.setSelectedTemplateId);
