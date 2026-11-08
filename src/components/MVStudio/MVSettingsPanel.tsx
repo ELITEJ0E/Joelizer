@@ -5,6 +5,7 @@ import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { Sliders, Type } from 'lucide-react';
 import { animate, stagger } from 'animejs';
 import { VideoFramingControls } from '../shared/VideoFramingControls';
+import { OverlayEffectsPanel } from '../shared/OverlayEffectsPanel';
 
 export function MVSettingsPanel() {
   const currentTime = useStore(s => s.currentTime);
@@ -55,6 +56,8 @@ export function MVSettingsPanel() {
       <div className="flex-1 overflow-y-auto p-4 relative z-10">
         <div className="mv-settings-anim space-y-5">
           
+          <OverlayEffectsPanel mode="music-video" />
+
           {/* Video framing is an editing setting, not part of the media library. */}
           <div className="space-y-2">
             {framingClip ? (
