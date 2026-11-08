@@ -1,4 +1,5 @@
 import { StyledSelect } from '../ui/StyledSelect';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, 
@@ -79,6 +80,18 @@ const PRESETS = [
 ];
 
 export function GeminiComposerModal({ isOpen, onClose }: GeminiComposerModalProps) {
+  const { handleClose } = usePopstateModal(isOpen, onClose);
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.querySelector('[role="listbox"][data-state="open"]')) {
+        event.preventDefault();
+        handleClose();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, handleClose]);
   const [prompt, setPrompt] = useState('Cozy midnight lofi hip hop study beat with warm electric piano and chill groove');
   const [genre, setGenre] = useState('Lo-Fi Chillhop');
   const [mood, setMood] = useState('Nostalgic & Chill');
@@ -269,7 +282,8 @@ export function GeminiComposerModal({ isOpen, onClose }: GeminiComposerModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto"
+      onPointerDown={event => { if (event.target === event.currentTarget) handleClose(); }}>
       <div className="bg-[#121620] border border-white/15 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-200">
         
         {/* Header */}
@@ -291,7 +305,7 @@ export function GeminiComposerModal({ isOpen, onClose }: GeminiComposerModalProp
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
           >
             <X size={18} />
