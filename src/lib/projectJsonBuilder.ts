@@ -1,3 +1,4 @@
+import { useOverlayEffectsStore } from '../store/useOverlayEffectsStore';
 import { getEffectiveMVTransition } from './mvTransitionSettings';
 import { useStore } from '../store/useStore';
 import { useMVStore } from '../store/useMVStore';
@@ -257,6 +258,7 @@ export async function buildCanonicalProjectJson(options?: {
       enabled: lyricsVideoStore.showVisualizer ?? (vis.enabled !== false && lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
     },
     videoClips: canonicalClips,
+    overlayEffects: exportMode === 'music-video' ? useOverlayEffectsStore.getState().mv : useOverlayEffectsStore.getState().lyrics,
     effects: {
       showGrain: vis.showGrain,
       showScanlines: vis.showScanlines,
