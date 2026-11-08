@@ -162,6 +162,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   // Asset element caches to avoid re-creating elements and avoid black frames on transitions
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const lastActiveVideoClipRef = useRef<string | null>(null);
+  const outgoingFrameRef = useRef<{ clipId: string; canvas: HTMLCanvasElement } | null>(null);
   const pausedClipTimelineRef = useRef<Map<string, number>>(new Map());
   const imageElementsRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
@@ -540,6 +541,57 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           ctx.font = `bold ${Math.round(H * 0.035)}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.fillText('NO ACTIVE TIMELINE CLIP', W / 2, H / 2);
+        }
+
+        // Blend the last outgoing frame over the incoming clip. The same canvas
+        // powers the live preview and browser-recorded exports. Effects never
+        // require playing two decoders simultaneously.
+        if (activeVideoMode === 'music-video' && activeClip) {
+          const ordered = [...clips].sort((a, b) => a.startTime - b.startTime);
+          const index = ordered.findIndex(c => c.id === activeClip.id);
+          const previous = index > 0 ? ordered[index - 1] : null;
+          const effect = activeClip.transition || (mvState.autoTransitions ? mvState.defaultTransition : 'cut');
+          const seconds = Math.min(activeClip.transitionDuration ?? mvState.transitionDuration ?? 0.5,
+            activeClip.endTime - activeClip.startTime);
+          const eligible = previous && Math.abs(previous.endTime - activeClip.startTime) < 0.05
+            && effect !== 'cut' && seconds > 0;
+          const progress = eligible ? Math.max(0, Math.min(1, (curTime - activeClip.startTime) / seconds)) : 1;
+          const eased = progress * progress * (3 - 2 * progress);
+          if (eligible && progress < 1) {
+            ctx.save();
+            if (effect === 'fade') {
+              ctx.fillStyle = `rgba(5,5,8,${1 - eased})`;
+              ctx.fillRect(0, 0, W, H);
+            } else if (outgoingFrameRef.current?.clipId === previous.id) {
+              const previousCanvas = outgoingFrameRef.current.canvas;
+              ctx.globalAlpha = 1 - eased;
+              if (effect === 'slide') {
+                ctx.drawImage(previousCanvas, -W * eased, 0, W, H);
+              } else if (effect === 'zoom' || effect === 'morph') {
+                const scale = 1 - (effect === 'morph' ? 0.08 : 0.2) * eased;
+                ctx.translate(W / 2, H / 2);
+                ctx.scale(scale, scale);
+                ctx.drawImage(previousCanvas, -W / 2, -H / 2, W, H);
+              } else {
+                ctx.drawImage(previousCanvas, 0, 0, W, H);
+              }
+            } else {
+              // Seeking straight into a transition has no outgoing frame cache.
+              ctx.fillStyle = `rgba(5,5,8,${1 - eased})`;
+              ctx.fillRect(0, 0, W, H);
+            }
+            ctx.restore();
+          }
+          // Capture the last displayed frame shortly before its outgoing cut.
+          // Reuse the same buffer while the clip stays active; do not allocate
+          // a canvas for every animation frame.
+          if (activeClip.endTime - curTime <= 0.55 && activeClip.endTime > curTime) {
+            let frame = outgoingFrameRef.current?.clipId === activeClip.id
+              ? outgoingFrameRef.current.canvas : document.createElement('canvas');
+            if (frame.width !== W || frame.height !== H) { frame.width = W; frame.height = H; }
+            frame.getContext('2d')?.drawImage(canvas, 0, 0, W, H);
+            outgoingFrameRef.current = { clipId: activeClip.id, canvas: frame };
+          }
         }
 
         // 3. Render unified lyrics overlay over MV timeline clips (eliminates old duplicate bottom caption box)
