@@ -79,12 +79,12 @@ function avoidClipCollision(current: TimelineClip, proposed: TimelineClip, other
   const newTrimStart = proposed.trimStart !== current.trimStart
     ? Math.max(0, current.trimStart + shiftedIn) : proposed.trimStart;
   const newTrimEnd = proposed.trimEnd !== current.trimEnd
-    ? Math.max(newTrimStart + MIN_CLIP_SECONDS, newTrimStart + (end - start))
-    : proposed.trimEnd;
+    ? proposed.trimEnd
+    : current.trimEnd + (end - current.endTime);
   return {
     ...proposed, startTime: roundTime(start), endTime: roundTime(end),
     trimStart: moving ? current.trimStart : roundTime(newTrimStart),
-    trimEnd: moving ? current.trimEnd : roundTime(newTrimEnd),
+    trimEnd: moving ? current.trimEnd : roundTime(Math.max(newTrimStart + MIN_CLIP_SECONDS, newTrimEnd)),
   };
 }
 
