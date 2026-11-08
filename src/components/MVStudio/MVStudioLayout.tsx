@@ -24,6 +24,8 @@ export function MVStudioLayout() {
   const editorRef = useRef<HTMLElement>(null);
   const [timelineHeight, setTimelineHeight] = useState<number | null>(null);
   const [isResizingTimeline, setIsResizingTimeline] = useState(false);
+  const drawerHistoryRef = useRef(false);
+  const panelRef = useRef<HTMLElement>(null);
   const [activePanel, setActivePanel] = useState<StudioPanel>(() =>
     typeof window !== 'undefined' && window.innerWidth < 1024 ? 'none' : 'media'
   );
@@ -37,18 +39,43 @@ export function MVStudioLayout() {
   // viewport drawer. The preview and timeline keep their own layout when it
   // opens and it never competes with the global dialog portal.
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !document.querySelector('[data-mv-dialog]') &&
-          window.innerWidth < 1024) {
+    // Mobile sheets integrate with browser Back without navigating away.
+    const onPopState = () => {
+      if (drawerHistoryRef.current) {
+        drawerHistoryRef.current = false;
         setActivePanel('none');
       }
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.querySelector('[data-mv-dialog]') &&
+          window.innerWidth < 1024 && activePanel !== 'none') {
+        event.stopPropagation();
+        closePanel();
+      }
+    };
+    window.addEventListener('popstate', onPopState);
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activePanel]);
 
-  const togglePanel = (panel: Exclude<StudioPanel, 'none'>) =>
-    setActivePanel(current => current === panel ? 'none' : panel);
+  const closePanel = () => {
+    setActivePanel('none');
+    if (drawerHistoryRef.current) {
+      drawerHistoryRef.current = false;
+      window.history.back();
+    }
+  };
+  const togglePanel = (panel: Exclude<StudioPanel, 'none'>) => {
+    if (activePanel === panel) { closePanel(); return; }
+    if (window.innerWidth < 1024 && !drawerHistoryRef.current) {
+      window.history.pushState({ ...window.history.state, joelizerMVPanel: true }, '');
+      drawerHistoryRef.current = true;
+    }
+    setActivePanel(panel);
+  };
 
   // More room for editing by default, without losing the preview. Users can
   // resize the vertical split by dragging its divider or using arrow keys.
@@ -96,15 +123,15 @@ export function MVStudioLayout() {
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#080b10] text-[#e6e9ed]">
-      <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
+      <div className="relative isolate flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
 
         {/* Compact tab bar for small screens; keeps editing options discoverable. */}
-        <nav aria-label="Music video tools" className="z-20 flex h-[52px] shrink-0 items-center gap-1 overflow-x-auto border-b border-[#28303c] bg-[#10151c] px-2 py-1.5 lg:hidden">
+        <nav aria-label="Music video tools" className="z-[90] flex h-[52px] shrink-0 items-center gap-1 overflow-x-auto border-b border-[#28303c] bg-[#10151c] px-2 py-1.5 lg:hidden">
           <StudioButton
             variant="tab"
             size="compact"
             type="button"
-            onClick={() => setActivePanel('none')}
+            onClick={closePanel}
             active={activePanel === 'none'}
           >
             <Film size={14} /> Preview
@@ -146,11 +173,12 @@ export function MVStudioLayout() {
               type="button"
               aria-label="Close editor panel"
               onClick={() => setActivePanel('none')}
-              className="absolute inset-x-0 top-[52px] bottom-0 z-30 bg-black/70 backdrop-blur-[2px] lg:hidden"
+              className="absolute inset-x-0 top-[52px] bottom-0 z-[70] bg-black/70 backdrop-blur-[2px] lg:hidden"
             />
             <aside
+              ref={panelRef}
               aria-label={panels.find(p => p.id === activePanel)?.description}
-              className="absolute top-[52px] bottom-0 left-0 z-40 flex w-[min(90vw,370px)] min-w-0 flex-col overflow-hidden border-r border-[#303846] bg-[#111820] shadow-[15px_0_50px_rgba(0,0,0,0.4)] lg:relative lg:inset-auto lg:z-10 lg:w-[300px] xl:w-[340px] lg:shrink-0 lg:shadow-none"
+              className="absolute top-[52px] bottom-0 left-0 z-[80] flex w-[min(90vw,370px)] min-w-0 flex-col overflow-hidden border-r border-[#303846] bg-[#111820] shadow-[15px_0_50px_rgba(0,0,0,0.4)] lg:relative lg:inset-auto lg:z-10 lg:w-[300px] xl:w-[340px] lg:shrink-0 lg:shadow-none"
             >
               <div className="flex shrink-0 items-center justify-between border-b border-[#303846] bg-[#10151c] px-3 py-2.5">
                 <div className="min-w-0">
@@ -182,7 +210,7 @@ export function MVStudioLayout() {
         )}
 
         {/* No redundant preview toolbar. The video has its own on-hover controls. */}
-        <main ref={editorRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b10]">
+        <main ref={editorRef} className="relative isolate z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b10]">
           <div data-mv-preview-area className="relative flex min-h-[120px] flex-1 items-center justify-center overflow-hidden p-2 sm:p-3">
             <MVPreview mode="music-video" />
           </div>
