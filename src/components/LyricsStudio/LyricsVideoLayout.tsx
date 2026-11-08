@@ -104,8 +104,8 @@ function LayerVisibilityControls() {
 function LyricsVideoFramingControls() {
   const bg = useLyricsVideoStore(s => s.customBackground);
   const update = useLyricsVideoStore(s => s.setCustomBackground);
-  if (bg.type !== 'video') return null;
-  return <VideoFramingControls value={bg} onChange={update} label="Selected background video" />;
+  if (bg.type !== 'video' && bg.type !== 'image') return null;
+  return <VideoFramingControls value={bg} onChange={update} label={bg.type === "image" ? "Uploaded image" : "Uploaded video"} />;
 }
 
 export function LyricsVideoLayout() {
@@ -235,6 +235,9 @@ export function LyricsVideoLayout() {
             <div className="w-full h-full p-1 relative flex items-center justify-center">
               <MVPreview mode="lyrics-video" />
             </div>
+            {(customBackground.type === "image" || customBackground.type === "video") && !isMobileCanvasMaximized && (
+              <div className="max-h-[175px] overflow-y-auto bg-[#10151c] px-2 py-1"><LyricsVideoFramingControls /></div>
+            )}
 
             {/* Mobile Stage Top Bar (Aspect Ratio Pills + Maximize/Controls Toggle) */}
             <div className="absolute top-2 inset-x-2 flex items-center justify-between pointer-events-none z-30">
@@ -1078,6 +1081,11 @@ export function LyricsVideoLayout() {
           <div className="flex-1 min-h-[320px] relative flex items-center justify-center p-2 sm:p-4 overflow-hidden">
             <MVPreview mode="lyrics-video" />
           </div>
+          {(customBackground.type === "image" || customBackground.type === "video") && (
+            <div className="max-h-[220px] overflow-y-auto border-t border-[#303846] bg-[#10151c] px-3 py-2">
+              <LyricsVideoFramingControls />
+            </div>
+          )}
 
           {/* BOTTOM VISUALIZER RANGE DISPLAY PLAYER */}
           <div className="bg-[#0e1115] border-t border-[#232933] px-3 sm:px-4 py-2 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-3 shrink-0 z-30 min-h-[56px]">
