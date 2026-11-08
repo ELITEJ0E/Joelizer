@@ -105,7 +105,8 @@ export interface CanonicalVideoClip {
   offsetX?: number;
   offsetY?: number;
   effect?: 'ken-burns-in' | 'ken-burns-out' | 'pan-left' | 'pan-right' | 'pan-up' | 'pan-down' | 'none';
-  transition?: 'cut' | 'fade' | 'dissolve' | 'glitch';
+  transition?: 'cut' | 'fade' | 'dissolve' | 'glitch' | 'crossfade' | 'morph' | 'slide' | 'zoom';
+  transitionDuration?: number;
 }
 
 export interface CanonicalEffectsConfig {
