@@ -4,6 +4,7 @@ import { useStore, AspectRatio } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { MVPreview } from '../MVStudio/MVPreview';
 import { VideoFramingControls } from '../shared/VideoFramingControls';
+import { OverlayEffectsPanel } from '../shared/OverlayEffectsPanel';
 import { GlobalSettingsPanel } from '../MVStudio/GlobalSettingsPanel';
 import { InteractiveStageOverlay } from './InteractiveStageOverlay';
 import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
@@ -568,6 +569,7 @@ export function LyricsVideoLayout() {
 
                 {mobileTab === 'settings' && (
                   <div className="space-y-3">
+                    <OverlayEffectsPanel mode="lyrics-video" />
                     <GlobalSettingsPanel />
                   </div>
                 )}
@@ -677,7 +679,8 @@ export function LyricsVideoLayout() {
           </div>
 
           {sidebarTab === 'settings' ? (
-            <div className="flex-1 -mx-3.5 -my-3.5 h-full">
+            <div className="flex-1 -mx-3.5 -my-3.5 h-full space-y-3 overflow-y-auto">
+              <OverlayEffectsPanel mode="lyrics-video" />
               <GlobalSettingsPanel />
             </div>
           ) : (
