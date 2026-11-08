@@ -9,6 +9,9 @@ interface ClipContextBarProps {
   activeColor: string;
   onSplit: () => void;
   onDuplicate: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
+  canPaste: boolean;
   onToggleLock: () => void;
   onToggleAutoManaged: () => void;
   onDelete: () => void;
@@ -23,6 +26,9 @@ export function ClipContextBar({
   activeColor,
   onSplit,
   onDuplicate,
+  onCopy,
+  onPaste,
+  canPaste,
   onToggleLock,
   onToggleAutoManaged,
   onDelete,
@@ -57,11 +63,20 @@ export function ClipContextBar({
         <span>SPLIT</span>
       </button>
 
+      <button type="button" onClick={onCopy} title="Copy clip (Ctrl+C / Cmd+C)"
+        className="px-2 py-0.5 rounded border border-[#303846] bg-[#161b22] hover:bg-[#202b38] text-[#d4dee9] text-[10px] font-medium cursor-pointer">
+        COPY
+      </button>
+      <button type="button" onClick={onPaste} disabled={!canPaste}
+        title="Paste at playhead (Ctrl+V / Cmd+V)"
+        className="px-2 py-0.5 rounded border border-[#303846] bg-[#161b22] hover:bg-[#202b38] text-[#d4dee9] text-[10px] font-medium cursor-pointer disabled:opacity-30">
+        PASTE
+      </button>
+
       {/* Duplicate button */}
       <button
         onClick={onDuplicate}
-        disabled={clip.locked}
-        title="Duplicate clip"
+        title="Duplicate clip (Ctrl+D / Cmd+D)"
         className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] disabled:opacity-30 text-[#c9d1d9] hover:text-[#f0f3f6] font-medium flex items-center gap-1 transition-colors cursor-pointer"
       >
         <Copy size={11} />
