@@ -66,7 +66,7 @@ export function MVTimeline() {
   const { canUndo, canRedo, undo, redo, recordSnapshot } = useGlobalHistory();
 
   // Timeline UI States
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640 ? 7 : 1);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const scrubbingRef = useRef(false);
   const scrubPointerXRef = useRef(0);
@@ -727,8 +727,8 @@ export function MVTimeline() {
       {/* ========================================================================= */}
       {/* TOP TOOLBAR */}
       {/* ========================================================================= */}
-      <div className="h-9 border-b border-[#232933] flex items-center px-3 justify-between bg-[#0e1115] text-xs shrink-0">
-        <div className="flex items-center gap-2.5">
+      <div className="h-9 border-b border-[#232933] flex items-center px-2 sm:px-3 justify-between gap-2 bg-[#0e1115] text-xs shrink-0 min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5 overflow-hidden">
           {/* Play / Pause button */}
           <button
             onClick={() => setIsPlaying(!isPlaying)}
@@ -739,13 +739,13 @@ export function MVTimeline() {
           </button>
 
           {/* Title */}
-          <span className="font-mono text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5 text-accent">
+          <span className="hidden sm:flex font-mono text-[11px] font-bold uppercase tracking-widest items-center gap-1.5 text-accent">
             <Film size={12} />
             Timeline
           </span>
 
           {/* Global Undo / Redo */}
-          <div className="flex items-center gap-1 pl-2 border-l border-[#232933]">
+          <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-[#232933]">
             <button
               onClick={(e) => { e.stopPropagation(); undo(); }}
               disabled={!canUndo}
@@ -883,7 +883,7 @@ export function MVTimeline() {
         </div>
 
         {/* Zoom Controls & Slider */}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {/* Zoom Out */}
           <button
             onClick={() => setZoom(z => Math.max(1, z - 0.5))}
@@ -901,7 +901,7 @@ export function MVTimeline() {
             step="0.2"
             value={zoom}
             onChange={(e) => setZoom(parseFloat(e.target.value))}
-            className="w-16 h-1 bg-[#232933] rounded appearance-none cursor-pointer accent-accent"
+            className="w-10 sm:w-16 h-1 bg-[#232933] rounded appearance-none cursor-pointer accent-accent"
             title="Zoom timeline scale"
           />
 
@@ -930,6 +930,42 @@ export function MVTimeline() {
           </button>
         </div>
       </div>
+
+      {/* Mobile lyric inspector: readable text stays available even when
+          time-scaled lyric blocks are narrower than a word. */}
+      {displayLyrics.length > 0 && (
+        <div className="sm:hidden flex shrink-0 items-center gap-2 border-b border-[#28303c] bg-[#121923] px-2 py-2 min-w-0">
+          <Type size={14} className="shrink-0 text-accent" />
+          <button type="button" className="min-w-0 flex-1 text-left"
+            onClick={() => {
+              const target = selectedLyric ?? displayLyrics.find(line => currentTime >= line.startTime && currentTime < line.endTime)
+                ?? displayLyrics.find(line => line.startTime >= currentTime);
+              if (target) setSelectedLyricId(target.id);
+            }}
+            aria-label="Select current lyric">
+            <span className="block truncate text-[12px] font-semibold text-[#f0f3f6]">
+              {(selectedLyric ?? displayLyrics.find(line => currentTime >= line.startTime && currentTime < line.endTime)
+                ?? displayLyrics.find(line => line.startTime >= currentTime))?.text || 'Select a lyric'}
+            </span>
+            <span className="text-[9px] text-[#92a2b5]">Tap to select · timeline zoom {zoom.toFixed(1)}x</span>
+          </button>
+          <button type="button"
+            className="shrink-0 rounded-md border border-[#35475b] bg-[#1d2a3a] p-2 text-accent"
+            aria-label="Edit current lyric"
+            onClick={() => {
+              const target = selectedLyric ?? displayLyrics.find(line => currentTime >= line.startTime && currentTime < line.endTime)
+                ?? displayLyrics.find(line => line.startTime >= currentTime);
+              if (!target) return;
+              const text = window.prompt('Edit lyric line:', target.text);
+              if (text !== null && text.trim() && text.trim() !== target.text) {
+                updateLyricLineText(target.id, text.trim());
+                recordSnapshot('Edit Lyric Text');
+              }
+            }}>
+            <Edit3 size={14}/>
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* TIMELINE MAIN CONTAINER (Track Headers + Scrollable Tracks) */}
@@ -996,7 +1032,7 @@ export function MVTimeline() {
           </div>
 
           {/* LYR Track Header */}
-          <div className="h-10 border-b border-[#232933] p-1.5 flex flex-col justify-between relative group/lyr-header bg-[#12161c]/30">
+          <div className="h-14 sm:h-10 border-b border-[#232933] p-1.5 flex flex-col justify-between relative group/lyr-header bg-[#12161c]/30">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[10px] font-bold text-[#f0f3f6] flex items-center gap-1">
                 <Type size={11} className="text-accent" /> LYR
@@ -1267,7 +1303,7 @@ export function MVTimeline() {
               {/* ----------------------------------------------------------------- */}
               {/* TRACK 2: LYRICS (LYR) — REAL EDITABLE OBJECT BLOCKS */}
               {/* ----------------------------------------------------------------- */}
-              <div className={`h-10 relative border-b border-[#232933] bg-[#0c0e12] group/lyr ${lyrTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}>
+              <div className={`h-14 sm:h-10 relative border-b border-[#232933] bg-[#0c0e12] group/lyr ${lyrTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}>
                 {displayLyrics.length === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[#7e8999]/40 text-[10px] font-mono tracking-widest uppercase">
                     No lyrics lines · Click + in Lyrics tab or track menu
@@ -1314,7 +1350,7 @@ export function MVTimeline() {
                       />
 
                       {/* Text label */}
-                      <span className="text-[10px] font-mono font-bold truncate pointer-events-none">
+                      <span className="text-[11px] sm:text-[10px] leading-snug font-mono font-semibold line-clamp-2 sm:truncate pointer-events-none break-words">
                         {line.text}
                       </span>
 
