@@ -208,7 +208,7 @@ export async function buildCanonicalProjectJson(options?: {
       position: typo.position ?? mainStore.lyricsSettings?.position,
       showBackgroundBox: mainStore.lyricsSettings?.showBackgroundBox ?? false,
       visibleLineCount: exportMode === 'music-video'
-        ? (mainStore.lyricsSettings?.visibleLineCount ?? 2)
+        ? (mvStore.captionLineCount ?? 2)
         : (lyricsVideoStore.visibleLineCount as 1 | 2 | 5),
       bilingualEnabled: lyricsVideoStore.bilingualEnabled ?? mainStore.lyricsSettings?.bilingualEnabled ?? false,
       fadeInDuration: lyricsVideoStore.fadeInDuration ?? mainStore.lyricsSettings?.fadeInDuration ?? 0.4,
