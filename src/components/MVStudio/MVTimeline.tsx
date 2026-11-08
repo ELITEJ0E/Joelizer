@@ -430,7 +430,7 @@ export function MVTimeline() {
         }
 
         setActiveSnapGuide(snapInfo);
-        const newTrimStart = Math.max(0, currentTrimStart + (finalStart - session.origStart));
+        const newTrimStart = Math.max(0, currentTrimStart + (finalStart - clip.startTime));
         updateTimelineClip(session.id, {
           startTime: Number(finalStart.toFixed(2)),
           trimStart: Number(newTrimStart.toFixed(2)),
