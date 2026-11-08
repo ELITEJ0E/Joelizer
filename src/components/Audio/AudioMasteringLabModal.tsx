@@ -1,4 +1,5 @@
 import { StyledSelect } from '../ui/StyledSelect';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
@@ -119,9 +120,13 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
   const operationSequence = useRef(0);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const { handleClose } = usePopstateModal(!embedded, onClose);
+  const handleCloseRef = useRef(handleClose);
+  handleCloseRef.current = handleClose;
 
   useEffect(() => {
-    const esc = (event: KeyboardEvent) => { if (!embedded && event.key === 'Escape') closeRef.current(); };
+    const esc = (event: KeyboardEvent) => { if (!embedded && event.key === 'Escape' &&
+      !document.querySelector('[role="listbox"][data-state="open"]')) handleCloseRef.current(); };
     window.addEventListener('keydown', esc);
     return () => {
       operationSequence.current++;
@@ -270,7 +275,7 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
       ? 'flex h-full min-h-0 w-full flex-col bg-[#0a0e13]'
       : 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-2 sm:p-5'}
       onMouseDown={event => {
-        if (!embedded && event.target === event.currentTarget) onClose();
+        if (!embedded && event.target === event.currentTarget) handleClose();
       }}>
       <section role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : true}
         aria-label="Joelizer Audio Mastering and Provenance Lab"
@@ -285,7 +290,7 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
               <p className="text-[10px] text-slate-400">Local A/B analysis · professional audio processing · honest provenance inspection</p>
             </div>
           </div>
-          <button type="button" aria-label={embedded ? 'Back to MV Studio' : 'Close Audio Lab'} onClick={onClose}
+          <button type="button" aria-label={embedded ? 'Back to MV Studio' : 'Close Audio Lab'} onClick={embedded ? onClose : handleClose}
             className={actionStyle}>{embedded ? 'Back to MV Studio' : <X size={16} />}</button>
         </header>
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 sm:p-5">
