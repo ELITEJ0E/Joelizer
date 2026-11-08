@@ -5,6 +5,7 @@ import { Film, Image as ImageIcon, Plus, Trash2, Link as LinkIcon, FolderPlus, S
 import { formatTime } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 import { ImageGeneratorPanel } from './Generator/ImageGeneratorPanel';
+import { VideoFramingControls } from '../shared/VideoFramingControls';
 
 import { validateDirectMediaUrl } from '../../lib/providers/stockProviders';
 
@@ -15,6 +16,16 @@ export function MVAssetLibrary() {
   const removeVideoAsset = useMVStore(s => s.removeVideoAsset);
   const addTimelineClip = useMVStore(s => s.addTimelineClip);
   const currentTime = useStore(s => s.currentTime);
+  const timelineClips = useMVStore(s => s.timelineClips);
+  const selectedClipId = useMVStore(s => s.selectedClipId);
+  const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
+  const currentClip = timelineClips.find(clip =>
+    currentTime >= clip.startTime && currentTime < clip.endTime
+  ) ?? timelineClips.find(clip => clip.id === selectedClipId);
+  const currentAsset = videoAssets.find(asset => asset.id === currentClip?.assetId);
+  const framingClip = currentClip && (currentClip.type === 'video' ||
+    (!currentClip.type && currentAsset?.type === 'video')) ? currentClip : null;
+
   const mediaSourceFilter = useMVStore(s => s.mediaSourceFilter);
   const setMediaSourceFilter = useMVStore(s => s.setMediaSourceFilter);
   
@@ -484,6 +495,18 @@ function generateFallbackSvgThumbnail(title: string, type: 'video' | 'image'): s
             </div>
           </div>
           
+          {/* Framing sliders live in the editor side panel, never over the video. */}
+          {framingClip && (
+            <div className="shrink-0 border-b border-[#28313c] bg-[#0f151c] p-2.5">
+              <VideoFramingControls
+                value={framingClip}
+                label={currentAsset?.name || 'Current timeline video'}
+                disabled={framingClip.locked}
+                onChange={settings => updateTimelineClip(framingClip.id, settings)}
+              />
+            </div>
+          )}
+
           {/* Media List */}
           <div className="flex-1 overflow-y-auto p-2.5 space-y-2 min-h-0">
             {/* Timeline Scene Presets */}
