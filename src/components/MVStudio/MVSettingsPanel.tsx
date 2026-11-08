@@ -5,9 +5,21 @@ import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { Sliders, Key, Sparkles, Wand2, Type } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { animate, stagger } from 'animejs';
+import { VideoFramingControls } from '../shared/VideoFramingControls';
 
 export function MVSettingsPanel() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
+  const currentTime = useStore(s => s.currentTime);
+  const timelineClips = useMVStore(s => s.timelineClips);
+  const selectedClipId = useMVStore(s => s.selectedClipId);
+  const videoAssets = useMVStore(s => s.videoAssets);
+  const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
+  const currentClip = timelineClips.find(clip => clip.id === selectedClipId)
+    ?? timelineClips.find(clip => currentTime >= clip.startTime && currentTime < clip.endTime);
+  const currentAsset = videoAssets.find(asset => asset.id === currentClip?.assetId);
+  const framingClip = currentClip && (currentClip.type === 'video' || currentClip.type === 'image' ||
+    (!currentClip.type && (currentAsset?.type === 'video' || currentAsset?.type === 'image')))
+    ? currentClip : null;
   const lyricsSettings = useStore(s => s.lyricsSettings);
   const updateLyricsSettings = useStore(s => s.updateLyricsSettings);
   const setLyricsVideoAnimation = useLyricsVideoStore(s => s.setAnimationStyle);
@@ -90,6 +102,23 @@ export function MVSettingsPanel() {
               Clip transitions affect adjacent cuts. Trimming and moving clips cannot overwrite neighboring clips.
             </p>
           </section>
+
+          {/* Video framing is an editing setting, not part of the media library. */}
+          <div className="space-y-2">
+            {framingClip ? (
+              <VideoFramingControls
+                value={framingClip}
+                label={currentAsset?.name || 'Selected timeline media'}
+                disabled={framingClip.locked}
+                onChange={changes => updateTimelineClip(framingClip.id, changes)}
+              />
+            ) : (
+              <div className="rounded-lg border border-[#303846] bg-[#111820] p-3">
+                <p className="text-xs font-semibold text-[#e6e9ed]">Video framing</p>
+                <p className="mt-1 text-[11px] text-[#91a0b2]">Select an image or video clip on the timeline to adjust position, zoom and crop.</p>
+              </div>
+            )}
+          </div>
 
           {/* 1. Video Style */}
           <div className="space-y-1.5">
