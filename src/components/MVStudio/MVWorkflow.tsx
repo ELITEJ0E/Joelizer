@@ -1,3 +1,4 @@
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../ui/select';
 import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore, isAutoManagedClip } from '../../store/useMVStore';
@@ -339,18 +340,24 @@ export function MVWorkflow() {
           <label className="block text-[10px] font-semibold text-slate-400 uppercase" htmlFor="mv-auto-transition">
             Transition style
           </label>
-          <select id="mv-auto-transition" value={defaultTransition} disabled={!autoTransitions}
-            onChange={event => setDefaultTransition(event.target.value as typeof defaultTransition)}
-            className="w-full bg-black/80 border border-white/20 rounded p-2 text-xs text-white disabled:opacity-50">
-            <option value="morph">Morph — smooth blend</option>
-            <option value="crossfade">Crossfade / Mix</option>
-            <option value="dissolve">Dissolve</option>
-            <option value="fade">Fade in / out</option>
-            <option value="slide">Slide</option>
-            <option value="zoom">Smooth zoom</option>
-            <option value="glitch">Glitch</option>
-            <option value="cut">Hard cut</option>
-          </select>
+          <Select value={defaultTransition}
+            disabled={!autoTransitions}
+            onValueChange={value => setDefaultTransition(value as typeof defaultTransition)}>
+            <SelectTrigger id="mv-auto-transition" aria-label="Transition style"
+              className="w-full border-white/20 bg-black/80 text-xs text-white">
+              <SelectValue placeholder="Choose transition" />
+            </SelectTrigger>
+            <SelectContent className="z-[110] bg-[#111820] border-[#303846]">
+              <SelectItem value="morph">Morph — smooth blend</SelectItem>
+              <SelectItem value="crossfade">Crossfade / Mix</SelectItem>
+              <SelectItem value="dissolve">Dissolve</SelectItem>
+              <SelectItem value="fade">Fade in / out</SelectItem>
+              <SelectItem value="slide">Slide</SelectItem>
+              <SelectItem value="zoom">Smooth zoom</SelectItem>
+              <SelectItem value="glitch">Glitch</SelectItem>
+              <SelectItem value="cut">Hard cut</SelectItem>
+            </SelectContent>
+          </Select>
           <label className="flex items-center justify-between text-[10px] text-slate-400" htmlFor="mv-auto-transition-length">
             <span>Transition duration</span>
             <span className="font-mono text-emerald-400">{transitionDuration.toFixed(1)}s</span>
