@@ -1,3 +1,4 @@
+import { StyledSelect } from '../ui/StyledSelect';
 import React, { useState } from 'react';
 import { Copy, Scissors, Repeat, VolumeX, SlidersHorizontal, AudioLines, X } from 'lucide-react';
 import { useDAWStore } from '../../store/useDAWStore';
@@ -49,10 +50,10 @@ export function DAWInspector({ onClose }: { onClose?: () => void }) {
       </div>
       <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-slate-400 flex justify-between"><span>Duration</span><span className="font-mono text-slate-200">{clip.duration.toFixed(3)} s</span></div>
       <label className="studio-label block">Move to track
-        <select aria-label="Move clip to track" className="studio-input w-full mt-1 text-xs normal-case tracking-normal" value={track.id}
+        <StyledSelect aria-label="Move clip to track" className="studio-input w-full mt-1 text-xs normal-case tracking-normal" value={track.id}
           onChange={e => s().moveClip(clip.id, e.target.value, clip.startTime)}>
           {tracks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+        </StyledSelect>
       </label>
       <div className="grid grid-cols-2 gap-2">
         <button className="studio-action" onClick={() => s().duplicateClip(clip.id)}><Copy size={12}/>Duplicate</button>
@@ -62,9 +63,9 @@ export function DAWInspector({ onClose }: { onClose?: () => void }) {
       </div>
       <div className="flex gap-2 items-end">
         <label className="flex-1 text-[10px] text-slate-400">Additional copies
-          <select aria-label="Repeat copies" className="studio-input w-full mt-1" value={repeatCount} onChange={e => setRepeatCount(Number(e.target.value))}>
+          <StyledSelect aria-label="Repeat copies" className="studio-input w-full mt-1" value={repeatCount} onChange={e => setRepeatCount(Number(e.target.value))}>
             {[1, 3, 7, 15, 31].map(n => <option key={n} value={n}>{n}</option>)}
-          </select></label>
+          </StyledSelect></label>
         <button className="studio-action mb-0.5" onClick={() => s().repeatClip(clip.id, repeatCount)}>Repeat</button>
       </div>
       <p className="text-[10px] text-slate-500 leading-relaxed">Edits preserve the original audio. Repeat places copies end to end.</p>
