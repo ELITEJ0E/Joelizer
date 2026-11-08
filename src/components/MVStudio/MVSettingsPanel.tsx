@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useMVStore } from '../../store/useMVStore';
 import { useStore } from '../../store/useStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
-import { Sliders, Key, Sparkles, Wand2, Type } from 'lucide-react';
+import { Sliders, Wand2, Type } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { animate, stagger } from 'animejs';
 import { VideoFramingControls } from '../shared/VideoFramingControls';
@@ -27,6 +27,8 @@ export function MVSettingsPanel() {
   const lyricsAnimStyle = lyricsSettings?.animationStyle || lyricsVideoAnim || 'karaoke';
   const lyricsPos = lyricsSettings?.position || 'bottom';
   const showBox = lyricsSettings?.showBackgroundBox ?? false;
+  const captionLineCount = useMVStore(s => s.captionLineCount);
+  const setCaptionLineCount = useMVStore(s => s.setCaptionLineCount);
   
   const style = useMVStore(s => s.style);
   const setStyle = useMVStore(s => s.setStyle);
@@ -43,10 +45,6 @@ export function MVSettingsPanel() {
   const setDefaultTransition = useMVStore(s => s.setDefaultTransition);
   const transitionDuration = useMVStore(s => s.transitionDuration);
   const setTransitionDuration = useMVStore(s => s.setTransitionDuration);
-  const useGemini = useMVStore(s => s.useGemini);
-  const setUseGemini = useMVStore(s => s.setUseGemini);
-  const geminiKey = useMVStore(s => s.geminiKey);
-  const setGeminiKey = useMVStore(s => s.setGeminiKey);
 
   useEffect(() => {
     animate('.mv-settings-anim > *', {
@@ -208,6 +206,30 @@ export function MVSettingsPanel() {
               </button>
             </div>
 
+            <div className="space-y-1.5 pt-1">
+              <span className="block text-[11px] font-semibold text-[#b6c2cf]">Caption display lines</span>
+              <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Caption display lines">
+                {([1, 2, 5] as const).map(count => (
+                  <button
+                    key={count}
+                    type="button"
+                    aria-pressed={captionLineCount === count}
+                    onClick={() => setCaptionLineCount(count)}
+                    className={`rounded border px-2 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                      captionLineCount === count
+                        ? 'border-accent bg-[#173028] text-accent'
+                        : 'border-[#303846] bg-[#0a0c0f] text-[#a7b2bf] hover:border-[#64748b]'
+                    }`}
+                  >
+                    {count} {count === 1 ? 'Line' : 'Lines'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] leading-relaxed text-[#7e8999]">
+                Applies to MV Studio captions in the preview and exported video.
+              </p>
+            </div>
+
             {/* Subtitle Positioning & Background Box */}
             <div className="grid grid-cols-2 gap-1.5 pt-1">
               <button
@@ -265,46 +287,6 @@ export function MVSettingsPanel() {
             </p>
           </div>
 
-          {/* 5. AI Copilot Integration */}
-          <div className="pt-3 border-t border-[#232933] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-[#f0f3f6] flex items-center gap-1.5 font-mono">
-                  <Sparkles size={13} className="text-accent" />
-                  <span>Gemini Copilot</span>
-                </span>
-                <p className="text-[10px] text-[#7e8999] font-sans">Use AI to select matching clips based on lyrics.</p>
-              </div>
-              <button
-                onClick={() => setUseGemini(!useGemini)}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-[#232933] transition-colors duration-200 ease-in-out focus:outline-none ${
-                  useGemini ? 'bg-accent' : 'bg-[#161b22]'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-3.5 w-3.5 mt-0.5 transform rounded-full transition duration-200 ease-in-out ${
-                    useGemini ? 'translate-x-4 bg-[#0a0c0f]' : 'translate-x-0.5 bg-[#7e8999]'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {useGemini && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider flex items-center gap-1 block">
-                  <Key size={11} />
-                  <span>Gemini API Key</span>
-                </label>
-                <input
-                  type="password"
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="AI Studio API Key..."
-                  className="w-full bg-[#0a0c0f] border border-[#232933] focus:border-accent rounded p-2 text-xs text-[#f0f3f6] outline-none font-mono transition-colors"
-                />
-              </div>
-            )}
-          </div>
 
         </div>
       </div>
