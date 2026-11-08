@@ -1,3 +1,4 @@
+import { StyledSelect } from '../ui/StyledSelect';
 import React, { useState } from 'react';
 import { Grid3X3, Piano, Play, Plus } from 'lucide-react';
 
@@ -100,30 +101,30 @@ export function MusicStudioPianoRoll({
     <div className="flex items-center gap-2 text-xs font-semibold text-white"><Piano size={15} className="text-cyan-300"/> Sampler piano roll</div>
     <p className="text-[11px] text-slate-400">Pitch a sample chromatically over a 16-step grid. This sampler is offline-rendered; it does not depend on external plugins.</p>
     <label className="block text-[11px] text-slate-300">Instrument sample
-      <select aria-label="Piano roll instrument" className="mt-1 w-full rounded border border-white/15 bg-[#17202b] p-2 text-xs"
+      <StyledSelect aria-label="Piano roll instrument" className="mt-1 w-full rounded border border-white/15 bg-[#17202b] p-2 text-xs"
         value={sampleId} onChange={e=>setSampleId(e.target.value)}>
         <option value="">Choose imported sample...</option>
         {samples.map(sample=><option key={sample.id} value={sample.id}>{sample.name}</option>)}
-      </select>
+      </StyledSelect>
     </label>
     <div className="grid grid-cols-3 gap-2 text-[10px]">
       <label>Octave
-        <select aria-label="Piano roll octave" className="mt-1 w-full rounded border border-white/15 bg-[#17202b] p-1" value={octave}
+        <StyledSelect aria-label="Piano roll octave" className="mt-1 w-full rounded border border-white/15 bg-[#17202b] p-1" value={octave}
           onChange={e=>setOctave(Number(e.target.value))}>
           {[2,3,4,5,6].map(n=><option key={n} value={n}>{n}</option>)}
-        </select>
+        </StyledSelect>
       </label>
       <label>Source root
-        <select aria-label="Piano roll source root" className="mt-1 w-full rounded border border-white/15 bg-[#17202b] p-1" value={root}
+        <StyledSelect aria-label="Piano roll source root" className="mt-1 w-full rounded border border-white/15 bg-[#17202b] p-1" value={root}
           onChange={e=>setRoot(Number(e.target.value))}>
           {Array.from({length:36},(_,i)=>i+48).map(n=><option key={n} value={n}>{noteName(n)}</option>)}
-        </select>
+        </StyledSelect>
       </label>
       <label>Bars
-        <select aria-label="Piano roll bars" className="mt-1 w-full rounded border border-white/15 bg-[#17202b] p-1" value={bars}
+        <StyledSelect aria-label="Piano roll bars" className="mt-1 w-full rounded border border-white/15 bg-[#17202b] p-1" value={bars}
           onChange={e=>setBars(Number(e.target.value))}>
           {[1,2,4,8].map(n=><option key={n} value={n}>{n}</option>)}
-        </select>
+        </StyledSelect>
       </label>
     </div>
     <div className="overflow-x-auto">
