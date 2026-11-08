@@ -149,7 +149,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   useEffect(() => {
     const handleFSChange = () => setIsFullscreen(document.fullscreenElement === stageRef.current || isFallbackFullscreen);
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isFallbackFullscreen) setIsFallbackFullscreen(false);
+      if (event.key === 'Escape' && isFallbackFullscreen) {
+        setIsFallbackFullscreen(false);
+        setIsFullscreen(false);
+      }
     };
     document.addEventListener('fullscreenchange', handleFSChange);
     window.addEventListener('keydown', handleEscape);
