@@ -2,20 +2,20 @@ import React, { useEffect } from 'react';
 import { useMVStore } from '../../store/useMVStore';
 import { useStore } from '../../store/useStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
-import { Sliders, Wand2, Type } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Sliders, Type } from 'lucide-react';
 import { animate, stagger } from 'animejs';
 import { VideoFramingControls } from '../shared/VideoFramingControls';
 
 export function MVSettingsPanel() {
-  const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const currentTime = useStore(s => s.currentTime);
   const timelineClips = useMVStore(s => s.timelineClips);
   const selectedClipId = useMVStore(s => s.selectedClipId);
   const videoAssets = useMVStore(s => s.videoAssets);
   const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
-  const currentClip = timelineClips.find(clip => clip.id === selectedClipId)
-    ?? timelineClips.find(clip => currentTime >= clip.startTime && currentTime < clip.endTime);
+  // Prefer the clip visible in the preview; a previously selected clip can
+  // otherwise make sliders appear unresponsive to the current scene.
+  const currentClip = timelineClips.find(clip => currentTime >= clip.startTime && currentTime < clip.endTime)
+    ?? timelineClips.find(clip => clip.id === selectedClipId);
   const currentAsset = videoAssets.find(asset => asset.id === currentClip?.assetId);
   const framingClip = currentClip && (currentClip.type === 'video' || currentClip.type === 'image' ||
     (!currentClip.type && (currentAsset?.type === 'video' || currentAsset?.type === 'image')))
@@ -30,14 +30,6 @@ export function MVSettingsPanel() {
   const captionLineCount = useMVStore(s => s.captionLineCount);
   const setCaptionLineCount = useMVStore(s => s.setCaptionLineCount);
   
-  const style = useMVStore(s => s.style);
-  const setStyle = useMVStore(s => s.setStyle);
-  const pacing = useMVStore(s => s.pacing);
-  const setPacing = useMVStore(s => s.setPacing);
-  const beatSync = useMVStore(s => s.beatSync);
-  const setBeatSync = useMVStore(s => s.setBeatSync);
-  const editSeed = useMVStore(s => s.editSeed);
-  const setEditSeed = useMVStore(s => s.setEditSeed);
   
   const autoTransitions = useMVStore(s => s.autoTransitions);
   const setAutoTransitions = useMVStore(s => s.setAutoTransitions);
@@ -71,7 +63,7 @@ export function MVSettingsPanel() {
           
           <section className="space-y-3 rounded-lg border border-[#303846] bg-[#121a23] p-3" aria-label="Video clip transitions">
             <label className="flex items-center justify-between gap-3 text-xs font-semibold">
-              <span>Automatic transitions</span>
+              <span>Scene transitions</span>
               <input type="checkbox" checked={autoTransitions} onChange={e => setAutoTransitions(e.target.checked)}
                 aria-label="Enable transitions at adjacent clip boundaries" className="accent-emerald-400" />
             </label>
@@ -118,54 +110,10 @@ export function MVSettingsPanel() {
             )}
           </div>
 
-          {/* 1. Video Style */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider block">Video Style Theme</label>
-            <Select value={style} onValueChange={setStyle}>
-              <SelectTrigger className="bg-[#161b22] hover:bg-[#1c222b] border-[#232933] hover:border-[#303846] text-[#f0f3f6] uppercase font-semibold tracking-wider text-xs h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0e1115] border-[#232933] text-[#f0f3f6] uppercase text-xs font-semibold tracking-wider shadow-[0_12px_36px_rgba(0,0,0,0.85)]">
-                <SelectItem value="Cinematic">Cinematic</SelectItem>
-                <SelectItem value="Cyberpunk">Cyberpunk</SelectItem>
-                <SelectItem value="Phonk">Phonk / Hardcore</SelectItem>
-                <SelectItem value="Anime">Anime Aesthetic</SelectItem>
-                <SelectItem value="Vintage">Retro / Vintage VHS</SelectItem>
-                <SelectItem value="Minimalist">Minimalist / Clean</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 2. Editing Pacing */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider block">Editing Pacing</label>
-            <Select value={pacing} onValueChange={setPacing}>
-              <SelectTrigger className="bg-[#161b22] hover:bg-[#1c222b] border-[#232933] hover:border-[#303846] text-[#f0f3f6] uppercase font-semibold tracking-wider text-xs h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0e1115] border-[#232933] text-[#f0f3f6] uppercase text-xs font-semibold tracking-wider shadow-[0_12px_36px_rgba(0,0,0,0.85)]">
-                <SelectItem value="Slow">Slow / Chill</SelectItem>
-                <SelectItem value="Balanced">Balanced pacing</SelectItem>
-                <SelectItem value="Fast">Fast / Intense</SelectItem>
-                <SelectItem value="Hyper">Hyper Beat Sync</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 3. Beat Sync Strength */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider block">Beat Sync Strength</label>
-            <Select value={beatSync} onValueChange={setBeatSync}>
-              <SelectTrigger className="bg-[#161b22] hover:bg-[#1c222b] border-[#232933] hover:border-[#303846] text-[#f0f3f6] uppercase font-semibold tracking-wider text-xs h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0e1115] border-[#232933] text-[#f0f3f6] uppercase text-xs font-semibold tracking-wider shadow-[0_12px_36px_rgba(0,0,0,0.85)]">
-                <SelectItem value="None">None (Unsynced)</SelectItem>
-                <SelectItem value="Subtle">Subtle alignment</SelectItem>
-                <SelectItem value="Strong">Strong cut on beat</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="text-[11px] leading-relaxed text-[#8c9aab]">
+            Visual style, cutting pace and beat sync are configured in <strong>Auto Edit → Editing Aesthetics</strong>.
+            Those settings determine clip selection and timing; the transition controls above determine how adjacent scenes blend.
+          </p>
 
           {/* Unified Caption & Lyric Style */}
           <div className="pt-3 border-t border-[#232933] space-y-2.5">
@@ -262,29 +210,6 @@ export function MVSettingsPanel() {
                 <span className="text-accent font-bold uppercase">{showBox ? 'Dark Box' : 'Clear (No Box)'}</span>
               </button>
             </div>
-          </div>
-
-          {/* 4. Edit Seed */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider block">Edit Seed (Timeline Seed)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={editSeed}
-                onChange={(e) => setEditSeed(parseInt(e.target.value) || 42)}
-                className="flex-1 bg-[#0a0c0f] border border-[#232933] focus:border-accent rounded px-3 py-1.5 text-xs text-[#f0f3f6] font-mono outline-none transition-colors"
-              />
-              <button
-                onClick={() => setEditSeed(Math.floor(Math.random() * 900000) + 100000)}
-                className="px-3 py-1.5 rounded bg-[#161b22] hover:bg-[#1c222b] border border-[#232933] hover:border-[#303846] text-[#c9d1d9] hover:text-[#f0f3f6] text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <Wand2 size={12} className="text-accent" />
-                <span>RAND</span>
-              </button>
-            </div>
-            <p className="text-[10px] text-[#7e8999] font-sans leading-normal">
-              Determines clip selection order and transition patterns during automatic generation.
-            </p>
           </div>
 
 
