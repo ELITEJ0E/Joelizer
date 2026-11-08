@@ -40,7 +40,10 @@ export function MVStudioLayout() {
   // opens and it never competes with the global dialog portal.
   useEffect(() => {
     // Mobile sheets integrate with browser Back without navigating away.
-    const onPopState = () => {
+    const onPopState = (event: PopStateEvent) => {
+      // A nested dialog has its own history entry. Returning from that entry
+      // must not also close the parent Media/Auto Edit/Settings drawer.
+      if (event.state?.joelizerMVPanel === true || document.querySelector('[data-mv-dialog]')) return;
       if (drawerHistoryRef.current) {
         drawerHistoryRef.current = false;
         setActivePanel('none');
