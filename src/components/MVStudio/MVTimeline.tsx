@@ -54,6 +54,7 @@ export function MVTimeline() {
   const selectedClipId = useMVStore(s => s.selectedClipId);
   const setSelectedClipId = useMVStore(s => s.setSelectedClipId);
   const toggleLockClip = useMVStore(s => s.toggleLockClip);
+  const setClipAutoManaged = useMVStore(s => s.setClipAutoManaged);
   const removeTimelineClip = useMVStore(s => s.removeTimelineClip);
   const splitTimelineClip = useMVStore(s => s.splitTimelineClip);
   const duplicateTimelineClip = useMVStore(s => s.duplicateTimelineClip);
@@ -1511,6 +1512,10 @@ export function MVTimeline() {
             }}
             onToggleLock={() => {
               toggleLockClip(selectedClip.id);
+              commitTimeline();
+            }}
+            onToggleAutoManaged={() => {
+              setClipAutoManaged(selectedClip.id, selectedClip.editOrigin !== 'auto' || !!selectedClip.manuallyEdited);
               commitTimeline();
             }}
             onDelete={() => {
