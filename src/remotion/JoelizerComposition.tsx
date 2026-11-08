@@ -6,7 +6,8 @@ import {
   Audio, 
   Img, 
   Video,
-  Sequence
+  Sequence,
+  Freeze
 } from 'remotion';
 import { CanonicalProjectJson, CanonicalLyricLine, CanonicalVideoClip } from '../types/projectJson';
 import { getDefaultPositions } from '../lib/lyricsLayout';
@@ -40,6 +41,32 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
 
   // Find active video clip for timeline mode
   const activeClip = videoClips?.find(c => currentTime >= c.startTime && currentTime < c.endTime);
+
+  // Keep the outgoing frame visible during the incoming clip's transition.
+  // Freeze preserves its last frame even when its source has no extra handles.
+  const orderedClips = [...(videoClips || [])].sort((a, b) => a.startTime - b.startTime);
+  const activeIndex = activeClip ? orderedClips.findIndex(c => c.id === activeClip.id) : -1;
+  const outgoingClip = activeIndex > 0 ? orderedClips[activeIndex - 1] : undefined;
+  const transitionType = activeClip?.transition || 'cut';
+  const transitionLength = Math.min(activeClip?.transitionDuration ?? 0.5, activeClip?.duration ?? 0);
+  const transitionProgress = activeClip && outgoingClip &&
+    Math.abs(outgoingClip.endTime - activeClip.startTime) < 0.05 &&
+    transitionType !== 'cut' && transitionLength > 0 &&
+    currentTime < activeClip.startTime + transitionLength
+    ? Math.max(0, Math.min(1, (currentTime - activeClip.startTime) / transitionLength))
+    : 1;
+  const transitionActive = transitionProgress < 1 && outgoingClip &&
+    (outgoingClip.type === 'video' || outgoingClip.type === 'image');
+  const transitionEase = transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
+  const outgoingStyle: React.CSSProperties = {
+    position: 'absolute', inset: 0,
+    opacity: 1 - transitionEase,
+    transform: transitionType === 'slide' ? `translateX(${-100 * transitionEase}%)` :
+      transitionType === 'zoom' || transitionType === 'morph'
+        ? `scale(${1 - (transitionType === 'morph' ? 0.08 : 0.2) * transitionEase})` : undefined,
+    filter: transitionType === 'glitch' ? `hue-rotate(${transitionEase * 45}deg)` : undefined,
+    pointerEvents: 'none'
+  };
 
   const isVinylScene = activeClip?.type === 'vinyl-lyrics' || activeClip?.assetId === 'vinyl-lyrics';
   const isVisualizerScene = activeClip?.type === 'visualizer' || activeClip?.assetId === 'visualizer';
@@ -79,7 +106,19 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       
       {/* 1. BACKGROUND LAYER */}
       {mode === 'music-video' && isMediaClip ? (
-        <BackgroundClipLayer clip={activeClip} currentTime={currentTime} exportStart={projectJson.exportRange?.start || 0} width={width} height={height} />
+        <>
+          <BackgroundClipLayer clip={activeClip} currentTime={currentTime} exportStart={projectJson.exportRange?.start || 0} width={width} height={height} />
+          {transitionActive && outgoingClip && (
+            transitionType === 'fade'
+              ? <AbsoluteFill style={{ ...outgoingStyle, backgroundColor: '#050508' }} />
+              : <div style={outgoingStyle}>
+                  <Freeze frame={Math.max(0, Math.round((outgoingClip.endTime - (projectJson.exportRange?.start || 0)) * fps) - 1)}>
+                    <BackgroundClipLayer clip={outgoingClip} currentTime={outgoingClip.endTime - 1 / fps}
+                      exportStart={projectJson.exportRange?.start || 0} width={width} height={height} />
+                  </Freeze>
+                </div>
+          )}
+        </>
       ) : (
         <BackgroundLayer bg={background} albumArt={audio?.albumArt || null} width={width} height={height} currentTime={currentTime} />
       )}
