@@ -1,3 +1,4 @@
+import type { OverlaySettings } from '../lib/overlayEffects';
 export type AspectRatioType = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | '4:3';
 export type ExportResolutionType = '1080p' | '720p' | '360p';
 export type ExportModeType = 'lyrics-video' | 'music-video';
@@ -145,6 +146,7 @@ export interface CanonicalProjectJson {
   visualizer: CanonicalVisualizerConfig;
   videoClips: CanonicalVideoClip[];
   effects: CanonicalEffectsConfig;
+  overlayEffects?: OverlaySettings;
   elementPositions?: CanonicalElementPositions;
   watermarkText?: string;
   safeArea: boolean;
