@@ -763,8 +763,8 @@ export function MVTimeline() {
       {/* ========================================================================= */}
       {/* TOP TOOLBAR */}
       {/* ========================================================================= */}
-      <div className="h-9 border-b border-[#232933] flex items-center px-2 sm:px-3 justify-between gap-2 bg-[#0e1115] text-xs shrink-0 min-w-0">
-        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5 overflow-hidden">
+      <div className="h-10 border-b border-[#232933] flex items-center px-2 sm:px-3 justify-between gap-2 bg-[#0e1115] text-xs shrink-0 min-w-0 overflow-x-auto no-scrollbar overscroll-x-contain">
+        <div className="flex shrink-0 min-w-0 items-center gap-1.5 sm:gap-2.5">
           {/* Play / Pause button */}
           <button
             onClick={() => setIsPlaying(!isPlaying)}
@@ -1297,6 +1297,13 @@ export function MVTimeline() {
                         setSelectedLyricId(null);
                         setSelectedWordKey(null);
                       }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedClipId(clip.id);
+                        setSelectedLyricId(null);
+                        setSelectedWordKey(null);
+                      }}
                       onPointerDown={(e) => handleClipPointerDown(e, clip, 'clip-body')}
                       className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-all select-none ${
                         clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
@@ -1589,7 +1596,7 @@ export function MVTimeline() {
       )}
 
       {selectedClip && !selectedLyric && !selectedWord && (
-        <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-16px)]">
           <ClipContextBar
             clip={selectedClip}
             currentTime={currentTime}
