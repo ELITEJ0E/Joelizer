@@ -60,10 +60,10 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
     <header
       id="top-application-bar"
       aria-label="Application Top Bar"
-      className="min-h-12 bg-[#0b0d10] border-b border-[#232933] flex items-center justify-between gap-2 px-2 sm:px-3 z-30 shrink-0 select-none text-[#f0f3f6]"
+      className="min-h-12 w-full min-w-0 bg-[#0b0d10] border-b border-[#232933] flex items-center justify-between gap-1 px-1.5 sm:gap-2 sm:px-3 z-30 shrink-0 select-none text-[#f0f3f6] overflow-hidden"
     >
       {/* LEFT: Branding + Studio Switcher Tabs */}
-      <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-3">
         {/* Joelizer Wordmark */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Audio Waveform Emblem */}
@@ -77,7 +77,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
             </svg>
           </div>
 
-          <div className="hidden min-[420px]:flex items-baseline gap-1">
+          <div className="hidden md:flex items-baseline gap-1">
             <span className="font-display font-bold text-xs tracking-wider text-[#f0f3f6]">
               JOELIZER
             </span>
@@ -92,8 +92,21 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
 
         <div className="h-4 w-[1px] bg-[#232933] hidden xs:block" />
 
+        {/* Compact native selector on phones: no clipped horizontal tabs. */}
+        <label className="min-w-0 flex-1 sm:hidden">
+          <span className="sr-only">Choose studio</span>
+          <select
+            aria-label="Choose studio"
+            value={activeTab}
+            onChange={event => setActiveTab(event.target.value as typeof activeTab)}
+            className="h-8 w-full min-w-0 truncate rounded-lg border border-[#323b49] bg-[#12161c] px-1.5 text-[11px] font-semibold text-[#f0f3f6]"
+          >
+            {workspaces.map(ws => <option key={ws.id} value={ws.id}>{ws.label}</option>)}
+          </select>
+        </label>
+
         {/* Studio Switcher Tabs (LRC Studio, Lyrics Video, MV Studio, Audio Lab) */}
-        <nav aria-label="Studio Navigation" className="flex min-w-0 items-center overflow-x-auto no-scrollbar bg-[#12161c] border border-[#232933] rounded-lg p-0.5 gap-0.5">
+        <nav aria-label="Studio Navigation" className="hidden sm:flex min-w-0 items-center overflow-x-auto no-scrollbar bg-[#12161c] border border-[#232933] rounded-lg p-0.5 gap-0.5">
           {workspaces.map(ws => {
             const isActive = activeTab === ws.id;
             const Icon = ws.icon;
@@ -127,17 +140,18 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
       </div>
 
       {/* RIGHT: Aspect Ratio, Audio Modal Trigger, Shortcuts, and Export */}
-      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0">
         {/* Aspect Ratio Selector Dropdown */}
         <div className="flex items-center">
           <Select value={aspectRatio} onValueChange={(val: AspectRatio) => setAspectRatio(val)}>
             <SelectTrigger
               id="topbar-aspect-ratio-select"
-              className="h-8 min-w-0 rounded-lg border border-[#323b49] bg-[#171e26] px-2 sm:px-2.5 text-[11px] font-mono font-semibold text-[#e4e8ed] hover:border-[#4a5768] hover:bg-[#222c38] flex items-center gap-1.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="h-8 min-w-0 max-w-[75px] sm:max-w-none rounded-lg border border-[#323b49] bg-[#171e26] px-2 sm:px-2.5 text-[11px] font-mono font-semibold text-[#e4e8ed] hover:border-[#4a5768] hover:bg-[#222c38] flex items-center gap-1.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               title="Change Canvas Aspect Ratio"
             >
               <Monitor size={12} style={{ color: activeColor }} />
-              <SelectValue placeholder="Ratio" />
+              <span className="sm:hidden">{aspectRatio}</span>
+              <span className="hidden sm:inline"><SelectValue placeholder="Ratio" /></span>
             </SelectTrigger>
             <SelectContent className="bg-[#12161c] border-[#232933] text-[#f0f3f6] text-[11px] font-mono z-50">
               <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
@@ -175,7 +189,7 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
             id="topbar-shortcuts-btn"
             type="button"
             onClick={onOpenShortcutsModal}
-            className="px-2"
+            className="hidden sm:inline-flex px-2"
             title="Keyboard Shortcuts [?]"
           >
             <Keyboard size={12} />
@@ -190,11 +204,11 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
           id="topbar-export-btn"
           type="button"
           onClick={onExport}
-          className="px-3 sm:px-3.5"
+          className="px-1.5 sm:px-3.5"
           title="Export Video / Audio Production"
         >
           <Download size={12} strokeWidth={2.5} />
-          <span>Export</span>
+          <span className="hidden min-[380px]:inline">Export</span>
         </StudioButton>
       </div>
 
