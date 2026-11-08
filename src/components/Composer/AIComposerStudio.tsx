@@ -1,3 +1,4 @@
+import { StyledSelect } from '../ui/StyledSelect';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, 
@@ -405,7 +406,7 @@ export function AIComposerStudio() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
                 <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Genre</label>
-                <select
+                <StyledSelect
                   value={genre}
                   onChange={(e) => setGenre(e.target.value)}
                   className="w-full bg-black/50 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
@@ -419,7 +420,7 @@ export function AIComposerStudio() {
                   <option value="Cinematic Orchestral">Orchestral</option>
                   <option value="Trap / Hip-Hop">Trap / Hip-Hop</option>
                   <option value="House / EDM">House / EDM</option>
-                </select>
+                </StyledSelect>
               </div>
 
               <div>
@@ -448,7 +449,7 @@ export function AIComposerStudio() {
 
               <div>
                 <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Duration</label>
-                <select
+                <StyledSelect
                   value={duration}
                   onChange={(e) => setDuration(parseInt(e.target.value))}
                   className="w-full bg-black/50 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
@@ -457,7 +458,7 @@ export function AIComposerStudio() {
                   <option value={30}>30s (Standard Preview)</option>
                   <option value={45}>45s (Extended Verse/Chorus)</option>
                   <option value={60}>60s (Full Track)</option>
-                </select>
+                </StyledSelect>
               </div>
             </div>
 
@@ -465,7 +466,7 @@ export function AIComposerStudio() {
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/5">
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-400 font-bold text-[10px] uppercase">Musical Key:</span>
-                <select
+                <StyledSelect
                   value={key}
                   onChange={(e) => setKey(e.target.value)}
                   className="bg-black/50 border border-white/15 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500"
@@ -473,7 +474,7 @@ export function AIComposerStudio() {
                   {['C Major', 'G Major', 'D Major', 'A Major', 'F Major', 'A Minor', 'E Minor', 'D Minor', 'B Minor'].map(k => (
                     <option key={k} value={k}>{k}</option>
                   ))}
-                </select>
+                </StyledSelect>
               </div>
 
               <label className="flex items-center gap-2 cursor-pointer text-xs select-none">
