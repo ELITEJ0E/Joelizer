@@ -16,6 +16,12 @@ export function MVWorkflow() {
   const setPacing = useMVStore(s => s.setPacing);
   const beatSync = useMVStore(s => s.beatSync);
   const setBeatSync = useMVStore(s => s.setBeatSync);
+  const autoTransitions = useMVStore(s => s.autoTransitions);
+  const setAutoTransitions = useMVStore(s => s.setAutoTransitions);
+  const defaultTransition = useMVStore(s => s.defaultTransition);
+  const setDefaultTransition = useMVStore(s => s.setDefaultTransition);
+  const transitionDuration = useMVStore(s => s.transitionDuration);
+  const setTransitionDuration = useMVStore(s => s.setTransitionDuration);
   const editSeed = useMVStore(s => s.editSeed);
   const setEditSeed = useMVStore(s => s.setEditSeed);
   
@@ -321,6 +327,43 @@ export function MVWorkflow() {
             </div>
           )}
         </div>
+
+        {/* Auto Edit owns transition defaults for all automatically generated clips. */}
+        <section className="space-y-3 bg-white/5 p-3 rounded-lg border border-white/10" aria-label="Scene transitions">
+          <label className="flex items-center justify-between gap-3 text-xs font-semibold text-white">
+            <span>Scene Transitions</span>
+            <input type="checkbox" checked={autoTransitions}
+              onChange={event => setAutoTransitions(event.target.checked)}
+              aria-label="Enable scene transitions" className="accent-emerald-400" />
+          </label>
+          <label className="block text-[10px] font-semibold text-slate-400 uppercase" htmlFor="mv-auto-transition">
+            Transition style
+          </label>
+          <select id="mv-auto-transition" value={defaultTransition} disabled={!autoTransitions}
+            onChange={event => setDefaultTransition(event.target.value as typeof defaultTransition)}
+            className="w-full bg-black/80 border border-white/20 rounded p-2 text-xs text-white disabled:opacity-50">
+            <option value="morph">Morph — smooth blend</option>
+            <option value="crossfade">Crossfade / Mix</option>
+            <option value="dissolve">Dissolve</option>
+            <option value="fade">Fade in / out</option>
+            <option value="slide">Slide</option>
+            <option value="zoom">Smooth zoom</option>
+            <option value="glitch">Glitch</option>
+            <option value="cut">Hard cut</option>
+          </select>
+          <label className="flex items-center justify-between text-[10px] text-slate-400" htmlFor="mv-auto-transition-length">
+            <span>Transition duration</span>
+            <span className="font-mono text-emerald-400">{transitionDuration.toFixed(1)}s</span>
+          </label>
+          <input id="mv-auto-transition-length" type="range" min="0.1" max="2" step="0.1"
+            value={transitionDuration} disabled={!autoTransitions}
+            onChange={event => setTransitionDuration(Number(event.target.value))}
+            className="w-full accent-emerald-400 disabled:opacity-50" />
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            Applies to automatic clips immediately, including previously auto-edited scenes.
+            Manually changed clip transitions remain protected.
+          </p>
+        </section>
 
         {/* Style & Pacing Settings */}
         <div className="space-y-3 bg-white/5 p-3 rounded-lg border border-white/10">
