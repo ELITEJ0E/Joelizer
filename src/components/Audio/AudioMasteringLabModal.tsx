@@ -1,3 +1,4 @@
+import { StyledSelect } from '../ui/StyledSelect';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
@@ -398,10 +399,10 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
               <div className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={settings.compressionEnabled} className="accent-emerald-400" onChange={e => setSettings(s => ({ ...s, compressionEnabled: e.target.checked }))} /> Compression</label>
                 <label className="flex items-center gap-2 text-xs">WAV depth
-                  <select className="rounded border border-white/15 bg-[#111b24] px-2 py-1" value={settings.bitDepth}
+                  <StyledSelect className="rounded border border-white/15 bg-[#111b24] px-2 py-1" value={settings.bitDepth}
                     onChange={e => setSettings(s => ({ ...s, bitDepth: Number(e.target.value) as 16 | 24 }))}>
                     <option value={16}>16-bit</option><option value={24}>24-bit</option>
-                  </select>
+                  </StyledSelect>
                 </label>
               </div>
             </div>
@@ -459,13 +460,13 @@ export function AudioMasteringLabModal({ onClose, currentAudio, currentName, emb
             </p>
             <label className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
               <span>Source declaration for the downloadable report (user supplied):</span>
-              <select value={declaredOrigin} onChange={event => setDeclaredOrigin(event.target.value)}
+              <StyledSelect value={declaredOrigin} onChange={event => setDeclaredOrigin(event.target.value)}
                 className="rounded border border-white/15 bg-[#111b24] px-2 py-1.5">
                 <option value="not-specified">Not specified</option>
                 <option value="human-recorded">Human recorded</option>
                 <option value="ai-assisted">Human + AI assisted</option>
                 <option value="ai-generated">AI generated</option>
-              </select>
+              </StyledSelect>
             </label>
             {original && (
               <div className="mt-3 space-y-2 text-xs text-slate-300">
