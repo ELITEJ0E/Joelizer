@@ -1,3 +1,4 @@
+import { getOverlayLayers } from '../lib/overlayEffects';
 import React from 'react';
 import { 
   useCurrentFrame, 
@@ -189,6 +190,15 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       {projectJson.safeArea && (
         <SafeAreaLayer width={width} height={height} />
       )}
+
+      {/* Shared timed overlay effect track, independent of the current scene. */}
+      {getOverlayLayers(projectJson.overlayEffects, currentTime).map((layer, index) => (
+        <div key={index} style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: layer.background, opacity: layer.opacity,
+          backgroundSize: layer.backgroundSize
+        }} />
+      ))}
 
       {/* 8. VIGNETTE & GRAIN EFFECTS */}
       {effects?.vignette && (
