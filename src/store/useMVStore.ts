@@ -512,7 +512,8 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     })
   })),
   toggleLockClip: (id) => set((s) => ({
-    timelineClips: s.timelineClips.map((c) => c.id === id ? { ...c, locked: !c.locked } : c)
+    timelineClips: s.timelineClips.map((c) => c.id === id
+      ? { ...c, locked: !c.locked, editOrigin: 'manual', manuallyEdited: true } : c)
   })),
   removeTimelineClip: (id) => set((s) => ({
     timelineClips: s.timelineClips.filter((c) => c.id !== id),
