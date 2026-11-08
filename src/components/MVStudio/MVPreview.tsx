@@ -5,6 +5,7 @@ import { getVideoSyncDecision } from '../../lib/videoPlaybackSync';
 import { layoutMVCaption, drawMVCaption, MVCaptionLayout } from '../../lib/mvCaptionLayout';
 import { getBrowserExportTime, sampleBrowserExportVideo } from '../../lib/browserExportClock';
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
@@ -126,8 +127,15 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
       setAvailableStage({ width: node.clientWidth, height: node.clientHeight });
     });
     observer.observe(node);
-    setAvailableStage({ width: node.clientWidth, height: node.clientHeight });
-    return () => observer.disconnect();
+    const measure = () => setAvailableStage({ width: node.clientWidth, height: node.clientHeight });
+    window.addEventListener('orientationchange', measure);
+    window.visualViewport?.addEventListener('resize', measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('orientationchange', measure);
+      window.visualViewport?.removeEventListener('resize', measure);
+    };
   }, []);
 
   // Sync canvas container dimensions for accurate interactive stage drag overlay
@@ -230,9 +238,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const [ratioWidth, ratioHeight] = aspectValues[aspectRatio] || aspectValues['16:9'];
   // Pixel-sized contain calculation avoids clipping and distorted aspect
   // ratios when the preview pane is shorter or narrower than the video.
-  const stageScale = Math.max(0.1, Math.min(
-    Math.max(1, availableStage.width - 16) / ratioWidth,
-    Math.max(1, availableStage.height - 16) / ratioHeight
+  const stageScale = Math.max(0, Math.min(
+    Math.max(0, availableStage.width - 12) / ratioWidth,
+    Math.max(0, availableStage.height - 12) / ratioHeight
   ));
   const displayWidth = Math.floor(ratioWidth * stageScale);
   const displayHeight = Math.floor(ratioHeight * stageScale);
@@ -713,12 +721,12 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
     };
   }, [aspectRatio]);
 
-  return (
-    <div className="flex flex-col items-center justify-center w-full h-full p-1.5 sm:p-2 overflow-hidden gap-1.5 sm:gap-2 bg-[#0a0c0f]">
-      {/* Main Stage Canvas Area - Perfectly Proportional & 1:1 Match for Preview & Export */}
-      <div 
+  // Portaled fullscreen fallback escapes the mobile studio's clipped layout
+  // and follows the actual viewport when a device rotates to landscape.
+  const stage = (
+      <div
         ref={stageRef}
-        className={`flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-[#0a0c0f] ${isFallbackFullscreen ? 'fixed inset-0 !w-screen !h-screen z-[9999]' : ''} fullscreen:!w-screen fullscreen:!h-screen`}
+        className={`flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden p-1 bg-[#0a0c0f] ${isFallbackFullscreen ? 'fixed inset-0 z-[9999] !w-screen !h-[100dvh] max-w-none max-h-none' : ''} fullscreen:!w-screen fullscreen:!h-[100dvh]`}
       >
         <div
           ref={canvasContainerRef}
@@ -832,6 +840,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           </button>
         </div>
       </div>
+  );
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full h-full min-h-0 p-1.5 sm:p-2 overflow-hidden gap-1.5 sm:gap-2 bg-[#0a0c0f]">
+      {isFallbackFullscreen ? createPortal(stage, document.body) : stage}
     </div>
   );
 }
