@@ -26,9 +26,14 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
       { keys: ['Enter'], label: 'Stamp start time (Shift+Enter for end)' },
       { keys: ['↑', '↓'], label: 'Navigate through lyric lines' },
     ]},
-    { category: 'MV Studio & DAW', items: [
-      { keys: ['['], label: 'Trim clip in-point / Set loop start' },
-      { keys: [']'], label: 'Trim clip out-point / Set loop end' },
+    { category: 'MV Studio — Clip Editing', items: [
+      { keys: ['Ctrl/⌘', 'C'], label: 'Copy selected video or image clip' },
+      { keys: ['Ctrl/⌘', 'V'], label: 'Paste clip at playhead (no overwrite)' },
+      { keys: ['Ctrl/⌘', 'D'], label: 'Duplicate selected clip' },
+      { keys: ['Ctrl/⌘', 'B'], label: 'Split selected clip at playhead' },
+      { keys: ['['], label: 'Trim clip in-point' },
+      { keys: [']'], label: 'Trim clip out-point' },
+      { keys: ['Delete'], label: 'Delete selected clip' },
     ]},
     { category: 'Project & Export', items: [
       { keys: ['⌘', 'E'], label: 'Open Export production modal' },
