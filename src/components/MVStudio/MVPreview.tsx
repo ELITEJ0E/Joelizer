@@ -69,12 +69,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
     const dy = e.clientY - gesture.y;
     if (gesture.operation === 'move') {
       updateFrameSettings({
-        // MV Studio defaults to vertical-only panning for portrait footage
-        // cropped into a landscape frame; keep Lyrics Video's 2-axis controls.
-        offsetX: videoMode === 'music-video'
-          ? gesture.startX
-          : Math.max(-1, Math.min(1, gesture.startX + 2 * dx / rect.width)),
-        offsetY: Math.max(-1, Math.min(1, gesture.startY + 2 * dy / rect.height))
+        // Both studios use 2-axis panning. Allow enough travel to reveal
+        // portrait footage cropped into a wide landscape output (and vice versa).
+        offsetX: Math.max(-3, Math.min(3, gesture.startX + 2 * dx / rect.width)),
+        offsetY: Math.max(-3, Math.min(3, gesture.startY + 2 * dy / rect.height))
       });
     } else {
       updateFrameSettings({
