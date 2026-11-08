@@ -58,6 +58,9 @@ export function MVTimeline() {
   const removeTimelineClip = useMVStore(s => s.removeTimelineClip);
   const splitTimelineClip = useMVStore(s => s.splitTimelineClip);
   const duplicateTimelineClip = useMVStore(s => s.duplicateTimelineClip);
+  const copiedTimelineClip = useMVStore(s => s.copiedTimelineClip);
+  const copyTimelineClip = useMVStore(s => s.copyTimelineClip);
+  const pasteTimelineClip = useMVStore(s => s.pasteTimelineClip);
   const addTimelineClip = useMVStore(s => s.addTimelineClip);
   const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
   const commitTimeline = useMVStore(s => s.commitTimeline);
@@ -122,6 +125,39 @@ export function MVTimeline() {
         target.isContentEditable
       );
 
+      // CapCut-style MV editing commands; keep native copy/paste in inputs.
+      const modifier = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      if (modifier && !e.altKey && !isInput && (key === 'c' || key === 'v' || key === 'd' || key === 'b')) {
+        if (key === 'c' && selectedClipId) {
+          e.preventDefault();
+          copyTimelineClip(selectedClipId);
+          return;
+        }
+        if (key === 'v' && useMVStore.getState().copiedTimelineClip) {
+          e.preventDefault();
+          pasteTimelineClip(currentTime);
+          commitTimeline();
+          return;
+        }
+        if (key === 'd' && selectedClipId) {
+          e.preventDefault();
+          duplicateTimelineClip(selectedClipId);
+          commitTimeline();
+          return;
+        }
+        if (key === 'b' && selectedClipId) {
+          const clip = useMVStore.getState().timelineClips.find(c => c.id === selectedClipId);
+          if (clip && !clip.locked && currentTime > clip.startTime + 0.1 &&
+            currentTime < clip.endTime - 0.1) {
+            e.preventDefault();
+            splitTimelineClip(selectedClipId, currentTime);
+            commitTimeline();
+            return;
+          }
+        }
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         if (isInput) return;
         e.preventDefault();
@@ -174,7 +210,7 @@ export function MVTimeline() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, selectedClipId, selectedLyricId, selectedWordKey, removeTimelineClip, setSelectedClipId, recordSnapshot, timelineClips, currentTime, updateTimelineClip]);
+  }, [undo, redo, selectedClipId, selectedLyricId, selectedWordKey, removeTimelineClip, setSelectedClipId, recordSnapshot, timelineClips, currentTime, updateTimelineClip, copyTimelineClip, pasteTimelineClip, duplicateTimelineClip, splitTimelineClip, commitTimeline]);
 
   // Non-passive Wheel Listener for smooth Zoom around cursor/playhead
   useEffect(() => {
@@ -767,6 +803,14 @@ export function MVTimeline() {
             </button>
           </div>
 
+          {/* Playhead paste is accessible by button as well as Ctrl+V / Cmd+V. */}
+          <button type="button" disabled={!copiedTimelineClip}
+            onClick={() => { pasteTimelineClip(currentTime); commitTimeline(); }}
+            title="Paste copied clip at playhead (Ctrl+V / Cmd+V)"
+            className="shrink-0 rounded border border-[#303846] bg-[#161b22] px-2 py-1 text-[10px] font-mono font-semibold text-[#d1dae4] disabled:opacity-30 hover:border-accent/60">
+            Paste
+          </button>
+
           {/* Magnetic Snapping Toggle */}
           <div className="flex items-center pl-2 border-l border-[#232933]">
             <button
@@ -814,13 +858,25 @@ export function MVTimeline() {
               </button>
 
               <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyTimelineClip(selectedClip.id);
+                }}
+                title="Copy selected clip (Ctrl+C / Cmd+C)"
+                className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <Copy size={10} /><span>Copy</span>
+              </button>
+
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   duplicateTimelineClip(selectedClip.id);
                   commitTimeline();
                 }}
-                disabled={selectedClip.locked}
-                className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 disabled:opacity-30 cursor-pointer"
+                title="Duplicate selected clip (Ctrl+D / Cmd+D)"
+                className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-[#1f2631] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer"
               >
                 <Copy size={10} />
                 <span>Dup</span>
@@ -1546,6 +1602,9 @@ export function MVTimeline() {
               duplicateTimelineClip(selectedClip.id);
               commitTimeline();
             }}
+            onCopy={() => { copyTimelineClip(selectedClip.id); }}
+            onPaste={() => { pasteTimelineClip(currentTime); commitTimeline(); }}
+            canPaste={!!copiedTimelineClip}
             onToggleLock={() => {
               toggleLockClip(selectedClip.id);
               commitTimeline();
