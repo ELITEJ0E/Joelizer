@@ -35,7 +35,57 @@ export interface TimelineClip {
   offsetY?: number;
   type?: 'video' | 'image' | 'vinyl-lyrics' | 'visualizer';
   effect?: 'ken-burns-in' | 'ken-burns-out' | 'pan-left' | 'pan-right' | 'pan-up' | 'pan-down' | 'none';
-  transition?: 'cut' | 'fade' | 'dissolve' | 'glitch';
+  transition?: 'cut' | 'fade' | 'dissolve' | 'glitch' | 'crossfade' | 'morph' | 'slide' | 'zoom';
+  transitionDuration?: number;
+}
+
+// A single non-overlapping video lane. All edits pass through these guards so
+// pointer drags, keyboard trims and context-menu actions behave identically.
+const MIN_CLIP_SECONDS = 0.1;
+const roundTime = (time: number) => Math.round(time * 100) / 100;
+const placed = (clips: TimelineClip[]) => [...clips].sort((a, b) => a.startTime - b.startTime);
+function avoidClipCollision(current: TimelineClip, proposed: TimelineClip, others: TimelineClip[]): TimelineClip {
+  const neighbors = placed(others.filter(c => c.id !== current.id));
+  const duration = current.endTime - current.startTime;
+  const moving = proposed.startTime !== current.startTime && proposed.endTime !== current.endTime;
+  let start = Math.max(0, Number.isFinite(proposed.startTime) ? proposed.startTime : current.startTime);
+  let end = Number.isFinite(proposed.endTime) ? proposed.endTime : current.endTime;
+  if (moving) {
+    // Find the nearest free interval large enough for the entire clip.
+    const requested = start;
+    const openings: number[] = [];
+    let previousEnd = 0;
+    for (const next of neighbors) {
+      if (next.startTime - previousEnd >= duration - 1e-6) {
+        openings.push(Math.max(previousEnd, Math.min(requested, next.startTime - duration)));
+      }
+      previousEnd = Math.max(previousEnd, next.endTime);
+    }
+    openings.push(Math.max(previousEnd, requested));
+    start = openings.reduce((best, candidate) =>
+      Math.abs(candidate - requested) < Math.abs(best - requested) ? candidate : best, openings[0]);
+    end = start + duration;
+  } else {
+    // Trimming clamps to the immediate neighbor; never overwrites it.
+    const left = neighbors.filter(c => c.endTime <= current.startTime + 1e-6).at(-1);
+    const right = neighbors.find(c => c.startTime >= current.endTime - 1e-6);
+    const leftLimit = left?.endTime ?? 0;
+    const rightLimit = right?.startTime ?? Infinity;
+    start = Math.max(leftLimit, Math.min(start, current.endTime - MIN_CLIP_SECONDS));
+    end = Math.min(rightLimit, Math.max(end, start + MIN_CLIP_SECONDS));
+    if (end - start < MIN_CLIP_SECONDS - 1e-6) return current;
+  }
+  const shiftedIn = start - current.startTime;
+  const newTrimStart = proposed.trimStart !== current.trimStart
+    ? Math.max(0, current.trimStart + shiftedIn) : proposed.trimStart;
+  const newTrimEnd = proposed.trimEnd !== current.trimEnd
+    ? Math.max(newTrimStart + MIN_CLIP_SECONDS, newTrimStart + (end - start))
+    : proposed.trimEnd;
+  return {
+    ...proposed, startTime: roundTime(start), endTime: roundTime(end),
+    trimStart: moving ? current.trimStart : roundTime(newTrimStart),
+    trimEnd: moving ? current.trimEnd : roundTime(newTrimEnd),
+  };
 }
 
 export interface TimelineText {
@@ -102,6 +152,12 @@ export interface MVProjectState {
   // Timeline
   timelineClips: TimelineClip[];
   selectedClipId: string | null;
+  autoTransitions: boolean;
+  defaultTransition: NonNullable<TimelineClip['transition']>;
+  transitionDuration: number;
+  setAutoTransitions: (enabled: boolean) => void;
+  setDefaultTransition: (value: NonNullable<TimelineClip['transition']>) => void;
+  setTransitionDuration: (seconds: number) => void;
   
   // AI Music Generation
   aiMusicPrompt: string;
@@ -176,6 +232,12 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   wordTimings: [],
   timelineClips: [],
   selectedClipId: null,
+  autoTransitions: true,
+  defaultTransition: 'crossfade',
+  transitionDuration: 0.5,
+  setAutoTransitions: (autoTransitions) => set({ autoTransitions }),
+  setDefaultTransition: (defaultTransition) => set({ defaultTransition }),
+  setTransitionDuration: (seconds) => set({ transitionDuration: Math.max(0.1, Math.min(2, seconds)) }),
 
   aiMusicPrompt: 'Upbeat electronic synthwave pop track with heavy bass drop and vocoder lead',
   aiMusicLyrics: '',
@@ -344,7 +406,11 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   setSongAnalysis: (songAnalysis) => set({ songAnalysis }),
   setWordTimings: (wordTimings) => set({ wordTimings }),
 
-  setTimelineClips: (timelineClips) => set({ timelineClips }),
+  setTimelineClips: (timelineClips) => set({ timelineClips: placed(timelineClips).reduce<TimelineClip[]>((result, clip) => {
+    const previous = result[result.length - 1];
+    const start = Math.max(0, previous ? Math.max(clip.startTime, previous.endTime) : clip.startTime);
+    return [...result, { ...clip, startTime: roundTime(start), endTime: roundTime(start + Math.max(MIN_CLIP_SECONDS, clip.endTime - clip.startTime)) }];
+  }, []) }),
   addTimelineClip: (newClip) => set((s) => {
     const clipDur = Math.max(0.5, newClip.endTime - newClip.startTime);
     let start = newClip.startTime;
@@ -369,7 +435,8 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     };
   }),
   updateTimelineClip: (id, updates) => set((s) => ({
-    timelineClips: s.timelineClips.map((c) => c.id === id ? { ...c, ...updates } : c)
+    timelineClips: s.timelineClips.map((c) => c.id === id && !c.locked
+      ? avoidClipCollision(c, { ...c, ...updates }, s.timelineClips) : c)
   })),
   toggleLockClip: (id) => set((s) => ({
     timelineClips: s.timelineClips.map((c) => c.id === id ? { ...c, locked: !c.locked } : c)
@@ -382,7 +449,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     const clip = s.timelineClips.find(c => c.id === id);
     if (!clip) return s;
     const dur = Math.max(0.5, clip.endTime - clip.startTime);
-    const newStart = clip.endTime + 0.1;
+    const newStart = Math.max(clip.endTime, ...s.timelineClips.map(c => c.endTime));
     const newEnd = newStart + dur;
 
     const clonedClip: TimelineClip = {
@@ -402,7 +469,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     const clipIndex = s.timelineClips.findIndex(c => c.id === id);
     if (clipIndex === -1) return s;
     const clip = s.timelineClips[clipIndex];
-    if (splitTime <= clip.startTime + 0.1 || splitTime >= clip.endTime - 0.1) return s;
+    if (clip.locked || splitTime <= clip.startTime + 0.1 || splitTime >= clip.endTime - 0.1) return s;
 
     const splitOffset = splitTime - clip.startTime;
     
@@ -434,6 +501,9 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       file: undefined
     })).filter(asset => asset.url && !asset.url.startsWith('blob:')),
     timelineClips: state.timelineClips,
+    autoTransitions: state.autoTransitions,
+    defaultTransition: state.defaultTransition,
+    transitionDuration: state.transitionDuration,
     style: state.style,
     pacing: state.pacing,
     beatSync: state.beatSync,
