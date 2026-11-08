@@ -143,7 +143,8 @@ export async function buildCanonicalProjectJson(options?: {
       offsetX: clip.offsetX,
       offsetY: clip.offsetY,
       effect: clip.effect || 'none',
-      transition: clip.transition || 'cut'
+      transition: clip.transition || (mvStore.autoTransitions ? mvStore.defaultTransition : 'cut'),
+      transitionDuration: clip.transitionDuration ?? mvStore.transitionDuration
     });
   }
 
