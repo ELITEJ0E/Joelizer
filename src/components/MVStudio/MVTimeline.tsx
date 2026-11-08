@@ -27,6 +27,7 @@ interface DragSession {
   startX: number;
   origStart: number;
   origEnd: number;
+  origTrimStart?: number;
   pointerId: number;
 }
 
@@ -296,6 +297,7 @@ export function MVTimeline() {
       startX: e.clientX,
       origStart: clip.startTime,
       origEnd: clip.endTime,
+      origTrimStart: clip.trimStart,
       pointerId: e.pointerId,
     };
     setActiveDragId(clip.id);
@@ -416,7 +418,7 @@ export function MVTimeline() {
           endTime: Number((finalStart + dur).toFixed(2)),
         });
       } else if (session.target === 'clip-left') {
-        const maxLeftShift = session.origStart - currentTrimStart;
+        const maxLeftShift = session.origStart - (session.origTrimStart ?? currentTrimStart);
         let rawStart = Math.max(Math.max(0, maxLeftShift), Math.min(session.origEnd - 0.3, session.origStart + deltaTime));
         
         let finalStart = rawStart;
