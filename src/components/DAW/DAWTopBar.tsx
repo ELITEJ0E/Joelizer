@@ -1,3 +1,4 @@
+import { StyledSelect } from '../ui/StyledSelect';
 import React, { useRef, useState, useEffect } from 'react';
 import { 
   Play, Pause, Square, Circle, Repeat, Scissors, MousePointer, 
@@ -237,7 +238,7 @@ export function DAWTopBar() {
         {/* Key Selector */}
         <div className="flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
           <span className="text-[10px] text-slate-500 font-bold uppercase">KEY</span>
-          <select
+          <StyledSelect
             aria-label="Project key"
             value={key}
             onChange={e => setKey(e.target.value)}
@@ -246,12 +247,12 @@ export function DAWTopBar() {
             {KEYS.map(k => (
               <option key={k} value={k} className="bg-[#0c0d12] text-white">{k}</option>
             ))}
-          </select>
+          </StyledSelect>
         </div>
 
         {/* Time Signature */}
         <div className="flex items-center gap-1 bg-black/60 border border-white/10 px-2 py-1 rounded-md text-xs font-mono">
-          <select
+          <StyledSelect
             aria-label="Time signature"
             value={timeSignature}
             onChange={e => setTimeSignature(e.target.value)}
@@ -260,7 +261,7 @@ export function DAWTopBar() {
             <option value="4/4" className="bg-[#0c0d12]">4/4</option>
             <option value="3/4" className="bg-[#0c0d12]">3/4</option>
             <option value="6/8" className="bg-[#0c0d12]">6/8</option>
-          </select>
+          </StyledSelect>
         </div>
       </div>
 
@@ -366,7 +367,7 @@ export function DAWTopBar() {
           >
             Snap: {snapToGrid ? 'ON' : 'OFF'}
           </button>
-          <select
+          <StyledSelect
             aria-label="Snap grid division"
             value={gridDivision}
             onChange={e => setGridDivision(e.target.value as any)}
@@ -379,7 +380,7 @@ export function DAWTopBar() {
             <option value="1/16" className="bg-[#0c0d12]">1/16</option>
             <option value="1/32" className="bg-[#0c0d12]">1/32</option>
             <option value="off" className="bg-[#0c0d12]">Off</option>
-          </select>
+          </StyledSelect>
         </div>
 
         {/* Zoom */}
