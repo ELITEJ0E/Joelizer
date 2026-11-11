@@ -395,7 +395,7 @@ export class OfflineFrameCompositor {
         drawPositionedLyricsVisualizer(
           ctx, W, H, visualizerPos,
           { ...project.visualizer, enabled: true },
-          audio.frequency, audio.waveform
+          audio.frequency, audio.waveform, time
         );
       }
       if (bg.videoElement && typeof (bg.videoElement as any).close === 'function') {
