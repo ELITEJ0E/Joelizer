@@ -248,7 +248,7 @@ export async function buildCanonicalProjectJson(options?: {
     visualizer: {
       style: vis.style || 'bars',
       color: vis.color || '#00e676',
-      sensitivity: vis.sensitivity || 0.95,
+      sensitivity: vis.sensitivity ?? 0.95,
       smoothing: vis.smoothing || 0.65,
       segments: vis.segments || 8,
       hitResponse: vis.hitResponse || 0.15,
@@ -257,6 +257,8 @@ export async function buildCanonicalProjectJson(options?: {
       showGrain: vis.showGrain || false,
       showScanlines: vis.showScanlines || false,
       scale: vis.scale ?? 1.0,
+      thickness: vis.thickness ?? 1.0,
+      expansion: vis.expansion ?? 1.0,
       enabled: lyricsVideoStore.showVisualizer ?? (vis.enabled !== false && lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
     },
     videoClips: canonicalClips,
