@@ -408,7 +408,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             drawPositionedLyricsVisualizer(
               ctx, W, H, visualizerPos,
               { ...storeState.visualizerSettings, enabled: true },
-              freqData, timeData
+              freqData, timeData, curTime
             );
           }
 
