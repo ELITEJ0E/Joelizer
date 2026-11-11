@@ -69,9 +69,12 @@ export function renderVisualizer(
   timeData: Uint8Array,
   settings: VisualizerSettings,
   width: number,
-  height: number
+  height: number,
+  timelineTime = 0
 ) {
   const { style, color, sensitivity, segments = 8 } = settings;
+  const thickness = Math.max(0.4, Math.min(3, settings.thickness ?? 1));
+  const expansion = Math.max(0.2, Math.min(3.5, settings.expansion ?? 1));
   const scaledSensitivity = sensitivity * 1.35; // Smooth balanced scaling for pop songs
 
   ctx.save();
@@ -93,8 +96,8 @@ export function renderVisualizer(
     const visualWidth = width * 0.92;
     const padding = (width - visualWidth) / 2;
     // Thicker bar ratio: ~68% bar width, ~32% spacing for chunky rounded capsule bars
-    const barWidth = Math.max(5, (visualWidth / barCount) * 0.68);
-    const spacing = Math.max(2.5, (visualWidth / barCount) * 0.32);
+    const barWidth = Math.max(3, (visualWidth / barCount) * 0.68 * thickness);
+    const spacing = Math.max(2.5, visualWidth / barCount - barWidth);
     
     for (let i = 0; i < barCount; i++) {
       const rawValue = getMusicalFrequency(i, barCount, frequencyData);
@@ -154,11 +157,11 @@ export function renderVisualizer(
       }
       x += sliceWidth;
     }
-    drawNeonPath(ctx, color, true, 5);
+    drawNeonPath(ctx, color, true, 5 * thickness);
   } else if (style === 'radial') {
     const cx = width / 2;
     const cy = height / 2;
-    const radius = Math.min(width, height) * 0.22;
+    const radius = Math.min(width, height) * 0.17;
     const barCount = 64;
     
     ctx.beginPath();
@@ -167,7 +170,7 @@ export function renderVisualizer(
       const value = rawValue * scaledSensitivity;
       const percent = Math.min(value / 255, 1);
       const punchyPercent = Math.pow(percent, 1.2);
-      const barHeight = Math.min(width, height) * 0.25 * punchyPercent;
+      const barHeight = Math.min(width, height) * 0.30 * expansion * punchyPercent;
       
       const angle = (i / barCount) * Math.PI * 2;
       const x1 = cx + Math.cos(angle) * radius;
@@ -178,11 +181,11 @@ export function renderVisualizer(
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
     }
-    drawNeonPath(ctx, color, true, 5);
+    drawNeonPath(ctx, color, true, Math.max(1.5, Math.min(width,height) * 0.009) * thickness);
   } else if (style === 'particles') {
     const cx = width / 2;
     const cy = height / 2;
-    const radius = Math.min(width, height) * 0.25;
+    const radius = Math.min(width, height) * 0.16;
     const barCount = 128;
     
     ctx.beginPath();
@@ -192,15 +195,15 @@ export function renderVisualizer(
       const percent = Math.min(value / 255, 1);
       
       if (percent > 0.1) {
-        const angle = (i / barCount) * Math.PI * 2 + (Date.now() / 1000) * 0.2;
+        const angle = (i / barCount) * Math.PI * 2 + timelineTime * 0.2;
         // Explode outward on bass
-        const punchyDistance = Math.pow(percent, 1.5) * (Math.min(width, height) * 0.4);
+        const punchyDistance = Math.pow(percent, 1.25) * (Math.min(width, height) * 0.30) * expansion;
         const distance = radius + punchyDistance;
         const x = cx + Math.cos(angle) * distance;
         const y = cy + Math.sin(angle) * distance;
         
         ctx.moveTo(x, y);
-        ctx.arc(x, y, percent * 7, 0, Math.PI * 2);
+        ctx.arc(x, y, Math.max(1.4, percent * Math.min(width, height) * 0.018 * thickness), 0, Math.PI * 2);
       }
     }
     drawNeonPath(ctx, color, false, 0);
@@ -223,13 +226,13 @@ export function renderVisualizer(
         const value = rawValue * scaledSensitivity;
         const percent = Math.min(value / 255, 1);
         const punchyPercent = Math.pow(percent, 1.2);
-        const radius = Math.min(width, height) * 0.12 + punchyPercent * Math.min(width, height) * 0.25;
+        const radius = Math.min(width, height) * 0.10 + punchyPercent * Math.min(width, height) * 0.31 * expansion;
         const angle = (i / barCount) * (angleStep / 2);
         const x = Math.cos(angle) * radius;
         const y = Math.sin(angle) * radius;
         ctx.lineTo(x, y);
       }
-      drawNeonPath(ctx, color, true, 4);
+      drawNeonPath(ctx, color, true, 4 * thickness);
       
       // Draw mirrored second half
       ctx.scale(1, -1);
@@ -273,9 +276,9 @@ export function renderVisualizer(
     for (let i = 0; i < frequencyData.length; i++) vol += frequencyData[i];
     vol /= frequencyData.length;
 
-    const baseRadius = Math.min(width, height) * 0.15;
+    const baseRadius = Math.min(width, height) * 0.13;
     // Punchier scale response for orb
-    const scaleFactor = 1 + Math.pow(bass / 255, 1.2) * scaledSensitivity * 0.8;
+    const scaleFactor = 1 + Math.pow(bass / 255, 1.1) * scaledSensitivity * 0.7 * expansion;
     const radius = baseRadius * scaleFactor;
     
     // 1. Draw glowing background aura
@@ -300,7 +303,7 @@ export function renderVisualizer(
       const bandIndex = Math.floor((i / points) * 70) + 10;
       const amplitude = (frequencyData[bandIndex] || 0) * scaledSensitivity * 0.25;
       
-      const r = radius + amplitude * Math.sin(angle * 8 + Date.now() / 150);
+      const r = radius + amplitude * expansion * Math.sin(angle * 8 + timelineTime * 6);
       const x = cx + Math.cos(angle) * r;
       const y = cy + Math.sin(angle) * r;
       if (i === 0) ctx.moveTo(x, y);
@@ -325,11 +328,11 @@ export function renderVisualizer(
     const particleCount = 24;
     for (let i = 0; i < particleCount; i++) {
       const speedOffset = i % 2 === 0 ? 1 : -1;
-      const angle = (i / particleCount) * Math.PI * 2 + (Date.now() / 2000) * speedOffset;
-      const orbitOffset = radius * (1.15 + Math.sin(Date.now() / 300 + i) * 0.08) + (high / 255) * 45;
+      const angle = (i / particleCount) * Math.PI * 2 + (timelineTime * 0.5) * speedOffset;
+      const orbitOffset = radius * (1.15 + Math.sin(timelineTime * 3.3 + i) * 0.08) + (high / 255) * 45;
       const px = cx + Math.cos(angle) * orbitOffset;
       const py = cy + Math.sin(angle) * orbitOffset;
-      const pSize = 1.5 + (mid / 255) * 4.0;
+      const pSize = (1.5 + (mid / 255) * 4.0) * thickness;
       
       ctx.moveTo(px, py);
       ctx.arc(px, py, pSize, 0, Math.PI * 2);
