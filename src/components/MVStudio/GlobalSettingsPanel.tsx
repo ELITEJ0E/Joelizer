@@ -71,6 +71,18 @@ function VisualizerSettingsPanel() {
           <AppColorPicker value={settings.color} onChange={(c) => updateSettings({ color: c })} />
         </div>
       </div>
+      <label className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+        <span className="min-w-0">
+          <span className="block text-[11px] font-bold text-slate-100">Auto Level / Loud Master Protection</span>
+          <span className="mt-0.5 block text-[10px] leading-relaxed text-slate-400">
+            Adapts the visualizer to compressed, heavily mastered or quiet songs while preserving visible beat variation. Does not change audio volume.
+          </span>
+        </span>
+        <input type="checkbox" checked={settings.adaptiveLevel !== false}
+          onChange={event => updateSettings({ adaptiveLevel: event.target.checked })}
+          className="h-4 w-4 shrink-0 accent-emerald-400"
+          aria-label="Automatic visualizer level adjustment" />
+      </label>
       <div>
         <div className="flex justify-between mb-1.5">
           <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Reactivity Sensitivity</label>
