@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { generateGapFill } from '../lib/mvAutoEdit';
+import { generateGapFill, getUncoveredMVIntervals } from '../lib/mvAutoEdit';
 import { useMVStore, TimelineClip, MediaAsset } from '../store/useMVStore';
 
 const original: TimelineClip[] = [
@@ -15,6 +15,17 @@ const assets: MediaAsset[] = [
   { id: 'video', url: '/video.mp4', name: 'Video', type: 'video', duration: 1, thumbnail: '', status: 'ready' }
 ];
 
+assert.deepEqual(getUncoveredMVIntervals(original, 12), [
+  { start: 2, end: 5 }, { start: 8, end: 10 }
+], 'Manual visual clips must preserve the exact uncovered intervals');
+assert.deepEqual(getUncoveredMVIntervals([
+  { startTime: 0, endTime: 3 }, { startTime: 2, endTime: 6 }
+], 8), [{ start: 6, end: 8 }], 'Overlapping legacy edits cannot create phantom gaps');
+assert.deepEqual(getUncoveredMVIntervals([{ startTime: 0, endTime: 12 }], 12), [],
+  'A fully covered VIS track must return no gaps');
+assert.deepEqual(getUncoveredMVIntervals([], 4), [{ start: 0, end: 4 }],
+  'An empty VIS track is fillable from the beginning');
+
 const before = JSON.stringify(original);
 const fills = generateGapFill({
   songDuration: 12, lyricsLines: [], mediaAssets: assets,
@@ -23,6 +34,18 @@ const fills = generateGapFill({
 });
 assert.equal(JSON.stringify(original), before, 'Generator cannot mutate existing clips');
 assert.ok(fills.length > 0, 'Empty slots should be filled');
+assert.ok(fills.every(c => c.editOrigin === 'auto' && c.manuallyEdited === false),
+  'Generated fillers must remain automatically editable');
+assert.ok(fills.every(c => c.trimEnd >= c.trimStart + 0.099),
+  'Source trims must remain playable');
+assert.deepEqual(generateGapFill({
+  songDuration: 12, lyricsLines: [], mediaAssets: assets,
+  style: 'Cinematic', pacing: 'Balanced', beatSync: 'Strong', seed: 17,
+  existingClips: [...original, { id: 'full-gap', assetId: 'image', type: 'image',
+    startTime: 2, endTime: 5, trimStart: 0, trimEnd: 3 },
+    { id: 'full-gap2', assetId: 'image', type: 'image', startTime: 8, endTime: 10,
+      trimStart: 0, trimEnd: 2 }]
+}), [], 'Fully covered lanes must never be modified');
 assert.ok(fills.every(c => c.id.startsWith('gap-')), 'Fill must only return new clips');
 assert.ok(fills.every(c => c.transition === 'dissolve'),
   'Fill should inherit the manually edited dominant transition');
