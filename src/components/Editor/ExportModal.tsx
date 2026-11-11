@@ -637,37 +637,40 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <label className="min-w-0 space-y-1">
-                    <span className="block text-xs font-medium text-slate-300">Aspect ratio</span>
+                  <div className="min-w-0 space-y-1">
+                    <label htmlFor="export-aspect-ratio" className="block text-xs font-medium text-slate-300">Aspect ratio</label>
                     <Select value={aspectRatio} onValueChange={v => handleAspectRatioChange(v as AspectRatioType)}>
-                      <SelectTrigger aria-label="Video aspect ratio" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="export-aspect-ratio" aria-label="Video aspect ratio" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
                       <SelectContent className="z-[110] bg-[#121820]">
                         {(['16:9', '9:16', '1:1', '4:5', '3:4', '4:3'] as AspectRatioType[]).map(value =>
                           <SelectItem key={value} value={value}>{value}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  </label>
-                  <label className="min-w-0 space-y-1">
-                    <span className="block text-xs font-medium text-slate-300">Resolution</span>
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <label htmlFor="export-resolution" className="block text-xs font-medium text-slate-300">Resolution</label>
                     <Select value={resolution} onValueChange={v => setResolution(v as ExportResolutionType)}>
-                      <SelectTrigger aria-label="Export resolution" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="export-resolution" aria-label="Export resolution" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
                       <SelectContent className="z-[110] bg-[#121820]">
                         <SelectItem value="1080p">1080p</SelectItem>
                         <SelectItem value="720p">720p</SelectItem>
                         <SelectItem value="360p">360p</SelectItem>
                       </SelectContent>
                     </Select>
-                  </label>
-                  <label className="min-w-0 space-y-1">
-                    <span className="block text-xs font-medium text-slate-300">Frame rate</span>
-                    <Select value={String(fps)} onValueChange={v => setFps(Number(v) as 30 | 60)}>
-                      <SelectTrigger aria-label="Export frame rate" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
-                      <SelectContent className="z-[110] bg-[#121820]">
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <label htmlFor="export-frame-rate" className="block text-xs font-medium text-slate-300">Frame rate</label>
+                    <Select value={String(fps)} onValueChange={v => {
+                      const selected = Number(v);
+                      if (selected === 30 || selected === 60) setFps(selected);
+                    }}>
+                      <SelectTrigger id="export-frame-rate" aria-label="Export frame rate" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
+                      <SelectContent position="popper" className="z-[110] bg-[#121820]">
                         <SelectItem value="30">30 FPS</SelectItem>
                         <SelectItem value="60">60 FPS</SelectItem>
                       </SelectContent>
                     </Select>
-                  </label>
+                  </div>
                 </div>
 
                 <label className="block space-y-1">
