@@ -695,8 +695,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-slate-200">Export quality</span>
                     <button type="button" onClick={() => {
-                      setAspectRatioState('9:16');
-                      useStore.getState().setAspectRatio('9:16');
+                      handleAspectRatioChange('9:16');
                       setResolution('1080p');
                       setFps(30);
                       setExportQuality('high');
