@@ -25,6 +25,8 @@ export interface VisualizerSettings {
   showGrain: boolean; // toggle grain overlay
   showScanlines: boolean; // toggle scanlines overlay
   scale?: number; // visualizer size scale multiplier (default 1.0)
+  thickness?: number; // stroke and particle thickness multiplier
+  expansion?: number; // outward beat-reactive reach for radial / orb / kaleidoscope
 }
 
 export interface BackgroundSettings {
@@ -201,6 +203,8 @@ const defaultVisualizerSettings: VisualizerSettings = {
   showGrain: false,
   showScanlines: false,
   scale: 1.0,
+  thickness: 1.0,
+  expansion: 1.0,
 };
 
 // Initial state starts with stored lyrics if available
