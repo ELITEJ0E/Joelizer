@@ -9,26 +9,43 @@ import { renderVisualizer } from './renderers';
  */
 export function prepareBeatReactiveSpectrum(
   frequencyData: Uint8Array,
-  timeData: Uint8Array
+  timeData: Uint8Array,
+  adaptiveLevel = true
 ): Uint8Array {
   if (!frequencyData.length) return frequencyData;
+  if (!adaptiveLevel) return frequencyData;
+
   let sumSquares = 0;
   for (let i = 0; i < timeData.length; i++) {
     const sample = (timeData[i] - 128) / 128;
     sumSquares += sample * sample;
   }
   const rms = timeData.length ? Math.sqrt(sumSquares / timeData.length) : 0;
-  // Use contemporaneous PCM loudness, so drum accents produce larger bars
-  // without relying on a guessed BPM or animation oscillator.
-  const gain = 1.65 + Math.min(0.55, rms) * 3.5;
-  const transientLift = Math.max(0, rms - 0.055) * 165;
+
+  // Estimate the CURRENT spectral level instead of blindly amplifying the
+  // already-mastered FFT. This avoids 255-valued bins forming a fixed sunburst.
+  // Sample at most 128 bins so 4K export remains inexpensive.
+  const sampleStep = Math.max(1, Math.floor(frequencyData.length / 128));
+  const levels: number[] = [];
+  for (let i = 1; i < frequencyData.length; i += sampleStep) {
+    levels.push(frequencyData[i] / 255);
+  }
+  levels.sort((a, b) => a - b);
+  const percentile = (q: number) => levels[Math.floor((levels.length - 1) * q)] || 0;
+  const floor = Math.min(0.20, percentile(0.2) * 0.55);
+  const upper = Math.max(0.18, percentile(0.85) - floor);
+  // The waveform adjusts overall punch, but its volume NEVER linearly drives
+  // all spikes to maximum. Actual band differences remain visible.
+  const presence = rms < 0.003 ? 0 : Math.max(0.35, Math.min(1, Math.sqrt(rms / 0.22)));
   const result = new Uint8Array(frequencyData.length);
+
   for (let i = 0; i < frequencyData.length; i++) {
-    const bin = frequencyData[i];
-    if (bin < 3) continue;
-    const compressed = 255 * (1 - Math.exp(-bin / 255 * gain * 1.35));
-    const lowBandWeight = 0.5 + 0.5 * (1 - i / frequencyData.length);
-    result[i] = Math.min(255, Math.round(compressed + transientLift * lowBandWeight));
+    const raw = frequencyData[i] / 255;
+    const relative = Math.max(0, (raw - floor) / upper);
+    // Smooth knee preserves contrast above nominal maximum, not hard clipping.
+    const compressed = 1 - Math.exp(-relative * 0.9);
+    const lowLift = 1 + 0.08 * (1 - i / frequencyData.length);
+    result[i] = Math.round(255 * Math.min(0.84, compressed * lowLift) * presence);
   }
   return result;
 }
@@ -61,7 +78,7 @@ export function drawPositionedLyricsVisualizer(
   const boxH = circular ? boxW : Math.max(24, Math.round(height * (portrait ? 0.095 : 0.082) * scale));
   const frequency = frequencyData?.length ? frequencyData : new Uint8Array(1024);
   const waveform = timeData?.length ? timeData : new Uint8Array(1024).fill(128);
-  const responsiveFrequency = prepareBeatReactiveSpectrum(frequency, waveform);
+  const responsiveFrequency = prepareBeatReactiveSpectrum(frequency, waveform, settings.adaptiveLevel !== false);
 
   ctx.save();
   ctx.translate(pos.x * width - boxW / 2, pos.y * height - boxH / 2);
