@@ -1,8 +1,28 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { saveMVAssetToStorage, removeMVAssetFromStorage, loadMVAssetsFromStorage } from '../lib/storage';
+import { saveMVAssetToStorage, removeMVAssetFromStorage, loadMVAssetsFromStorage, clearMVAssetsFromStorage } from '../lib/storage';
 import { useStore } from './useStore';
 import { globalHistory } from '../lib/globalHistory';
+const MV_STORAGE_KEY = 'mv-studio-storage';
+
+/** Upgrade existing session projects once, before Zustand rehydrates local data. */
+function getPersistentMVStorage(): Storage {
+  const permanent = window.localStorage;
+  try {
+    const previous = window.sessionStorage.getItem(MV_STORAGE_KEY);
+    if (previous && !permanent.getItem(MV_STORAGE_KEY)) {
+      permanent.setItem(MV_STORAGE_KEY, previous);
+    }
+    // Legacy copy is safe to discard only after permanent storage exists.
+    if (previous && permanent.getItem(MV_STORAGE_KEY)) {
+      window.sessionStorage.removeItem(MV_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('[MVStore] Could not migrate previous session:', error);
+  }
+  return permanent;
+}
+
 
 export interface MediaAsset {
   id: string;
@@ -240,6 +260,7 @@ export interface MVProjectState {
   updateVideoAsset: (id: string, updates: Partial<MediaAsset>) => void;
   removeVideoAsset: (id: string) => void;
   rehydrateMVAssets: () => Promise<void>;
+  clearSavedMVProject: () => Promise<void>;
 
   setSongAnalysis: (analysis: SongAnalysis | null) => void;
   setWordTimings: (timings: TimelineText[]) => void;
@@ -457,6 +478,38 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     }
   },
 
+  clearSavedMVProject: async () => {
+    // Clear durable media before wiping the timeline, so errors do not leave
+    // the user believing their saved footage has been removed.
+    await clearMVAssetsFromStorage();
+    const assets = useMVStore.getState().videoAssets;
+    for (const asset of assets) {
+      if (asset.url.startsWith('blob:')) {
+        try { URL.revokeObjectURL(asset.url); } catch {}
+      }
+    }
+    set({
+      videoAssets: [],
+      timelineClips: [],
+      selectedClipId: null,
+      copiedTimelineClip: null,
+      timelineHistory: [[]],
+      historyIndex: 0,
+      songAnalysis: null,
+      wordTimings: [],
+      mediaSourceFilter: 'all',
+      style: 'Cinematic',
+      pacing: 'Balanced',
+      beatSync: 'Strong',
+      captionLineCount: 2,
+      editSeed: 42,
+      autoTransitions: true,
+      defaultTransition: 'crossfade',
+      transitionDuration: 0.5
+    });
+    try { window.sessionStorage.removeItem(MV_STORAGE_KEY); } catch {}
+  },
+
   setSongAnalysis: (songAnalysis) => set({ songAnalysis }),
   setWordTimings: (wordTimings) => set({ wordTimings }),
 
@@ -613,12 +666,12 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   })
 }), {
   name: 'mv-studio-storage',
-  storage: createJSONStorage(() => sessionStorage),
+  storage: createJSONStorage(getPersistentMVStorage),
   partialize: (state) => ({
-    videoAssets: state.videoAssets.map(asset => ({
-      ...asset,
-      file: undefined
-    })).filter(asset => asset.url && !asset.url.startsWith('blob:')),
+    // Files and blobs live in IndexedDB. Persist only HTTP(S) asset metadata
+    // here: object URLs expire after the browser is restarted.
+    videoAssets: state.videoAssets.filter(asset => /^https?:\/\//.test(asset.url))
+      .map(({ file: _file, ...asset }) => asset),
     timelineClips: state.timelineClips,
     autoTransitions: state.autoTransitions,
     defaultTransition: state.defaultTransition,
