@@ -11,6 +11,7 @@ import { useMVStore } from '../../store/useMVStore';
 import { useStore, type LyricLine } from '../../store/useStore';
 import { renderVisualizer } from '../renderers';
 import { drawFramedMedia } from '../lyricsBackgrounds';
+import { drawOverlayEffects } from '../overlayEffects';
 
 type StageMedia = { element: HTMLVideoElement; lastFrame: number };
 
@@ -128,6 +129,7 @@ export class OfflineFrameCompositor {
   private fastDecodeErrors = new Map<string, string>();
   private images = new Map<string, HTMLImageElement>();
   private loaded = false;
+  private outgoingFrameCache = new Map<string, HTMLCanvasElement>();
   private audioAnalysis = new OfflineAudioAnalysis();
   private readonly preparedLyrics: LyricLine[];
 
@@ -159,6 +161,15 @@ export class OfflineFrameCompositor {
       ? project.videoClips.filter(c =>
           c.startTime < project.exportRange.end && c.endTime > project.exportRange.start)
       : [];
+    // Export ranges beginning within a transition still need the preceding
+    // media source decoded to render the outgoing frame.
+    if (project.exportMode === 'music-video') {
+      const sorted = [...project.videoClips].sort((a, b) => a.startTime - b.startTime);
+      for (const visible of [...clips]) {
+        const index = sorted.findIndex(c => c.id === visible.id);
+        if (index > 0 && !clips.some(c => c.id === sorted[index - 1].id)) clips.push(sorted[index - 1]);
+      }
+    }
     const videoUrls = new Set(clips.filter(c => c.type === 'video').map(c => c.url));
     const imageUrls = new Set(clips.filter(c => c.type === 'image').map(c => c.url));
     const backgroundVideoUrl = project.background.type === 'video'
@@ -217,6 +228,53 @@ export class OfflineFrameCompositor {
       }
     }
     this.loaded = true;
+  }
+
+  /** Decode each outgoing cut only once. A clip's actual final source
+   * frame is used, rather than its thumbnail or a synthetic black fade. */
+  private async getOutgoingFrame(clip: CanonicalProjectJson['videoClips'][number]): Promise<HTMLCanvasElement | null> {
+    const cached = this.outgoingFrameCache.get(clip.id);
+    if (cached) return cached;
+    if (clip.type !== 'video' && clip.type !== 'image') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = this.project.width;
+    canvas.height = this.project.height;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    if (clip.type === 'image') {
+      const image = this.images.get(clip.url);
+      if (!image) return null;
+      drawFramedMedia(context, image, canvas.width, canvas.height,
+        image.naturalWidth, image.naturalHeight, clip);
+    } else {
+      const endSource = Math.max(0, clip.trimStart + clip.endTime - clip.startTime - 1 / this.project.fps);
+      const fast = this.fastVideos.get(clip.url);
+      let decoded = false;
+      if (fast) {
+        try {
+          const frame = await fast.frameAt(endSource);
+          try {
+            drawFramedMedia(context, frame, canvas.width, canvas.height,
+              frame.displayWidth, frame.displayHeight, clip);
+          } finally { frame.close(); }
+          decoded = true;
+        } catch (error) {
+          console.warn('[MV export] Outgoing frame fast decoder fallback:', error);
+        }
+      }
+      if (!decoded) {
+        let video = this.videos.get(clip.url);
+        if (!video) {
+          video = { element: await loadVideo(clip.url), lastFrame: NaN };
+          this.videos.set(clip.url, video);
+        }
+        await atTime(video, endSource);
+        drawFramedMedia(context, video.element, canvas.width, canvas.height,
+          video.element.videoWidth, video.element.videoHeight, clip);
+      }
+    }
+    this.outgoingFrameCache.set(clip.id, canvas);
+    return canvas;
   }
 
   async frame(time: number): Promise<HTMLCanvasElement> {
@@ -439,6 +497,46 @@ export class OfflineFrameCompositor {
         });
       }
     }
+    // Match the live preview's outgoing-over-incoming transition blend.
+    // Compose before timed overlay effects, which are always on top.
+    if (project.exportMode === 'music-video' && clip) {
+      const ordered = [...project.videoClips].sort((a, b) => a.startTime - b.startTime);
+      const index = ordered.findIndex(c => c.id === clip.id);
+      const previous = index > 0 ? ordered[index - 1] : undefined;
+      const type = clip.transition || 'cut';
+      const seconds = previous ? Math.min(
+        clip.transitionDuration ?? 0.5,
+        clip.endTime - clip.startTime,
+        previous.endTime - previous.startTime
+      ) : 0;
+      if (previous && Math.abs(previous.endTime - clip.startTime) < 0.05 &&
+          type !== 'cut' && seconds > 0 && time < clip.startTime + seconds) {
+        const progress = Math.max(0, Math.min(1, (time - clip.startTime) / seconds));
+        const eased = progress * progress * (3 - 2 * progress);
+        ctx.save();
+        if (type === 'fade') {
+          ctx.fillStyle = `rgba(5,5,8,${1 - eased})`;
+          ctx.fillRect(0, 0, W, H);
+        } else {
+          const outgoing = await this.getOutgoingFrame(previous);
+          if (outgoing) {
+            ctx.globalAlpha = 1 - eased;
+            if (type === 'morph') ctx.filter =
+              `blur(${Math.sin(progress * Math.PI) * Math.min(W, H) * 0.004}px)`;
+            if (type === 'slide') ctx.translate(-W * eased, 0);
+            if (type === 'zoom' || type === 'morph') {
+              const size = 1 - (type === 'morph' ? 0.08 : 0.2) * eased;
+              ctx.translate(W / 2, H / 2);
+              ctx.scale(size, size);
+              ctx.translate(-W / 2, -H / 2);
+            }
+            ctx.drawImage(outgoing, 0, 0, W, H);
+          }
+        }
+        ctx.restore();
+      }
+    }
+    drawOverlayEffects(ctx, W, H, project.overlayEffects, time);
     ctx.restore();
     return this.canvas;
   }
@@ -457,5 +555,7 @@ export class OfflineFrameCompositor {
     this.fastVideos.clear();
     this.fastDecodeErrors.clear();
     this.images.clear();
+    for (const canvas of this.outgoingFrameCache.values()) { canvas.width = 0; canvas.height = 0; }
+    this.outgoingFrameCache.clear();
   }
 }
