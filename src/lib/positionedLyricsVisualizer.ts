@@ -44,7 +44,8 @@ export function drawPositionedLyricsVisualizer(
   pos: ElementPos,
   settings: VisualizerSettings,
   frequencyData?: Uint8Array | null,
-  timeData?: Uint8Array | null
+  timeData?: Uint8Array | null,
+  timelineTime = 0
 ): void {
   if (settings.enabled === false) return;
   const portrait = height > width;
@@ -52,8 +53,12 @@ export function drawPositionedLyricsVisualizer(
   // Size in video-relative units, not fixed screen pixels. The previous
   // 280x52 hard cap made a 1080p/4K exported spectrum almost invisible.
   // Keep the same relative size in editor preview and encoded frames.
-  const boxW = Math.round((portrait ? width * 0.62 : width * 0.28) * scale);
-  const boxH = Math.round((portrait ? height * 0.095 : height * 0.082) * scale);
+  const circular = ['radial', 'particles', 'orb', 'kaleidoscope'].includes(settings.style);
+  // Circular effects need a square drawing surface. The old 9.5%-height
+  // rectangle caused every ring to appear tiny and squashed in portrait.
+  const baseW = (portrait ? width * 0.62 : width * 0.28) * scale;
+  const boxW = Math.max(32, Math.round(baseW));
+  const boxH = circular ? boxW : Math.max(24, Math.round(height * (portrait ? 0.095 : 0.082) * scale));
   const frequency = frequencyData?.length ? frequencyData : new Uint8Array(1024);
   const waveform = timeData?.length ? timeData : new Uint8Array(1024).fill(128);
   const responsiveFrequency = prepareBeatReactiveSpectrum(frequency, waveform);
@@ -77,7 +82,7 @@ export function drawPositionedLyricsVisualizer(
       ctx.fill();
     }
   } else {
-    renderVisualizer(ctx, responsiveFrequency, waveform, settings, boxW, boxH);
+    renderVisualizer(ctx, responsiveFrequency, waveform, settings, boxW, boxH, timelineTime);
   }
   ctx.restore();
 }
