@@ -271,7 +271,7 @@ function renderArtwork(
 
     // Audio reactive outer perimeter glow (suppressed when visualizer is disabled)
     const isVisEnabled = (visualizerSettings ?? useStore.getState().visualizerSettings)?.enabled !== false;
-    if (isVisEnabled && audioFrequencyData && audioFrequencyData.length > 0) {
+    if (isVisEnabled) {
       ctx.save();
       const numSpokes = 64;
       const innerR = radius * 0.98;
@@ -284,8 +284,11 @@ function renderArtwork(
       ctx.shadowColor = themeColor;
       ctx.beginPath();
       for (let i = 0; i < numSpokes; i++) {
-        const val = audioFrequencyData[i % audioFrequencyData.length] / 255;
-        const len = maxSpokeLen * Math.pow(val, 1.2);
+        const val = audioFrequencyData?.length
+          ? audioFrequencyData[i % audioFrequencyData.length] / 255 : 0;
+        // A subtle idle ring stays visible while paused or before analysis;
+        // real audio frequency bins expand the spokes in playback/export.
+        const len = maxSpokeLen * (0.10 + 0.90 * Math.pow(val, 1.2));
         const ang = (i / numSpokes) * Math.PI * 2 + rotationAngle * 0.25;
         const x1 = Math.cos(ang) * innerR;
         const y1 = Math.sin(ang) * innerR;
