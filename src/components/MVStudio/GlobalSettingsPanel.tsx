@@ -77,11 +77,41 @@ function VisualizerSettingsPanel() {
           <span className="text-[10px] font-mono font-bold tabular-nums" style={{ color: activeColor }}>{settings.sensitivity.toFixed(2)}</span>
         </div>
         <Scrubber
-          min={0.1} max={2.0} step={0.1}
+          min={0.1} max={5.0} step={0.05}
           value={settings.sensitivity}
           onChange={val => updateSettings({ sensitivity: val })}
         />
       </div>
+      <div>
+        <div className="flex justify-between mb-1.5">
+          <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Visualizer Size</label>
+          <span className="text-[10px] font-mono tabular-nums" style={{ color: activeColor }}>{(settings.scale ?? 1).toFixed(2)}×</span>
+        </div>
+        <Scrubber min={0.4} max={3.5} step={0.05}
+          value={settings.scale ?? 1} onChange={v => updateSettings({ scale: v })} />
+      </div>
+      <div>
+        <div className="flex justify-between mb-1.5">
+          <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Stroke / Particle Thickness</label>
+          <span className="text-[10px] font-mono tabular-nums" style={{ color: activeColor }}>{(settings.thickness ?? 1).toFixed(2)}×</span>
+        </div>
+        <Scrubber min={0.4} max={3.0} step={0.05}
+          value={settings.thickness ?? 1} onChange={v => updateSettings({ thickness: v })} />
+      </div>
+      {['radial', 'particles', 'orb', 'kaleidoscope'].includes(settings.style) && (
+        <div>
+          <div className="flex justify-between mb-1.5">
+            <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Beat Expansion / Reach</label>
+            <span className="text-[10px] font-mono tabular-nums" style={{ color: activeColor }}>{(settings.expansion ?? 1).toFixed(2)}×</span>
+          </div>
+          <Scrubber min={0.2} max={3.5} step={0.05}
+            value={settings.expansion ?? 1} onChange={v => updateSettings({ expansion: v })} />
+        </div>
+      )}
+      <p className="text-[10px] leading-relaxed text-slate-400">
+        Size sets the full effect dimensions; expansion controls how far audio peaks extend.
+        Lower smoothing tracks drum transients faster; higher sensitivity boosts quieter frequencies.
+      </p>
       <div>
         <div className="flex justify-between mb-1.5">
           <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Reactivity (Smoothing)</label>
