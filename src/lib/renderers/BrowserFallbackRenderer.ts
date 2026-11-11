@@ -1,3 +1,4 @@
+import { getExportVideoBitrate } from './exportQuality';
 import { VideoRenderer, RenderProgress, RendererType } from './types';
 import { CanonicalProjectJson } from '../../types/projectJson';
 import { useStore } from '../../store/useStore';
@@ -210,10 +211,10 @@ export class BrowserFallbackRenderer implements VideoRenderer {
         signal.addEventListener('abort', handleAbort, { once: true });
       }
       try {
-        const bitrate = Math.max(8_000_000, Math.round(project.width * project.height * fps * 0.25));
+        const bitrate = getExportVideoBitrate(project.width, project.height, fps, project.exportQuality);
         mediaRecorder = new MediaRecorder(combinedStream, {
           mimeType: chosenMime,
-          videoBitsPerSecond: Math.min(35_000_000, bitrate),
+          videoBitsPerSecond: bitrate,
           audioBitsPerSecond: 320_000
         });
       } catch (err: any) {
