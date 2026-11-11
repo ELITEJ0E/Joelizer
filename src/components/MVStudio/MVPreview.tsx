@@ -392,7 +392,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               showArtwork: lyricsVideoState.showArtwork !== false,
               // The positioned visualizer is composited explicitly below.
               showVisualizer: false,
-              showArtworkVisualizer: lyricsVideoState.showVisualizer !== false,
+              showArtworkVisualizer: lyricsVideoState.showVinylRing !== false,
               showLyrics: lyricsVideoState.showLyrics !== false,
               showMeta: lyricsVideoState.showMeta !== false,
               visualizerSettingsOverride: storeState.visualizerSettings,
