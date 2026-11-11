@@ -774,15 +774,10 @@ function MetaLayer({
   );
 }
 
-/* Audio Waveform & Visualizer Spectrum Layer */
-function VisualizerLayer({ 
-  visualizer, 
-  currentTime, 
-  beatPulse,
-  audioLevel,
-  width,
-  height,
-  pos
+/* Frame-deterministic spectrum: use the selected style and size in
+   server MP4 rendering instead of always exporting 16 classic bars. */
+function VisualizerLayer({
+  visualizer, currentTime, audioLevel, width, height, pos
 }: {
   visualizer: any;
   currentTime: number;
@@ -792,47 +787,84 @@ function VisualizerLayer({
   height: number;
   pos: { x: number; y: number };
 }) {
-  const numBars = 16;
-  const activeColor = visualizer?.color || '#00e676';
-  const barWidth = Math.max(3, Math.round(width * 0.008));
-  const barGap = Math.max(2, Math.round(width * 0.004));
-
-  return (
-    <div 
-      style={{
-        position: 'absolute',
-        left: `${pos.x * 100}%`,
-        top: `${pos.y * 100}%`,
-        transform: 'translate(-50%, -50%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: `${barGap}px`,
-        pointerEvents: 'none',
-        zIndex: 15
-      }}
-    >
-      {Array.from({ length: numBars }).map((_, i) => {
-        // Spatial differences are static; only real soundtrack analysis
-        // changes the height of the bars over time.
-        const spatialShape = 0.6 + 0.4 * Math.abs(Math.sin(i * 1.37 + 0.4));
-        const barHeight = Math.max(4, Math.round(4 + (audioLevel ?? 0) * spatialShape * 46));
-
-        return (
-          <div
-            key={i}
-            style={{
-              width: `${barWidth}px`,
-              height: `${barHeight}px`,
-              backgroundColor: activeColor,
-              borderRadius: `${barWidth / 2}px`,
-              boxShadow: `0 0 8px ${activeColor}`
-            }}
-          />
-        );
-      })}
-    </div>
-  );
+  const style = visualizer?.style || 'bars';
+  const color = visualizer?.color || '#00e676';
+  const size = Math.max(0.4, Math.min(3.5, visualizer?.scale ?? 1));
+  const thickness = Math.max(0.4, Math.min(3, visualizer?.thickness ?? 1));
+  const expansion = Math.max(0.2, Math.min(3.5, visualizer?.expansion ?? 1));
+  const sensitivity = Math.max(0.1, Math.min(5, visualizer?.sensitivity ?? 1));
+  const energy = Math.max(0, Math.min(1, (audioLevel ?? 0) * sensitivity * 2.2));
+  const portrait = height > width;
+  const baseWidth = (portrait ? width * 0.62 : width * 0.28) * size;
+  const circular = ['radial', 'particles', 'kaleidoscope', 'orb'].includes(style);
+  const w = Math.max(32, baseWidth);
+  const h = circular ? w : Math.max(24, height * (portrait ? 0.095 : 0.082) * size);
+  const variance = (i: number) => 0.55 + 0.45 * Math.abs(Math.sin(i * 1.37 + currentTime * 0.19));
+  const point = (angle: number, radius: number) => ({
+    x: w / 2 + Math.cos(angle) * radius,
+    y: h / 2 + Math.sin(angle) * radius
+  });
+  const barCount = 16;
+  const points = Array.from({ length: 80 }, (_, i) => i);
+  const element = (() => {
+    if (style === 'radial') {
+      return points.map(i => {
+        const a = i / points.length * Math.PI * 2;
+        const from = point(a, w * 0.16);
+        const to = point(a, w * (0.16 + 0.27 * expansion * energy * variance(i)));
+        return <line key={i} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+          stroke={color} strokeWidth={Math.max(1.5, w * 0.007 * thickness)} strokeLinecap="round" />;
+      });
+    }
+    if (style === 'particles') {
+      return points.map(i => {
+        const a = i / points.length * Math.PI * 2 + currentTime * 0.2;
+        const p = point(a, w * (0.16 + 0.28 * expansion * energy * variance(i)));
+        return <circle key={i} cx={p.x} cy={p.y} r={Math.max(1.1, w * 0.007 * thickness * (0.4 + energy))}
+          fill={color} opacity={0.5 + 0.5 * variance(i)} />;
+      });
+    }
+    if (style === 'orb') {
+      const r = w * 0.13 * (1 + energy * expansion * 0.7);
+      return <>
+        <circle cx={w/2} cy={h/2} r={r * 1.6} fill={color} opacity={0.12}/>
+        <circle cx={w/2} cy={h/2} r={r} fill={color} opacity={0.65}/>
+        {points.map(i => {
+          const a = i / points.length * Math.PI * 2;
+          const p = point(a, r + w * 0.09 * energy * expansion * variance(i));
+          return <circle key={i} cx={p.x} cy={p.y} r={Math.max(1, thickness * w * 0.005)} fill={color}/>;
+        })}
+      </>;
+    }
+    if (style === 'kaleidoscope') {
+      const segments = Math.max(4, Math.min(16, visualizer?.segments || 8));
+      return Array.from({ length: segments }, (_, i) => {
+        const a = i / segments * Math.PI * 2;
+        const p = point(a, w * (0.1 + 0.3 * energy * expansion * variance(i)));
+        return <line key={i} x1={w/2} y1={h/2} x2={p.x} y2={p.y}
+          stroke={color} strokeWidth={Math.max(1, 3 * thickness)} strokeLinecap="round"/>;
+      });
+    }
+    if (style === 'waveform') {
+      const path = points.map((i) =>
+        `${i === 0 ? 'M' : 'L'} ${i / (points.length - 1) * w} ${h/2 + Math.sin(i * 0.3 + currentTime * 4) * energy * h * 0.35}`
+      ).join(' ');
+      return <path d={path} stroke={color} strokeWidth={Math.max(2, 3 * thickness)} fill="none"/>;
+    }
+    return Array.from({ length: barCount }, (_, i) => {
+      const bw = w / barCount * 0.66 * thickness;
+      const bh = Math.max(bw, h * energy * variance(i));
+      return <rect key={i} x={(i + 0.5) * w / barCount - bw/2} y={h/2 - bh/2}
+        width={bw} height={bh} rx={bw/2} fill={color} />;
+    });
+  })();
+  return <svg aria-hidden="true" width={w} height={h} viewBox={`0 0 ${w} ${h}`}
+    style={{ position:'absolute', pointerEvents:'none',
+      left:`${pos.x * 100}%`, top:`${pos.y * 100}%`,
+      transform:'translate(-50%, -50%)', zIndex:15,
+      filter:`drop-shadow(0 0 6px ${color})`, overflow:'visible' }}>
+    {element}
+  </svg>;
 }
 
 let remotionCanvasCtx: CanvasRenderingContext2D | null = null;
