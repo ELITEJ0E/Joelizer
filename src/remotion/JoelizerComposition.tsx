@@ -793,7 +793,12 @@ function VisualizerLayer({
   const thickness = Math.max(0.4, Math.min(3, visualizer?.thickness ?? 1));
   const expansion = Math.max(0.2, Math.min(3.5, visualizer?.expansion ?? 1));
   const sensitivity = Math.max(0.1, Math.min(5, visualizer?.sensitivity ?? 1));
-  const energy = Math.max(0, Math.min(1, (audioLevel ?? 0) * sensitivity * 2.2));
+  // Never hard-clip audio energy to 1.0: that gives loudly mastered songs
+  // identical full-length radial spokes for the entire chorus.
+  const autoLevel = visualizer?.adaptiveLevel !== false;
+  const drive = autoLevel ? 1.25 : 2.2;
+  const energy = 1 - Math.exp(-Math.max(0, audioLevel ?? 0) *
+    (0.55 + Math.log1p(sensitivity) * 0.42) * drive);
   const portrait = height > width;
   const baseWidth = (portrait ? width * 0.62 : width * 0.28) * size;
   const circular = ['radial', 'particles', 'kaleidoscope', 'orb'].includes(style);
