@@ -90,6 +90,7 @@ export interface CanonicalVisualizerConfig {
   scale?: number;
   thickness?: number;
   expansion?: number;
+  adaptiveLevel?: boolean;
   enabled?: boolean;
 }
 
