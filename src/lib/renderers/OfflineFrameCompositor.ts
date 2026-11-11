@@ -295,7 +295,7 @@ export class OfflineFrameCompositor {
         showArtwork: project.showArtwork ?? (project.templateId !== 'cinematic-clean'),
         // Draw with the same shared layer used by Lyrics Studio preview.
         showVisualizer: false,
-        showArtworkVisualizer: project.showVisualizer ?? project.visualizer?.enabled ?? true,
+        showArtworkVisualizer: project.showVinylRing !== false,
         // Offline export must use its serialized visualizer config, not a
         // possibly stale global Zustand flag from the preview/editor session.
         visualizerSettingsOverride: {
