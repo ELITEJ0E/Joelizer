@@ -259,6 +259,7 @@ export async function buildCanonicalProjectJson(options?: {
       scale: vis.scale ?? 1.0,
       thickness: vis.thickness ?? 1.0,
       expansion: vis.expansion ?? 1.0,
+      adaptiveLevel: vis.adaptiveLevel !== false,
       enabled: lyricsVideoStore.showVisualizer ?? (vis.enabled !== false && lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
     },
     videoClips: canonicalClips,
