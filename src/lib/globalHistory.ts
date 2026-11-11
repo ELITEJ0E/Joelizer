@@ -166,6 +166,14 @@ class GlobalHistoryManager {
     });
   }
 
+  /** Discard snapshots referencing deleted media, without changing other studios' state. */
+  public resetAfterProjectDeletion(): void {
+    this.undoStack = [this.captureCurrentState('MV Project Cleared')];
+    this.redoStack = [];
+    this.lastSnapshotTime = 0;
+    this.notifyListeners();
+  }
+
   public initIfEmpty(): void {
     if (this.undoStack.length === 0) {
       this.undoStack.push(this.captureCurrentState('Initial State'));
