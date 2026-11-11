@@ -325,131 +325,98 @@ export function generateAutoEdit(options: AutoEditOptions): {
 
 
 /**
- * Generate clips ONLY for empty spans of an existing edit.
- * Existing clips are temporarily treated as locked during generation, even
- * when the user did not explicitly lock them. Nothing in the original timeline
- * is returned for replacement, so hand-trimmed, moved and styled clips survive.
+ * Finds unoccupied intervals on the VIS track; lyrics and audio do not block
+ * the visual lane. Handles overlapping/unsorted legacy clips defensively.
  */
-export function generateGapFill(options: AutoEditOptions): TimelineClip[] {
-  const current = options.existingClips || [];
-  const duration = Math.max(0, options.songDuration);
-  if (duration <= 0 || options.mediaAssets.length === 0) return [];
-
-  const occupied = [...current]
-    .filter(clip => Number.isFinite(clip.startTime) && Number.isFinite(clip.endTime) &&
-      clip.endTime > 0 && clip.startTime < duration)
-    .sort((a, b) => a.startTime - b.startTime);
+export function getUncoveredMVIntervals(
+  clips: Pick<TimelineClip, 'startTime' | 'endTime'>[],
+  duration: number,
+  minimum = 0.1
+): { start: number; end: number }[] {
+  if (!Number.isFinite(duration) || duration <= 0) return [];
+  const occupied = clips
+    .filter(c => Number.isFinite(c.startTime) && Number.isFinite(c.endTime) &&
+      c.endTime > c.startTime && c.endTime > 0 && c.startTime < duration)
+    .map(c => ({ start: Math.max(0, c.startTime), end: Math.min(duration, c.endTime) }))
+    .sort((a, b) => a.start - b.start);
   const gaps: { start: number; end: number }[] = [];
   let cursor = 0;
   for (const clip of occupied) {
-    const start = Math.max(0, clip.startTime);
-    if (start - cursor >= 0.1) gaps.push({ start: cursor, end: start });
-    cursor = Math.max(cursor, Math.min(duration, clip.endTime));
+    if (clip.start - cursor >= minimum - 0.0001) gaps.push({ start: cursor, end: clip.start });
+    cursor = Math.max(cursor, clip.end);
   }
-  if (duration - cursor >= 0.1) gaps.push({ start: cursor, end: duration });
-  if (gaps.length === 0) return [];
+  if (duration - cursor >= minimum - 0.0001) gaps.push({ start: cursor, end: duration });
+  return gaps;
+}
 
-  // Existing edits provide the effective aesthetic when users have overridden
-  // individual clip transitions/effects.
-  const mostCommon = <T extends string>(values: (T | undefined)[]): T | undefined => {
-    const counts = new Map<T, number>();
-    values.forEach(value => { if (value) counts.set(value, (counts.get(value) || 0) + 1); });
-    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
-  };
-  const predominantTransition = mostCommon(occupied.map(c => c.transition));
-  const predominantImageEffect = mostCommon(occupied
-    .filter(c => c.type === 'image').map(c => c.effect));
-
-  // Lock the *temporary* generation input, not the real timeline.
-  const generated = generateAutoEdit({
-    ...options,
-    existingClips: current.map(c => ({ ...c, locked: true }))
-  }).timelineClips;
-  const originalIds = new Set(current.map(c => c.id));
-  const available = generated.filter(c => !originalIds.has(c.id));
-  const result: TimelineClip[] = [];
-
-  // Intersect generated candidates with actual empty spans. This also handles
-  // rounding, unusual gaps, and protects all manually edited positions.
-  for (const gap of gaps) {
-    let position = gap.start;
-    const candidates = available.filter(c => c.endTime > gap.start + 0.0001 &&
-      c.startTime < gap.end - 0.0001).sort((a, b) => a.startTime - b.startTime);
-    for (const candidate of candidates) {
-      const start = Math.max(position, gap.start, candidate.startTime);
-      const end = Math.min(gap.end, candidate.endTime);
-      if (end - start < 0.1 - 0.0001) continue;
-      const trimmedStart = candidate.trimStart + (start - candidate.startTime);
-      const asset = options.mediaAssets.find(a => a.id === candidate.assetId);
-      const validEnd = asset?.type === 'video' && asset.duration > 0
-        ? Math.min(end, start + Math.max(0, asset.duration - trimmedStart))
-        : end;
-      if (validEnd - start < 0.1 - 0.0001) continue;
-      result.push({
-        ...candidate,
-        id: `gap-${options.seed}-${result.length}-${Math.round(start * 1000)}`,
-        startTime: Math.round(start * 1000) / 1000,
-        endTime: Math.round(validEnd * 1000) / 1000,
-        trimStart: Math.round(trimmedStart * 1000) / 1000,
-        trimEnd: Math.round((trimmedStart + validEnd - start) * 1000) / 1000,
-        locked: false,
-        transition: predominantTransition ?? candidate.transition,
-        effect: candidate.type === 'image'
-          ? (predominantImageEffect ?? candidate.effect)
-          : candidate.effect
-      });
-      position = validEnd;
-    }
-  }
-  // A generated video can be shorter than the requested slot. Finish any
-  // remaining holes with short, repeatable media segments (or still images),
-  // rather than silently leaving blank sections in the final edit.
-  const fallbackMedia = options.mediaAssets.filter(a =>
-    a.type === 'image' || (a.type === 'video' && Number.isFinite(a.duration) && a.duration >= 0.1)
+/**
+ * Non-destructive Fill Empty Gaps.
+ * Generate directly inside actual uncovered intervals instead of calling the
+ * whole Auto Edit pipeline, which can skip short gaps and create misleading
+ * results. No existing clip is mutated or returned for replacement.
+ */
+export function generateGapFill(options: AutoEditOptions): TimelineClip[] {
+  const original = options.existingClips || [];
+  const gaps = getUncoveredMVIntervals(original, options.songDuration);
+  const available = options.mediaAssets.filter(asset =>
+    asset.type === 'image' ||
+    (asset.type === 'video' && Number.isFinite(asset.duration) && asset.duration >= 0.1)
   );
-  const pick = createPRNG(options.seed + 117);
-  for (const gap of gaps) {
-    const finished = result.filter(c => c.startTime < gap.end && c.endTime > gap.start)
-      .sort((a, b) => a.startTime - b.startTime);
-    const spans: { start: number; end: number }[] = [];
-    let at = gap.start;
-    for (const clip of finished) {
-      if (clip.startTime - at >= 0.1 - 0.0001) spans.push({ start: at, end: clip.startTime });
-      at = Math.max(at, clip.endTime);
-    }
-    if (gap.end - at >= 0.1 - 0.0001) spans.push({ start: at, end: gap.end });
+  if (!gaps.length || !available.length) return [];
 
-    for (const span of spans) {
-      let start = span.start;
-      let attempts = 0;
-      while (span.end - start >= 0.1 - 0.0001 && attempts++ < 1000 && fallbackMedia.length) {
-        const asset = fallbackMedia[Math.floor(pick() * fallbackMedia.length)];
-        const maximum = asset.type === 'video' ? asset.duration : Infinity;
-        const preferred = options.pacing === 'Fast' ? 1.5 :
-          options.pacing === 'Slow' ? 5 : 3;
-        let length = Math.min(span.end - start, preferred, maximum);
-        if (span.end - start - length < 0.1) length = Math.min(span.end - start, maximum);
-        if (length < 0.1 - 0.0001) break;
-        const trimStart = asset.type === 'video'
-          ? Math.max(0, (asset.duration - length) * pick()) : 0;
-        const end = Math.min(span.end, start + length);
-        const isImage = asset.type === 'image';
-        result.push({
-          id: `gap-extra-${options.seed}-${result.length}-${Math.round(start * 1000)}`,
-          assetId: asset.id,
-          type: asset.type,
-          startTime: Math.round(start * 1000) / 1000,
-          endTime: Math.round(end * 1000) / 1000,
-          trimStart: Math.round(trimStart * 1000) / 1000,
-          trimEnd: Math.round((trimStart + end - start) * 1000) / 1000,
-          locked: false,
-          transition: predominantTransition ?? 'crossfade',
-          effect: isImage ? (predominantImageEffect ?? 'ken-burns-in') : 'none'
-        });
-        start = end;
+  const predominant = <T extends string>(values: (T | undefined)[]): T | undefined => {
+    const counts = new Map<T, number>();
+    for (const value of values) if (value) counts.set(value, (counts.get(value) || 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+  const selectedTransition = predominant(original.map(c => c.transition));
+  const imageEffect = predominant(original.filter(c => c.type === 'image').map(c => c.effect));
+  const rand = createPRNG(options.seed + 117);
+  const result: TimelineClip[] = [];
+  const frame = (n: number) => Math.round(n * 1000) / 1000;
+  const pacing = options.pacing === 'Fast' ? 1.5 : options.pacing === 'Slow' ? 5 : 3;
+  let previousAssetId = original[original.length - 1]?.assetId;
+
+  for (const gap of gaps) {
+    let cursor = gap.start;
+    let iterations = 0;
+    while (gap.end - cursor >= 0.1 - 0.0001 && iterations++ < 2000) {
+      // Prefer alternating assets, while still allowing a single-source fill.
+      const alternatives = available.filter(a => a.id !== previousAssetId);
+      const pool = alternatives.length ? alternatives : available;
+      const asset = pool[Math.floor(rand() * pool.length)];
+      const maxDuration = asset.type === 'video' ? asset.duration : Infinity;
+      const remaining = gap.end - cursor;
+      let clipDuration = Math.min(remaining, pacing, maxDuration);
+      // Avoid leaving an unusable tiny sliver when the selected asset can
+      // absorb the remainder, while never extending past source footage.
+      if (remaining - clipDuration < 0.1 && maxDuration >= remaining - 0.0001) {
+        clipDuration = remaining;
       }
+      if (!Number.isFinite(clipDuration) || clipDuration < 0.1 - 0.0001) break;
+      const start = frame(cursor);
+      const end = frame(Math.min(gap.end, cursor + clipDuration));
+      if (end - start < 0.1 - 0.0001) break;
+      const trimStart = asset.type === 'video'
+        ? frame(Math.max(0, (asset.duration - (end - start)) * rand())) : 0;
+      const type = asset.type;
+      result.push({
+        id: `gap-fill-${options.seed}-${result.length}-${Math.round(start * 1000)}`,
+        assetId: asset.id,
+        type,
+        startTime: start,
+        endTime: end,
+        trimStart,
+        trimEnd: frame(trimStart + end - start),
+        effect: type === 'image' ? (imageEffect || 'ken-burns-in') : 'none',
+        transition: selectedTransition || 'crossfade',
+        locked: false,
+        editOrigin: 'auto',
+        manuallyEdited: false
+      });
+      previousAssetId = asset.id;
+      cursor = end;
     }
   }
-  result.sort((a, b) => a.startTime - b.startTime);
   return result;
 }
