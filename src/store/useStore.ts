@@ -27,6 +27,7 @@ export interface VisualizerSettings {
   scale?: number; // visualizer size scale multiplier (default 1.0)
   thickness?: number; // stroke and particle thickness multiplier
   expansion?: number; // outward beat-reactive reach for radial / orb / kaleidoscope
+  adaptiveLevel?: boolean; // automatically compensates loud masters without modifying audio
 }
 
 export interface BackgroundSettings {
@@ -205,6 +206,7 @@ const defaultVisualizerSettings: VisualizerSettings = {
   scale: 1.0,
   thickness: 1.0,
   expansion: 1.0,
+  adaptiveLevel: true,
 };
 
 // Initial state starts with stored lyrics if available
