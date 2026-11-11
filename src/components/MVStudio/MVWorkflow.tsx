@@ -2,7 +2,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '.
 import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore, isAutoManagedClip } from '../../store/useMVStore';
-import { generateAutoEdit, generateGapFill } from '../../lib/mvAutoEdit';
+import { generateAutoEdit, generateGapFill, getUncoveredMVIntervals } from '../../lib/mvAutoEdit';
 import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { pollinationsProvider } from '../../lib/providers/PollinationsImageProvider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -116,15 +116,25 @@ export function MVWorkflow() {
     const state = useMVStore.getState();
     const media = state.videoAssets.filter(asset =>
       (asset.type === 'image' || asset.type === 'video') &&
-      asset.status !== 'error' && !!asset.url
+      asset.status !== 'error' &&
+      !!asset.url &&
+      (asset.type === 'image' || (Number.isFinite(asset.duration) && asset.duration >= 0.1))
     );
     if (media.length === 0) {
-      setStatusText('Import an image or video before filling gaps.');
+      setProgress(0);
+      setStatusText('No usable media found. Import an image or a playable video first.');
       return;
     }
     const songDuration = audioDuration || Math.max(0, ...state.timelineClips.map(c => c.endTime));
     if (songDuration <= 0) {
-      setStatusText('Load audio before filling timeline gaps.');
+      setProgress(0);
+      setStatusText('Load a song with a valid duration before filling timeline gaps.');
+      return;
+    }
+    const gaps = getUncoveredMVIntervals(state.timelineClips, songDuration);
+    if (!gaps.length) {
+      setProgress(0);
+      setStatusText('No empty VIS track slots found — the video is already covered.');
       return;
     }
     setIsProcessing(true);
@@ -142,12 +152,12 @@ export function MVWorkflow() {
         existingClips: state.timelineClips,
         songAnalysis: state.songAnalysis
       });
-      const count = state.addGapFillClips(additions);
+      const count = useMVStore.getState().addGapFillClips(additions);
       if (count) useMVStore.getState().commitTimeline();
       setProgress(100);
       setStatusText(count > 0
         ? `Filled ${count} empty slot${count === 1 ? '' : 's'}; existing edits preserved.`
-        : 'No additional slots could be filled with available media.');
+        : 'No clips inserted. Check that the imported video files are playable and the empty slots are at least 0.1 seconds long.');
     } catch (error) {
       console.error('[MVWorkflow] Gap fill failed:', error);
       setStatusText('Could not fill gaps. Existing edits were preserved.');
@@ -313,8 +323,14 @@ export function MVWorkflow() {
             </>
           )}
 
-          {isProcessing && (
-            <div className="w-full flex flex-col gap-1.5 mt-1 relative z-10 items-center">
+          {(isProcessing || !!statusText) && (
+            <div role="status" aria-live="polite"
+              className="w-full flex flex-col gap-1.5 mt-1 relative z-10 items-center">
+              {!isProcessing && <p className="w-full rounded border border-emerald-500/20 bg-[#0b1716] px-2 py-2 text-[11px] leading-relaxed text-emerald-300 break-words">
+                {statusText}
+              </p>}
+              {isProcessing && (<>
+
               <div className="w-full bg-black/60 h-1.5 rounded-full overflow-hidden">
                 <div 
                   className="h-full transition-all duration-300 rounded-full" 
@@ -325,6 +341,7 @@ export function MVWorkflow() {
                 <Loader2 size={11} className="animate-spin" style={{ color: activeColor }} />
                 <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: activeColor }}>{statusText}</span>
               </div>
+              </>)}
             </div>
           )}
         </div>
