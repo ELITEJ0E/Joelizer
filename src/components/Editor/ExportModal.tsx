@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
@@ -27,6 +26,14 @@ import { useDAWStore } from '../../store/useDAWStore';
 
 type ExportTabType = 'video' | 'lyrics' | 'audio';
 type LyricFormatType = 'lrc' | 'enhanced-lrc' | 'srt' | 'ass' | 'json' | 'txt';
+type VideoQualityPreset = '720-balanced' | '1080-high' | '1080-max' | '1440-max' | '2160-max';
+const EXPORT_VIDEO_PRESETS: Record<VideoQualityPreset, { resolution: ExportResolutionType; quality: ExportQualityType }> = {
+  '720-balanced': { resolution: '720p', quality: 'balanced' },
+  '1080-high': { resolution: '1080p', quality: 'high' },
+  '1080-max': { resolution: '1080p', quality: 'maximum' },
+  '1440-max': { resolution: '1440p', quality: 'maximum' },
+  '2160-max': { resolution: '2160p', quality: 'maximum' }
+};
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
   const { handleClose } = usePopstateModal(true, onClose);
@@ -62,6 +69,16 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   // Prefer reliable 30fps capture unless the user explicitly selects 60fps.
   const [fps, setFps] = useState<30 | 60>(30);
   const [exportQuality, setExportQuality] = useState<ExportQualityType>('high');
+  const [videoQualityPreset, setVideoQualityPreset] = useState<VideoQualityPreset>('1080-high');
+  const chooseVideoQuality = (preset: VideoQualityPreset) => {
+    const settings = EXPORT_VIDEO_PRESETS[preset];
+    if (!settings) return;
+    if ((settings.resolution === '1440p' || settings.resolution === '2160p') && serverAvailable !== true) return;
+    setVideoQualityPreset(preset);
+    setResolution(settings.resolution);
+    setExportQuality(settings.quality);
+    if (settings.resolution === '1440p' || settings.resolution === '2160p') chooseEngine('server');
+  };
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
@@ -650,76 +667,61 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="min-w-0 space-y-1">
                     <label htmlFor="export-aspect-ratio" className="block text-xs font-medium text-slate-300">Aspect ratio</label>
-                    <Select value={aspectRatio} onValueChange={v => handleAspectRatioChange(v as AspectRatioType)}>
-                      <SelectTrigger id="export-aspect-ratio" aria-label="Video aspect ratio" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
-                      <SelectContent className="z-[110] bg-[#121820]">
-                        {(['16:9', '9:16', '1:1', '4:5', '3:4', '4:3'] as AspectRatioType[]).map(value =>
-                          <SelectItem key={value} value={value}>{value}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <select id="export-aspect-ratio" aria-label="Video aspect ratio"
+                      value={aspectRatio} onChange={event => handleAspectRatioChange(event.target.value as AspectRatioType)}
+                      className="h-10 w-full appearance-auto rounded-lg border border-white/15 bg-[#171c23] px-3 pr-2 text-xs text-white outline-none focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-400/30 disabled:opacity-50">
+                      <option value="16:9">16:9 · Landscape</option>
+                      <option value="9:16">9:16 · Vertical</option>
+                      <option value="1:1">1:1 · Square</option>
+                      <option value="4:5">4:5 · Portrait</option>
+                      <option value="3:4">3:4 · Portrait</option>
+                      <option value="4:3">4:3 · Landscape</option>
+                    </select>
                   </div>
                   <div className="min-w-0 space-y-1">
-                    <label htmlFor="export-resolution" className="block text-xs font-medium text-slate-300">Resolution</label>
-                    <Select value={resolution} onValueChange={v => {
-                      const chosen = v as ExportResolutionType;
-                      if ((chosen === '1440p' || chosen === '2160p') && !serverAvailable) return;
-                      setResolution(chosen);
-                      if (chosen === '1440p' || chosen === '2160p') chooseEngine('server');
-                    }}>
-                      <SelectTrigger id="export-resolution" aria-label="Export resolution" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
-                      <SelectContent className="z-[110] bg-[#121820]">
-                        <SelectItem value="2160p" disabled={serverAvailable !== true}>2160p · 4K (server)</SelectItem>
-                        <SelectItem value="1440p" disabled={serverAvailable !== true}>1440p · 2K (server)</SelectItem>
-                        <SelectItem value="1080p">1080p · Full HD</SelectItem>
-                        <SelectItem value="720p">720p</SelectItem>
-                        <SelectItem value="360p">360p</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <label htmlFor="export-video-quality" className="block text-xs font-medium text-slate-300">Video quality</label>
+                    <select id="export-video-quality" aria-label="Video quality and resolution"
+                      value={videoQualityPreset}
+                      onChange={event => chooseVideoQuality(event.target.value as VideoQualityPreset)}
+                      className="h-10 w-full appearance-auto rounded-lg border border-white/15 bg-[#171c23] px-3 pr-2 text-xs text-white outline-none focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-400/30 disabled:opacity-50">
+                      <option value="720-balanced">720p · Standard</option>
+                      <option value="1080-high">1080p · High (recommended)</option>
+                      <option value="1080-max">1080p · Maximum detail</option>
+                      <option value="1440-max" disabled={serverAvailable !== true}>1440p · Maximum (server)</option>
+                      <option value="2160-max" disabled={serverAvailable !== true}>4K · Maximum (server)</option>
+                    </select>
                   </div>
                   <div className="min-w-0 space-y-1">
                     <label htmlFor="export-frame-rate" className="block text-xs font-medium text-slate-300">Frame rate</label>
-                    <Select value={String(fps)} onValueChange={v => {
-                      const selected = Number(v);
-                      if (selected === 30 || selected === 60) setFps(selected);
-                    }}>
-                      <SelectTrigger id="export-frame-rate" aria-label="Export frame rate" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
-                      <SelectContent position="popper" className="z-[110] bg-[#121820]">
-                        <SelectItem value="30">30 FPS</SelectItem>
-                        <SelectItem value="60">60 FPS</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select id="export-frame-rate" aria-label="Export frame rate"
+                      value={fps}
+                      onChange={event => setFps(Number(event.target.value) === 60 ? 60 : 30)}
+                      className="h-10 w-full appearance-auto rounded-lg border border-white/15 bg-[#171c23] px-3 pr-2 text-xs text-white outline-none focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-400/30 disabled:opacity-50">
+                      <option value={30}>30 FPS</option>
+                      <option value={60}>60 FPS</option>
+                    </select>
                   </div>
                 </div>
 
                 <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-slate-200">Export quality</span>
+                    <span className="text-xs font-semibold text-slate-200">Output settings</span>
                     <button type="button" onClick={() => {
                       handleAspectRatioChange('9:16');
-                      setResolution('1080p');
+                      chooseVideoQuality('1080-high');
                       setFps(30);
-                      setExportQuality('high');
                     }} className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1.5 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/20">
                       TikTok / Shorts HD preset
                     </button>
                   </div>
-                  <Select value={exportQuality} onValueChange={v => setExportQuality(v as ExportQualityType)}>
-                    <SelectTrigger aria-label="Video encoding quality" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[110] bg-[#121820]">
-                      <SelectItem value="balanced">Balanced · smaller file</SelectItem>
-                      <SelectItem value="high">High quality · recommended</SelectItem>
-                      <SelectItem value="maximum">Maximum detail · larger file</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <p className="text-[11px] leading-relaxed text-slate-400">
+                    Video quality combines resolution (video dimensions) and encoding detail (compression).
                     {resolution === '2160p' || resolution === '1440p'
-                      ? 'High-resolution rendering requires the persistent server and can be much slower. Low-resolution source clips are enlarged, not AI-restored.'
-                      : 'Higher bitrates preserve more of your source detail but cannot recover lost resolution. 1080×1920 at source-matched FPS is a reliable TikTok starting point.'}
+                      ? ' High-resolution exports require the persistent render server. Enlarging source footage does not restore missing detail.'
+                      : ' High and Maximum preserve more source detail; 60 FPS is best with 60 FPS source footage.'}
                   </p>
                   {serverAvailable !== true && <p className="text-[10px] text-amber-300">
-                    2K/4K options become available when the persistent render server is online.
+                    1440p/4K requires a connected persistent render server.
                   </p>}
                 </div>
 
@@ -768,17 +770,16 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1">
             <label className="block space-y-1.5">
               <span className="block text-xs font-medium text-slate-300">Format</span>
-              <Select value={selectedLyricFormat} onValueChange={v => setSelectedLyricFormat(v as LyricFormatType)}>
-                <SelectTrigger aria-label="Export lyric format" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
-                <SelectContent className="z-[110] bg-[#121820]">
-                  <SelectItem value="lrc">LRC · Synced lyrics</SelectItem>
-                  <SelectItem value="enhanced-lrc">Enhanced LRC · Word timing</SelectItem>
-                  <SelectItem value="srt">SRT · Subtitles</SelectItem>
-                  <SelectItem value="ass">ASS · Styled subtitles</SelectItem>
-                  <SelectItem value="txt">TXT · Plain text</SelectItem>
-                  <SelectItem value="json">JSON · Data</SelectItem>
-                </SelectContent>
-              </Select>
+              <select aria-label="Export lyric format" value={selectedLyricFormat}
+                onChange={event => setSelectedLyricFormat(event.target.value as LyricFormatType)}
+                className="h-10 w-full appearance-auto rounded-lg border border-white/15 bg-[#171c23] px-3 pr-2 text-xs text-white outline-none focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-400/30 disabled:opacity-50">
+                <option value="lrc">LRC · Synced lyrics</option>
+                <option value="enhanced-lrc">Enhanced LRC · Word timing</option>
+                <option value="srt">SRT · Subtitles</option>
+                <option value="ass">ASS · Styled subtitles</option>
+                <option value="txt">TXT · Plain text</option>
+                <option value="json">JSON · Data</option>
+              </select>
             </label>
             <p className="text-xs text-slate-400">{lyricsLines.length} lyric lines</p>
             <button type="button" disabled={lyricsLines.length === 0}
