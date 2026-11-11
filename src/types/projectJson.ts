@@ -88,6 +88,8 @@ export interface CanonicalVisualizerConfig {
   showGrain: boolean;
   showScanlines: boolean;
   scale?: number;
+  thickness?: number;
+  expansion?: number;
   enabled?: boolean;
 }
 
