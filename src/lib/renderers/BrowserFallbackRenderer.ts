@@ -1,4 +1,5 @@
 import { getExportVideoBitrate } from './exportQuality';
+import { drawOverlayEffects } from '../overlayEffects';
 import { VideoRenderer, RenderProgress, RendererType } from './types';
 import { CanonicalProjectJson } from '../../types/projectJson';
 import { useStore } from '../../store/useStore';
@@ -88,6 +89,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
               showSafeArea: false,
               showArtwork: project.showArtwork ?? project.artwork?.enabled ?? true,
               showVisualizer: false,
+              showArtworkVisualizer: project.showVinylRing !== false,
               showLyrics: project.showLyrics ?? true,
               showMeta: project.showMeta ?? true,
               preferElementPosition: true,
@@ -100,8 +102,9 @@ export class BrowserFallbackRenderer implements VideoRenderer {
             const visPos = project.elementPositions?.visualizer ??
               getDefaultPositions(project.aspectRatio, tmpl.id).visualizer;
             drawPositionedLyricsVisualizer(ctx, targetW, targetH, visPos,
-              { ...project.visualizer, enabled: true }, freqData, timeData);
+              { ...project.visualizer, enabled: true }, freqData, timeData, curTime);
           }
+          drawOverlayEffects(ctx, targetW, targetH, project.overlayEffects, curTime);
           customRenderLoop = requestAnimationFrame(renderFrame);
         };
         customRenderLoop = requestAnimationFrame(renderFrame);
