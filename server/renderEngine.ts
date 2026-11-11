@@ -5,6 +5,7 @@ import fs from 'fs';
 import { exec, execSync, execFileSync } from 'child_process';
 import { promisify } from 'util';
 import { CanonicalProjectJson } from '../src/types/projectJson';
+import { getExportCrf } from '../src/lib/renderers/exportQuality';
 
 const execAsync = promisify(exec);
 
@@ -484,7 +485,7 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       codec: 'h264',
       // Deterministic, high-detail H.264. Slow preset affects render time,
       // not playback smoothness; constant frame rate comes from Remotion.
-      crf: 16,
+      crf: getExportCrf(projectJson.exportQuality),
       x264Preset: 'slow',
       pixelFormat: 'yuv420p',
       colorSpace: 'bt709',
@@ -515,7 +516,7 @@ async function executeRenderPipeline(jobId: string, projectJson: CanonicalProjec
       } catch (muxErr) {
         console.warn('[RenderEngine] Stream copy mux failed, trying re-encode pass:', muxErr);
         try {
-          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -preset slow -crf 16 -c:a aac -b:a 320k -ar 48000 -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
+          const fallbackCmd = `ffmpeg -y -i "${tempRawVideoPath}" -ss ${startTime} -t ${duration} -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -preset slow -crf ${getExportCrf(projectJson.exportQuality)} -c:a aac -b:a 320k -ar 48000 -af apad -t ${duration} -movflags +faststart "${finalMp4Path}"`;
           await execAsync(fallbackCmd);
         } catch (reEncodeErr) {
           // Do not report success with a silent MP4 when the requested audio failed to mux.
