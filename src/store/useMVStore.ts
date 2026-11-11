@@ -4,6 +4,7 @@ import { saveMVAssetToStorage, removeMVAssetFromStorage, loadMVAssetsFromStorage
 import { useStore } from './useStore';
 import { globalHistory } from '../lib/globalHistory';
 const MV_STORAGE_KEY = 'mv-studio-storage';
+let mvProjectDeleteEpoch = 0;
 
 /** Upgrade existing session projects once, before Zustand rehydrates local data. */
 function getPersistentMVStorage(): Storage {
@@ -449,7 +450,9 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     }));
   },
   rehydrateMVAssets: async () => {
+    const epoch = mvProjectDeleteEpoch;
     const storedAssets = await loadMVAssetsFromStorage();
+    if (epoch !== mvProjectDeleteEpoch) return;
     if (storedAssets && storedAssets.length > 0) {
       const restoredAssets: MediaAsset[] = storedAssets.map(sa => {
         let finalUrl = sa.url;
@@ -479,6 +482,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   },
 
   clearSavedMVProject: async () => {
+    mvProjectDeleteEpoch++;
     // Clear durable media before wiping the timeline, so errors do not leave
     // the user believing their saved footage has been removed.
     await clearMVAssetsFromStorage();
@@ -507,6 +511,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       defaultTransition: 'crossfade',
       transitionDuration: 0.5
     });
+    globalHistory.resetAfterProjectDeletion();
     try { window.sessionStorage.removeItem(MV_STORAGE_KEY); } catch {}
   },
 
