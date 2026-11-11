@@ -1,6 +1,7 @@
 import type { OverlaySettings } from '../lib/overlayEffects';
 export type AspectRatioType = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | '4:3';
-export type ExportResolutionType = '1080p' | '720p' | '360p';
+export type ExportResolutionType = '2160p' | '1440p' | '1080p' | '720p' | '360p';
+export type ExportQualityType = 'balanced' | 'high' | 'maximum';
 export type ExportModeType = 'lyrics-video' | 'music-video';
 
 export interface CanonicalWordTiming {
@@ -132,6 +133,8 @@ export interface CanonicalProjectJson {
   aspectRatio: AspectRatioType;
   fps: number; // 30
   resolution: ExportResolutionType;
+  /** Controls encoding quality, separate from pixel dimensions. */
+  exportQuality?: ExportQualityType;
   width: number;
   height: number;
   exportRange: {
@@ -166,6 +169,8 @@ export function getResolutionDimensions(
   resolution: ExportResolutionType = '1080p'
 ): { width: number; height: number } {
   let base = 1080;
+  if (resolution === '2160p') base = 2160;
+  if (resolution === '1440p') base = 1440;
   if (resolution === '720p') base = 720;
   if (resolution === '360p') base = 360;
 
