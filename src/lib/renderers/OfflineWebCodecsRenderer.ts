@@ -4,6 +4,7 @@ import { OfflineFrameCompositor } from './OfflineFrameCompositor';
 import { renderSynchronizedMp4 } from './SynchronizedMp4Renderer';
 import { canEncodeVideo, Quality } from 'mediabunny';
 import { getResolutionDimensions } from '../../types/projectJson';
+import { getExportVideoBitrate } from './exportQuality';
 
 const SAMPLE_RATE = 48000;
 
@@ -34,11 +35,11 @@ function getCandidateCodecs(width: number, height: number, fps: number): string[
   return list;
 }
 
-async function findVideoConfig(project: { width: number; height: number; fps: number }, customCodecs?: string[]) {
+async function findVideoConfig(project: { width: number; height: number; fps: number; exportQuality?: 'balanced' | 'high' | 'maximum' }, customCodecs?: string[]) {
   const Video = videoEncoderClass();
   if (!Video) return null;
   const codecs = customCodecs || getCandidateCodecs(project.width, project.height, project.fps);
-  const bitrate = Math.max(4_000_000, Math.min(30_000_000, Math.round(project.width * project.height * project.fps * 0.14)));
+  const bitrate = getExportVideoBitrate(project.width, project.height, project.fps, project.exportQuality);
 
   for (const codec of codecs) {
     // Probe hardware and software encoder modes. Testing no-preference and software
@@ -71,11 +72,8 @@ async function findVideoConfig(project: { width: number; height: number; fps: nu
  * WebCodecs/mp4-muxer owns silent exports. Both must support the candidate.
  */
 async function resolveSupportedOutput(project: CanonicalProjectJson) {
-  const choices = project.resolution === '1080p'
-    ? ['1080p', '720p', '360p'] as const
-    : project.resolution === '720p'
-      ? ['720p', '360p'] as const
-      : ['360p'] as const;
+  const allResolutions = ['2160p', '1440p', '1080p', '720p', '360p'] as const;
+  const choices = allResolutions.slice(allResolutions.indexOf(project.resolution));
   for (const resolution of choices) {
     const dimensions = resolution === project.resolution
       ? { width: project.width, height: project.height }
@@ -83,11 +81,10 @@ async function resolveSupportedOutput(project: CanonicalProjectJson) {
     // H.264 4:2:0 requires even dimensions. 9:16 720p was 405 x 720.
     const width = Math.max(2, Math.round(dimensions.width / 2) * 2);
     const height = Math.max(2, Math.round(dimensions.height / 2) * 2);
-    const config = await findVideoConfig({ width, height, fps: project.fps });
+    const config = await findVideoConfig({ width, height, fps: project.fps, exportQuality: project.exportQuality });
     if (!config) continue;
     try {
-      const bitrate = Math.max(3_000_000, Math.min(25_000_000,
-        Math.round(width * height * project.fps * 0.12)));
+      const bitrate = getExportVideoBitrate(width, height, project.fps, project.exportQuality);
       // Test Mediabunny compatibility with the exact discovered codec string
       const mbSupported = await canEncodeVideo('avc', {
         width, height, frameRate: project.fps, quality: new Quality({ bitrate }),
