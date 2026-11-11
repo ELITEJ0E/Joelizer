@@ -156,6 +156,8 @@ export interface CanonicalProjectJson {
   templateId?: string;
   showArtwork?: boolean;
   showVisualizer?: boolean;
+  /** Circular audio ring around vinyl/CD artwork, independent of the movable spectrum. */
+  showVinylRing?: boolean;
   /** Export-frame audio energy, derived from the actual soundtrack by the server.
    * Indexed by composition frame (relative to exportRange.start), not wall time. */
   visualizerAudioLevels?: number[];
