@@ -25,6 +25,8 @@ export interface RenderLyricsVideoOptions {
   animationStyle?: string;
   visibleLineCount?: number;
   showVisualizer?: boolean;
+  /** Keeps the record's circular audio ring independent of the movable spectrum overlay. */
+  showArtworkVisualizer?: boolean;
   /** Explicit, serialized export settings override the live editor store. */
   visualizerSettingsOverride?: VisualizerSettings;
   showArtwork?: boolean;
@@ -1493,7 +1495,9 @@ export function renderLyricsVideoFrame(
       template,
       artworkPos,
       audioFrequencyData,
-      { ...visSettings, enabled: isVisEnabled }
+      // Do not disable the circular vinyl/CD ring just because the separate
+      // movable spectrum is rendered in another pass.
+      { ...visSettings, enabled: options.showArtworkVisualizer ?? isVisEnabled }
     );
   }
 
