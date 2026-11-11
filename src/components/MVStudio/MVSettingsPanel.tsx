@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMVStore } from '../../store/useMVStore';
 import { useStore } from '../../store/useStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
-import { Sliders, Type } from 'lucide-react';
+import { Sliders, Type, Trash2 } from 'lucide-react';
 import { animate, stagger } from 'animejs';
 import { VideoFramingControls } from '../shared/VideoFramingControls';
 import { OverlayEffectsPanel } from '../shared/OverlayEffectsPanel';
@@ -30,6 +30,28 @@ export function MVSettingsPanel() {
   const showBox = lyricsSettings?.showBackgroundBox ?? false;
   const captionLineCount = useMVStore(s => s.captionLineCount);
   const setCaptionLineCount = useMVStore(s => s.setCaptionLineCount);
+  const clearSavedMVProject = useMVStore(s => s.clearSavedMVProject);
+  const [isClearingProject, setIsClearingProject] = useState(false);
+  const [clearError, setClearError] = useState('');
+  const handleClearMVProject = async () => {
+    if (isClearingProject) return;
+    const confirmed = window.confirm(
+      'Delete ALL MV Studio clips, saved media, timeline timings, analysis, and editing settings from this browser? This cannot be undone. Lyrics Video and audio files are not deleted.'
+    );
+    if (!confirmed) return;
+    setIsClearingProject(true);
+    setClearError('');
+    try {
+      await clearSavedMVProject();
+      // Do not refresh: let the live store update every timeline subscriber.
+    } catch (error) {
+      console.error('[MVSettings] Cannot delete saved project:', error);
+      setClearError('Could not clear all stored media. Check browser storage permissions and try again.');
+    } finally {
+      setIsClearingProject(false);
+    }
+  };
+
   
   
 
@@ -177,6 +199,20 @@ export function MVSettingsPanel() {
             </div>
           </div>
 
+
+          <section className="space-y-2 rounded-lg border border-red-500/25 bg-red-950/10 p-3" aria-label="Saved MV project data">
+            <p className="text-xs font-bold text-slate-100">Saved MV Project</p>
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              Clip positions, trimming, effects, captions and Auto Edit settings remain saved in this browser until you clear the project. Uploaded media is saved separately in this browser's media storage.
+            </p>
+            <button type="button" onClick={handleClearMVProject} disabled={isClearingProject}
+              className="flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-red-500/50 bg-red-500/10 px-3 text-xs font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-50">
+              <Trash2 size={14} />
+              {isClearingProject ? 'Deleting saved project…' : 'Delete All Saved MV Project Data'}
+            </button>
+            <p className="text-[10px] text-slate-500">Requires confirmation. Does not delete Lyrics Video or your separate audio library.</p>
+            {clearError && <p role="alert" className="text-[11px] text-red-300">{clearError}</p>}
+          </section>
 
         </div>
       </div>
