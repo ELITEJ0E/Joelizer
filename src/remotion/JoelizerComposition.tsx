@@ -126,6 +126,21 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
         <BackgroundLayer bg={background} albumArt={audio?.albumArt || null} width={width} height={height} currentTime={currentTime} />
       )}
 
+      {/* Audio-reactive vinyl perimeter: aligned with the record itself,
+          not the independently movable rectangular visualizer track. */}
+      {showLyricsScene && artworkVisible && visualizerVisible &&
+        ['vinyl', 'vinyl-needle', 'cd', 'cd-needle'].includes(artwork?.style || '') && (
+        <VinylSpectrumRing
+          width={width}
+          height={height}
+          pos={elementPositions.artwork}
+          scale={artworkScale * (artwork?.sizeScale || 1)}
+          color={visualizer?.color || '#00e676'}
+          audioLevel={soundtrackLevel}
+          currentTime={currentTime}
+        />
+      )}
+
       {/* 2. ARTWORK OBJECT LAYER (Vinyl, CD, Glowing Disc) */}
       {showLyricsScene && artworkVisible && artwork?.style !== 'none' && artwork?.style !== 'background-blur' && (
         <ArtworkLayer 
@@ -365,6 +380,53 @@ function BackgroundLayer({ bg, albumArt, width, height, currentTime }: { bg: any
 
   return (
     <div style={{ position: 'absolute', inset: 0, backgroundColor: bg?.value || '#09090b' }} />
+  );
+}
+
+/** Deterministic record-edge spectrum for server MP4 rendering.
+ * Reacts to the analyzed soundtrack instead of a wall-clock animation. */
+function VinylSpectrumRing({ width, height, pos, scale, color, audioLevel, currentTime }: {
+  width: number;
+  height: number;
+  pos: { x: number; y: number };
+  scale: number;
+  color: string;
+  audioLevel?: number;
+  currentTime: number;
+}) {
+  const diameter = Math.min(width, height) * (height > width ? 0.42 : 0.35) * scale;
+  const radius = 150;
+  const energy = Math.max(0, Math.min(1, audioLevel ?? 0));
+  const spokes = Array.from({ length: 64 }, (_, i) => {
+    const angle = i / 64 * Math.PI * 2 + currentTime * (2 * Math.PI / 1.8) * 0.25;
+    const shape = 0.55 + 0.45 * Math.abs(Math.sin(i * 1.47 + 0.4));
+    const spokeLength = 48 * (0.10 + 0.90 * energy * shape);
+    return {
+      x1: 200 + Math.cos(angle) * radius,
+      y1: 200 + Math.sin(angle) * radius,
+      x2: 200 + Math.cos(angle) * (radius + spokeLength),
+      y2: 200 + Math.sin(angle) * (radius + spokeLength)
+    };
+  });
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 400 400"
+      style={{
+        position: 'absolute', pointerEvents: 'none',
+        left: `${pos.x * 100}%`, top: `${pos.y * 100}%`,
+        width: diameter * (400 / 300),
+        height: diameter * (400 / 300),
+        overflow: 'visible',
+        transform: 'translate(-50%, -50%)',
+        filter: `drop-shadow(0 0 7px ${color})`
+      }}
+    >
+      {spokes.map((spoke, index) => (
+        <line key={index} {...spoke} stroke={color} strokeWidth="3"
+          strokeLinecap="round" opacity={0.82} />
+      ))}
+    </svg>
   );
 }
 
