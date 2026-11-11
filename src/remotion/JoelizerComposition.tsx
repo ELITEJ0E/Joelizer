@@ -128,7 +128,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
 
       {/* Audio-reactive vinyl perimeter: aligned with the record itself,
           not the independently movable rectangular visualizer track. */}
-      {showLyricsScene && artworkVisible && visualizerVisible &&
+      {showLyricsScene && artworkVisible && projectJson.showVinylRing !== false &&
         ['vinyl', 'vinyl-needle', 'cd', 'cd-needle'].includes(artwork?.style || '') && (
         <VinylSpectrumRing
           width={width}
