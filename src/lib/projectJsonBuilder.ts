@@ -16,6 +16,7 @@ import {
 export async function buildCanonicalProjectJson(options?: {
   resolution?: ExportResolutionType;
   fps?: number;
+  quality?: 'balanced' | 'high' | 'maximum';
   modeOverride?: ExportModeType;
   skipStaging?: boolean;
 }): Promise<CanonicalProjectJson> {
@@ -181,6 +182,7 @@ export async function buildCanonicalProjectJson(options?: {
     aspectRatio,
     fps,
     resolution,
+    exportQuality: options?.quality ?? 'high',
     width,
     height,
     exportRange: {
