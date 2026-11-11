@@ -273,6 +273,7 @@ export async function buildCanonicalProjectJson(options?: {
     templateId: lyricsVideoStore.selectedTemplateId,
     showArtwork: lyricsVideoStore.showArtwork ?? (lyricsVideoStore.selectedTemplateId !== 'cinematic-clean'),
     showVisualizer: lyricsVideoStore.showVisualizer ?? (vis.enabled !== false && lyricsVideoStore.selectedTemplateId !== 'cinematic-clean'),
+    showVinylRing: lyricsVideoStore.showVinylRing !== false,
     showLyrics: lyricsVideoStore.showLyrics ?? true,
     showMeta: lyricsVideoStore.showMeta ?? (lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
   };
