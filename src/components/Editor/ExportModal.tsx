@@ -17,7 +17,7 @@ import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
 import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
 import { ServerRemotionRenderer } from '../../lib/renderers/ServerRemotionRenderer';
 import { OfflineWebCodecsRenderer } from '../../lib/renderers/OfflineWebCodecsRenderer';
-import { AspectRatioType, ExportResolutionType, ExportModeType } from '../../types/projectJson';
+import { AspectRatioType, ExportResolutionType, ExportModeType, ExportQualityType } from '../../types/projectJson';
 import { 
   generateLRC, generateEnhancedLRC, generateSRT, generateASS, 
   generateJSON, generateTXT, generateZIP, downloadFile 
@@ -61,6 +61,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   // Browser MediaRecorder often drops frames at 1080p/60 on midrange hardware.
   // Prefer reliable 30fps capture unless the user explicitly selects 60fps.
   const [fps, setFps] = useState<30 | 60>(30);
+  const [exportQuality, setExportQuality] = useState<ExportQualityType>('high');
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
@@ -228,8 +229,17 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   // Unified Production Export (Server Remotion or Fast Browser MediaRecorder)
   const handleStartExport = async (forcedEngine?: 'server' | 'offline' | 'browser') => {
     let targetEngine = forcedEngine || engineChoice;
+    const highResolution = resolution === '1440p' || resolution === '2160p';
 
     try {
+      // 1440p/4K rendering is deliberately server-only; never silently
+      // advertise a 4K export that the browser later downgrades to 720p.
+      if (highResolution) {
+        if (!(await new ServerRemotionRenderer().isAvailable())) {
+          throw new Error('1440p and 4K exports require a connected persistent render server. Choose 1080p for browser export, or connect the Remotion render backend.');
+        }
+        targetEngine = 'server';
+      }
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -264,6 +274,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       const projectJson = await buildCanonicalProjectJson({
         resolution,
         fps,
+        quality: exportQuality,
         modeOverride: exportMode,
         skipStaging: renderer.type === 'browser' || renderer.type === 'offline'
       });
@@ -649,10 +660,17 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   </div>
                   <div className="min-w-0 space-y-1">
                     <label htmlFor="export-resolution" className="block text-xs font-medium text-slate-300">Resolution</label>
-                    <Select value={resolution} onValueChange={v => setResolution(v as ExportResolutionType)}>
+                    <Select value={resolution} onValueChange={v => {
+                      const chosen = v as ExportResolutionType;
+                      if ((chosen === '1440p' || chosen === '2160p') && !serverAvailable) return;
+                      setResolution(chosen);
+                      if (chosen === '1440p' || chosen === '2160p') chooseEngine('server');
+                    }}>
                       <SelectTrigger id="export-resolution" aria-label="Export resolution" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case"><SelectValue /></SelectTrigger>
                       <SelectContent className="z-[110] bg-[#121820]">
-                        <SelectItem value="1080p">1080p</SelectItem>
+                        <SelectItem value="2160p" disabled={serverAvailable !== true}>2160p · 4K (server)</SelectItem>
+                        <SelectItem value="1440p" disabled={serverAvailable !== true}>1440p · 2K (server)</SelectItem>
+                        <SelectItem value="1080p">1080p · Full HD</SelectItem>
                         <SelectItem value="720p">720p</SelectItem>
                         <SelectItem value="360p">360p</SelectItem>
                       </SelectContent>
@@ -671,6 +689,39 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-slate-200">Export quality</span>
+                    <button type="button" onClick={() => {
+                      setAspectRatioState('9:16');
+                      useStore.getState().setAspectRatio('9:16');
+                      setResolution('1080p');
+                      setFps(30);
+                      setExportQuality('high');
+                    }} className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1.5 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/20">
+                      TikTok / Shorts HD preset
+                    </button>
+                  </div>
+                  <Select value={exportQuality} onValueChange={v => setExportQuality(v as ExportQualityType)}>
+                    <SelectTrigger aria-label="Video encoding quality" className="h-10 w-full border-white/15 bg-[#171c23] text-xs normal-case">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[110] bg-[#121820]">
+                      <SelectItem value="balanced">Balanced · smaller file</SelectItem>
+                      <SelectItem value="high">High quality · recommended</SelectItem>
+                      <SelectItem value="maximum">Maximum detail · larger file</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] leading-relaxed text-slate-400">
+                    {resolution === '2160p' || resolution === '1440p'
+                      ? 'High-resolution rendering requires the persistent server and can be much slower. Low-resolution source clips are enlarged, not AI-restored.'
+                      : 'Higher bitrates preserve more of your source detail but cannot recover lost resolution. 1080×1920 at source-matched FPS is a reliable TikTok starting point.'}
+                  </p>
+                  {serverAvailable !== true && <p className="text-[10px] text-amber-300">
+                    2K/4K options become available when the persistent render server is online.
+                  </p>}
                 </div>
 
                 <label className="block space-y-1">
