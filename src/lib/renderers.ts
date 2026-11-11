@@ -161,27 +161,43 @@ export function renderVisualizer(
   } else if (style === 'radial') {
     const cx = width / 2;
     const cy = height / 2;
-    const radius = Math.min(width, height) * 0.17;
-    const barCount = 64;
-    
+    const baseRadius = Math.min(width, height) * 0.19;
+    const barCount = 72;
+    const sensitivityGain = 0.55 + Math.log1p(Math.max(0.1, sensitivity)) * 0.42;
+    // More expansion changes beat travel, not the permitted canvas boundary.
+    // This avoids clipping spikes when the user sets expansion to 3.5x.
+    const maxTravel = Math.min(width, height) * 0.275;
+    const beatReach = Math.min(1.65, 0.35 + expansion * 0.58);
+    const spokeWidth = Math.max(1.2, Math.min(width, height) * 0.005 * thickness);
+
+    // Mirror the frequency bands around the circle so the 0/360-degree seam
+    // is continuous and the spectrum reads like a circular audio meter.
     ctx.beginPath();
     for (let i = 0; i < barCount; i++) {
-      const rawValue = getMusicalFrequency(i, barCount, frequencyData);
-      const value = rawValue * scaledSensitivity;
-      const percent = Math.min(value / 255, 1);
-      const punchyPercent = Math.pow(percent, 1.2);
-      const barHeight = Math.min(width, height) * 0.30 * expansion * punchyPercent;
-      
+      const band = i < barCount / 2 ? i : barCount - 1 - i;
+      const raw = getMusicalFrequency(band, barCount / 2, frequencyData) / 255;
+      // Soft compression, never the old hard clamp to 1.0.
+      const strength = 1 - Math.exp(-raw * sensitivityGain * 1.15);
+      const traveled = Math.min(maxTravel, maxTravel * strength * beatReach);
       const angle = (i / barCount) * Math.PI * 2;
-      const x1 = cx + Math.cos(angle) * radius;
-      const y1 = cy + Math.sin(angle) * radius;
-      const x2 = cx + Math.cos(angle) * (radius + Math.max(4, barHeight));
-      const y2 = cy + Math.sin(angle) * (radius + Math.max(4, barHeight));
-      
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
+      const inner = baseRadius;
+      const outer = inner + Math.max(2, traveled);
+      ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
+      ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
     }
-    drawNeonPath(ctx, color, true, Math.max(1.5, Math.min(width,height) * 0.009) * thickness);
+    // A lighter colored glow preserves separation between neighboring spokes
+    // on loud, heavily mastered recordings.
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = spokeWidth * 1.25;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = Math.min(13, spokeWidth * 3);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = Math.max(0.8, spokeWidth * 0.55);
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.stroke();
+    ctx.restore();
   } else if (style === 'particles') {
     const cx = width / 2;
     const cy = height / 2;
