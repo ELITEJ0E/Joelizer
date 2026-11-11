@@ -19,6 +19,8 @@ export interface LyricsVideoState {
 
   showArtwork?: boolean;
   showVisualizer?: boolean;
+  /** Independently controls the audio-reactive ring surrounding vinyl/CD artwork. */
+  showVinylRing?: boolean;
   showLyrics?: boolean;
   showMeta?: boolean;
   bilingualEnabled?: boolean;
@@ -90,6 +92,7 @@ export interface LyricsVideoState {
   resetElementPositions: (aspectRatio?: string) => void;
   setShowArtwork: (show: boolean) => void;
   setShowVisualizer: (show: boolean) => void;
+  setShowVinylRing: (show: boolean) => void;
   setShowLyrics: (show: boolean) => void;
   setShowMeta: (show: boolean) => void;
   setBilingualEnabled: (enabled: boolean) => void;
@@ -111,6 +114,7 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       animationStyle: 'karaoke',
       showArtwork: true,
       showVisualizer: true,
+      showVinylRing: true,
       showLyrics: true,
       showMeta: true,
       bilingualEnabled: false,
@@ -253,6 +257,7 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       },
 
       setShowArtwork: (showArtwork) => set({ showArtwork }),
+      setShowVinylRing: (showVinylRing) => set({ showVinylRing }),
       setShowVisualizer: (showVisualizer) => {
         set({ showVisualizer });
         useStore.getState().updateVisualizerSettings({ enabled: showVisualizer });
