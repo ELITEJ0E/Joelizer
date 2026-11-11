@@ -152,6 +152,22 @@ export async function removeMVAssetFromStorage(id: string): Promise<void> {
   }
 }
 
+/** Deletes only MV Studio imported-media blobs; audio and other studios are not affected. */
+export async function clearMVAssetsFromStorage(): Promise<void> {
+  const db = await openDB();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(MV_ASSETS_STORE, 'readwrite');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('Could not clear MV media'));
+      tx.onabort = () => reject(tx.error || new Error('MV media clear was aborted'));
+      tx.objectStore(MV_ASSETS_STORE).clear();
+    });
+  } finally {
+    db.close();
+  }
+}
+
 export async function loadMVAssetsFromStorage(): Promise<StoredMVAsset[]> {
   try {
     const db = await openDB();
