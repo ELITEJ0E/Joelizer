@@ -109,7 +109,7 @@ export function MVSettingsPanel() {
               <span>Lyric Animation & Subtitles</span>
             </span>
 
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -138,6 +138,22 @@ export function MVSettingsPanel() {
                 }`}
               >
                 Karaoke Highlight
+              </button>
+              <button
+                type="button"
+                aria-pressed={lyricsAnimStyle === 'none'}
+                onClick={() => {
+                  updateLyricsSettings({ animationStyle: 'none' });
+                  setLyricsVideoAnimation('none');
+                }}
+                className={`p-2 rounded text-xs font-mono border text-center transition-all cursor-pointer ${
+                  lyricsAnimStyle === 'none'
+                    ? 'bg-[#161b22] border-accent/60 text-accent font-bold shadow-[0_0_8px_rgba(0,230,118,0.15)]'
+                    : 'bg-[#0a0c0f] border-[#232933] text-[#7e8999] hover:text-[#f0f3f6]'
+                }`}
+                title="Instant captions: appear at start time and disappear at end time"
+              >
+                None / Instant
               </button>
             </div>
 
