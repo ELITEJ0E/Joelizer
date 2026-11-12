@@ -651,15 +651,15 @@ export function StudioLayout() {
   };
 
   // Line Editing Operations
-  const handleLineTextChange = (id: string, newText: string) => {
-    const updated = lines.map(l => l.id === id ? { ...l, text: newText } : l);
-    updateLinesWithHistory(updated);
-  };
-
-  const handleLineTranslationChange = (id: string, secondaryText: string) => {
-    // The translated subtitle shares the primary lyric's exact time range.
-    // This never changes word-level karaoke timing for the sung language.
-    updateLinesWithHistory(lines.map(l => l.id === id ? { ...l, secondaryText } : l));
+  const handleBilingualLineChange = (id: string, combinedText: string) => {
+    // Enter inserts a translation row inside the SAME timestamp.
+    // Store the primary line separately so word-level karaoke timing and
+    // all existing bilingual video/LRC export paths remain compatible.
+    const normalized = combinedText.replace(/\r\n?/g, '\n');
+    const breakAt = normalized.indexOf('\n');
+    const text = breakAt < 0 ? normalized : normalized.slice(0, breakAt);
+    const secondaryText = breakAt < 0 ? '' : normalized.slice(breakAt + 1);
+    updateLinesWithHistory(lines.map(l => l.id === id ? { ...l, text, secondaryText } : l));
   };
 
   const handleMarkStart = (id: string, newTimeSec: number) => {
@@ -1777,30 +1777,19 @@ export function StudioLayout() {
                       </div>
                     </div>
 
-                    {/* Both languages belong to one synced lyric line. */}
-                    <div className="space-y-2" onClick={e => e.stopPropagation()}>
-                      <label className="block space-y-1">
-                        <span className="text-[9px] uppercase font-bold tracking-wide text-[#8d9cad]">Primary lyric · English / original</span>
-                        <input
-                          type="text"
-                          value={line.text}
-                          aria-label={`Primary lyric line ${idx + 1}`}
-                          onChange={e => handleLineTextChange(line.id, e.target.value)}
-                          className="w-full bg-[#0e1115] border border-[#232933] focus:border-[#3b4759] rounded px-2.5 py-2 text-xs text-[#f0f3f6] font-medium outline-none"
-                        />
-                      </label>
-                      <label className="block space-y-1">
-                        <span className="text-[9px] uppercase font-bold tracking-wide text-emerald-400">Second language · 中文 / translation</span>
-                        <textarea
-                          rows={2}
-                          value={line.secondaryText ?? ''}
-                          aria-label={`Translation for lyric line ${idx + 1}`}
-                          placeholder="输入中文翻译 / Enter second-language subtitles..."
-                          onChange={e => handleLineTranslationChange(line.id, e.target.value)}
-                          className="block w-full min-h-[55px] resize-y bg-[#0e1115] border border-[#263e38] focus:border-emerald-500 rounded px-2.5 py-2 text-xs leading-relaxed text-[#e8f2ef] outline-none"
-                        />
-                      </label>
-                      <p className="text-[9px] text-[#778594]">Both lines share the same start and end time. No second timeline row needed.</p>
+                    {/* Compact bilingual editor: first row is the sung lyric,
+                        Enter starts the second-language subtitle under the
+                        same timestamp. Existing translations remain intact. */}
+                    <div onClick={e => e.stopPropagation()}>
+                      <textarea
+                        rows={line.secondaryText !== undefined && line.secondaryText !== '' ? 2 : 1}
+                        value={line.text + (line.secondaryText !== undefined && line.secondaryText !== '' ? '\n' + line.secondaryText : '')}
+                        aria-label={`Lyric line ${idx + 1} — press Enter for translation`}
+                        placeholder="Type lyrics… Press Enter for 中文 / translation"
+                        onChange={e => handleBilingualLineChange(line.id, e.target.value)}
+                        onKeyDown={e => e.stopPropagation()}
+                        className="block w-full min-h-[38px] resize-y rounded border border-[#232933] bg-[#0e1115] px-2.5 py-2 text-xs leading-relaxed text-[#f0f3f6] font-medium outline-none focus:border-emerald-500"
+                      />
                     </div>
                   </div>
                 );
