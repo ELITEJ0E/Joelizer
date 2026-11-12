@@ -107,18 +107,39 @@ async function loadVideo(url: string, retryTranscode = true): Promise<HTMLVideoE
 
 async function atTime(media: StageMedia, seconds: number): Promise<void> {
   const video = media.element;
-  const target = Math.max(0, Math.min(seconds, Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.001) : seconds));
-  // Once decoded, reusing a frame at the exact same source timestamp avoids extra seeks.
+  const target = Math.max(0, Math.min(seconds,
+    Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.001) : seconds));
+  // A 60 FPS output may revisit a 30 FPS source frame. Avoid decoder churn
+  // for genuinely identical positions; don't silently reuse stale frames.
   if ((Math.abs(media.lastFrame - target) < 0.0001 ||
-      Math.abs(video.currentTime - target) < 0.0001) && video.readyState >= 2) {
+       Math.abs(video.currentTime - target) < 0.0001) && video.readyState >= 2) {
     media.lastFrame = target;
     return;
   }
-  const ready = waitForEvent(video, 'seeked', 'error', 25000, 'Seeking video ' + mediaLabel(video.currentSrc || video.src));
-  video.currentTime = target;
-  await ready;
-  if (video.readyState < 2) await waitForEvent(video, 'loadeddata', 'error', 20000, 'Decoding frame ' + mediaLabel(video.currentSrc || video.src));
-  media.lastFrame = target;
+  // Explicitly bounded recovery: a source's HTMLVideoElement can sometimes
+  // stop emitting seeked while remaining readyState >= 2.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const ready = waitForEvent(video, 'seeked', 'error', attempt === 0 ? 7000 : 10000,
+        'Seeking video ' + mediaLabel(video.currentSrc || video.src));
+      video.currentTime = target;
+      await ready;
+      if (video.readyState < 2) {
+        await waitForEvent(video, 'loadeddata', 'error', 8000,
+          'Decoding frame ' + mediaLabel(video.currentSrc || video.src));
+      }
+      media.lastFrame = target;
+      return;
+    } catch (error) {
+      if (attempt === 1 || video.error) throw error;
+      console.warn('[Video export] Seek stalled; retrying source frame', target, error);
+      // A new seek after a short event-loop yield frequently recovers Chrome's
+      // seek state without destroying the already-loaded video element.
+      await new Promise(resolve => setTimeout(resolve, 80));
+      try { video.currentTime = Math.max(0, target - 0.05); } catch {}
+      await new Promise(resolve => setTimeout(resolve, 80));
+    }
+  }
 }
 
 export class OfflineFrameCompositor {
