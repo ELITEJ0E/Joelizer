@@ -57,7 +57,7 @@ export interface LyricsSettings {
   font: string;
   color: string;
   backgroundColor?: string;
-  animationStyle: 'fade' | 'karaoke';
+  animationStyle: 'fade' | 'karaoke' | 'none';
   fadeInDuration?: number; // 0 to 2s, default 0.4s
   fadeOutDuration?: number; // 0 to 2s, default 0.4s
   fadeEasing?: 'linear' | 'smooth' | 'ease';
