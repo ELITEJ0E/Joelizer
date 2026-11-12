@@ -18,7 +18,16 @@ export function getVideoSyncDecision(input: {
     return { seekTo: null, playbackRate: 1 };
   }
   const drift = targetTime - actualTime;
-  if (clipChanged || (!playing && Math.abs(drift) > 0.04)) {
+  // A clip decoder may have already been pre-seeked before the cut.
+  // Never seek AGAIN at entry when its frame is already close to the desired
+  // timestamp, or the seek visibly freezes playback at every edit boundary.
+  if (clipChanged) {
+    return {
+      seekTo: Math.abs(drift) > 0.085 && !seeking ? Math.max(0, targetTime) : null,
+      playbackRate: 1
+    };
+  }
+  if (!playing && Math.abs(drift) > 0.04 && !seeking) {
     return { seekTo: Math.max(0, targetTime), playbackRate: 1 };
   }
   // Never enqueue another seek while the prior request is still decoding.
