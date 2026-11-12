@@ -920,7 +920,13 @@ function LyricsLayer({
   const rawFadeOut = Math.max(0, Math.min(1, remaining / transitionDuration));
   const smoothIn = rawFadeIn * rawFadeIn * (3 - 2 * rawFadeIn);
   const smoothOut = rawFadeOut * rawFadeOut * (3 - 2 * rawFadeOut);
-  const lineOpacity = Math.min(smoothIn, smoothOut);
+  const instantLyrics = lyrics?.animationStyle === 'none';
+  // Respect half-open [start, end) so the exported frame at the boundary
+  // switches immediately, with no crossfade or early preview.
+  const lineOpacity = instantLyrics
+    ? (currentTime >= activeLine.startTime && currentTime < activeLine.endTime ? 1 : 0)
+    : Math.min(smoothIn, smoothOut);
+  if (instantLyrics && lineOpacity === 0) return null;
 
   const isKaraoke = lyrics?.animationStyle === 'karaoke';
   const accentColor = lyrics?.activeWordColor || '#fef08a';
@@ -930,7 +936,8 @@ function LyricsLayer({
   const fontFamily = lyrics?.fontFamily || 'Outfit, system-ui, sans-serif';
   const fontWeight = lyrics?.fontWeight || '700';
   const fontCss = `${fontWeight} ${fontSize}px ${fontFamily}`;
-  const count: 1 | 2 | 5 = [1, 2, 5].includes(lyrics?.visibleLineCount) ? lyrics.visibleLineCount : 2;
+  const count: 1 | 2 | 5 = instantLyrics ? 1
+    : ([1, 2, 5].includes(lyrics?.visibleLineCount) ? lyrics.visibleLineCount : 2);
   const allLines: CanonicalLyricLine[] = lyrics?.lines || [];
   const beforeCount = count === 5 ? Math.min(2, activeLineIndex) : 0;
   const afterCount = count > 1
