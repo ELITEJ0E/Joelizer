@@ -92,6 +92,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
               showArtworkVisualizer: project.showVinylRing !== false,
               showLyrics: project.showLyrics ?? true,
               showMeta: project.showMeta ?? true,
+              bilingualEnabled: project.lyrics.bilingualEnabled,
               preferElementPosition: true,
               visualizerSettingsOverride: { ...project.visualizer, enabled: false }
             },
