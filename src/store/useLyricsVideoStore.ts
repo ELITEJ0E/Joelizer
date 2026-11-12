@@ -29,7 +29,7 @@ export interface LyricsVideoState {
   fadeEasing?: 'linear' | 'smooth' | 'ease';
 
   elementPositions: CanvasElementPositions;
-  animationStyle: 'karaoke' | 'fade';
+  animationStyle: 'karaoke' | 'fade' | 'none';
   
   customBackground: {
     type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
@@ -84,7 +84,7 @@ export interface LyricsVideoState {
   updateTypographyOverride: (updates: Partial<LyricsVideoState['typographyOverride']>) => void;
   updateArtworkOverride: (updates: Partial<LyricsVideoState['artworkOverride']>) => void;
   updateAnimationOverride: (updates: Partial<LyricsVideoState['animationOverride']>) => void;
-  setAnimationStyle: (style: 'karaoke' | 'fade') => void;
+  setAnimationStyle: (style: 'karaoke' | 'fade' | 'none') => void;
   setShowSafeArea: (show: boolean) => void;
   setSelectedElement: (el: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null) => void;
   setVisibleLineCount: (count: number) => void;
