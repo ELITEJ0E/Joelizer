@@ -70,6 +70,7 @@ export function generateLRC(lines: LyricLineWithWords[], title?: string, artist?
   const sorted = [...lines].sort((a, b) => a.startTime - b.startTime);
   sorted.forEach((line, index) => {
     lrc += `${formatLRCStamp(line.startTime)}${line.text}\n`;
+    if (line.secondaryText?.trim()) lrc += `${formatLRCStamp(line.startTime)}${line.secondaryText.trim()}\n`;
 
     // If an explicit endTime exists that ends before the next line starts (or for the final line),
     // insert an empty timestamp marker so standard music players clear the screen at that exact moment.
@@ -112,6 +113,7 @@ export function generateEnhancedLRC(lines: LyricLineWithWords[], title?: string,
       lrc += line.text;
     }
     lrc += `\n`;
+    if (line.secondaryText?.trim()) lrc += `${formatLRCStamp(line.startTime)}${line.secondaryText.trim()}\n`;
 
     // Also insert empty timestamp line if there is a gap before the next line
     const nextLine = sorted[index + 1];
@@ -135,7 +137,7 @@ export function generateSRT(lines: LyricLineWithWords[]): string {
     const end = line.endTime && line.endTime > line.startTime ? line.endTime : line.startTime + 3.5;
     srt += `${index + 1}\n`;
     srt += `${formatSRTTime(line.startTime)} --> ${formatSRTTime(end)}\n`;
-    srt += `${line.text}\n\n`;
+    srt += `${line.text}${line.secondaryText?.trim() ? `\n${line.secondaryText.trim()}` : ''}\n\n`;
   });
 
   return srt.trim();
@@ -164,7 +166,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     const end = line.endTime && line.endTime > line.startTime ? line.endTime : line.startTime + 3.5;
     const startStr = formatASSTime(line.startTime);
     const endStr = formatASSTime(end);
-    ass += `Dialogue: 0,${startStr},${endStr},Default,,0,0,0,,${line.text}\n`;
+    ass += `Dialogue: 0,${startStr},${endStr},Default,,0,0,0,,${[line.text, line.secondaryText?.trim()].filter(Boolean).join('\\N').replace(/,/g, '，')}\n`;
   });
 
   return ass;
@@ -173,7 +175,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 // Generate Plain Text (TXT)
 export function generateTXT(lines: LyricLineWithWords[]): string {
   const sorted = [...lines].sort((a, b) => a.startTime - b.startTime);
-  return sorted.map(l => l.text).join('\n');
+  return sorted.map(l => [l.text, l.secondaryText?.trim()].filter(Boolean).join('\n')).join('\n\n');
 }
 
 // Generate Structured JSON
