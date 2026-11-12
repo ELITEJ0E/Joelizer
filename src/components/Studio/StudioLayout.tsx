@@ -1787,7 +1787,24 @@ export function StudioLayout() {
                         aria-label={`Lyric line ${idx + 1} — press Enter for translation`}
                         placeholder="Type lyrics… Press Enter for 中文 / translation"
                         onChange={e => handleBilingualLineChange(line.id, e.target.value)}
-                        onKeyDown={e => e.stopPropagation()}
+                        onKeyDown={e => {
+                          e.stopPropagation();
+                          if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey ||
+                              e.nativeEvent.isComposing) return;
+                          // Insert newline explicitly, bypassing any sync
+                          // shortcut that canceled the native line break.
+                          e.preventDefault();
+                          const input = e.currentTarget;
+                          const start = input.selectionStart;
+                          const end = input.selectionEnd;
+                          const value = input.value.slice(0, start) + '\n' + input.value.slice(end);
+                          handleBilingualLineChange(line.id, value);
+                          requestAnimationFrame(() => {
+                            if (document.activeElement === input) {
+                              input.setSelectionRange(start + 1, start + 1);
+                            }
+                          });
+                        }}
                         className="block w-full min-h-[38px] resize-y rounded border border-[#232933] bg-[#0e1115] px-2.5 py-2 text-xs leading-relaxed text-[#f0f3f6] font-medium outline-none focus:border-emerald-500"
                       />
                     </div>
