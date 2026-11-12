@@ -202,34 +202,62 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
     }
   };
 
-  // Asset element caches to avoid re-creating elements and avoid black frames on transitions
+  // One decoder per TIMELINE CLIP, not per URL: consecutive trims of the
+  // same uploaded video must never seek the same underlying video element.
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const lastActiveVideoClipRef = useRef<string | null>(null);
   const outgoingFrameRef = useRef<{ clipId: string; canvas: HTMLCanvasElement } | null>(null);
   const pausedClipTimelineRef = useRef<Map<string, number>>(new Map());
   const imageElementsRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
-  // Keep asset caches updated with crossOrigin = 'anonymous' for clean canvas rendering
+  const ensureClipVideo = (clipId: string, sourceUrl: string): HTMLVideoElement => {
+    let element = videoElementsRef.current.get(clipId);
+    if (!element || element.dataset.sourceUrl !== sourceUrl) {
+      if (element) {
+        element.pause();
+        element.removeAttribute('src');
+        element.load();
+      }
+      element = document.createElement('video');
+      element.muted = true;
+      element.playsInline = true;
+      element.preload = 'auto';
+      element.crossOrigin = 'anonymous';
+      element.dataset.sourceUrl = sourceUrl;
+      element.src = sourceUrl;
+      element.onerror = () => {
+        if (element && !element.src.includes('/api/proxy-media') &&
+            !sourceUrl.startsWith('blob:')) {
+          element.src = `/api/proxy-media?url=${encodeURIComponent(sourceUrl)}`;
+        }
+      };
+      videoElementsRef.current.set(clipId, element);
+    }
+    return element;
+  };
+
+  // Preload metadata (but not playback) for current/nearby footage.
+  // Deleted/replaced clips release decoders rather than leaking memory.
   useEffect(() => {
-    videoAssets.forEach((asset) => {
-      if (!asset.url) return;
-      
-      if (asset.type === 'video' && !videoElementsRef.current.has(asset.url)) {
-        const v = document.createElement('video');
-        v.src = asset.url;
-        v.muted = true;
-        v.playsInline = true;
-        v.crossOrigin = 'anonymous';
-        v.preload = 'auto';
-        videoElementsRef.current.set(asset.url, v);
-      } else if (asset.type === 'image' && !imageElementsRef.current.has(asset.url)) {
+    const activeIds = new Set(timelineClips.filter(c => c.type === 'video').map(c => c.id));
+    for (const [clipId, video] of videoElementsRef.current) {
+      if (!activeIds.has(clipId)) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        videoElementsRef.current.delete(clipId);
+      }
+    }
+    videoAssets.forEach(asset => {
+      if (!asset.url || asset.type !== 'image') return;
+      if (!imageElementsRef.current.has(asset.url)) {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.src = asset.url || asset.thumbnail || '';
+        img.src = asset.url;
         imageElementsRef.current.set(asset.url, img);
       }
     });
-  }, [videoAssets]);
+  }, [videoAssets, timelineClips]);
 
   const aspectValues: Record<string, [number, number]> = {
     '16:9': [16, 9], '9:16': [9, 16], '1:1': [1, 1],
@@ -329,8 +357,26 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         const activeVideoUrl = activeClip?.type === 'video' || activeAsset?.type === 'video'
           ? activeAsset?.url
           : null;
-        for (const [url, video] of videoElementsRef.current) {
-          if (url !== activeVideoUrl && !video.paused) {
+        const orderedVideoClips = [...clips].sort((a, b) => a.startTime - b.startTime);
+        const activeIndex = activeClip ? orderedVideoClips.findIndex(c => c.id === activeClip.id) : -1;
+        const nextClip = activeIndex >= 0 ? orderedVideoClips[activeIndex + 1] : undefined;
+        const nextAsset = nextClip ? assets.find(a => a.id === nextClip.assetId) : undefined;
+        // Look ahead to the upcoming cut. Load/seek the next frame before it
+        // becomes active; no overlap or duplicated playback is necessary.
+        const prewarmNext = playing && nextClip && nextAsset?.type === 'video' &&
+          !!nextAsset.url && nextClip.startTime >= curTime &&
+          nextClip.startTime - curTime <= 3;
+        if (prewarmNext) {
+          const nextVideo = ensureClipVideo(nextClip.id, nextAsset.url);
+          if (!nextVideo.seeking && nextVideo.readyState >= 1) {
+            const desired = nextClip.trimStart;
+            if (Math.abs(nextVideo.currentTime - desired) > 0.075) {
+              try { nextVideo.currentTime = desired; } catch (_) {}
+            }
+          }
+        }
+        for (const [clipId, video] of videoElementsRef.current) {
+          if (clipId !== activeClip?.id && !video.paused) {
             video.pause();
             video.playbackRate = 1;
           }
@@ -436,23 +482,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             const clipProgress = Math.max(0, Math.min(1, (curTime - activeClip.startTime) / clipDuration));
 
             if (asset.type === 'video') {
-              let videoEl = videoElementsRef.current.get(asset.url);
-              if (!videoEl) {
-                videoEl = document.createElement('video');
-                videoEl.src = asset.url;
-                videoEl.muted = true;
-                videoEl.playsInline = true;
-                videoEl.crossOrigin = 'anonymous';
-
-                // If direct URL fails, auto-retry via CORS media proxy
-                videoEl.onerror = () => {
-                  if (videoEl && !videoEl.src.includes('/api/proxy-media')) {
-                    videoEl.src = `/api/proxy-media?url=${encodeURIComponent(asset.url)}`;
-                  }
-                };
-
-                videoElementsRef.current.set(asset.url, videoEl);
-              }
+              const videoEl = ensureClipVideo(activeClip.id, asset.url);
 
               const targetVideoTime = activeClip.trimStart + (curTime - activeClip.startTime);
               const clipChanged = lastActiveVideoClipRef.current !== activeClip.id;
