@@ -142,13 +142,16 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
         return { w, h };
       }
       case 'visualizer': {
-        const isVert = stageHeight > stageWidth;
-        const visScale = Math.max(0.2, visualizerSettings?.scale ?? 1.0);
-        const baseW = isVert ? Math.min(stageWidth * 0.62, 280) : Math.min(stageWidth * 0.28, 300);
-        const baseH = Math.min(stageHeight * 0.082, 52);
-        const w = Math.round(baseW * visScale);
-        const h = Math.round(baseH * visScale);
-        return { w: Math.max(100, w), h: Math.max(26, h) };
+        // Hit area must match drawPositionedLyricsVisualizer exactly.
+        // A capped 280×52 rectangle made circular effects impossible to grab
+        // once their rendered radius grew beyond the hit box.
+        const portrait = stageHeight > stageWidth;
+        const scale = Math.max(0.2, visualizerSettings?.scale ?? 1);
+        const circular = ['radial', 'particles', 'orb', 'kaleidoscope'].includes(visualizerSettings?.style);
+        const w = Math.max(32, Math.round((portrait ? stageWidth * 0.62 : stageWidth * 0.28) * scale));
+        const h = circular ? w
+          : Math.max(24, Math.round(stageHeight * (portrait ? 0.095 : 0.082) * scale));
+        return { w, h };
       }
       case 'watermark': {
         const text = 'Made with Joelizer';
@@ -239,7 +242,9 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   const allAvailableKeys: ElementKey[] = (['artwork', 'meta', 'lyrics', 'visualizer', 'watermark'] as ElementKey[]).filter(
     k => {
       if (k === 'artwork') return showArtwork !== false && artworkStyle !== 'none' && artworkStyle !== 'background-blur';
-      if (k === 'visualizer') return showVisualizer !== false && artworkStyle !== 'glowing-disc' && artworkStyle !== 'glowing-disc-needle';
+      // The independent visualizer can be moved for every artwork style.
+      // Glowing disc templates must not silently disable its drag hitbox.
+      if (k === 'visualizer') return showVisualizer !== false;
       if (k === 'lyrics') return showLyrics !== false;
       if (k === 'meta') return showMeta !== false;
       return true;
@@ -545,7 +550,8 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       className="absolute inset-0 z-20 pointer-events-auto cursor-default select-none overflow-hidden"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      onLostPointerCapture={handlePointerUp}
+      onPointerCancel={handlePointerUp}
     >
       {/* ========================================================================= */}
       {/* CANVA / CAPCUT STYLE SMART GUIDES CONTROLS TOOLBAR (4.4) */}
@@ -792,6 +798,8 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
           <div
             key={key}
             onPointerDown={(e) => handlePointerDown(e, key)}
+            aria-label={`Drag ${key} to reposition`}
+            title={`Drag to move ${key}`}
             onDoubleClick={(e) => handleDoubleClick(e, key)}
             className={`absolute rounded transition-shadow cursor-move select-none flex items-center justify-center ${
               isSelected
