@@ -847,7 +847,15 @@ function renderLyrics(
 
   ctx.save();
   const isPortrait = H > W;
-  const visibleCount = options.visibleLineCount || 1;
+  const instantLyrics = options.animationStyle === 'none';
+  // In instant mode, show only the line whose timestamps contain this frame.
+  // Never render the next-line preview before its start on fast songs.
+  const visibleCount = instantLyrics ? 1 : (options.visibleLineCount || 1);
+  if (instantLyrics && !lyricsLines.some(line =>
+    currentTime >= line.startTime && currentTime < line.endTime)) {
+    ctx.restore();
+    return;
+  }
 
   // Find active line or upcoming line
   let activeIndex = lyricsLines.findIndex(
@@ -886,7 +894,9 @@ function renderLyrics(
   const transitionDuration = Math.min(0.28, Math.max(0.15, lineDuration * 0.2));
 
   let activeLineOpacity = 1.0;
-  if (!isKaraoke || visibleCount === 1) {
+  if (instantLyrics) {
+    activeLineOpacity = currentTime >= activeLine.startTime && currentTime < activeLine.endTime ? 1 : 0;
+  } else if (!isKaraoke || visibleCount === 1) {
     activeLineOpacity = computeFadeOpacity(
       currentTime,
       activeLine.startTime,
