@@ -73,12 +73,20 @@ export function parseLRCContent(lrcText: string): LyricLineWithWords[] {
     if (cleanText) {
       if (timestamps.length > 0) {
         timestamps.forEach((t) => {
-          result.push({
-            id: `lrc-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-            startTime: t,
-            endTime: t + 3.5,
-            text: cleanText
-          });
+          // Bilingual LRC commonly has two consecutive text rows with the
+          // same timestamp. Keep them in one synchronized lyric entry.
+          const preceding = result[result.length - 1];
+          if (preceding && Math.abs(preceding.startTime - t) < 0.005 &&
+              !preceding.secondaryText && preceding.text !== cleanText) {
+            preceding.secondaryText = cleanText;
+          } else {
+            result.push({
+              id: `lrc-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+              startTime: t,
+              endTime: t + 3.5,
+              text: cleanText
+            });
+          }
         });
       }
     }
