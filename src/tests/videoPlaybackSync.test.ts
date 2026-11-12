@@ -11,6 +11,18 @@ assert.deepEqual(decision(12.01, 12.03), { seekTo: null, playbackRate: 1 });
 assert.ok(decision(12.4, 12).playbackRate < 1, 'video ahead should gently slow down');
 assert.ok(decision(12, 12.4).playbackRate > 1, 'video behind should gently speed up');
 
+// An incoming clip is preloaded and pre-seeked before the transition.
+// Re-seeking that same timestamp on its first active frame used to stall
+// decoding for a noticeable moment at every edit boundary.
+assert.deepEqual(decision(8.02, 8.05, { clipChanged: true }),
+  { seekTo: null, playbackRate: 1 },
+  'Prewarmed incoming video must play immediately without a redundant seek');
+assert.deepEqual(decision(8.02, 8.05, { clipChanged: true, seeking: true }),
+  { seekTo: null, playbackRate: 1 },
+  'Do not enqueue another seek during preloading');
+assert.equal(decision(2.1, 12, { clipChanged: true }).seekTo, 12,
+  'Direct jumps to uncached footage still seek to the exact trim');
+
 // Timeline edits, seek actions and large errors need a precise reset.
 assert.equal(decision(11, 15, { clipChanged: true }).seekTo, 15);
 assert.equal(decision(11, 15).seekTo, 15);
