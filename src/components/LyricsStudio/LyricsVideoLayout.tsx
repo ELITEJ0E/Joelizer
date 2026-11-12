@@ -433,10 +433,10 @@ export function LyricsVideoLayout() {
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-semibold text-[#7e8999]">Animation Style</span>
                         <span className="text-[10px] font-mono text-accent font-bold uppercase">
-                          {animationStyle === 'karaoke' ? 'Karaoke' : 'Fade'}
+                          {animationStyle === 'karaoke' ? 'Karaoke' : animationStyle === 'none' ? 'None' : 'Fade'}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5 bg-[#0e1115] p-1 rounded border border-[#232933]">
+                      <div className="grid grid-cols-3 gap-1.5 bg-[#0e1115] p-1 rounded border border-[#232933]">
                         <button
                           type="button"
                           onClick={() => setAnimationStyle('karaoke')}
@@ -462,6 +462,17 @@ export function LyricsVideoLayout() {
                         >
                           <span className="font-bold text-[11px] uppercase tracking-wider">Fade In / Out</span>
                           <span className="text-[9px] text-[#7e8999]">Line Crossfade</span>
+                        </button>
+                        <button type="button" aria-pressed={animationStyle === 'none'}
+                          onClick={() => setAnimationStyle('none')}
+                          className={cn(
+                            "py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer flex flex-col items-center gap-0.5",
+                            animationStyle === 'none'
+                              ? "bg-[#181d26] text-accent border border-accent"
+                              : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/40"
+                          )}>
+                          <span className="font-bold text-[11px] uppercase tracking-wider">None</span>
+                          <span className="text-[9px] text-[#7e8999]">Instant / Fast Songs</span>
                         </button>
                       </div>
                     </div>
@@ -983,7 +994,7 @@ export function LyricsVideoLayout() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1.5 bg-[#0e1115] p-1 rounded border border-[#232933]">
+                <div className="grid grid-cols-3 gap-1.5 bg-[#0e1115] p-1 rounded border border-[#232933]">
                   <button
                     type="button"
                     onClick={() => setAnimationStyle('karaoke')}
@@ -1010,6 +1021,20 @@ export function LyricsVideoLayout() {
                   >
                     <span className="font-bold text-[11px] uppercase tracking-wider">Fade In / Out</span>
                     <span className="text-[9px] text-[#7e8999]">Line Crossfade</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnimationStyle('none')}
+                    aria-pressed={animationStyle === 'none'}
+                    className={cn(
+                      "py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer flex flex-col items-center gap-0.5",
+                      animationStyle === 'none'
+                        ? "bg-[#181d26] text-accent border border-accent"
+                        : "text-[#7e8999] hover:text-[#f0f3f6] hover:bg-[#181d26]/40"
+                    )}
+                  >
+                    <span className="font-bold text-[11px] uppercase tracking-wider">None</span>
+                    <span className="text-[9px] text-[#7e8999]">Instant / Fast Songs</span>
                   </button>
                 </div>
               </div>
