@@ -80,7 +80,8 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
 
   // Find current active lyric line
   const activeLineIndex = lyrics?.lines?.findIndex(
-    l => currentTime >= l.startTime && currentTime <= l.endTime
+    l => currentTime >= l.startTime &&
+      (lyrics?.animationStyle === 'none' ? currentTime < l.endTime : currentTime <= l.endTime)
   ) ?? -1;
   const activeLine: CanonicalLyricLine | undefined = activeLineIndex !== -1 
     ? lyrics.lines[activeLineIndex] 
