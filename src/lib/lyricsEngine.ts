@@ -859,7 +859,7 @@ function renderLyrics(
 
   // Find active line or upcoming line
   let activeIndex = lyricsLines.findIndex(
-    (l) => currentTime >= l.startTime && currentTime <= l.endTime
+    (l) => currentTime >= l.startTime && (instantLyrics ? currentTime < l.endTime : currentTime <= l.endTime)
   );
 
   if (activeIndex === -1) {
