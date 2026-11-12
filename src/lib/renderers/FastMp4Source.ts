@@ -50,6 +50,10 @@ export class FastMp4Source {
   private currentTargetUs = 0;
   private decoderError: Error | null = null;
   private flushed = false;
+  // A VideoDecoder can remain configured while its hardware callback stops
+  // producing frames. Detect a stalled decode before the whole MP4 export
+  // reaches its 60-second watchdog and activate the HTMLVideo fallback.
+  private static readonly FRAME_TIMEOUT_MS = 10000;
 
   readonly durationSeconds: number;
   readonly width: number;
@@ -188,6 +192,12 @@ export class FastMp4Source {
       : 0;
     const targetUs = Math.min(Math.round(Math.max(0, seconds) * 1e6), lastSampleTimestamp);
     this.currentTargetUs = targetUs;
+    const decodeStartedAt = performance.now();
+    const checkDeadline = () => {
+      if (performance.now() - decodeStartedAt > FastMp4Source.FRAME_TIMEOUT_MS) {
+        throw new Error(`WebCodecs source decoder stopped returning frames at ${(targetUs / 1e6).toFixed(2)}s (${this.codec}). Switching to browser video decoder.`);
+      }
+    };
 
     // A cut jump, loop wrap, or distant forward seek triggers a reset to the nearest keyframe
     if (!this.decoder || this.decoder.state === 'closed' || this.decoderError ||
@@ -202,6 +212,7 @@ export class FastMp4Source {
     let batches = 0;
     while (this.sampleIndex < this.samples.length &&
       (!this.decoded.length || this.decoded[this.decoded.length - 1].timestamp < targetUs)) {
+      checkDeadline();
       if (this.decoderError) throw this.decoderError;
 
       // Backpressure: If decodeQueueSize reaches 4 or higher, wait for the dequeue event
@@ -233,6 +244,7 @@ export class FastMp4Source {
 
       // Yield to macrotask so the browser's GPU worker thread can process output callbacks
       await new Promise(resolve => setTimeout(resolve, 0));
+      checkDeadline();
       if (this.decoderError) throw this.decoderError;
       if (++batches > 4000) {
         throw new Error(`Imported video decoder exceeded sample batch limit at ${targetUs}us (${this.codec}, queue: ${this.decoder?.decodeQueueSize}, open frames: ${this.decoded.length})`);
@@ -241,7 +253,20 @@ export class FastMp4Source {
 
     if (!this.flushed && this.sampleIndex === this.samples.length && this.decoder &&
         this.decoder.state === 'configured') {
-      await this.decoder.flush();
+      const decoder = this.decoder;
+      let flushTimer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          decoder.flush(),
+          new Promise<never>((_, reject) => {
+            flushTimer = setTimeout(() => reject(new Error(
+              `WebCodecs flush stalled at ${(targetUs / 1e6).toFixed(2)}s (${this.codec})`
+            )), Math.max(1000, FastMp4Source.FRAME_TIMEOUT_MS - (performance.now() - decodeStartedAt)));
+          })
+        ]);
+      } finally {
+        if (flushTimer !== undefined) clearTimeout(flushTimer);
+      }
       this.flushed = true;
       if (this.decoderError) throw this.decoderError;
     }
