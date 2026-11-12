@@ -656,6 +656,12 @@ export function StudioLayout() {
     updateLinesWithHistory(updated);
   };
 
+  const handleLineTranslationChange = (id: string, secondaryText: string) => {
+    // The translated subtitle shares the primary lyric's exact time range.
+    // This never changes word-level karaoke timing for the sung language.
+    updateLinesWithHistory(lines.map(l => l.id === id ? { ...l, secondaryText } : l));
+  };
+
   const handleMarkStart = (id: string, newTimeSec: number) => {
     const targetIdx = lines.findIndex(l => l.id === id);
     if (targetIdx === -1) return;
@@ -796,6 +802,7 @@ export function StudioLayout() {
       startTime: newStart,
       endTime: newEnd,
       text: line.text,
+      secondaryText: line.secondaryText,
       words: duplicatedWords,
       speaker: line.speaker,
       section: line.section
@@ -816,7 +823,8 @@ export function StudioLayout() {
     const merged: LyricLineWithWords = {
       ...current,
       endTime: next.endTime,
-      text: `${current.text} ${next.text}`.trim()
+      text: `${current.text} ${next.text}`.trim(),
+      secondaryText: [current.secondaryText, next.secondaryText].filter(Boolean).join(' ').trim()
     };
 
     const newLines = [...lines];
@@ -1769,14 +1777,31 @@ export function StudioLayout() {
                       </div>
                     </div>
 
-                    {/* Text Input */}
-                    <input
-                      type="text"
-                      value={line.text}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => handleLineTextChange(line.id, e.target.value)}
-                      className="w-full bg-[#0e1115] border border-[#232933] focus:border-[#3b4759] rounded px-2.5 py-1.5 text-xs text-[#f0f3f6] font-medium outline-none"
-                    />
+                    {/* Both languages belong to one synced lyric line. */}
+                    <div className="space-y-2" onClick={e => e.stopPropagation()}>
+                      <label className="block space-y-1">
+                        <span className="text-[9px] uppercase font-bold tracking-wide text-[#8d9cad]">Primary lyric · English / original</span>
+                        <input
+                          type="text"
+                          value={line.text}
+                          aria-label={`Primary lyric line ${idx + 1}`}
+                          onChange={e => handleLineTextChange(line.id, e.target.value)}
+                          className="w-full bg-[#0e1115] border border-[#232933] focus:border-[#3b4759] rounded px-2.5 py-2 text-xs text-[#f0f3f6] font-medium outline-none"
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-[9px] uppercase font-bold tracking-wide text-emerald-400">Second language · 中文 / translation</span>
+                        <textarea
+                          rows={2}
+                          value={line.secondaryText ?? ''}
+                          aria-label={`Translation for lyric line ${idx + 1}`}
+                          placeholder="输入中文翻译 / Enter second-language subtitles..."
+                          onChange={e => handleLineTranslationChange(line.id, e.target.value)}
+                          className="block w-full min-h-[55px] resize-y bg-[#0e1115] border border-[#263e38] focus:border-emerald-500 rounded px-2.5 py-2 text-xs leading-relaxed text-[#e8f2ef] outline-none"
+                        />
+                      </label>
+                      <p className="text-[9px] text-[#778594]">Both lines share the same start and end time. No second timeline row needed.</p>
+                    </div>
                   </div>
                 );
               });
