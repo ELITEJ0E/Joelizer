@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore, LyricLine } from '../../store/useStore';
+import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { 
   Upload, Music, FileText, Play, Pause, RotateCcw, Download, Sparkles, 
   Trash2, Plus, Split, Combine, Clock, Zap, CheckCircle2, ChevronRight, ChevronLeft,
@@ -659,6 +660,15 @@ export function StudioLayout() {
     const breakAt = normalized.indexOf('\n');
     const text = breakAt < 0 ? normalized : normalized.slice(0, breakAt);
     const secondaryText = breakAt < 0 ? undefined : normalized.slice(breakAt + 1);
+    // Adding a translation in LRC Studio must enable bilingual playback and
+    // export automatically, even if the project previously used one language.
+    if (secondaryText?.trim()) {
+      const current = useLyricsVideoStore.getState();
+      if (current.bilingualEnabled !== true ||
+          useStore.getState().lyricsSettings.bilingualEnabled !== true) {
+        current.setBilingualEnabled(true);
+      }
+    }
     updateLinesWithHistory(lines.map(l => l.id === id ? { ...l, text, secondaryText } : l));
   };
 
