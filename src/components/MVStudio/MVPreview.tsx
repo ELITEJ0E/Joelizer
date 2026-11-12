@@ -685,7 +685,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             animationStyle: storeState.lyricsSettings?.animationStyle || lyricsVideoState.animationStyle,
             visibleLineCount: mvState.captionLineCount ?? 2,
             showLyrics: true,
-            bilingualEnabled: storeState.lyricsSettings?.bilingualEnabled ?? lyricsVideoState.bilingualEnabled,
+            bilingualEnabled: storeState.lyricsSettings.lines.some(line => !!line.secondaryText?.trim()) ||
+              (storeState.lyricsSettings?.bilingualEnabled ?? lyricsVideoState.bilingualEnabled),
             fadeInDuration: storeState.lyricsSettings?.fadeInDuration ?? lyricsVideoState.fadeInDuration,
             fadeOutDuration: storeState.lyricsSettings?.fadeOutDuration ?? lyricsVideoState.fadeOutDuration,
             fadeEasing: storeState.lyricsSettings?.fadeEasing ?? lyricsVideoState.fadeEasing,
