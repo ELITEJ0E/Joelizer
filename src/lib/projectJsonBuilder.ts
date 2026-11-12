@@ -217,7 +217,10 @@ export async function buildCanonicalProjectJson(options?: {
       visibleLineCount: exportMode === 'music-video'
         ? (mvStore.captionLineCount ?? 2)
         : (lyricsVideoStore.visibleLineCount as 1 | 2 | 5),
-      bilingualEnabled: lyricsVideoStore.bilingualEnabled ?? mainStore.lyricsSettings?.bilingualEnabled ?? false,
+      // A translation entered in LRC Studio is a request for bilingual output,
+      // including projects created before the toggle was automatically enabled.
+      bilingualEnabled: canonicalLines.some(line => !!line.secondaryText?.trim()) ||
+        (lyricsVideoStore.bilingualEnabled ?? mainStore.lyricsSettings?.bilingualEnabled ?? false),
       fadeInDuration: lyricsVideoStore.fadeInDuration ?? mainStore.lyricsSettings?.fadeInDuration ?? 0.4,
       fadeOutDuration: lyricsVideoStore.fadeOutDuration ?? mainStore.lyricsSettings?.fadeOutDuration ?? 0.4,
       fadeEasing: lyricsVideoStore.fadeEasing ?? mainStore.lyricsSettings?.fadeEasing ?? 'smooth'
