@@ -658,7 +658,7 @@ export function StudioLayout() {
     const normalized = combinedText.replace(/\r\n?/g, '\n');
     const breakAt = normalized.indexOf('\n');
     const text = breakAt < 0 ? normalized : normalized.slice(0, breakAt);
-    const secondaryText = breakAt < 0 ? '' : normalized.slice(breakAt + 1);
+    const secondaryText = breakAt < 0 ? undefined : normalized.slice(breakAt + 1);
     updateLinesWithHistory(lines.map(l => l.id === id ? { ...l, text, secondaryText } : l));
   };
 
@@ -1782,8 +1782,8 @@ export function StudioLayout() {
                         same timestamp. Existing translations remain intact. */}
                     <div onClick={e => e.stopPropagation()}>
                       <textarea
-                        rows={line.secondaryText !== undefined && line.secondaryText !== '' ? 2 : 1}
-                        value={line.text + (line.secondaryText !== undefined && line.secondaryText !== '' ? '\n' + line.secondaryText : '')}
+                        rows={line.secondaryText !== undefined ? 2 : 1}
+                        value={line.text + (line.secondaryText !== undefined ? '\n' + line.secondaryText : '')}
                         aria-label={`Lyric line ${idx + 1} — press Enter for translation`}
                         placeholder="Type lyrics… Press Enter for 中文 / translation"
                         onChange={e => handleBilingualLineChange(line.id, e.target.value)}
