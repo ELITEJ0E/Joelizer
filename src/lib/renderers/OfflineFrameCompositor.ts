@@ -124,6 +124,9 @@ async function atTime(media: StageMedia, seconds: number): Promise<void> {
         'Seeking video ' + mediaLabel(video.currentSrc || video.src));
       video.currentTime = target;
       await ready;
+      if (Math.abs(video.currentTime - target) > 0.055) {
+        throw new Error(`Source decoder returned ${video.currentTime.toFixed(3)}s instead of ${target.toFixed(3)}s`);
+      }
       if (video.readyState < 2) {
         await waitForEvent(video, 'loadeddata', 'error', 8000,
           'Decoding frame ' + mediaLabel(video.currentSrc || video.src));
@@ -338,7 +341,7 @@ export class OfflineFrameCompositor {
           console.warn('[Lyrics export] Fast background decoder unavailable; using video element:', error);
           fastBackground.dispose();
           this.fastVideos.delete(backgroundUrl!);
-          const fallback = await loadVideo(backgroundUrl!);
+          const fallback = await loadVideo(backgroundUrl!, false);
           const media = { element: fallback, lastFrame: NaN };
           this.videos.set(backgroundUrl!, media);
           const fallbackDuration = fallback.duration;
@@ -446,7 +449,7 @@ export class OfflineFrameCompositor {
             console.warn('[MV export] Switching stalled clip to browser decoder:', clip.id, error);
             fast.dispose();
             this.fastVideos.delete(clip.url);
-            const fallback = await loadVideo(clip.url);
+            const fallback = await loadVideo(clip.url, false);
             this.videos.set(clip.url, { element: fallback, lastFrame: NaN });
           }
         }
