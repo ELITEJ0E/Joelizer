@@ -1015,6 +1015,10 @@ function renderLyrics(
   }
 
   const lineHeight = fontSize * 1.35;
+  const translatedText = options.bilingualEnabled !== false ? activeLine.secondaryText?.trim() : undefined;
+  // Reserve an independent subtitle row, not the same row used for the next
+  // upcoming lyric in 2-line / 5-line modes.
+  const translationHeight = translatedText ? fontSize * 0.95 : 0;
 
   // Compute vertical layout based on visibleCount
   let startY = posY - ((sublines.length - 1) * lineHeight) / 2;
@@ -1032,6 +1036,8 @@ function renderLyrics(
     const prevCount = hasPrev ? (visibleCount >= 5 && activeIndex > 1 ? 2 : 1) : 0;
     startY = posY - ((totalLines - 1) * lineHeight) / 2 + prevCount * lineHeight;
   }
+
+  if (translationHeight > 0) startY -= translationHeight / 2;
 
   // Optional caption backdrop: cover the ENTIRE visible lyric stack,
   // including preview lines above and below, not just the active lyric.
@@ -1058,12 +1064,12 @@ function renderLyrics(
     for (let i = 1; i <= nextCount; i++) {
       previewWidths.push(ctx.measureText(truncateWithEllipsis(ctx, lyricsLines[activeIndex + i].text, maxLineWidth)).width);
     }
-    const hasSecondary = options.bilingualEnabled !== false && Boolean(activeLine.secondaryText?.trim());
-    const secondaryHeight = hasSecondary ? fontSize * 0.9 : 0;
+    const secondaryHeight = translationHeight;
     const firstRowCenter = startY - previousCount * lineHeight;
     const rowCount = previousCount + sublines.length + nextCount;
+    const subtitleWidth = translatedText ? Math.min(maxLineWidth, fontSize * translatedText.length * 0.75) : 0;
     const pillW = Math.min(W * 0.94,
-      Math.max(0, ...activeWidths, ...previewWidths) + pillPaddingX * 2);
+      Math.max(subtitleWidth, 0, ...activeWidths, ...previewWidths) + pillPaddingX * 2);
     const pillH = rowCount * lineHeight + secondaryHeight + pillPaddingY * 2;
     const pillX = posX - pillW / 2;
     const pillY = firstRowCenter - lineHeight / 2 - pillPaddingY;
@@ -1172,16 +1178,16 @@ function renderLyrics(
     }
 
     // Bilingual Secondary Line translation (e.g. Vietnamese under Chinese as in reference)
-    if (options.bilingualEnabled !== false && activeLine.secondaryText?.trim()) {
+    if (translatedText) {
       ctx.save();
       const secondaryFontSize = Math.max(12, Math.round(fontSize * 0.72));
       ctx.font = `500 ${secondaryFontSize}px ${fontFamily}, system-ui, sans-serif`;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.shadowBlur = Math.max(3, Math.round(secondaryFontSize * 0.22));
       ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-      const secY = startY + sublines.length * lineHeight + Math.round(fontSize * 0.15);
-      const secW = ctx.measureText(activeLine.secondaryText).width;
-      ctx.fillText(truncateWithEllipsis(ctx, activeLine.secondaryText, maxLineWidth), posX - Math.min(secW, maxLineWidth) / 2, secY);
+      const secY = startY + (sublines.length - 1) * lineHeight + translationHeight;
+      ctx.textAlign = 'center';
+      ctx.fillText(truncateWithEllipsis(ctx, translatedText, maxLineWidth), posX, secY);
       ctx.restore();
     }
 
@@ -1201,7 +1207,7 @@ function renderLyrics(
     ctx.fillText(
       truncateWithEllipsis(ctx, nextLine.text, maxLineWidth),
       posX,
-      startY + sublines.length * lineHeight
+      startY + sublines.length * lineHeight + translationHeight
     );
     ctx.restore();
 
@@ -1217,7 +1223,7 @@ function renderLyrics(
       ctx.fillText(
         truncateWithEllipsis(ctx, next2Line.text, maxLineWidth),
         posX,
-        startY + (sublines.length + 1) * lineHeight
+        startY + (sublines.length + 1) * lineHeight + translationHeight
       );
       ctx.restore();
     }
