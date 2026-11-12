@@ -1355,14 +1355,21 @@ export function StudioLayout() {
               <span className="text-[#7e8999]">{formatLRCStamp(audioDuration).replace('[', '').replace(']', '')}</span>
             </div>
 
-            {/* Current Active Lyric Display (Workstation Editorial Strip) */}
-            <div className="absolute bottom-4 inset-x-6 text-center bg-[#12161c]/95 border border-[#232933] py-2 px-4 rounded shadow-md">
+            {/* Current Active Lyric Display — both languages use one timestamp. */}
+            <div className="absolute bottom-4 inset-x-6 text-center bg-[#12161c]/95 border border-[#232933] py-2 px-4 rounded shadow-md pointer-events-none">
               {(() => {
                 const currentLine = getActiveLyricLine(lines, currentTime);
                 return currentLine ? (
-                  <span className="text-sm font-semibold text-[#f0f3f6] tracking-normal">
-                    {currentLine.text}
-                  </span>
+                  <div className="flex flex-col items-center justify-center gap-1 min-w-0">
+                    <span className="text-sm font-semibold text-[#f0f3f6] tracking-normal break-words whitespace-pre-wrap">
+                      {currentLine.text}
+                    </span>
+                    {!!currentLine.secondaryText?.trim() && (
+                      <span lang="zh" className="text-xs font-medium text-[#c5d6d2] tracking-normal break-words whitespace-pre-wrap">
+                        {currentLine.secondaryText}
+                      </span>
+                    )}
+                  </div>
                 ) : (
                   <span className="text-xs text-[#5e6877] font-mono">[ Instrumental / Silence ]</span>
                 );
