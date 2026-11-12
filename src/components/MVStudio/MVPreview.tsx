@@ -208,6 +208,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const lastActiveVideoClipRef = useRef<string | null>(null);
   const outgoingFrameRef = useRef<{ clipId: string; canvas: HTMLCanvasElement } | null>(null);
   const pausedClipTimelineRef = useRef<Map<string, number>>(new Map());
+  const lastVideoCachePruneRef = useRef(-Infinity);
   const imageElementsRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
   const ensureClipVideo = (clipId: string, sourceUrl: string): HTMLVideoElement => {
@@ -373,6 +374,22 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             if (Math.abs(nextVideo.currentTime - desired) > 0.075) {
               try { nextVideo.currentTime = desired; } catch (_) {}
             }
+          }
+        }
+        // Keep only a small decoder working set; thousands of short Auto
+        // Edit cuts must not leave thousands of video elements allocated.
+        if (videoElementsRef.current.size > 6 &&
+            (curTime < lastVideoCachePruneRef.current ||
+             curTime - lastVideoCachePruneRef.current > 1)) {
+          lastVideoCachePruneRef.current = curTime;
+          for (const [clipId, video] of videoElementsRef.current) {
+            if (clipId === activeClip?.id || clipId === nextClip?.id) continue;
+            const entry = orderedVideoClips.find(c => c.id === clipId);
+            if (entry && Math.abs(entry.startTime - curTime) <= 4) continue;
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            videoElementsRef.current.delete(clipId);
           }
         }
         for (const [clipId, video] of videoElementsRef.current) {
