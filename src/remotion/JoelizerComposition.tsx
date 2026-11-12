@@ -1088,6 +1088,22 @@ function LyricsLayer({
           ) : (
             <span style={{ color: textColor }}>{activeLine.text}</span>
           )}
+            {activeLine.secondaryText?.trim() && lyrics?.bilingualEnabled !== false && (
+              <div style={{
+                marginTop: Math.max(5, Math.round(fontSize * 0.2)),
+                maxWidth: width * 0.86,
+                fontSize: Math.max(14, fontSize * 0.7),
+                lineHeight: 1.35,
+                fontWeight: 500,
+                color: 'rgba(255,255,255,0.9)',
+                textAlign: 'center',
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere',
+                textShadow: '0 2px 8px rgba(0,0,0,0.95)'
+              }}>
+                {activeLine.secondaryText}
+              </div>
+            )}
           </div>
           {afterLines.map((line, idx) => (
             <div key={`upcoming-${idx}`} style={{ color: inactiveColor, opacity: 0.55 }}>{line.text}</div>
