@@ -681,7 +681,7 @@ export function StudioLayout() {
     const updated = lines.map((l, idx) => {
       if (idx === targetIdx) {
         const oldDur = (l.endTime && l.endTime > l.startTime) ? (l.endTime - l.startTime) : 3.5;
-        const newEnd = Math.max(newStart + 0.3, newStart + oldDur);
+        const newEnd = Math.max(newStart + 0.04, newStart + oldDur);
         
         let newWords = l.words;
         if (l.words && l.words.length > 0) {
@@ -727,7 +727,7 @@ export function StudioLayout() {
 
     const updated = lines.map((l, idx) => {
       if (idx === targetIdx) {
-        const newEnd = Math.max(Number((l.startTime + 0.2).toFixed(2)), Number(newTimeSec.toFixed(2)));
+        const newEnd = Math.max(Number((l.startTime + 0.04).toFixed(2)), Number(newTimeSec.toFixed(2)));
         return {
           ...l,
           endTime: newEnd
