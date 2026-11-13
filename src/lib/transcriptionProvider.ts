@@ -24,7 +24,9 @@ export function getActiveLyricLine<T extends { startTime: number; endTime?: numb
     ? candidate.endTime
     : candidate.startTime + 3.5;
 
-  if (currentTime <= end) {
+  // Half-open interval prevents the previous word remaining visible on the
+  // very frame the next rapid lyric begins.
+  if (currentTime < end) {
     return candidate;
   }
 
