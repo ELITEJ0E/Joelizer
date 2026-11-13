@@ -79,10 +79,10 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   const rotationDegrees = ((currentTime / 1.8) * 360) % 360;
 
   // Find current active lyric line
-  const activeLineIndex = lyrics?.lines?.findIndex(
-    l => currentTime >= l.startTime &&
-      (lyrics?.animationStyle === 'none' ? currentTime < l.endTime : currentTime <= l.endTime)
-  ) ?? -1;
+  // Last-started overlapping line owns the frame, matching the canvas path.
+  const activeLineIndex = (lyrics?.lines || []).reduce((selected, l, i, all) =>
+    currentTime >= l.startTime && currentTime < l.endTime &&
+    (selected < 0 || l.startTime >= all[selected].startTime) ? i : selected, -1);
   const activeLine: CanonicalLyricLine | undefined = activeLineIndex !== -1 
     ? lyrics.lines[activeLineIndex] 
     : undefined;
@@ -921,7 +921,9 @@ function LyricsLayer({
   const rawFadeOut = Math.max(0, Math.min(1, remaining / transitionDuration));
   const smoothIn = rawFadeIn * rawFadeIn * (3 - 2 * rawFadeIn);
   const smoothOut = rawFadeOut * rawFadeOut * (3 - 2 * rawFadeOut);
-  const instantLyrics = lyrics?.animationStyle === 'none';
+  const rapidWord = activeLine.endTime - activeLine.startTime <= 0.42 &&
+    activeLine.text.trim().split(/\s+/).length <= 2;
+  const instantLyrics = lyrics?.animationStyle === 'none' || rapidWord;
   // Respect half-open [start, end) so the exported frame at the boundary
   // switches immediately, with no crossfade or early preview.
   const lineOpacity = instantLyrics
