@@ -847,7 +847,13 @@ function renderLyrics(
 
   ctx.save();
   const isPortrait = H > W;
-  const instantLyrics = options.animationStyle === 'none';
+  // Automatically eliminate slow fades on very short, single-word captions.
+  // They must remain visible for their actual timed interval, even when the
+  // project's normal animation is Fade or Karaoke.
+  const shortActiveLine = lyricsLines.find(l => currentTime >= l.startTime && currentTime < l.endTime);
+  const rapidWord = !!shortActiveLine && shortActiveLine.endTime - shortActiveLine.startTime <= 0.42 &&
+    shortActiveLine.text.trim().split(/\s+/).length <= 2;
+  const instantLyrics = options.animationStyle === 'none' || rapidWord;
   // In instant mode, show only the line whose timestamps contain this frame.
   // Never render the next-line preview before its start on fast songs.
   const visibleCount = instantLyrics ? 1 : (options.visibleLineCount || 1);
@@ -858,9 +864,14 @@ function renderLyrics(
   }
 
   // Find active line or upcoming line
-  let activeIndex = lyricsLines.findIndex(
-    (l) => currentTime >= l.startTime && (instantLyrics ? currentTime < l.endTime : currentTime <= l.endTime)
-  );
+  // A newer line always takes priority over an overlapping older line.
+  // No previous word should linger when rapid lines share adjacent timestamps.
+  let activeIndex = -1;
+  for (let i = 0; i < lyricsLines.length; i++) {
+    const l = lyricsLines[i];
+    if (currentTime >= l.startTime && currentTime < l.endTime &&
+        (activeIndex === -1 || l.startTime >= lyricsLines[activeIndex].startTime)) activeIndex = i;
+  }
 
   if (activeIndex === -1) {
     const nextIdx = lyricsLines.findIndex((l) => l.startTime > currentTime);
