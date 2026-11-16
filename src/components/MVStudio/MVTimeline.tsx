@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { formatTime } from '../../lib/utils';
 import { useGlobalHistory } from '../../lib/globalHistory';
+import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { collectSnapTargets, calculateSnap, SnapTarget } from '../../lib/timelineSnapping';
 import { 
   syncAllLyrics, updateLyricLineTiming, splitLyricLine, mergeLyricWithNext, 
@@ -48,6 +49,17 @@ export function MVTimeline() {
   
   // MV Store State
   const timelineClips = useMVStore(s => s.timelineClips);
+  const setTimelineClips = useMVStore(s => s.setTimelineClips);
+  const [confirmClearClips, setConfirmClearClips] = useState(false);
+  const { handleClose: closeClearClips } = usePopstateModal(confirmClearClips, () => setConfirmClearClips(false));
+  useEffect(() => {
+    if (!confirmClearClips) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); closeClearClips(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [confirmClearClips, closeClearClips]);
   const videoAssets = useMVStore(s => s.videoAssets);
   const wordTimings = useMVStore(s => s.wordTimings);
   const songAnalysis = useMVStore(s => s.songAnalysis);
@@ -940,6 +952,16 @@ export function MVTimeline() {
 
         {/* Zoom Controls & Slider */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <button
+            type="button"
+            aria-label="Clear all timeline clips"
+            title="Clear all timeline clips"
+            disabled={timelineClips.length === 0}
+            onClick={() => setConfirmClearClips(true)}
+            className="p-1 rounded border border-red-900/50 bg-red-950/30 text-red-400 hover:bg-red-900/40 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <Trash2 size={13} />
+          </button>
           {/* Zoom Out */}
           <button
             onClick={() => setZoom(z => Math.max(1, z - 0.5))}
@@ -1635,6 +1657,35 @@ export function MVTimeline() {
             }}
             onClose={() => setSelectedClipId(null)}
           />
+        </div>
+      )}
+      {confirmClearClips && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4"
+          role="presentation"
+          onPointerDown={(event) => { if (event.target === event.currentTarget) closeClearClips(); }}
+        >
+          <div role="alertdialog" aria-modal="true" aria-labelledby="clear-mv-clips-title" aria-describedby="clear-mv-clips-description"
+            className="w-full max-w-sm rounded-xl border border-[#394252] bg-[#10151d] p-5 shadow-2xl"
+          >
+            <h2 id="clear-mv-clips-title" className="text-base font-bold text-white">Clear all MV timeline clips?</h2>
+            <p id="clear-mv-clips-description" className="mt-2 text-sm text-[#aab5c4]">
+              Remove all {timelineClips.length} clips from the MV timeline? Your uploaded media and lyrics will remain available.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={closeClearClips} autoFocus
+                className="rounded border border-[#394252] px-4 py-2 text-sm text-white hover:bg-[#26303c]">Cancel</button>
+              <button type="button" onClick={() => {
+                recordSnapshot();
+                setTimelineClips([]);
+                setSelectedClipId(null);
+                commitTimeline();
+                closeClearClips();
+              }} className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500">
+                Clear all clips
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
