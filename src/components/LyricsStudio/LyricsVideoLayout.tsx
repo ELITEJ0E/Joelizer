@@ -3,6 +3,7 @@ import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useStore, AspectRatio } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
 import { MVPreview } from '../MVStudio/MVPreview';
+import { MVDialogPortal } from '../MVStudio/MVDialogPortal';
 import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem, SelectGroup, SelectLabel } from '../ui/select';
 import { VideoFramingControls } from '../shared/VideoFramingControls';
 import { OverlayEffectsPanel } from '../shared/OverlayEffectsPanel';
@@ -20,7 +21,7 @@ import { audioManager } from '../../lib/audio';
 import {
   Play, Pause, Check, Upload, RotateCcw, RotateCw, Maximize2, Minimize2,
   Sparkles, Type, Film, Image as ImageIcon, Music, Sliders, Palette,
-  SkipBack, SkipForward, Repeat, ChevronDown, ChevronUp
+  SkipBack, SkipForward, Repeat, ChevronDown, ChevronUp, FolderPlus
 } from 'lucide-react';
 
 /**
@@ -181,6 +182,8 @@ export function LyricsVideoLayout() {
   const lyricsLines = useStore(s => s.lyricsSettings?.lines) || [];
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const [showBackgroundImport, setShowBackgroundImport] = useState(false);
   const [isDraggingBackground, setIsDraggingBackground] = useState(false);
   const [backgroundUploadError, setBackgroundUploadError] = useState<string | null>(null);
 
@@ -218,7 +221,10 @@ export function LyricsVideoLayout() {
   };
 
   const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    applyCustomBackgroundFile(e.target.files?.[0]);
+    const files = Array.from(e.target.files || []);
+    const firstMedia = files.find(file => file.type.startsWith('image/') || file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|png|jpe?g|webp|gif|avif|bmp)$/i.test(file.name));
+    applyCustomBackgroundFile(firstMedia || files[0]);
+    if (firstMedia) setShowBackgroundImport(false);
     e.target.value = ''; // Allow selecting the same file again.
   };
 
@@ -233,7 +239,10 @@ export function LyricsVideoLayout() {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingBackground(false);
-    applyCustomBackgroundFile(e.dataTransfer.files[0]);
+    const files = Array.from(e.dataTransfer.files);
+    const firstMedia = files.find(file => file.type.startsWith('image/') || file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|png|jpe?g|webp|gif|avif|bmp)$/i.test(file.name));
+    applyCustomBackgroundFile(firstMedia || files[0]);
+    if (firstMedia) setShowBackgroundImport(false);
   };
 
   const fontOptions = ['Outfit', 'Inter', 'Playfair Display', 'Space Grotesk', 'Plus Jakarta Sans', 'Cinzel'];
@@ -881,39 +890,12 @@ export function LyricsVideoLayout() {
 
                 <LyricsVideoFramingControls />
 
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Drop an image or video background, or browse files"
-                  onClick={() => fileInputRef.current?.click()}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
-                  onDragEnter={handleBackgroundDragOver}
-                  onDragOver={handleBackgroundDragOver}
-                  onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setIsDraggingBackground(false); }}
-                  onDrop={handleBackgroundDrop}
-                  className={cn(
-                    'flex min-h-[76px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed p-3 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-                    isDraggingBackground
-                      ? 'border-accent bg-accent/15 text-accent'
-                      : 'border-[#344152] bg-[#101820] text-[#abb8c8] hover:border-accent/70 hover:bg-[#17242b]'
-                  )}
-                >
-                  <Upload size={17} className="text-accent" />
-                  <span className="text-[11px] font-semibold">{isDraggingBackground ? 'Drop to use as background' : 'Drag & drop an image or video here'}</span>
-                  <span className="text-[10px] text-[#8795a6]">or click to browse your files</span>
-                </div>
-                {backgroundUploadError && <p role="alert" className="text-[10px] text-red-400">{backgroundUploadError}</p>}
-
                 {/* 3-Row Horizontal Scrolling Carousel */}
                 <div className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-1.5 overflow-x-auto pb-1.5 no-scrollbar select-none h-[210px]">
                   {/* Upload Custom File Card */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragEnter={handleBackgroundDragOver}
-                    onDragOver={handleBackgroundDragOver}
-                    onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setIsDraggingBackground(false); }}
-                    onDrop={handleBackgroundDrop}
+                    onClick={() => { setBackgroundUploadError(null); setShowBackgroundImport(true); }}
                     className="relative rounded border border-dashed border-[#2b3442] hover:border-accent p-2 flex flex-col items-center justify-center gap-1 text-[#7e8999] hover:text-accent bg-[#0e1115] hover:bg-[#181d26] transition-colors cursor-pointer group shrink-0"
                   >
                     <Upload size={13} className="text-accent" />
@@ -923,7 +905,16 @@ export function LyricsVideoLayout() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*,video/*"
+                    accept="image/*,video/*,.mov,.m4v"
+                    onChange={handleCustomFileUpload}
+                    className="hidden"
+                  />
+                  <input
+                    ref={folderInputRef}
+                    type="file"
+                    multiple
+                    // @ts-ignore Chromium folder picker attribute
+                    webkitdirectory=""
                     onChange={handleCustomFileUpload}
                     className="hidden"
                   />
@@ -1258,6 +1249,37 @@ export function LyricsVideoLayout() {
           </div>
         </div>
       </div>
+      {showBackgroundImport && (
+        <MVDialogPortal title="Import local media" onClose={() => setShowBackgroundImport(false)}>
+          <div className="flex min-w-0 flex-col gap-4 font-mono text-[#d1d5db]">
+            <div className="flex items-center justify-between border-b border-[#232933] pb-3">
+              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#f0f3f6]">
+                <FolderPlus size={15} className="text-accent" /> Import Local Media
+              </h3>
+              <button type="button" onClick={() => setShowBackgroundImport(false)} className="cursor-pointer p-1 text-xs text-[#7e8999] hover:text-white" aria-label="Close import dialog">✕</button>
+            </div>
+            <div
+              onDragEnter={handleBackgroundDragOver}
+              onDragOver={handleBackgroundDragOver}
+              onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setIsDraggingBackground(false); }}
+              onDrop={handleBackgroundDrop}
+              className={cn('flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed bg-[#0a0c0f] p-6 text-center transition-colors', isDraggingBackground ? 'border-accent bg-accent/10' : 'border-[#232933] hover:border-accent/60')}
+            >
+              <FolderPlus size={30} className="text-accent opacity-70" />
+              <div>
+                <p className="text-xs font-semibold text-[#f0f3f6]">Drag & drop files or an entire folder here</p>
+                <p className="mt-1 font-sans text-[10px] text-[#7e8999]">Supports MP4, WebM, MOV, JPG, PNG, WEBP</p>
+                <p className="mt-1 font-sans text-[10px] text-[#7e8999]">The first supported image or video becomes your background.</p>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="cursor-pointer rounded bg-accent px-3.5 py-1.5 text-xs font-semibold text-[#0a0c0f] hover:bg-accent/80">Choose Files</button>
+                <button type="button" onClick={() => folderInputRef.current?.click()} className="cursor-pointer rounded border border-[#232933] bg-[#161b22] px-3.5 py-1.5 text-xs font-semibold text-[#f0f3f6] hover:bg-[#1c222b]">Choose Folder</button>
+              </div>
+            </div>
+            {backgroundUploadError && <p role="alert" className="text-xs text-red-400">{backgroundUploadError}</p>}
+          </div>
+        </MVDialogPortal>
+      )}
     </div>
   );
 }
