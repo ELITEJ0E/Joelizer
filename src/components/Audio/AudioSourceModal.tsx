@@ -5,6 +5,7 @@ import { usePopstateModal } from '../../hooks/usePopstateModal';
 import { X, Upload, Link2, Music, Loader2, FileText, Disc3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { audioManager } from '../../lib/audio';
+import { isSpotifyLink, parseSpotifyTrackUrl } from '../../lib/spotifyLinks';
 
 interface AudioSourceModalProps {
   isOpen: boolean;
@@ -136,6 +137,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
   const [isLoading, setIsLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [spotifyTrack, setSpotifyTrack] = useState<ReturnType<typeof parseSpotifyTrackUrl>>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [songInfo, setSongInfo] = useState<{
     id: string;
@@ -194,6 +196,17 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
     setIsLoading(true);
     setError(null);
     setSongInfo(null);
+    setSpotifyTrack(null);
+
+    // Spotify links are catalog references. The streaming audio is not a
+    // downloadable media file and must never be passed to the audio encoder.
+    if (isSpotifyLink(inputUrl)) {
+      const track = parseSpotifyTrackUrl(inputUrl);
+      if (track) setSpotifyTrack(track);
+      else setError('Paste an individual Spotify track link (not an album or playlist).');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       let data: any = null;
@@ -431,7 +444,7 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
                     />
                     {url && (
                       <button 
-                        onClick={() => { setUrl(''); setSongInfo(null); setError(null); }}
+                      onClick={() => { setUrl(''); setSongInfo(null); setSpotifyTrack(null); setError(null); }}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs cursor-pointer p-0.5"
                       >
                         ✕
@@ -455,6 +468,36 @@ export function AudioSourceModal({ isOpen, onClose, onLyricsExtracted, onAutoTra
               {error && (
                 <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-mono">
                   {error}
+                </div>
+              )}
+
+              {spotifyTrack && (
+                <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
+                  <p className="text-xs font-bold text-white">Spotify track recognized</p>
+                  <iframe
+                    title="Spotify track preview"
+                    src={spotifyTrack.embedUrl}
+                    width="100%"
+                    height="152"
+                    loading="lazy"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    className="rounded-lg border-0"
+                  />
+                  <p className="text-[11px] leading-relaxed text-slate-300">
+                    Spotify does not provide a downloadable full-song audio file from a track link.
+                    The player above is for listening only; Joelizer cannot export, analyze or transcribe that stream.
+                    To edit this song, choose an audio file you own or are authorized to use.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setActiveTab('upload')}
+                      className="rounded-lg px-3 py-2 text-xs font-bold text-black" style={{ backgroundColor: activeColor }}>
+                      Choose Local Audio
+                    </button>
+                    <a href={spotifyTrack.url} target="_blank" rel="noopener noreferrer"
+                      className="rounded-lg border border-white/20 px-3 py-2 text-xs text-slate-200 hover:bg-white/10">
+                      Open in Spotify
+                    </a>
+                  </div>
                 </div>
               )}
 
