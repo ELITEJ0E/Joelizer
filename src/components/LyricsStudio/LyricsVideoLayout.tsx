@@ -181,6 +181,8 @@ export function LyricsVideoLayout() {
   const lyricsLines = useStore(s => s.lyricsSettings?.lines) || [];
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingBackground, setIsDraggingBackground] = useState(false);
+  const [backgroundUploadError, setBackgroundUploadError] = useState<string | null>(null);
 
   // Layout Styles Presets mapped to Mureka layout cards
   const LAYOUT_PRESETS: Array<{ id: LyricTemplateId }> = [
@@ -195,18 +197,43 @@ export function LyricsVideoLayout() {
     { id: 'cd-needle' },
   ];
 
-  const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const applyCustomBackgroundFile = (file?: File) => {
     if (!file) return;
 
+    const isVideo = file.type.startsWith('video/') || (!file.type && /\.(mp4|webm|mov|m4v)$/i.test(file.name));
+    const isImage = file.type.startsWith('image/') || (!file.type && /\.(png|jpe?g|webp|gif|avif|bmp)$/i.test(file.name));
+    if (!isVideo && !isImage) {
+      setBackgroundUploadError('Please drop an image or video file.');
+      return;
+    }
+    setBackgroundUploadError(null);
+
     const url = URL.createObjectURL(file);
-    const isVideo = file.type.startsWith('video/');
 
     if (isVideo) {
       setCustomBackground({ type: 'video', value: url, videoUrl: url, blur: 0, dim: 0, vignette: 0 });
     } else {
       setCustomBackground({ type: 'image', value: url, videoUrl: undefined, blur: 0, dim: 0, vignette: 0 });
     }
+  };
+
+  const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    applyCustomBackgroundFile(e.target.files?.[0]);
+    e.target.value = ''; // Allow selecting the same file again.
+  };
+
+  const handleBackgroundDragOver = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDraggingBackground(true);
+  };
+
+  const handleBackgroundDrop = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingBackground(false);
+    applyCustomBackgroundFile(e.dataTransfer.files[0]);
   };
 
   const fontOptions = ['Outfit', 'Inter', 'Playfair Display', 'Space Grotesk', 'Plus Jakarta Sans', 'Cinzel'];
@@ -854,12 +881,39 @@ export function LyricsVideoLayout() {
 
                 <LyricsVideoFramingControls />
 
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Drop an image or video background, or browse files"
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
+                  onDragEnter={handleBackgroundDragOver}
+                  onDragOver={handleBackgroundDragOver}
+                  onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setIsDraggingBackground(false); }}
+                  onDrop={handleBackgroundDrop}
+                  className={cn(
+                    'flex min-h-[76px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed p-3 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                    isDraggingBackground
+                      ? 'border-accent bg-accent/15 text-accent'
+                      : 'border-[#344152] bg-[#101820] text-[#abb8c8] hover:border-accent/70 hover:bg-[#17242b]'
+                  )}
+                >
+                  <Upload size={17} className="text-accent" />
+                  <span className="text-[11px] font-semibold">{isDraggingBackground ? 'Drop to use as background' : 'Drag & drop an image or video here'}</span>
+                  <span className="text-[10px] text-[#8795a6]">or click to browse your files</span>
+                </div>
+                {backgroundUploadError && <p role="alert" className="text-[10px] text-red-400">{backgroundUploadError}</p>}
+
                 {/* 3-Row Horizontal Scrolling Carousel */}
                 <div className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-1.5 overflow-x-auto pb-1.5 no-scrollbar select-none h-[210px]">
                   {/* Upload Custom File Card */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
+                    onDragEnter={handleBackgroundDragOver}
+                    onDragOver={handleBackgroundDragOver}
+                    onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setIsDraggingBackground(false); }}
+                    onDrop={handleBackgroundDrop}
                     className="relative rounded border border-dashed border-[#2b3442] hover:border-accent p-2 flex flex-col items-center justify-center gap-1 text-[#7e8999] hover:text-accent bg-[#0e1115] hover:bg-[#181d26] transition-colors cursor-pointer group shrink-0"
                   >
                     <Upload size={13} className="text-accent" />
