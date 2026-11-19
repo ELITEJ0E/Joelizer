@@ -68,8 +68,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   // Browser MediaRecorder often drops frames at 1080p/60 on midrange hardware.
   // Prefer reliable 30fps capture unless the user explicitly selects 60fps.
   const [fps, setFps] = useState<30 | 60>(30);
-  const [exportQuality, setExportQuality] = useState<ExportQualityType>('high');
-  const [videoQualityPreset, setVideoQualityPreset] = useState<VideoQualityPreset>('1080-high');
+  const [exportQuality, setExportQuality] = useState<ExportQualityType>('maximum');
+  const [videoQualityPreset, setVideoQualityPreset] = useState<VideoQualityPreset>('1080-max');
   const chooseVideoQuality = (preset: VideoQualityPreset) => {
     const settings = EXPORT_VIDEO_PRESETS[preset];
     if (!settings) return;
@@ -281,6 +281,9 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         setEngineChoice('offline');
       }
       const renderer = await getBestAvailableRenderer(targetEngine);
+      if (exportQuality === 'maximum' && renderer.type === 'browser') {
+        throw new Error('Maximum Detail requires Frame-accurate Browser MP4 (WebCodecs) or Server Remotion. Real-time browser recording cannot guarantee frame accuracy or preserved resolution. Select a supported renderer, or choose High quality for a browser recording.');
+      }
       setActiveRendererName(renderer.name);
       setStageMessage(renderer.type === 'server'
         ? 'Uploading assets to the background-safe Remotion engine...'
@@ -386,7 +389,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setIsAudioBouncing(true);
       setAudioBounceNotice('Rendering pristine multitrack mixdown to WAV...');
       const dawTracks = useDAWStore.getState().tracks;
-      const wavBlob = await dawAudioEngine.bounceProjectToWav(dawTracks, effectiveAudioDuration);
+      const wavBlob = await dawAudioEngine.bounceProjectToWav(dawTracks, effectiveAudioDuration, 48000, undefined, 24);
       const cleanName = (projectName || 'Joelizer_Master').replace(/[^a-zA-Z0-9_-]/g, '_');
       downloadFile(wavBlob, `${cleanName}_Master.wav`, 'audio/wav');
       setAudioBounceNotice('Master WAV downloaded successfully!');
@@ -686,7 +689,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       className="h-10 w-full appearance-auto rounded-lg border border-white/15 bg-[#171c23] px-3 pr-2 text-xs text-white outline-none focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-400/30 disabled:opacity-50">
                       <option value="720-balanced">720p · Standard</option>
                       <option value="1080-high">1080p · High (recommended)</option>
-                      <option value="1080-max">1080p · Maximum detail</option>
+                      <option value="1080-max">1080p · Maximum detail (default)</option>
                       <option value="1440-max" disabled={serverAvailable !== true}>1440p · Maximum (server)</option>
                       <option value="2160-max" disabled={serverAvailable !== true}>4K · Maximum (server)</option>
                     </select>
@@ -715,7 +718,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-400">
-                    Video quality combines resolution (video dimensions) and encoding detail (compression).
+                    Maximum detail keeps the requested resolution or fails instead of silently downsizing. MP4 uses high-quality lossy H.264/AAC encoding; it is not mathematically lossless.
                     {resolution === '2160p' || resolution === '1440p'
                       ? ' High-resolution exports require the persistent render server. Enlarging source footage does not restore missing detail.'
                       : ' High and Maximum preserve more source detail; 60 FPS is best with 60 FPS source footage.'}

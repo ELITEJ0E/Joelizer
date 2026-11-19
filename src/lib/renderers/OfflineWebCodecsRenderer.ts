@@ -73,7 +73,10 @@ async function findVideoConfig(project: { width: number; height: number; fps: nu
  */
 async function resolveSupportedOutput(project: CanonicalProjectJson) {
   const allResolutions = ['2160p', '1440p', '1080p', '720p', '360p'] as const;
-  const choices = allResolutions.slice(allResolutions.indexOf(project.resolution));
+  // Maximum detail is an explicit resolution guarantee: never downscale without consent.
+  const choices = project.exportQuality === 'maximum'
+    ? [project.resolution]
+    : allResolutions.slice(allResolutions.indexOf(project.resolution));
   for (const resolution of choices) {
     const dimensions = resolution === project.resolution
       ? { width: project.width, height: project.height }
@@ -155,7 +158,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     if (!Video) throw new Error('VideoEncoder is unavailable. Use Chrome or Edge.');
     const selected = await resolveSupportedOutput(project);
     if (!selected) {
-      throw new Error(`This browser cannot encode H.264 MP4 at ${project.width}×${project.height} ${project.fps} FPS or a smaller supported size. Update Chrome/Edge, enable hardware acceleration, or use a connected render server. No video has been exported.`);
+      throw new Error(`This browser cannot encode H.264 MP4 at ${project.width}×${project.height} ${project.fps} FPS${project.exportQuality === 'maximum' ? ' without reducing resolution' : ' or a smaller supported size'}. Try a lower frame rate, update Chrome/Edge, enable hardware acceleration, or use a connected render server. No video has been exported.`);
     }
     // Never advertise an unsupported resolution. Encode and report exactly
     // the dimensions the browser accepted.

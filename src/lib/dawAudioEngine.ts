@@ -510,7 +510,8 @@ export class DAWAudioEngine {
     tracks: DAWTrack[], 
     duration: number,
     sampleRate = 44100,
-    masterVolume = this.masterVolume
+    masterVolume = this.masterVolume,
+    bitDepth: 16 | 24 = 16
   ): Promise<Blob> {
     if (!Number.isFinite(duration) || duration <= 0) throw new Error('Mix duration must be positive.');
     const offlineCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
@@ -567,16 +568,17 @@ export class DAWAudioEngine {
     }
 
     const renderedBuffer = await offlineCtx.startRendering();
-    return this.audioBufferToWavBlob(renderedBuffer);
+    return this.audioBufferToWavBlob(renderedBuffer, bitDepth);
   }
 
-  // Convert AudioBuffer to standard 16-bit PCM WAV Blob
-  private audioBufferToWavBlob(buffer: AudioBuffer): Blob {
+  // Export uncompressed PCM WAV, with an optional higher-precision 24-bit master.
+  private audioBufferToWavBlob(buffer: AudioBuffer, bitDepth: 16 | 24 = 16): Blob {
     const numOfChan = buffer.numberOfChannels;
-    const length = buffer.length * numOfChan * 2 + 44;
+    const bytesPerSample = bitDepth / 8;
+    const length = buffer.length * numOfChan * bytesPerSample + 44;
     const out = new DataView(new ArrayBuffer(length));
     const channels: Float32Array[] = [];
-    let sampleRate = buffer.sampleRate;
+    const sampleRate = buffer.sampleRate;
     let offset = 0;
     let pos = 0;
 
@@ -600,9 +602,9 @@ export class DAWAudioEngine {
     setUint16(1);          // PCM (uncompressed)
     setUint16(numOfChan);
     setUint32(sampleRate);
-    setUint32(sampleRate * 2 * numOfChan); // avg. bytes/sec
-    setUint16(numOfChan * 2);              // block-align
-    setUint16(16);                         // 16-bit precision
+    setUint32(sampleRate * bytesPerSample * numOfChan); // avg. bytes/sec
+    setUint16(numOfChan * bytesPerSample);              // block-align
+    setUint16(bitDepth);
 
     setUint32(0x61746164); // "data" - chunk
     setUint32(length - pos - 4); // chunk length
@@ -614,9 +616,16 @@ export class DAWAudioEngine {
     while (pos < length) {
       for (let i = 0; i < numOfChan; i++) {
         let sample = Math.max(-1, Math.min(1, channels[i][offset]));
-        sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
-        out.setInt16(pos, sample, true);
-        pos += 2;
+        if (bitDepth === 24) {
+          const pcm = Math.round(sample < 0 ? sample * 8388608 : sample * 8388607);
+          out.setUint8(pos++, pcm & 0xff);
+          out.setUint8(pos++, (pcm >> 8) & 0xff);
+          out.setUint8(pos++, (pcm >> 16) & 0xff);
+        } else {
+          const pcm = Math.round(sample < 0 ? sample * 32768 : sample * 32767);
+          out.setInt16(pos, pcm, true);
+          pos += 2;
+        }
       }
       offset++;
     }

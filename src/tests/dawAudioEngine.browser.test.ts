@@ -67,6 +67,11 @@ try {
       for (let i = 0; i < values.length; i++) values[i] = pcm.getInt16(44 + i * 4, true) / 32768;
       return values;
     }
+    const master24 = new DataView(await (await engine.bounceProjectToWav([], duration, 48000, 1, 24)).arrayBuffer());
+    if (master24.getUint16(34, true) !== 24 || master24.getUint32(24, true) !== 48000 ||
+        master24.getUint16(32, true) !== 6 || master24.getUint32(40, true) !== Math.ceil(duration * 48000) * 6) {
+      throw new Error('24-bit / 48 kHz stereo WAV master header is invalid');
+    }
     function rms(values: Float32Array, start = 0.1, end = 0.4) {
       let total = 0; const a = Math.round(start * rate), b = Math.round(end * rate);
       for (let i = a; i < b; i++) total += values[i] ** 2;
