@@ -206,7 +206,6 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   // same uploaded video must never seek the same underlying video element.
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const lastActiveVideoClipRef = useRef<string | null>(null);
-  const outgoingFrameRef = useRef<{ clipId: string; canvas: HTMLCanvasElement } | null>(null);
   const pausedClipTimelineRef = useRef<Map<string, number>>(new Map());
   const lastVideoCachePruneRef = useRef(-Infinity);
   const imageElementsRef = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -362,9 +361,18 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         const activeIndex = activeClip ? orderedVideoClips.findIndex(c => c.id === activeClip.id) : -1;
         const nextClip = activeIndex >= 0 ? orderedVideoClips[activeIndex + 1] : undefined;
         const nextAsset = nextClip ? assets.find(a => a.id === nextClip.assetId) : undefined;
+        const incomingTransition = nextClip ? getEffectiveMVTransition(
+          nextClip, mvState.autoTransitions, mvState.defaultTransition, mvState.transitionDuration
+        ) : null;
+        const transitionLead = nextClip && incomingTransition?.type !== 'cut' &&
+          Math.abs(activeClip!.endTime - nextClip.startTime) < 0.05
+          ? Math.min(incomingTransition!.duration, (activeClip!.endTime - activeClip!.startTime) / 2,
+            (nextClip.endTime - nextClip.startTime) / 2) : 0;
+        const blendingIncoming = !!(nextClip && transitionLead > 0 &&
+          curTime >= nextClip.startTime - transitionLead && curTime < nextClip.startTime);
         // Look ahead to the upcoming cut. Load/seek the next frame before it
         // becomes active; no overlap or duplicated playback is necessary.
-        const prewarmNext = playing && nextClip && nextAsset?.type === 'video' &&
+        const prewarmNext = playing && !blendingIncoming && nextClip && nextAsset?.type === 'video' &&
           !!nextAsset.url && nextClip.startTime >= curTime &&
           nextClip.startTime - curTime <= 3;
         if (prewarmNext) {
@@ -393,7 +401,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           }
         }
         for (const [clipId, video] of videoElementsRef.current) {
-          if (clipId !== activeClip?.id && !video.paused) {
+          if (clipId !== activeClip?.id && !(blendingIncoming && clipId === nextClip?.id) && !video.paused) {
             video.pause();
             video.playbackRate = 1;
           }
@@ -501,7 +509,16 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             if (asset.type === 'video') {
               const videoEl = ensureClipVideo(activeClip.id, asset.url);
 
-              const targetVideoTime = activeClip.trimStart + (curTime - activeClip.startTime);
+              const previousClip = activeIndex > 0 ? orderedVideoClips[activeIndex - 1] : undefined;
+              const activeTransition = getEffectiveMVTransition(activeClip,
+                mvState.autoTransitions, mvState.defaultTransition, mvState.transitionDuration);
+              const activeLead = previousClip && activeTransition.type !== 'cut' &&
+                Math.abs(previousClip.endTime - activeClip.startTime) < 0.05
+                ? Math.min(activeTransition.duration, (previousClip.endTime - previousClip.startTime) / 2,
+                  (activeClip.endTime - activeClip.startTime) / 2) : 0;
+              // The incoming source started during the outgoing clip's final
+              // frames; keep advancing it instead of rewinding at the cut.
+              const targetVideoTime = activeClip.trimStart + activeLead + (curTime - activeClip.startTime);
               const clipChanged = lastActiveVideoClipRef.current !== activeClip.id;
               // A pending seek can overlap a cut. Keep clipChanged pending
               // until the decoder accepts its new trim offset.
@@ -636,83 +653,45 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           ctx.fillText('NO ACTIVE TIMELINE CLIP', W / 2, H / 2);
         }
 
-        // Blend the last outgoing frame over the incoming clip. The same canvas
-        // powers the live preview and browser-recorded exports. Effects never
-        // require playing two decoders simultaneously.
-        if (activeVideoMode === 'music-video' && activeClip) {
-          const ordered = [...clips].sort((a, b) => a.startTime - b.startTime);
-          const index = ordered.findIndex(c => c.id === activeClip.id);
-          const previous = index > 0 ? ordered[index - 1] : null;
-          const resolved = getEffectiveMVTransition(
-            activeClip, mvState.autoTransitions, mvState.defaultTransition, mvState.transitionDuration
-          );
-          const effect = resolved.type;
-          const seconds = Math.min(resolved.duration,
-            activeClip.endTime - activeClip.startTime,
-            previous ? previous.endTime - previous.startTime : resolved.duration);
-          const eligible = previous && Math.abs(previous.endTime - activeClip.startTime) < 0.05
-            && effect !== 'cut' && seconds > 0;
-          const progress = eligible ? Math.max(0, Math.min(1, (curTime - activeClip.startTime) / seconds)) : 1;
+        // Start the incoming clip during the outgoing clip's *moving* final
+        // frames. A cached outgoing still caused the visible pause at each cut.
+        if (activeVideoMode === 'music-video' && blendingIncoming && nextClip && nextAsset) {
+          const progress = Math.max(0, Math.min(1,
+            (curTime - (nextClip.startTime - transitionLead)) / transitionLead));
           const eased = progress * progress * (3 - 2 * progress);
-          if (eligible && progress < 1) {
-            ctx.save();
-            if (effect === 'fade') {
-              ctx.fillStyle = `rgba(5,5,8,${1 - eased})`;
-              ctx.fillRect(0, 0, W, H);
-            } else {
-              const cached = outgoingFrameRef.current?.clipId === previous.id
-                ? outgoingFrameRef.current.canvas : null;
-              const previousAsset = assets.find(a => a.id === previous.assetId);
-              // On direct timeline seeks, the outgoing-frame cache may not
-              // exist. Fall back to the previously loaded image/thumbnail,
-              // instead of a black flash that looks like an abrupt hard cut.
-              const fallbackUrl = previousAsset?.type === 'image'
-                ? previousAsset.url : previousAsset?.thumbnail;
-              let fallback = fallbackUrl ? imageElementsRef.current.get(fallbackUrl) : undefined;
-              if (!cached && fallbackUrl && !fallback) {
-                fallback = new Image();
-                fallback.crossOrigin = 'anonymous';
-                fallback.src = fallbackUrl;
-                imageElementsRef.current.set(fallbackUrl, fallback);
-              }
-              const availableFallback = fallback?.complete && fallback.naturalWidth > 0
-                ? fallback : null;
-              if (cached || availableFallback) {
-                ctx.globalAlpha = 1 - eased;
-                if (effect === 'morph') {
-                  // Soft morph-like dissolve: opacity, subtle scale and
-                  // mid-transition blur, avoiding an abrupt frame snap.
-                  ctx.filter = `blur(${Math.sin(progress * Math.PI) * Math.min(W, H) * 0.004}px)`;
-                }
-                if (effect === 'slide') {
-                  ctx.translate(-W * eased, 0);
-                } else if (effect === 'zoom' || effect === 'morph') {
-                  const scale = 1 - (effect === 'morph' ? 0.08 : 0.2) * eased;
-                  ctx.translate(W / 2, H / 2);
-                  ctx.scale(scale, scale);
-                  ctx.translate(-W / 2, -H / 2);
-                }
-                if (cached) ctx.drawImage(cached, 0, 0, W, H);
-                else if (availableFallback) drawFramedMedia(ctx, availableFallback, W, H,
-                  availableFallback.naturalWidth, availableFallback.naturalHeight, previous);
-              } else {
-                // Only when neither decoded footage nor a thumbnail is
-                // available do we use the neutral fade fallback.
-                ctx.fillStyle = `rgba(5,5,8,${1 - eased})`;
-                ctx.fillRect(0, 0, W, H);
-              }
+          let incoming: HTMLVideoElement | HTMLImageElement | null = null;
+          if (nextAsset.type === 'video' && nextAsset.url) {
+            const video = ensureClipVideo(nextClip.id, nextAsset.url);
+            const desired = nextClip.trimStart + progress * transitionLead;
+            if (!video.seeking && Math.abs(video.currentTime - desired) > 0.18) {
+              try { video.currentTime = desired; } catch (_) {}
             }
-            ctx.restore();
+            if (playing && video.paused) video.play().catch(() => {});
+            if (!playing && !video.paused) video.pause();
+            if (video.readyState >= 2) incoming = video;
+          } else if (nextAsset.type === 'image' && nextAsset.url) {
+            let img = imageElementsRef.current.get(nextAsset.url);
+            if (!img) {
+              img = new Image(); img.crossOrigin = 'anonymous'; img.src = nextAsset.url;
+              imageElementsRef.current.set(nextAsset.url, img);
+            }
+            if (img.complete && img.naturalWidth > 0) incoming = img;
           }
-          // Capture the last displayed frame shortly before its outgoing cut.
-          // Reuse the same buffer while the clip stays active; do not allocate
-          // a canvas for every animation frame.
-          if (activeClip.endTime - curTime <= Math.max(0.6, mvState.transitionDuration) && activeClip.endTime > curTime) {
-            let frame = outgoingFrameRef.current?.clipId === activeClip.id
-              ? outgoingFrameRef.current.canvas : document.createElement('canvas');
-            if (frame.width !== W || frame.height !== H) { frame.width = W; frame.height = H; }
-            frame.getContext('2d')?.drawImage(canvas, 0, 0, W, H);
-            outgoingFrameRef.current = { clipId: activeClip.id, canvas: frame };
+          if (incoming) {
+            ctx.save();
+            ctx.globalAlpha = eased;
+            if (incomingTransition?.type === 'morph') {
+              ctx.filter = `blur(${Math.sin(progress * Math.PI) * Math.min(W, H) * 0.004}px)`;
+            }
+            if (incomingTransition?.type === 'slide') ctx.translate(W * (1 - eased), 0);
+            if (incomingTransition?.type === 'zoom' || incomingTransition?.type === 'morph') {
+              const scale = 1.2 - 0.2 * eased;
+              ctx.translate(W / 2, H / 2); ctx.scale(scale, scale); ctx.translate(-W / 2, -H / 2);
+            }
+            drawFramedMedia(ctx, incoming, W, H,
+              incoming instanceof HTMLVideoElement ? incoming.videoWidth : incoming.naturalWidth,
+              incoming instanceof HTMLVideoElement ? incoming.videoHeight : incoming.naturalHeight, nextClip);
+            ctx.restore();
           }
         }
 

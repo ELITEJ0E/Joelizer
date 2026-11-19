@@ -7,8 +7,7 @@ import {
   Audio, 
   Img, 
   Video,
-  Sequence,
-  Freeze
+  Sequence
 } from 'remotion';
 import { CanonicalProjectJson, CanonicalLyricLine, CanonicalVideoClip } from '../types/projectJson';
 import { getDefaultPositions } from '../lib/lyricsLayout';
@@ -43,29 +42,30 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   // Find active video clip for timeline mode
   const activeClip = videoClips?.find(c => currentTime >= c.startTime && currentTime < c.endTime);
 
-  // Keep the outgoing frame visible during the incoming clip's transition.
-  // Freeze preserves its last frame even when its source has no extra handles.
+  // Blend the incoming clip into the outgoing clip's last moving frames,
+  // completing the transition at the cut rather than freezing footage after it.
   const orderedClips = [...(videoClips || [])].sort((a, b) => a.startTime - b.startTime);
   const activeIndex = activeClip ? orderedClips.findIndex(c => c.id === activeClip.id) : -1;
-  const outgoingClip = activeIndex > 0 ? orderedClips[activeIndex - 1] : undefined;
-  const transitionType = activeClip?.transition || 'cut';
-  const transitionLength = Math.min(activeClip?.transitionDuration ?? 0.5,
-    activeClip?.duration ?? 0, outgoingClip?.duration ?? Infinity);
-  const transitionProgress = activeClip && outgoingClip &&
-    Math.abs(outgoingClip.endTime - activeClip.startTime) < 0.05 &&
-    transitionType !== 'cut' && transitionLength > 0 &&
-    currentTime < activeClip.startTime + transitionLength
-    ? Math.max(0, Math.min(1, (currentTime - activeClip.startTime) / transitionLength))
-    : 1;
-  const transitionActive = transitionProgress < 1 && outgoingClip &&
-    (outgoingClip.type === 'video' || outgoingClip.type === 'image');
+  const previousClip = activeIndex > 0 ? orderedClips[activeIndex - 1] : undefined;
+  const incomingClip = activeIndex >= 0 ? orderedClips[activeIndex + 1] : undefined;
+  const clipLead = (incoming: CanonicalVideoClip | undefined, outgoing: CanonicalVideoClip | undefined) =>
+    incoming && outgoing && incoming.transition !== 'cut' &&
+    Math.abs(outgoing.endTime - incoming.startTime) < 0.05
+      ? Math.min(incoming.transitionDuration ?? 0.5, incoming.duration / 2, outgoing.duration / 2) : 0;
+  const activeLead = clipLead(activeClip, previousClip);
+  const transitionLength = clipLead(incomingClip, activeClip);
+  const transitionType = incomingClip?.transition || 'cut';
+  const transitionActive = !!(incomingClip && transitionLength > 0 &&
+    currentTime >= incomingClip.startTime - transitionLength && currentTime < incomingClip.startTime);
+  const transitionProgress = transitionActive
+    ? Math.max(0, Math.min(1, (currentTime - (incomingClip!.startTime - transitionLength)) / transitionLength)) : 1;
   const transitionEase = transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
-  const outgoingStyle: React.CSSProperties = {
+  const incomingStyle: React.CSSProperties = {
     position: 'absolute', inset: 0,
-    opacity: 1 - transitionEase,
-    transform: transitionType === 'slide' ? `translateX(${-100 * transitionEase}%)` :
+    opacity: transitionEase,
+    transform: transitionType === 'slide' ? `translateX(${100 * (1 - transitionEase)}%)` :
       transitionType === 'zoom' || transitionType === 'morph'
-        ? `scale(${1 - (transitionType === 'morph' ? 0.08 : 0.2) * transitionEase})` : undefined,
+        ? `scale(${1.2 - 0.2 * transitionEase})` : undefined,
     filter: transitionType === 'glitch' ? `hue-rotate(${transitionEase * 45}deg)` :
       transitionType === 'morph' ? `blur(${Math.sin(transitionProgress * Math.PI) * Math.min(width, height) * 0.004}px)` : undefined,
     pointerEvents: 'none'
@@ -111,16 +111,12 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       {/* 1. BACKGROUND LAYER */}
       {mode === 'music-video' && isMediaClip ? (
         <>
-          <BackgroundClipLayer clip={activeClip} currentTime={currentTime} exportStart={projectJson.exportRange?.start || 0} width={width} height={height} />
-          {transitionActive && outgoingClip && (
-            transitionType === 'fade'
-              ? <AbsoluteFill style={{ ...outgoingStyle, backgroundColor: '#050508' }} />
-              : <div style={outgoingStyle}>
-                  <Freeze frame={Math.max(0, Math.round((outgoingClip.endTime - (projectJson.exportRange?.start || 0)) * fps) - 1)}>
-                    <BackgroundClipLayer clip={outgoingClip} currentTime={outgoingClip.endTime - 1 / fps}
-                      exportStart={projectJson.exportRange?.start || 0} width={width} height={height} />
-                  </Freeze>
-                </div>
+          <BackgroundClipLayer clip={activeClip} currentTime={currentTime} exportStart={projectJson.exportRange?.start || 0} width={width} height={height} startShift={activeLead} />
+          {transitionActive && incomingClip && (incomingClip.type === 'video' || incomingClip.type === 'image') && (
+            <div style={incomingStyle}>
+              <BackgroundClipLayer clip={incomingClip} currentTime={currentTime}
+                exportStart={projectJson.exportRange?.start || 0} width={width} height={height} startShift={transitionLength} />
+            </div>
           )}
         </>
       ) : (
@@ -252,9 +248,9 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
 }
 
 /* Background Clip Layer for Music Video Mode */
-function BackgroundClipLayer({ clip, currentTime, exportStart, width, height }: { clip: CanonicalVideoClip; currentTime: number; exportStart: number; width: number; height: number }) {
+function BackgroundClipLayer({ clip, currentTime, exportStart, width, height, startShift = 0 }: { clip: CanonicalVideoClip; currentTime: number; exportStart: number; width: number; height: number; startShift?: number }) {
   const { fps } = useVideoConfig();
-  const clipProgress = (currentTime - clip.startTime) / clip.duration;
+  const clipProgress = (currentTime - clip.startTime + startShift) / clip.duration;
   
   let transform = 'scale(1)';
   if (clip.effect === 'ken-burns-in') {
@@ -284,13 +280,13 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height }: 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       {clip.type === 'video' ? (
-        <Sequence from={Math.round((clip.startTime - exportStart) * fps)} layout="none">
+        <Sequence from={Math.round((clip.startTime - startShift - exportStart) * fps)} layout="none">
           <Video
             src={clip.url}
             muted
             style={mediaStyle}
             startFrom={Math.round(clip.trimStart * fps)}
-            endAt={Math.round((clip.trimStart + clip.duration) * fps)}
+            endAt={Math.round((clip.trimStart + clip.duration + startShift) * fps)}
           />
         </Sequence>
       ) : (
