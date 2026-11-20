@@ -77,8 +77,9 @@ export interface CanonicalArtworkConfig {
 }
 
 export interface CanonicalVisualizerConfig {
-  style: 'bars' | 'waveform' | 'radial' | 'particles' | 'kaleidoscope' | 'orb';
+  style: 'bars' | 'joelify-bars' | 'joelify-beat' | 'joelify-bottom' | 'spectrum-eq' | 'waveform' | 'radial' | 'particles' | 'kaleidoscope' | 'orb';
   color: string;
+  colorMode?: 'fixed' | 'rainbow';
   sensitivity: number;
   smoothing: number;
   segments: number;
