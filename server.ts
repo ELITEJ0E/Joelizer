@@ -27,13 +27,15 @@ if (!fs.existsSync(STAGED_DIR)) {
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
-  const allowedOrigins = (process.env.RENDER_ALLOWED_ORIGINS || '')
-    .split(',').map(origin => origin.trim()).filter(Boolean);
-  // Explicit opt-in only: a cross-origin render server must be configured
-  // to accept uploads from a known Joelizer frontend origin.
+  // Allow Joelizer's production frontend out of the box. Additional trusted
+  // frontend origins (e.g. custom domains) can be configured on the server.
+  const allowedOrigins = new Set([
+    'https://joelizer.vercel.app',
+    ...(process.env.RENDER_ALLOWED_ORIGINS || '').split(',')
+  ].map(origin => origin.trim().replace(/\/$/, '')).filter(Boolean));
   app.use('/api', (req, res, next) => {
     const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
+    if (origin && allowedOrigins.has(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -41,7 +43,7 @@ async function startServer() {
       res.setHeader('Access-Control-Max-Age', '86400');
     }
     if (req.method === 'OPTIONS') {
-      return res.status(origin && allowedOrigins.includes(origin) ? 204 : 403).end();
+      return res.status(origin && allowedOrigins.has(origin) ? 204 : 403).end();
     }
     next();
   });
