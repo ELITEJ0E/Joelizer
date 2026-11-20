@@ -7,10 +7,21 @@ export class OfflineAudioAnalysis {
   private samples: Float32Array | null = null;
   private sampleRate = 48000;
   private readonly fftSize = 2048;
+  private smoothing = 0.65;
+  private previousSpectrum: Float32Array | null = null;
+  private previousTime = Number.NaN;
+
+  setSmoothing(value: number) {
+    this.smoothing = Math.max(0, Math.min(0.99, Number.isFinite(value) ? value : 0.65));
+    this.previousSpectrum = null;
+    this.previousTime = Number.NaN;
+  }
 
   setBuffer(buffer: AudioBuffer | null) {
     this.samples = buffer ? buffer.getChannelData(0) : null;
     this.sampleRate = buffer?.sampleRate || 48000;
+    this.previousSpectrum = null;
+    this.previousTime = Number.NaN;
   }
 
   atTime(localSeconds: number): { frequency: Uint8Array; waveform: Uint8Array } {
@@ -23,7 +34,9 @@ export class OfflineAudioAnalysis {
     const real = new Float32Array(n);
     const imag = new Float32Array(n);
     for (let k = 0; k < wave.length; k++) {
-      const value = samples[center - Math.floor(wave.length / 2) + k] || 0;
+      // Cover the same ~2048-sample window as the frequency analysis. A 1024
+      // sample RMS window was pumping at twice the rate of the preview.
+      const value = samples[center - Math.floor(n / 2) + k * 2] || 0;
       wave[k] = Math.max(0, Math.min(255, Math.round(128 + value * 127)));
     }
     for (let i = 0; i < n; i++) {
@@ -64,6 +77,22 @@ export class OfflineAudioAnalysis {
       spectrum[i] = Math.max(0, Math.min(255,
         Math.round(255 * Math.log1p(amplitude * 4) / Math.log(5))));
     }
+    // Browser AnalyserNode smooths between successive FFT windows, whereas
+    // the old offline pipeline used an entirely fresh unsmoothed FFT per MP4
+    // frame. That made exported rainbow bars strobe even if preview was fluid.
+    // Time-normalizing this EMA keeps 30/60fps exports visually equivalent.
+    const previous = this.previousSpectrum;
+    const dt = localSeconds - this.previousTime;
+    const sequential = previous && Number.isFinite(dt) && dt > 0 && dt <= 0.20;
+    const retention = sequential ? Math.pow(this.smoothing, dt * 60) : 0;
+    const smoothed = new Float32Array(spectrum.length);
+    for (let i = 0; i < spectrum.length; i++) {
+      const value = sequential ? previous![i] * retention + spectrum[i] * (1 - retention) : spectrum[i];
+      smoothed[i] = value;
+      spectrum[i] = Math.round(value);
+    }
+    this.previousSpectrum = smoothed;
+    this.previousTime = localSeconds;
     return { frequency: spectrum, waveform: wave };
   }
 }
