@@ -168,6 +168,18 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
     assert(false, '4. Converts video timeline clips into canonical representation', e.message);
   }
 
+  // 4b. Soundtrack speed stays independent of each video clip's playback speed.
+  try {
+    useMVStore.getState().setSoundtrackSpeed(1.5);
+    const json = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'music-video' });
+    assert(json.audio.speed === 1.5 && json.videoClips[0].speed === 2,
+      '4b. Exports independent soundtrack and video clip playback rates');
+  } catch (e: any) {
+    assert(false, '4b. Exports independent audio and video rates', e.message);
+  } finally {
+    useMVStore.getState().setSoundtrackSpeed(1);
+  }
+
   // 5. Multiple clips ordering
   try {
     useMVStore.setState({

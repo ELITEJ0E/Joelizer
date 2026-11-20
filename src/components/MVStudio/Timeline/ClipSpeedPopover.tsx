@@ -10,10 +10,12 @@ interface Props {
   onChange: (speed: number) => string | undefined;
   onCommit: () => void;
   onClose: () => void;
+  label?: string;
+  hint?: string;
 }
 
 /** No extra inspector pane: the speed editor appears directly beside a clip. */
-export function ClipSpeedPopover({ clip, x, y, onChange, onCommit, onClose }: Props) {
+export function ClipSpeedPopover({ clip, x, y, onChange, onCommit, onClose, label = 'CLIP SPEED', hint = 'Slower clips make room automatically. Locked clips stay in place.' }: Props) {
   const speed = getClipSpeed(clip);
   const [draft, setDraft] = useState(String(speed));
   const [error, setError] = useState('');
@@ -47,7 +49,7 @@ export function ClipSpeedPopover({ clip, x, y, onChange, onCommit, onClose }: Pr
         onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
       >
         <div className="flex items-center justify-between pb-3">
-          <div className="flex items-center gap-2 text-xs font-bold"><Gauge size={15} className="text-emerald-400" /> CLIP SPEED</div>
+          <div className="flex items-center gap-2 text-xs font-bold"><Gauge size={15} className="text-emerald-400" /> {label}</div>
           <button type="button" onClick={onClose} aria-label="Close speed control" className="text-slate-400 hover:text-white"><X size={15} /></button>
         </div>
         <div className="flex gap-2 items-center">
@@ -86,7 +88,7 @@ export function ClipSpeedPopover({ clip, x, y, onChange, onCommit, onClose }: Pr
           <button type="button" disabled={clip.locked} onClick={() => { apply(1); onCommit(); }}
             title="Reset to normal speed" className="flex gap-1 items-center hover:text-emerald-300 disabled:opacity-40"><RotateCcw size={12} /> Reset</button>
         </div>
-        <p className="mt-2 text-[9px] leading-4 text-slate-500">Slower clips make room automatically. Locked clips stay in place.</p>
+        <p className="mt-2 text-[9px] leading-4 text-slate-500">{hint}</p>
         {error && <p role="alert" className="mt-2 text-[10px] text-rose-400">{error}</p>}
       </section>
     </>

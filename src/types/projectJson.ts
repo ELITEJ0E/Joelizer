@@ -21,6 +21,7 @@ export interface CanonicalLyricLine {
 
 export interface CanonicalAudioTrack {
   url: string | null;
+  speed?: number; // Master soundtrack speed in MV Studio (1 = normal)
   audioDataUri?: string | null; // For local user audio files embedded safely
   title: string;
   artist: string;

@@ -121,10 +121,11 @@ async function decodeSoundtrack(project: CanonicalProjectJson, signal?: AbortSig
     const offline = new OfflineAudioContext(2, frames, SAMPLE_RATE);
     const source = offline.createBufferSource();
     source.buffer = decoded;
+    const soundtrackSpeed = Math.max(0.1, Math.min(8, project.audio.speed ?? 1));
+    source.playbackRate.value = soundtrackSpeed;
     source.connect(offline.destination);
-    if (project.exportRange.start < decoded.duration) {
-      source.start(0, project.exportRange.start,
-        Math.min(project.exportRange.duration, decoded.duration - project.exportRange.start));
+    if (project.exportRange.start * soundtrackSpeed < decoded.duration) {
+      source.start(0, project.exportRange.start * soundtrackSpeed);
     }
     const rendered = await offline.startRendering();
     if (signal?.aborted) throw new Error('Export cancelled by user.');

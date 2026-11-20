@@ -48,5 +48,10 @@ assert.equal(split[1].speed, 2, 'both halves keep the chosen speed');
 mv.updateTimelineClip(split[1].id, { endTime: 2.5 });
 assert.equal(useMVStore.getState().timelineClips[1].trimEnd, 15,
   'trimming one timeline second at 2× consumes two source seconds');
+mv.setSoundtrackSpeed(0.5);
+assert.equal(useMVStore.getState().soundtrackSpeed, 0.5, 'the MV soundtrack has an independent speed control');
+mv.setSoundtrackSpeed(20);
+assert.equal(useMVStore.getState().soundtrackSpeed, 8, 'soundtrack speed is safely bounded');
+mv.setSoundtrackSpeed(1);
 
 console.log('clip speed/retiming tests passed');

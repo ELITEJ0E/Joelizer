@@ -304,7 +304,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         // Use a monotonic export clock when audio is missing, ends early or stalls.
         const exportTime = getBrowserExportTime();
         const playing = storeState.isPlaying || exportTime !== null;
-        const curTime = exportTime ?? (playing ? audioManager.getPreciseCurrentTime() : storeState.currentTime);
+        const curTime = exportTime ?? (playing ? audioManager.getPreciseCurrentTime() /
+          (storeState.activeTab === 'mv-studio' ? mvState.soundtrackSpeed : 1) : storeState.currentTime);
         const resOverride = storeState.exportResolutionOverride;
 
         // 1. Calculate Target Canvas Resolution
