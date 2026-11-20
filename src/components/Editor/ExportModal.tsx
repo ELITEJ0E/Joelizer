@@ -77,7 +77,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     setVideoQualityPreset(preset);
     setResolution(settings.resolution);
     setExportQuality(settings.quality);
-    if (settings.resolution === '1440p' || settings.resolution === '2160p') chooseEngine('server');
+    if (settings.resolution === '1440p' || settings.resolution === '2160p') {
+      chooseEngine('server');
+    } else if (engineChoice === 'server') {
+      // Leaving a server-only preset must not keep uploading local files to
+      // Render when the user has switched back to 720p or 1080p.
+      manuallySelectedEngine.current = false;
+      setEngineChoice('browser');
+    }
   };
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
   useEffect(() => {
@@ -93,7 +100,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
     new ServerRemotionRenderer().isAvailable().then(server => {
       if (!alive) return;
       setServerAvailable(server);
-      if (server && !manuallySelectedEngine.current) setEngineChoice('server');
+      // Server health is used only to enable 1440p/4K presets. Never silently
+      // override a 1080p browser export just because Render is online.
     }).catch(() => { if (alive) setServerAvailable(false); });
     return () => { alive = false; };
   }, []);
