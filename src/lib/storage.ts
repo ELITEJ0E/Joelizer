@@ -1,7 +1,8 @@
 const DB_NAME = 'JoelizerAudioDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'audio_data';
 const MV_ASSETS_STORE = 'mv_assets';
+const LYRICS_BACKGROUND_STORE = 'lyrics_background';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -18,10 +19,52 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(MV_ASSETS_STORE)) {
         db.createObjectStore(MV_ASSETS_STORE, { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains(LYRICS_BACKGROUND_STORE)) {
+        db.createObjectStore(LYRICS_BACKGROUND_STORE);
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+/** Store the original image bytes. Object URLs cannot survive a browser reload. */
+export async function saveLyricsBackgroundImage(file: File): Promise<void> {
+  const db = await openDB();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(LYRICS_BACKGROUND_STORE, 'readwrite');
+      tx.objectStore(LYRICS_BACKGROUND_STORE).put(file, 'image');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally { db.close(); }
+}
+
+export async function loadLyricsBackgroundImage(): Promise<Blob | null> {
+  const db = await openDB();
+  try {
+    return await new Promise<Blob | null>((resolve, reject) => {
+      const tx = db.transaction(LYRICS_BACKGROUND_STORE, 'readonly');
+      const req = tx.objectStore(LYRICS_BACKGROUND_STORE).get('image');
+      req.onsuccess = () => resolve(req.result instanceof Blob ? req.result : null);
+      req.onerror = () => reject(req.error);
+    });
+  } finally { db.close(); }
+}
+
+export async function clearLyricsBackgroundImage(): Promise<void> {
+  const db = await openDB();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(LYRICS_BACKGROUND_STORE, 'readwrite');
+      tx.objectStore(LYRICS_BACKGROUND_STORE).delete('image');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally { db.close(); }
 }
 
 export async function saveAudioToStorage(file: File | Blob, name: string, duration: number, artist = 'Uploaded Audio'): Promise<void> {
