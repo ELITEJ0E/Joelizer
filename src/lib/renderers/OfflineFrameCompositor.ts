@@ -164,6 +164,8 @@ export class OfflineFrameCompositor {
   }
 
   constructor(private project: CanonicalProjectJson) {
+    // Match the live AnalyserNode's temporal smoothing during MP4 exports.
+    this.audioAnalysis.setSmoothing(project.visualizer?.smoothing ?? 0.65);
     // Adapt and cache lyric timing once per export, not on every 1080p frame.
     this.preparedLyrics = (project.lyrics?.lines || []).map(line => ({
       ...line,
