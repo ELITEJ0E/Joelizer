@@ -105,10 +105,10 @@ async function resolveSupportedOutput(project: CanonicalProjectJson) {
   return null;
 }
 
-async function decodeSoundtrack(project: CanonicalProjectJson): Promise<AudioBuffer | null> {
+async function decodeSoundtrack(project: CanonicalProjectJson, signal?: AbortSignal): Promise<AudioBuffer | null> {
   if (!project.audio.url && !project.audio.audioDataUri) return null;
   const uri = project.audio.audioDataUri || project.audio.url!;
-  const response = await fetch(uri);
+  const response = await fetch(uri, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60000)]) : AbortSignal.timeout(60000) });
   if (!response.ok) throw new Error(`Failed to load soundtrack for offline export (HTTP ${response.status})`);
   const bytes = await response.arrayBuffer();
   const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -116,6 +116,7 @@ async function decodeSoundtrack(project: CanonicalProjectJson): Promise<AudioBuf
   const context: AudioContext = new AudioContextClass();
   try {
     const decoded = await context.decodeAudioData(bytes);
+    if (signal?.aborted) throw new Error('Export cancelled by user.');
     const frames = Math.ceil(project.exportRange.duration * SAMPLE_RATE);
     const offline = new OfflineAudioContext(2, frames, SAMPLE_RATE);
     const source = offline.createBufferSource();
@@ -125,7 +126,9 @@ async function decodeSoundtrack(project: CanonicalProjectJson): Promise<AudioBuf
       source.start(0, project.exportRange.start,
         Math.min(project.exportRange.duration, decoded.duration - project.exportRange.start));
     }
-    return await offline.startRendering();
+    const rendered = await offline.startRendering();
+    if (signal?.aborted) throw new Error('Export cancelled by user.');
+    return rendered;
   } finally {
     await context.close();
   }
@@ -156,6 +159,7 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
     }
     const Video = videoEncoderClass();
     if (!Video) throw new Error('VideoEncoder is unavailable. Use Chrome or Edge.');
+    onProgress({ stage: 'preparing', stageMessage: 'Checking browser H.264 encoder at requested resolution...', progress: 3 });
     const selected = await resolveSupportedOutput(project);
     if (!selected) {
       throw new Error(`This browser cannot encode H.264 MP4 at ${project.width}×${project.height} ${project.fps} FPS${project.exportQuality === 'maximum' ? ' without reducing resolution' : ' or a smaller supported size'}. Try a lower frame rate, update Chrome/Edge, enable hardware acceleration, or use a connected render server. No video has been exported.`);
@@ -177,7 +181,9 @@ export class OfflineWebCodecsRenderer implements VideoRenderer {
 
     const compositor = new OfflineFrameCompositor(resolvedProject);
     const totalFrames = Math.max(1, Math.ceil(resolvedProject.exportRange.duration * resolvedProject.fps));
-    const audioBuffer = await decodeSoundtrack(resolvedProject);
+    onProgress({ stage: 'preparing', stageMessage: 'Decoding the soundtrack for frame-accurate audio sync...', progress: 7 });
+    const audioBuffer = await decodeSoundtrack(resolvedProject, signal);
+    if (signal?.aborted) throw new Error('Export cancelled by user.');
     compositor.setAudioBuffer(audioBuffer);
     // Audio is encoded/muxed by Mediabunny using native or WASM AAC.
     if (audioBuffer) {

@@ -247,8 +247,23 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const handleStartExport = async (forcedEngine?: 'server' | 'offline' | 'browser') => {
     let targetEngine = forcedEngine || engineChoice;
     const highResolution = resolution === '1440p' || resolution === '2160p';
+    // An encoder, remote request or media decoder may never settle. Keep the
+    // dialog recoverable and tell the user which stage stopped responding.
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    let rejectStall: ((reason: Error) => void) | undefined;
+    let lastActivity = 'Preparing export';
+    const stalled = new Promise<never>((_, reject) => { rejectStall = reject; });
+    const armWatchdog = (message: string) => {
+      lastActivity = message;
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        abortControllerRef.current?.abort();
+        rejectStall?.(new Error(`Export stopped responding during: ${lastActivity}. Try exporting a short range first, or switch export engine. Your chosen resolution was not reduced.`));
+      }, 90000);
+    };
 
     try {
+      armWatchdog('Checking export engine');
       // 1440p/4K rendering is deliberately server-only; never silently
       // advertise a 4K export that the browser later downgrades to 720p.
       if (highResolution) {
@@ -268,6 +283,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       setIsExporting(true);
       setExportStage('preparing');
       setStageMessage('Preparing project timeline, styles, and assets...');
+      armWatchdog('Preparing project timeline, styles, and assets');
       setProgress(5);
       setExportError(null);
       setDownloadUrl(null);
@@ -291,21 +307,24 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           ? 'Preparing exact video frames for smooth MP4 export...'
           : 'Preparing real-time browser recording (keep tab visible)...');
       setProgress(12);
-      const projectJson = await buildCanonicalProjectJson({
+      armWatchdog('Building project and loading media references');
+      const projectJson = await Promise.race([buildCanonicalProjectJson({
         resolution,
         fps,
         quality: exportQuality,
         modeOverride: exportMode,
         skipStaging: renderer.type === 'browser' || renderer.type === 'offline'
-      });
+      }), stalled]);
 
-      const result = await renderer.render(projectJson, (prog) => {
+      armWatchdog('Starting video renderer');
+      const result = await Promise.race([renderer.render(projectJson, (prog) => {
         if (isCancelledRef.current || controller.signal.aborted) return;
+        armWatchdog(prog.stageMessage || prog.stage);
         setExportStage(prog.stage as any);
         setStageMessage(prog.stageMessage);
         setProgress(prog.progress);
         if (prog.error) setExportError(prog.error);
-      }, controller.signal);
+      }, controller.signal), stalled]);
 
       if (result.outputUrl && !controller.signal.aborted) {
         if (result.outputUrl.startsWith('blob:')) {
@@ -319,10 +338,12 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         setProgress(100);
       }
     } catch (err: any) {
-      if (err?.message === 'Export cancelled by user.') return;
+      if (isCancelledRef.current || err?.message === 'Export cancelled by user.') return;
       console.error('Unified export error:', err);
       setExportStage('error');
       setExportError(err.message || 'Failed to export video');
+    } finally {
+      if (stallTimer) clearTimeout(stallTimer);
     }
   };
 
