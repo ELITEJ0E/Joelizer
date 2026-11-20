@@ -272,7 +272,9 @@ async function startServer() {
           if (code === 0) resolve();
           else {
             console.warn('[YouTube audio converter] yt-dlp failed:', stderr.slice(-500));
-            reject(new Error('YouTube conversion failed. The video may be restricted, unavailable, too long or blocked by YouTube.'));
+            reject(new Error(/sign in to confirm you.re not a bot/i.test(stderr)
+              ? 'YouTube challenged the Render server as automated traffic. Your Joelizer access key is working, but cloud conversion is blocked by YouTube. Try the optional local converter or import your own audio file.'
+              : 'YouTube conversion failed. The video may be restricted, unavailable, too long or blocked by YouTube.'));
           }
         });
       });
