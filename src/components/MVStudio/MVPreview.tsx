@@ -451,6 +451,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               template: tmpl,
               aspectRatio: storeState.aspectRatio,
               animationStyle: lyricsVideoState.animationStyle,
+              kineticPalette: lyricsVideoState.kineticPalette,
+              kineticIntensity: lyricsVideoState.kineticIntensity,
               visibleLineCount: activeVideoMode === 'music-video' ? (mvState.captionLineCount ?? 2) : lyricsVideoState.visibleLineCount,
               customBackground: lyricsVideoState.customBackground,
               typographyOverride: lyricsVideoState.typographyOverride,
@@ -709,7 +711,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           renderLyricsOverlayFrame(ctx, W, H, curTime, storeState.lyricsSettings.lines, {
             template: tmpl,
             aspectRatio: storeState.aspectRatio,
-            animationStyle: storeState.lyricsSettings?.animationStyle || lyricsVideoState.animationStyle,
+            animationStyle: lyricsVideoState.animationStyle === 'kinetic' ? 'kinetic' : (storeState.lyricsSettings?.animationStyle || lyricsVideoState.animationStyle),
+            kineticPalette: lyricsVideoState.kineticPalette,
+            kineticIntensity: lyricsVideoState.kineticIntensity,
             visibleLineCount: mvState.captionLineCount ?? 2,
             showLyrics: true,
             bilingualEnabled: storeState.lyricsSettings.lines.some(line => !!line.secondaryText?.trim()) ||

@@ -29,7 +29,9 @@ export interface LyricsVideoState {
   fadeEasing?: 'linear' | 'smooth' | 'ease';
 
   elementPositions: CanvasElementPositions;
-  animationStyle: 'karaoke' | 'fade' | 'none';
+  animationStyle: 'karaoke' | 'fade' | 'none' | 'kinetic';
+  kineticPalette: 'neon' | 'sunset' | 'candy' | 'rainbow';
+  kineticIntensity: number;
   
   customBackground: {
     type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
@@ -84,7 +86,8 @@ export interface LyricsVideoState {
   updateTypographyOverride: (updates: Partial<LyricsVideoState['typographyOverride']>) => void;
   updateArtworkOverride: (updates: Partial<LyricsVideoState['artworkOverride']>) => void;
   updateAnimationOverride: (updates: Partial<LyricsVideoState['animationOverride']>) => void;
-  setAnimationStyle: (style: 'karaoke' | 'fade' | 'none') => void;
+  setAnimationStyle: (style: LyricsVideoState['animationStyle']) => void;
+  setKineticSettings: (settings: Partial<Pick<LyricsVideoState, 'kineticPalette' | 'kineticIntensity'>>) => void;
   setShowSafeArea: (show: boolean) => void;
   setSelectedElement: (el: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null) => void;
   setVisibleLineCount: (count: number) => void;
@@ -106,6 +109,8 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
   persist(
     (set, get) => ({
       videoMode: 'lyrics-video',
+      kineticPalette: 'neon',
+      kineticIntensity: 1,
       selectedTemplateId: 'vinyl',
       selectedBackgroundPresetId: 'sunset',
       selectedElement: null,
@@ -233,7 +238,7 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       })),
 
       setAnimationStyle: (style) => {
-        useStore.getState().updateLyricsSettings({ animationStyle: style });
+        useStore.getState().updateLyricsSettings({ animationStyle: style === 'kinetic' ? 'fade' : style });
         set((s) => ({
           animationStyle: style,
           animationOverride: {
@@ -243,6 +248,7 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
           }
         }));
       },
+      setKineticSettings: (settings) => set(settings),
 
       setShowSafeArea: (showSafeArea) => set({ showSafeArea }),
 

@@ -19,6 +19,9 @@ export function TypographyPanel() {
   const setVisibleLineCount = useLyricsVideoStore(s => s.setVisibleLineCount);
   const animationStyle = useLyricsVideoStore(s => s.animationStyle);
   const setAnimationStyle = useLyricsVideoStore(s => s.setAnimationStyle);
+  const kineticPalette = useLyricsVideoStore(s => s.kineticPalette);
+  const kineticIntensity = useLyricsVideoStore(s => s.kineticIntensity);
+  const setKineticSettings = useLyricsVideoStore(s => s.setKineticSettings);
   const fadeInDuration = useLyricsVideoStore(s => s.fadeInDuration ?? 0.4);
   const fadeOutDuration = useLyricsVideoStore(s => s.fadeOutDuration ?? 0.4);
   const fadeEasing = useLyricsVideoStore(s => s.fadeEasing ?? 'smooth');
@@ -123,7 +126,7 @@ export function TypographyPanel() {
             Lyric Animation & Transitions
           </span>
           <span className="text-[9px] font-mono text-accent font-bold uppercase">
-            {animationStyle === 'fade' ? 'Fade In/Out' : 'Karaoke Highlight'}
+            {animationStyle === 'kinetic' ? 'Kinetic Color Pop' : animationStyle === 'fade' ? 'Fade In/Out' : 'Karaoke Highlight'}
           </span>
         </div>
 
@@ -152,6 +155,36 @@ export function TypographyPanel() {
             Karaoke Highlight
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setAnimationStyle('kinetic')}
+          className={`rounded-lg border px-3 py-2.5 text-left transition-all ${animationStyle === 'kinetic' ? 'border-fuchsia-400 bg-fuchsia-500/15 text-fuchsia-200' : 'border-[#232933] bg-[#0a0c0f] text-[#b3bbca] hover:border-fuchsia-400/50'}`}
+        >
+          <span className="block text-xs font-mono font-bold">✦ Kinetic Color Pop · NEW</span>
+          <span className="block text-[10px] mt-1 opacity-75">Timed word pops + color changes on each lyric transition</span>
+        </button>
+
+        {animationStyle === 'kinetic' && (
+          <div className="space-y-3 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 p-3">
+            <label className="block text-[10px] font-mono text-[#b3bbca]">Color palette</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(['neon', 'sunset', 'candy', 'rainbow'] as const).map(palette => (
+                <button key={palette} type="button" onClick={() => setKineticSettings({ kineticPalette: palette })}
+                  className={`rounded border px-2 py-1.5 text-xs capitalize ${kineticPalette === palette ? 'border-fuchsia-400 bg-fuchsia-500/20 text-fuchsia-200' : 'border-[#313743] bg-[#0a0c0f] text-[#9ca3af]'}`}>
+                  {palette}
+                </button>
+              ))}
+            </div>
+            <label className="flex items-center justify-between text-[10px] font-mono text-[#b3bbca]">
+              Pop intensity <span className="text-fuchsia-300">{kineticIntensity.toFixed(1)}×</span>
+            </label>
+            <input type="range" min="0.3" max="2" step="0.1" value={kineticIntensity}
+              onChange={e => setKineticSettings({ kineticIntensity: Number(e.target.value) })}
+              className="w-full accent-fuchsia-400" />
+            <p className="text-[10px] text-[#7e8999]">Uses your lyric timestamps in preview and exported video.</p>
+          </div>
+        )}
 
         {/* Fade In & Out Timing Controls */}
         {animationStyle === 'fade' && (

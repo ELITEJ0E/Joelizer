@@ -24,6 +24,8 @@ export interface RenderLyricsVideoOptions {
   template: LyricVideoTemplate;
   aspectRatio: string;
   animationStyle?: string;
+  kineticPalette?: 'neon' | 'sunset' | 'candy' | 'rainbow';
+  kineticIntensity?: number;
   visibleLineCount?: number;
   showVisualizer?: boolean;
   /** Keeps the record's circular audio ring independent of the movable spectrum overlay. */
@@ -948,6 +950,7 @@ function renderLyrics(
     (options.animationStyle ? options.animationStyle === 'karaoke' : null) ??
     (options.animationOverride?.wordAnimation === 'karaoke') ??
     (useStore.getState().lyricsSettings?.animationStyle === 'karaoke');
+  const isKinetic = options.animationStyle === 'kinetic';
 
   // Cross-fade opacity computation for the active line
   const lineDuration = Math.max(0.4, activeLine.endTime - activeLine.startTime);
@@ -958,6 +961,12 @@ function renderLyrics(
   let activeLineOpacity = 1.0;
   if (instantLyrics) {
     activeLineOpacity = currentTime >= activeLine.startTime && currentTime < activeLine.endTime ? 1 : 0;
+  } else if (isKinetic) {
+    // Each change is anchored to LRC time, never wall-clock time. This also
+    // makes seeking and frame-by-frame exports produce identical animation.
+    const enter = Math.min(1, Math.max(0, elapsed / 0.16));
+    const exit = Math.min(1, Math.max(0, remaining / 0.13));
+    activeLineOpacity = enter * exit;
   } else if (!isKaraoke || visibleCount === 1) {
     activeLineOpacity = computeFadeOpacity(
       currentTime,
@@ -1185,7 +1194,43 @@ function renderLyrics(
     ctx.save();
     ctx.globalAlpha = activeLineOpacity;
 
-    if (isKaraoke) {
+    if (isKinetic) {
+      const palettes = {
+        neon: ['#00f5d4', '#fb37ff', '#ffe45e', '#60a5fa'],
+        sunset: ['#ff5d73', '#ffbe0b', '#ff6d00', '#e879f9'],
+        candy: ['#ff69b4', '#a78bfa', '#67e8f9', '#f9a8d4'],
+        rainbow: ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93']
+      };
+      const palette = palettes[options.kineticPalette || 'neon'];
+      const intensity = Math.min(2, Math.max(0.3, options.kineticIntensity ?? 1));
+      const pop = Math.max(0, 1 - Math.max(0, elapsed) / 0.25);
+      const settle = 1 + intensity * 0.22 * pop * pop;
+      // One colour for each word, rotating when the active lyric changes.
+      // Word-level timings remain the source of truth where available.
+      sublines.forEach((sublineWords, sIdx) => {
+        const widths = sublineWords.map(w => ctx.measureText(w.word).width);
+        const totalWidth = widths.reduce((sum, w) => sum + w, 0) + Math.max(0, widths.length - 1) * spaceWidth;
+        let x = posX - totalWidth / 2;
+        const y = startY + sIdx * lineHeight;
+        sublineWords.forEach((w, idx) => {
+          const wordElapsed = currentTime - w.startTime;
+          const wordPop = Math.max(0, 1 - Math.max(0, wordElapsed) / 0.22);
+          const wordScale = settle + (wordElapsed >= 0 ? 0.14 * intensity * wordPop * wordPop : 0);
+          const active = wordElapsed >= 0;
+          const colorIndex = (activeIndex + idx + sIdx) % palette.length;
+          ctx.save();
+          ctx.translate(x + widths[idx] / 2, y + (active ? -fontSize * 0.12 * intensity * wordPop : fontSize * 0.07));
+          ctx.scale(wordScale, wordScale);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = active ? palette[colorIndex] : inactiveWordColor;
+          ctx.shadowColor = active ? palette[colorIndex] : 'rgba(0,0,0,0.8)';
+          ctx.shadowBlur = active ? 13 * intensity : 5;
+          ctx.fillText(w.word, 0, 0);
+          ctx.restore();
+          x += widths[idx] + spaceWidth;
+        });
+      });
+    } else if (isKaraoke) {
       sublines.forEach((sublineWords, sIdx) => {
         const lineY = startY + sIdx * lineHeight;
         const wordMetrics: TimedWordMetric[] = sublineWords.map((w) => ({
