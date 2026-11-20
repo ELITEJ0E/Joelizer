@@ -1281,7 +1281,8 @@ export function renderSegmentDots(
   pos?: { x: number; y: number },
   audioFrequencyData?: Uint8Array | null,
   audioTimeData?: Uint8Array | null,
-  visualizerSettings?: VisualizerSettings
+  visualizerSettings?: VisualizerSettings,
+  timelineTime = 0
 ) {
   ctx.save();
   const isVertical = H > W;
@@ -1306,7 +1307,7 @@ export function renderSegmentDots(
     audioTimeData
   ) {
     ctx.translate(posX - boxW / 2, posY - boxH / 2);
-    renderVisualizer(ctx, audioFrequencyData, audioTimeData, visSettings, boxW, boxH);
+    renderVisualizer(ctx, audioFrequencyData, audioTimeData, visSettings, boxW, boxH, timelineTime);
   } else if (audioFrequencyData && audioFrequencyData.length > 0) {
     // Compact spectrum bars (smaller, thicker capsule type)
     const barCount = 16;
@@ -1489,12 +1490,13 @@ export function renderLyricsVideoFrame(
     (visSettings.style === 'particles' ||
       visSettings.style === 'waveform' ||
       visSettings.style === 'radial' ||
+      visSettings.style === 'joelify-bars' ||
       visSettings.style === 'bars') &&
     audioFrequencyData &&
     audioTimeData
   ) {
     ctx.save();
-    renderVisualizer(ctx, audioFrequencyData, audioTimeData, visSettings, W, H);
+    renderVisualizer(ctx, audioFrequencyData, audioTimeData, visSettings, W, H, currentTime);
     ctx.restore();
   }
 
@@ -1544,7 +1546,7 @@ export function renderLyricsVideoFrame(
   // 6. Render Segment Dots / Visualizer (completely suppressed when showVisualizer is false or visualizer is disabled)
   if (isVisEnabled && !(artworkStyle === 'glowing-disc' || artworkStyle === 'glowing-disc-needle')) {
     if (visSettings && visSettings.style !== 'particles') {
-      renderSegmentDots(ctx, W, H, visualizerPos, audioFrequencyData, audioTimeData, { ...visSettings, enabled: isVisEnabled });
+      renderSegmentDots(ctx, W, H, visualizerPos, audioFrequencyData, audioTimeData, { ...visSettings, enabled: isVisEnabled }, currentTime);
     }
   }
 

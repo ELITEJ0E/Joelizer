@@ -505,7 +505,7 @@ export function Preview() {
           visCtx.fillRect(0, 0, w, h);
           visCtx.globalCompositeOperation = 'source-over';
           
-          renderVisualizer(visCtx, freqData, timeData, visualizerSettings, w, h);
+          renderVisualizer(visCtx, freqData, timeData, visualizerSettings, w, h, audioManager.getPreciseCurrentTime());
           
           // Draw visualizer to main canvas
           if (glitchFrames > 0 && visualizerSettings.glitchIntensity) {

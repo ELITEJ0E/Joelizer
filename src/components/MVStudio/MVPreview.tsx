@@ -498,7 +498,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             timeData,
             storeState.visualizerSettings,
             W,
-            H
+            H,
+            curTime
           );
         } else if (activeClip) {
           const asset = assets.find(a => a.id === activeClip.assetId);

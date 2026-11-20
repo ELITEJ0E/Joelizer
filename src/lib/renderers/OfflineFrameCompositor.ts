@@ -447,7 +447,7 @@ export class OfflineFrameCompositor {
         // Export the recorded project settings, never transient live editor state.
         if (project.showVisualizer ?? project.visualizer?.enabled ?? true) {
           renderVisualizer(ctx, audio.frequency, audio.waveform,
-            { ...project.visualizer, enabled: true } as Parameters<typeof renderVisualizer>[3], W, H);
+            { ...project.visualizer, enabled: true } as Parameters<typeof renderVisualizer>[3], W, H, time);
         }
       }
       if (project.showLyrics !== false && project.lyrics.lines.length > 0) {
