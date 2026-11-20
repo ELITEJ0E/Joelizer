@@ -103,12 +103,13 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
   try {
     useStore.setState({
       visualizerSettings: {
-        style: 'bars',
+        style: 'joelify-bottom',
         color: '#00e676',
+        colorMode: 'rainbow',
         sensitivity: 0.9,
-        smoothing: 0.7,
+        smoothing: 0,
         segments: 16,
-        hitResponse: 0.2,
+        hitResponse: 0,
         glitchIntensity: 0,
         shakeIntensity: 0,
         showGrain: false,
@@ -117,11 +118,14 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
     });
     const json = await buildCanonicalProjectJson({ skipStaging: true });
     assert(
-      json.visualizer.style === 'bars' && json.visualizer.color === '#00e676',
-      '3. Preserves Visualizer settings in Canonical Project JSON'
+      json.visualizer.style === 'joelify-bottom' &&
+      json.visualizer.color === '#00e676' &&
+      json.visualizer.colorMode === 'rainbow' &&
+      json.visualizer.smoothing === 0 && json.visualizer.hitResponse === 0,
+      '3. Preserves Joelify Rainbow and zero-valued reactivity settings in export JSON'
     );
   } catch (e: any) {
-    assert(false, '3. Preserves Visualizer settings in Canonical Project JSON', e.message);
+    assert(false, '3. Preserves Joelify Rainbow settings in export JSON', e.message);
   }
 
   // 4. Video timeline clip conversion
