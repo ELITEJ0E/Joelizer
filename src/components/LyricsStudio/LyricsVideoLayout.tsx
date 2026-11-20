@@ -193,12 +193,17 @@ export function LyricsVideoLayout() {
   // Blob URLs are temporary, so restore uploaded image bytes from IndexedDB
   // (the same durable storage approach used by MV Studio) after a reload.
   useEffect(() => {
+    // Previous versions used localStorage. Do not carry that selection across
+    // new browser sessions now that Lyrics Studio is session-scoped.
+    localStorage.removeItem('joelizer-lyrics-bg-image-active');
+    const sessionSelection = sessionStorage.getItem('joelizer-lyrics-bg-image-active');
+    if (!sessionSelection) return;
     let cancelled = false;
     const epoch = ++imageLoadEpoch.current;
     void loadLyricsBackgroundImage().then(blob => {
       if (cancelled || epoch !== imageLoadEpoch.current || !blob) return;
       setHasSavedBackgroundImage(true);
-      if (localStorage.getItem('joelizer-lyrics-bg-image-active') === 'true') {
+      if (sessionSelection === 'true') {
         const url = URL.createObjectURL(blob);
         setCustomBackground({ type: 'image', value: url, videoUrl: undefined });
       }
@@ -213,14 +218,14 @@ export function LyricsVideoLayout() {
       if (!blob || epoch !== imageLoadEpoch.current) return;
       const url = URL.createObjectURL(blob);
       setCustomBackground({ type: 'image', value: url, videoUrl: undefined });
-      localStorage.setItem('joelizer-lyrics-bg-image-active', 'true');
+      sessionStorage.setItem('joelizer-lyrics-bg-image-active', 'true');
       setBackgroundUploadError(null);
     } catch { setBackgroundUploadError('Could not load your saved background image.'); }
   };
 
   const removeSavedBackgroundImage = async () => {
     ++imageLoadEpoch.current;
-    localStorage.removeItem('joelizer-lyrics-bg-image-active');
+    sessionStorage.removeItem('joelizer-lyrics-bg-image-active');
     setHasSavedBackgroundImage(false);
     if (customBackground.type === 'image' && customBackground.value.startsWith('blob:')) {
       setCustomBackground({ type: 'gradient', value: BACKGROUND_PRESETS.find(p => p.type === 'gradient')?.value || '#18181b', videoUrl: undefined });
@@ -230,7 +235,7 @@ export function LyricsVideoLayout() {
   };
 
   const selectBackgroundPreset = (preset: typeof BACKGROUND_PRESETS[number]) => {
-    localStorage.removeItem('joelizer-lyrics-bg-image-active');
+    sessionStorage.setItem('joelizer-lyrics-bg-image-active', 'inactive');
     setSelectedBackgroundPresetId(preset.id);
     if (preset.id === 'cover') setCustomBackground({ type: 'blurred-artwork', value: albumArt });
     else setCustomBackground({ type: preset.type as any, value: preset.value });
@@ -263,16 +268,16 @@ export function LyricsVideoLayout() {
     const url = URL.createObjectURL(file);
 
     if (isVideo) {
-      localStorage.removeItem('joelizer-lyrics-bg-image-active');
+      sessionStorage.setItem('joelizer-lyrics-bg-image-active', 'inactive');
       setCustomBackground({ type: 'video', value: url, videoUrl: url, blur: 0, dim: 0, vignette: 0 });
     } else {
       ++imageLoadEpoch.current;
       setCustomBackground({ type: 'image', value: url, videoUrl: undefined, blur: 0, dim: 0, vignette: 0 });
-      localStorage.setItem('joelizer-lyrics-bg-image-active', 'true');
+      sessionStorage.setItem('joelizer-lyrics-bg-image-active', 'true');
       void saveLyricsBackgroundImage(file).then(() => {
         setHasSavedBackgroundImage(true);
       }).catch(() => {
-        localStorage.removeItem('joelizer-lyrics-bg-image-active');
+        sessionStorage.removeItem('joelizer-lyrics-bg-image-active');
         setBackgroundUploadError('Image is usable now, but could not be saved for future visits.');
       });
     }
