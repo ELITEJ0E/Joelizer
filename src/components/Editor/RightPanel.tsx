@@ -43,7 +43,7 @@ function VisualizerSettingsPanel() {
             <SelectItem value="joelify-beat">Joelify Beat · Mirrored Bars</SelectItem>
             <SelectItem value="joelify-bottom">Joelify Beat · Bottom-Up Bars</SelectItem>
             <SelectItem value="joelify-bars">Joelify Classic · Smooth Wave</SelectItem>
-            <SelectItem value="spectrum-eq">Rainbow EQ · Bottom-Up Bars</SelectItem>
+            <SelectItem value="spectrum-eq">Spectrum EQ · Bottom-Up Bars</SelectItem>
             <SelectItem value="waveform">Waveform</SelectItem>
             <SelectItem value="radial">Radial</SelectItem>
             <SelectItem value="particles">Particles</SelectItem>
@@ -51,6 +51,20 @@ function VisualizerSettingsPanel() {
             <SelectItem value="orb">Sci-Fi Glowing Orb</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Visualizer Colors</label>
+        <div className="grid grid-cols-2 gap-2">
+          {(['fixed', 'rainbow'] as const).map(mode => (
+            <button key={mode} type="button" onClick={() => updateSettings({ colorMode: mode })}
+              aria-pressed={(settings.colorMode || 'fixed') === mode}
+              className={cn('rounded-lg border px-3 py-2 text-[11px] font-bold uppercase transition-colors',
+                (settings.colorMode || 'fixed') === mode ? 'border-emerald-400 text-white bg-emerald-400/10' : 'border-white/10 text-slate-400 hover:bg-white/10')}>
+              {mode === 'fixed' ? 'Fixed Color' : '🌈 Rainbow'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {settings.style === 'kaleidoscope' && (
@@ -158,6 +172,14 @@ function VisualizerSettingsPanel() {
       </div>
 
       <div className="pt-2 border-t border-white/5 space-y-5">
+        <div>
+          <div className="flex justify-between mb-1.5">
+            <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Bar / Stroke Thickness</label>
+            <span className="text-[10px] font-mono" style={{ color: activeColor }}>{(settings.thickness ?? 1).toFixed(2)}×</span>
+          </div>
+          <Scrubber min={0.4} max={3} step={0.05} value={settings.thickness ?? 1}
+            onChange={val => updateSettings({ thickness: val })} />
+        </div>
         <div>
           <div className="flex justify-between mb-1.5">
             <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Sensitivity</label>

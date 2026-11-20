@@ -38,12 +38,12 @@ function getMusicalFrequency(i: number, total: number, frequencyData: Uint8Array
 }
 
 // Draw a path with a true neon effect (bright core, colored heavy glow)
-function drawNeonPath(ctx: CanvasRenderingContext2D, color: string, isStroke: boolean, lineWidth: number = 4) {
+function drawNeonPath(ctx: CanvasRenderingContext2D, color: string, isStroke: boolean, lineWidth: number = 4, paint: string | CanvasGradient = color) {
   // Pass 1: Heavy outer glow
   ctx.shadowBlur = 30;
   ctx.shadowColor = color;
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
+  ctx.strokeStyle = paint;
+  ctx.fillStyle = paint;
   ctx.lineWidth = lineWidth * 1.5;
   if (isStroke) ctx.stroke();
   else ctx.fill();
@@ -61,6 +61,26 @@ function drawNeonPath(ctx: CanvasRenderingContext2D, color: string, isStroke: bo
   ctx.lineWidth = lineWidth * 0.4;
   if (isStroke) ctx.stroke();
   else ctx.fill();
+}
+
+function visualizerColor(settings: VisualizerSettings, index: number, count: number, time = 0): string {
+  if (settings.colorMode !== 'rainbow') return settings.color || '#00e676';
+  // Keep the spectrum's warm-to-cool ordering recognizable while slowly
+  // cycling the palette; time is the audio timeline for export parity.
+  const hue = (8 + index / Math.max(1, count - 1) * 305 + time * 18) % 360;
+  return `hsl(${hue}, 93%, 61%)`;
+}
+
+function visualizerGradient(ctx: CanvasRenderingContext2D, settings: VisualizerSettings, width: number, time: number) {
+  if (settings.colorMode !== 'rainbow') return settings.color || '#00e676';
+  const gradient = ctx.createLinearGradient(0, 0, Math.max(1, width), 0);
+  for (let i = 0; i <= 8; i++) gradient.addColorStop(i / 8, visualizerColor(settings, i, 9, time));
+  return gradient;
+}
+
+function effectColor(settings: VisualizerSettings, position: number, alpha: number, time: number): string {
+  if (settings.colorMode !== 'rainbow') return getRGBA(settings.color || '#00e676', alpha);
+  return visualizerColor(settings, position, 9, time).replace('hsl(', 'hsla(').replace(')', `, ${alpha})`);
 }
 
 /** Joelify's mirrored 80-bar wave spectrum, adapted to the shared frame
@@ -119,28 +139,15 @@ function drawJoelifyBars(
   const thickness = Math.max(0.4, Math.min(3, settings.thickness ?? 1));
   const barWidth = Math.max(0.5, Math.min(barStep, barStep * 0.84 * thickness));
 
-  // Respect a selected theme color while retaining Joelify's moving hue wave.
-  // Joelizer's stock green accent keeps Joelify's original cyan/blue starting hue.
-  const hex = settings.color?.replace('#', '') || '';
-  let baseHue = 200;
-  if (/^[0-9a-f]{6}$/i.test(hex) && hex.toLowerCase() !== '00e676') {
-    const r = parseInt(hex.slice(0, 2), 16) / 255;
-    const g = parseInt(hex.slice(2, 4), 16) / 255;
-    const b = parseInt(hex.slice(4, 6), 16) / 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
-    if (delta > 0) baseHue = ((max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4) * 60 + 360) % 360;
-  }
-
   for (let i = 0; i < bars; i++) {
     const level = levels[i];
     const barHeight = Math.max(1, level * heightCap);
     const x = i * barStep;
     const y = (height - barHeight) / 2; // Original Joelify butterfly / center-mirrored wave.
-    const hue = (baseHue + i * 2 + timelineTime * 50) % 360;
-    const lightness = Math.min(85, 50 + barHeight / height * 40);
-    ctx.fillStyle = `hsla(${hue}, 82%, ${lightness}%, ${0.7 + Math.min(1, level) * 0.3})`;
+    const barColor = visualizerColor(settings, i, bars, timelineTime);
+    ctx.fillStyle = settings.colorMode === 'rainbow' ? barColor : settings.color || '#00e676';
     if (averageEnergy > 100 && level > 0.55) {
-      ctx.shadowColor = `hsla(${hue}, 100%, 65%, 0.6)`;
+      ctx.shadowColor = settings.colorMode === 'rainbow' ? barColor : settings.color || '#00e676';
       ctx.shadowBlur = Math.min(12, height * 0.15);
     } else ctx.shadowBlur = 0;
     ctx.fillRect(x, y, barWidth, barHeight);
@@ -156,7 +163,8 @@ function drawSpectrumEQ(
   spectrum: Uint8Array,
   settings: VisualizerSettings,
   width: number,
-  height: number
+  height: number,
+  timelineTime: number
 ) {
   const barCount = 64;
   const sensitivity = Math.max(0.1, Math.min(5, settings.sensitivity ?? 1));
@@ -185,23 +193,22 @@ function drawSpectrumEQ(
   const smoothed = smooth(smooth(raw));
   const step = width / barCount;
   const barWidth = Math.max(0.5, Math.min(step * 0.96, step * 0.76 * thickness));
-  // Colors follow the reference's red/orange → yellow → green → cyan/blue.
-  const hueFor = (i: number) => (8 + (i / (barCount - 1)) * 205) % 360;
-
   for (let i = 0; i < barCount; i++) {
     const level = raw[i] * (1 - smoothing) + smoothed[i] * smoothing;
     const barHeight = Math.max(1, level * maxHeight);
     const x = i * step + (step - barWidth) / 2;
     const y = baseline - barHeight;
-    const hue = hueFor(i);
-    ctx.fillStyle = `hsl(${hue}, 93%, 60%)`;
-    ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.55)`;
+    const barColor = visualizerColor(settings, i, barCount, timelineTime);
+    ctx.fillStyle = barColor;
+    ctx.shadowColor = barColor;
     ctx.shadowBlur = Math.min(5, height * 0.05);
     ctx.fillRect(x, y, barWidth, barHeight);
     // Small reflection beneath the baseline, fading with distance.
     ctx.shadowBlur = 0;
-    ctx.fillStyle = `hsla(${hue}, 90%, 52%, 0.2)`;
+    ctx.fillStyle = barColor;
+    ctx.globalAlpha = 0.2;
     ctx.fillRect(x, baseline + 2, barWidth, Math.min(height - baseline - 2, barHeight * 0.16));
+    ctx.globalAlpha = 1;
   }
   ctx.shadowBlur = 0;
 }
@@ -216,11 +223,12 @@ function drawJoelifyBeatBars(
   settings: VisualizerSettings,
   width: number,
   height: number,
-  bottomUp: boolean
+  bottomUp: boolean,
+  timelineTime: number
 ) {
   const count = bottomUp ? 64 : 80;
   const sensitivity = Math.max(0.1, Math.min(5, settings.sensitivity ?? 1));
-  const gain = Math.sqrt(sensitivity) * 1.1;
+  const gain = 0.55 + Math.sqrt(sensitivity) * 0.75;
   const maxHeight = height * (0.25 + (sensitivity - 0.1) / 4.9 * 0.66);
   const smoothness = Math.max(0, Math.min(0.98, settings.smoothing ?? 0.65));
   const thickness = Math.max(0.4, Math.min(3, settings.thickness ?? 1));
@@ -229,8 +237,17 @@ function drawJoelifyBeatBars(
     const v = (b - 128) / 128;
     return sum + v * v;
   }, 0) / waveform.length) : 0;
-  const volume = Math.min(1, rms / 0.28);
+  // Mastered tracks stay loud between kicks: never multiply every frequency
+  // by the same near-constant RMS ceiling. Use loudness as a subtle envelope.
+  const volume = Math.min(1, rms / 0.32);
   const hit = Math.max(0, settings.hitResponse ?? 0);
+  const bassBins = Math.max(2, Math.floor(spectrum.length * 0.025));
+  let bassEnergy = 0;
+  for (let i = 1; i < bassBins; i++) bassEnergy += spectrum[i];
+  bassEnergy /= (bassBins - 1) * 255;
+  // A bass kick lifts the low columns; the boost does not erase independent
+  // spectral shapes and follows actual FFT energy instead of a sine clock.
+  const beatDrive = Math.pow(bassEnergy, 1.65) * hit;
   const samples: number[] = [];
 
   for (let i = 0; i < count; i++) {
@@ -244,8 +261,11 @@ function drawJoelifyBeatBars(
     const bassBoost = 1 + hit * (1 - frequencyIndex / frequencyCount) * 0.36;
     // RMS is the audible loudness envelope: bars shrink on quieter beats,
     // while independent spectral differences survive strong bass transients.
-    const drive = Math.pow(spectral, 1.15) * gain * bassBoost * Math.pow(volume, 0.75);
-    samples.push(drive / (drive + 0.52));
+    const envelope = 0.48 + 0.52 * Math.sqrt(volume);
+    const lowWeight = Math.pow(1 - frequencyIndex / frequencyCount, 1.3);
+    const drive = Math.pow(spectral, 1.55) * gain * envelope * (bassBoost + beatDrive * lowWeight);
+    // A smooth knee, rather than hard clipping, retains peak differences.
+    samples.push(drive / (drive + 0.82));
   }
 
   const neighborBlend = (data: number[]) => data.map((v, i) =>
@@ -262,8 +282,9 @@ function drawJoelifyBeatBars(
     const y = bottomUp ? baseY - barHeight : baseY - barHeight / 2;
     // Use the exact user-selected color; the former time-shifting rainbow
     // made the Color control seem ineffective.
-    ctx.fillStyle = settings.color || '#00e676';
-    ctx.shadowColor = settings.color || '#00e676';
+    const barColor = visualizerColor(settings, i, count, timelineTime);
+    ctx.fillStyle = barColor;
+    ctx.shadowColor = barColor;
     ctx.shadowBlur = Math.min(8, height * 0.07) * Math.min(1, value + 0.15);
     ctx.globalAlpha = 0.45 + Math.min(0.55, value * 0.9);
     ctx.fillRect(x, y, barWidth, barHeight);
@@ -285,6 +306,7 @@ export function renderVisualizer(
   const thickness = Math.max(0.4, Math.min(3, settings.thickness ?? 1));
   const expansion = Math.max(0.2, Math.min(3.5, settings.expansion ?? 1));
   const scaledSensitivity = sensitivity * 1.35; // Smooth balanced scaling for pop songs
+  const paint = visualizerGradient(ctx, settings, width, timelineTime);
 
   ctx.save();
   ctx.lineJoin = 'round';
@@ -293,11 +315,11 @@ export function renderVisualizer(
   if (style === 'joelify-bars') {
     drawJoelifyBars(ctx, frequencyData, settings, width, height, timelineTime);
   } else if (style === 'joelify-beat') {
-    drawJoelifyBeatBars(ctx, frequencyData, timeData, settings, width, height, false);
+    drawJoelifyBeatBars(ctx, frequencyData, timeData, settings, width, height, false, timelineTime);
   } else if (style === 'joelify-bottom') {
-    drawJoelifyBeatBars(ctx, frequencyData, timeData, settings, width, height, true);
+    drawJoelifyBeatBars(ctx, frequencyData, timeData, settings, width, height, true, timelineTime);
   } else if (style === 'spectrum-eq') {
-    drawSpectrumEQ(ctx, frequencyData, settings, width, height);
+    drawSpectrumEQ(ctx, frequencyData, settings, width, height, timelineTime);
   } else if (style === 'bars') {
     const isVertical = width < height;
     // Choose chunky bar count (smaller, thicker type: 16 bars for compact, up to 24 for wide)
@@ -339,8 +361,9 @@ export function renderVisualizer(
       
       // True neon glow suited for thick bars
       ctx.shadowBlur = Math.min(16, Math.max(6, barWidth * 1.5));
-      ctx.shadowColor = color;
-      ctx.fillStyle = color;
+      const barColor = visualizerColor(settings, i, barCount, timelineTime);
+      ctx.shadowColor = barColor;
+      ctx.fillStyle = barColor;
       ctx.fill();
       
       // White/lighter core highlight for thick capsule bars
@@ -374,7 +397,7 @@ export function renderVisualizer(
       }
       x += sliceWidth;
     }
-    drawNeonPath(ctx, color, true, 5 * thickness);
+    drawNeonPath(ctx, color, true, 5 * thickness, paint);
   } else if (style === 'radial') {
     const cx = width / 2;
     const cy = height / 2;
@@ -405,7 +428,7 @@ export function renderVisualizer(
     // A lighter colored glow preserves separation between neighboring spokes
     // on loud, heavily mastered recordings.
     ctx.save();
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = paint;
     ctx.lineWidth = spokeWidth * 1.25;
     ctx.shadowColor = color;
     ctx.shadowBlur = Math.min(13, spokeWidth * 3);
@@ -439,7 +462,7 @@ export function renderVisualizer(
         ctx.arc(x, y, Math.max(1.4, percent * Math.min(width, height) * 0.018 * thickness), 0, Math.PI * 2);
       }
     }
-    drawNeonPath(ctx, color, false, 0);
+    drawNeonPath(ctx, color, false, 0, paint);
   } else if (style === 'kaleidoscope') {
     const cx = width / 2;
     const cy = height / 2;
@@ -465,7 +488,7 @@ export function renderVisualizer(
         const y = Math.sin(angle) * radius;
         ctx.lineTo(x, y);
       }
-      drawNeonPath(ctx, color, true, 4 * thickness);
+      drawNeonPath(ctx, color, true, 4 * thickness, paint);
       
       // Draw mirrored second half
       ctx.scale(1, -1);
@@ -482,7 +505,7 @@ export function renderVisualizer(
         const y = Math.sin(angle) * radius;
         ctx.lineTo(x, y);
       }
-      drawNeonPath(ctx, color, true, 4);
+      drawNeonPath(ctx, color, true, 4, paint);
       
       ctx.restore();
     }
@@ -517,10 +540,10 @@ export function renderVisualizer(
     // 1. Draw glowing background aura
     const glowRadius = radius * (1.8 + (vol / 255) * 1.5);
     const auraGrad = ctx.createRadialGradient(cx, cy, radius * 0.3, cx, cy, glowRadius);
-    auraGrad.addColorStop(0, getRGBA(color, 0.9));
-    auraGrad.addColorStop(0.3, getRGBA(color, 0.4));
-    auraGrad.addColorStop(0.7, getRGBA(color, 0.15));
-    auraGrad.addColorStop(1, getRGBA(color, 0));
+    auraGrad.addColorStop(0, effectColor(settings, 0, 0.9, timelineTime));
+    auraGrad.addColorStop(0.3, effectColor(settings, 2, 0.4, timelineTime));
+    auraGrad.addColorStop(0.7, effectColor(settings, 5, 0.15, timelineTime));
+    auraGrad.addColorStop(1, effectColor(settings, 8, 0, timelineTime));
     
     ctx.shadowBlur = 0;
     ctx.fillStyle = auraGrad;
@@ -543,14 +566,14 @@ export function renderVisualizer(
       else ctx.lineTo(x, y);
     }
     ctx.closePath();
-    drawNeonPath(ctx, color, true, 4);
+    drawNeonPath(ctx, color, true, 4, paint);
     
     // 3. Draw inner sci-fi core sphere
     const coreGrad = ctx.createRadialGradient(cx - radius * 0.2, cy - radius * 0.2, radius * 0.05, cx, cy, radius);
     coreGrad.addColorStop(0, '#ffffff');
-    coreGrad.addColorStop(0.2, getRGBA(color, 0.9));
-    coreGrad.addColorStop(0.8, getRGBA(color, 0.5));
-    coreGrad.addColorStop(1, getRGBA(color, 0.2));
+    coreGrad.addColorStop(0.2, effectColor(settings, 1, 0.9, timelineTime));
+    coreGrad.addColorStop(0.8, effectColor(settings, 5, 0.5, timelineTime));
+    coreGrad.addColorStop(1, effectColor(settings, 8, 0.2, timelineTime));
     ctx.fillStyle = coreGrad;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -570,7 +593,7 @@ export function renderVisualizer(
       ctx.moveTo(px, py);
       ctx.arc(px, py, pSize, 0, Math.PI * 2);
     }
-    drawNeonPath(ctx, color, false, 0);
+    drawNeonPath(ctx, color, false, 0, paint);
   }
 
   ctx.restore();
