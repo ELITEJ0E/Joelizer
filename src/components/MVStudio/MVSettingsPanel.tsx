@@ -6,6 +6,7 @@ import { Sliders, Type, Trash2 } from 'lucide-react';
 import { animate, stagger } from 'animejs';
 import { VideoFramingControls } from '../shared/VideoFramingControls';
 import { OverlayEffectsPanel } from '../shared/OverlayEffectsPanel';
+import { LyricSizeControl } from '../LyricsStudio/LyricSizeControl';
 
 export function MVSettingsPanel() {
   const currentTime = useStore(s => s.currentTime);
@@ -25,7 +26,7 @@ export function MVSettingsPanel() {
   const updateLyricsSettings = useStore(s => s.updateLyricsSettings);
   const setLyricsVideoAnimation = useLyricsVideoStore(s => s.setAnimationStyle);
   const lyricsVideoAnim = useLyricsVideoStore(s => s.animationStyle);
-  const lyricsAnimStyle = lyricsSettings?.animationStyle || lyricsVideoAnim || 'karaoke';
+  const lyricsAnimStyle = lyricsVideoAnim === 'kinetic' ? 'kinetic' : (lyricsSettings?.animationStyle || lyricsVideoAnim || 'karaoke');
   const lyricsPos = lyricsSettings?.position || 'bottom';
   const showBox = lyricsSettings?.showBackgroundBox ?? false;
   const captionLineCount = useMVStore(s => s.captionLineCount);
@@ -156,6 +157,22 @@ export function MVSettingsPanel() {
                 None / Instant
               </button>
             </div>
+
+            <button type="button" aria-pressed={lyricsAnimStyle === 'kinetic'}
+              onClick={() => setLyricsVideoAnimation('kinetic')}
+              className={`w-full rounded border p-2 text-left text-xs cursor-pointer ${lyricsAnimStyle === 'kinetic' ? 'border-fuchsia-400 bg-fuchsia-500/15 text-fuchsia-200' : 'border-[#303846] bg-[#0a0c0f] text-[#a7b2bf]'}`}>
+              ✦ Kinetic Word Reveal — words appear on their own timestamps
+            </button>
+
+            <button type="button" onClick={() => {
+              setCaptionLineCount(1);
+              useLyricsVideoStore.getState().updateTypographyOverride({ fontSizeScale: 2.1, position: undefined, showContainerPill: false });
+              useLyricsVideoStore.getState().setElementPosition('lyrics', { x: 0.5, y: 0.5 });
+              updateLyricsSettings({ position: undefined, showBackgroundBox: false });
+            }} className="w-full rounded border border-sky-400/35 bg-sky-500/10 p-2 text-left text-xs text-sky-200 cursor-pointer">
+              ✧ Center Stage — large full-line captions over your MV clips
+            </button>
+            <LyricSizeControl />
 
             <div className="space-y-1.5 pt-1">
               <span className="block text-[11px] font-semibold text-[#b6c2cf]">Caption display lines</span>

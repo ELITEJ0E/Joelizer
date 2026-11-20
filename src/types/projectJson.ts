@@ -72,7 +72,7 @@ export interface CanonicalBackgroundConfig {
 }
 
 export interface CanonicalArtworkConfig {
-  style: 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'glowing-disc-needle' | 'floating' | 'framed' | 'background-blur';
+  style: 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'glowing-disc-needle' | 'floating' | 'framed' | 'background-blur' | 'sticker';
   animation: 'none' | 'rotate' | 'scale-beat' | 'pulse' | 'float' | 'bounce';
   sizeScale: number;
   enabled?: boolean;

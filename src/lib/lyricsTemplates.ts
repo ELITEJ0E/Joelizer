@@ -12,7 +12,7 @@ export type LyricTemplateId =
   | 'glowing-disc'
   | 'glowing-disc-needle';
 
-export type ArtworkStyle = 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'glowing-disc-needle' | 'floating' | 'framed' | 'background-blur';
+export type ArtworkStyle = 'none' | 'square' | 'circle' | 'vinyl' | 'cd' | 'vinyl-needle' | 'cd-needle' | 'glowing-disc' | 'glowing-disc-needle' | 'floating' | 'framed' | 'background-blur' | 'sticker';
 export type ArtworkAnimation = 'none' | 'rotate' | 'scale-beat' | 'pulse' | 'float' | 'bounce';
 export type LyricPosition = 'center' | 'bottom' | 'top' | 'split';
 export type LyricAlignment = 'left' | 'center' | 'right';

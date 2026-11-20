@@ -86,15 +86,15 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
     }
   };
 
-  // Interactive drag, resize, and alignment overlay in both Lyrics mode and compatible MV Studio scenes
-  const showOverlay = videoMode === 'lyrics-video' ||
-    (videoMode === 'music-video' && (!!isVinylScene || !!isVisualizerScene || timelineClips.length === 0));
+  // Captions remain editable over ordinary MV video/image clips too. Only
+  // their draggable text hitbox is exposed, not all the unrelated scene layers.
+  const showOverlay = true;
 
   const mvFilterKeys = isVinylScene
     ? undefined
     : isVisualizerScene
-      ? (['visualizer'] as any)
-      : undefined;
+      ? (['visualizer', 'lyrics'] as const)
+      : (['lyrics'] as const);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -728,6 +728,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             },
             animationOverride: lyricsVideoState.animationOverride,
             elementPositions: lyricsVideoState.elementPositions,
+            preferElementPosition: true,
             showSafeArea: false
           });
         }
@@ -783,7 +784,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             <InteractiveStageOverlay
               stageWidth={stageDimensions.width}
               stageHeight={stageDimensions.height}
-              filterKeys={videoMode === 'music-video' ? mvFilterKeys : undefined}
+              filterKeys={videoMode === 'music-video' && mvFilterKeys ? [...mvFilterKeys] : undefined}
               mode={videoMode}
             />
           )}

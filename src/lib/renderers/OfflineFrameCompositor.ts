@@ -509,6 +509,7 @@ export class OfflineFrameCompositor {
           },
           animationOverride: lyricsState.animationOverride,
           elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
+          preferElementPosition: true,
           offlineExport: true
         });
       }

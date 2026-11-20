@@ -38,6 +38,8 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   const resetElementPositions = useLyricsVideoStore(s => s.resetElementPositions);
   const artworkOverride = useLyricsVideoStore(s => s.artworkOverride);
   const updateArtworkOverride = useLyricsVideoStore(s => s.updateArtworkOverride);
+  const lyricFontScale = useLyricsVideoStore(s => s.typographyOverride.fontSizeScale);
+  const updateTypographyOverride = useLyricsVideoStore(s => s.updateTypographyOverride);
   const showSafeArea = useLyricsVideoStore(s => s.showSafeArea);
   const setShowSafeArea = useLyricsVideoStore(s => s.setShowSafeArea);
 
@@ -135,9 +137,9 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
         const lineText = activeLine?.text || 'Your synchronized lyrics line';
         
         const fontSizeScale = typo.fontSizeScale || 1.0;
-        const baseFontSize = Math.max(14, Math.round(fontSizeScale * (stageHeight * 0.042)));
+        const baseFontSize = Math.max(14, Math.round(fontSizeScale * (stageHeight * (isVertical ? 0.038 : 0.045))));
         const textW = lineText.length * baseFontSize * 0.55;
-        const w = Math.min(stageWidth * 0.9, Math.max(120, textW + 36));
+        const w = Math.min(stageWidth * 0.9, Math.max(80, textW + 24));
         const h = Math.max(34, Math.round(baseFontSize * 1.8 + 10));
         return { w, h };
       }
@@ -168,14 +170,8 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   // normalized coordinates from a previous template.
   const getDisplayedPos = (key: ElementKey) => {
     const original = elementPositions[key] || { x: 0.5, y: 0.5 };
-    // Lyrics Studio now renders from elementPositions, so its hit box must
-    // always use that same anchor even when old preset state is persisted.
-    if (key !== 'lyrics' || mode === 'lyrics-video') return original;
-    const preset = useLyricsVideoStore.getState().typographyOverride.position ||
-      useStore.getState().lyricsSettings?.position;
-    if (preset === 'center') return { x: 0.5, y: 0.5 };
-    if (preset === 'top') return { x: 0.5, y: 0.2 };
-    if (preset === 'bottom') return { x: 0.5, y: stageHeight > stageWidth ? 0.82 : 0.80 };
+    // Both editors and the offline exporter use the normalized canvas anchor.
+    // A legacy position preset must not pull the hit box away from the text.
     return original;
   };
 
@@ -211,6 +207,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
 
     const currentScale = key === 'visualizer'
       ? (visualizerSettings?.scale ?? 1.0)
+      : key === 'lyrics' ? (lyricFontScale ?? 1.0)
       : (artworkOverride?.sizeScale ?? 1.0);
     initialScaleRef.current = currentScale;
 
@@ -290,6 +287,9 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       } else if (key === 'artwork') {
         nextScale = Math.max(0.35, Math.min(2.5, Math.round(nextScale * 100) / 100));
         updateArtworkOverride({ sizeScale: nextScale });
+      } else if (key === 'lyrics') {
+        nextScale = Math.max(0.4, Math.min(3.5, Math.round(nextScale * 100) / 100));
+        updateTypographyOverride({ fontSizeScale: nextScale });
       }
 
       const box = getBoxSize(key);
@@ -540,6 +540,8 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       updateVisualizerSettings({ scale: 1.0 });
     } else if (key === 'artwork') {
       updateArtworkOverride({ sizeScale: 1.0 });
+    } else if (key === 'lyrics') {
+      updateTypographyOverride({ fontSizeScale: 1.0 });
     }
   };
 
@@ -618,6 +620,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
             useStore.getState().updateLyricsSettings({ position: undefined });
             updateVisualizerSettings({ scale: 1.0 });
             updateArtworkOverride({ sizeScale: 1.0 });
+            updateTypographyOverride({ fontSizeScale: 1.0 });
           }}
           className="px-2.5 py-1.5 rounded-lg bg-[#0e1115]/90 hover:bg-[#161b22] border border-[#232933] text-[#7e8999] hover:text-[#f0f3f6] text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 backdrop-blur-md transition-all shadow-md cursor-pointer"
           title="Reset elements positions and scales to 100%"
@@ -781,10 +784,11 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
         const pos = getDisplayedPos(key);
         const size = getBoxSize(key);
         const isSelected = selectedElement === key;
-        const isScalable = key === 'visualizer' || key === 'artwork';
+        const isScalable = key === 'visualizer' || key === 'artwork' || key === 'lyrics';
 
         const currentScale = key === 'visualizer' 
           ? (visualizerSettings?.scale ?? 1.0) 
+          : key === 'lyrics' ? (lyricFontScale ?? 1.0)
           : (artworkOverride?.sizeScale ?? 1.0);
 
         const leftPx = pos.x * stageWidth - size.w / 2;
@@ -858,7 +862,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
                   <span>{key === 'artwork' ? 'Vinyl / Artwork' : key}</span>
                 </div>
 
-                {/* Canva / PPT Resizing Handles for Scalable Elements (Visualizer & Vinyl) */}
+                {/* Canva / PPT Resizing Handles for Visualizer, Vinyl & Lyrics */}
                 {isScalable && (
                   <>
                     {/* Corner Handles (nw, ne, se, sw) */}
