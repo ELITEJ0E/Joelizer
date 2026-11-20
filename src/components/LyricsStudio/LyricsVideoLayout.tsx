@@ -18,6 +18,7 @@ import { SongListPopover } from '../Audio/SongListPopover';
 import { VideoSlider } from '../ui/video-slider';
 import { AppColorPicker } from '../ui/color-picker';
 import { audioManager } from '../../lib/audio';
+import { saveLyricsBackgroundImage, loadLyricsBackgroundImage, clearLyricsBackgroundImage } from '../../lib/storage';
 import {
   Play, Pause, Check, Upload, RotateCcw, RotateCw, Maximize2, Minimize2,
   Sparkles, Type, Film, Image as ImageIcon, Music, Sliders, Palette,
@@ -186,6 +187,54 @@ export function LyricsVideoLayout() {
   const [showBackgroundImport, setShowBackgroundImport] = useState(false);
   const [isDraggingBackground, setIsDraggingBackground] = useState(false);
   const [backgroundUploadError, setBackgroundUploadError] = useState<string | null>(null);
+  const [hasSavedBackgroundImage, setHasSavedBackgroundImage] = useState(false);
+  const imageLoadEpoch = useRef(0);
+
+  // Blob URLs are temporary, so restore uploaded image bytes from IndexedDB
+  // (the same durable storage approach used by MV Studio) after a reload.
+  useEffect(() => {
+    let cancelled = false;
+    const epoch = ++imageLoadEpoch.current;
+    void loadLyricsBackgroundImage().then(blob => {
+      if (cancelled || epoch !== imageLoadEpoch.current || !blob) return;
+      setHasSavedBackgroundImage(true);
+      if (localStorage.getItem('joelizer-lyrics-bg-image-active') === 'true') {
+        const url = URL.createObjectURL(blob);
+        setCustomBackground({ type: 'image', value: url, videoUrl: undefined });
+      }
+    }).catch(err => console.warn('Could not restore Lyrics Video background:', err));
+    return () => { cancelled = true; };
+  }, [setCustomBackground]);
+
+  const restoreSavedBackgroundImage = async () => {
+    const epoch = ++imageLoadEpoch.current;
+    try {
+      const blob = await loadLyricsBackgroundImage();
+      if (!blob || epoch !== imageLoadEpoch.current) return;
+      const url = URL.createObjectURL(blob);
+      setCustomBackground({ type: 'image', value: url, videoUrl: undefined });
+      localStorage.setItem('joelizer-lyrics-bg-image-active', 'true');
+      setBackgroundUploadError(null);
+    } catch { setBackgroundUploadError('Could not load your saved background image.'); }
+  };
+
+  const removeSavedBackgroundImage = async () => {
+    ++imageLoadEpoch.current;
+    localStorage.removeItem('joelizer-lyrics-bg-image-active');
+    setHasSavedBackgroundImage(false);
+    if (customBackground.type === 'image' && customBackground.value.startsWith('blob:')) {
+      setCustomBackground({ type: 'gradient', value: BACKGROUND_PRESETS.find(p => p.type === 'gradient')?.value || '#18181b', videoUrl: undefined });
+    }
+    try { await clearLyricsBackgroundImage(); }
+    catch { setBackgroundUploadError('Could not remove the saved image from browser storage.'); }
+  };
+
+  const selectBackgroundPreset = (preset: typeof BACKGROUND_PRESETS[number]) => {
+    localStorage.removeItem('joelizer-lyrics-bg-image-active');
+    setSelectedBackgroundPresetId(preset.id);
+    if (preset.id === 'cover') setCustomBackground({ type: 'blurred-artwork', value: albumArt });
+    else setCustomBackground({ type: preset.type as any, value: preset.value });
+  };
 
   // Layout Styles Presets mapped to Mureka layout cards
   const LAYOUT_PRESETS: Array<{ id: LyricTemplateId }> = [
@@ -214,9 +263,18 @@ export function LyricsVideoLayout() {
     const url = URL.createObjectURL(file);
 
     if (isVideo) {
+      localStorage.removeItem('joelizer-lyrics-bg-image-active');
       setCustomBackground({ type: 'video', value: url, videoUrl: url, blur: 0, dim: 0, vignette: 0 });
     } else {
+      ++imageLoadEpoch.current;
       setCustomBackground({ type: 'image', value: url, videoUrl: undefined, blur: 0, dim: 0, vignette: 0 });
+      localStorage.setItem('joelizer-lyrics-bg-image-active', 'true');
+      void saveLyricsBackgroundImage(file).then(() => {
+        setHasSavedBackgroundImage(true);
+      }).catch(() => {
+        localStorage.removeItem('joelizer-lyrics-bg-image-active');
+        setBackgroundUploadError('Image is usable now, but could not be saved for future visits.');
+      });
     }
   };
 
@@ -532,6 +590,10 @@ export function LyricsVideoLayout() {
                         <span>Upload Custom</span>
                       </button>
                     </div>
+                    {hasSavedBackgroundImage && <div className="flex items-center gap-2 text-[10px]">
+                      <button type="button" onClick={() => void restoreSavedBackgroundImage()} className="rounded border border-accent/40 px-2 py-1.5 text-accent">Use saved image</button>
+                      <button type="button" onClick={() => void removeSavedBackgroundImage()} className="rounded border border-red-500/30 px-2 py-1.5 text-red-300">Remove saved image</button>
+                    </div>}
 
                     {/* 3-Row Horizontal Scrolling Carousel for Mobile */}
                     <div className="grid grid-rows-3 grid-flow-col auto-cols-[100px] gap-1.5 overflow-x-auto pb-1.5 no-scrollbar select-none h-[200px]">
@@ -545,14 +607,7 @@ export function LyricsVideoLayout() {
                           <button
                             key={bg.id}
                             type="button"
-                            onClick={() => {
-                              setSelectedBackgroundPresetId(bg.id);
-                              if (isSongCover) {
-                                setCustomBackground({ type: 'blurred-artwork', value: albumArt });
-                              } else {
-                                setCustomBackground({ type: bg.type as any, value: bg.value });
-                              }
-                            }}
+                            onClick={() => selectBackgroundPreset(bg)}
                             className={cn(
                               "relative rounded overflow-hidden border p-1 text-left transition-colors cursor-pointer flex flex-col justify-between shrink-0 bg-[#181d26]",
                               isSelected ? "border-accent ring-1 ring-accent" : "border-[#232933] hover:border-[#2b3442]"
@@ -889,6 +944,10 @@ export function LyricsVideoLayout() {
                 </div>
 
                 <LyricsVideoFramingControls />
+                {hasSavedBackgroundImage && <div className="flex items-center gap-2 text-[10px]">
+                  <button type="button" onClick={() => void restoreSavedBackgroundImage()} className="rounded border border-accent/40 px-2 py-1.5 text-accent">Use saved image</button>
+                  <button type="button" onClick={() => void removeSavedBackgroundImage()} className="rounded border border-red-500/30 px-2 py-1.5 text-red-300">Remove saved image</button>
+                </div>}
 
                 {/* 3-Row Horizontal Scrolling Carousel */}
                 <div className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-1.5 overflow-x-auto pb-1.5 no-scrollbar select-none h-[210px]">
@@ -930,14 +989,7 @@ export function LyricsVideoLayout() {
                       <button
                         key={bg.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedBackgroundPresetId(bg.id);
-                          if (isSongCover) {
-                            setCustomBackground({ type: 'blurred-artwork', value: albumArt });
-                          } else {
-                            setCustomBackground({ type: bg.type as any, value: bg.value });
-                          }
-                        }}
+                        onClick={() => selectBackgroundPreset(bg)}
                         className={cn(
                           "relative rounded overflow-hidden border p-1.5 text-left transition-colors cursor-pointer flex flex-col justify-between shrink-0 group bg-[#181d26]",
                           isSelected

@@ -3,6 +3,7 @@ import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { BACKGROUND_PRESETS } from '../../lib/lyricsBackgrounds';
 import { Upload, Film, Image as ImageIcon, Sparkles, Check, Repeat } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { saveLyricsBackgroundImage } from '../../lib/storage';
 
 export function BackgroundCarousel() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -21,6 +22,11 @@ export function BackgroundCarousel() {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
+      localStorage.setItem('joelizer-lyrics-bg-image-active', 'true');
+      void saveLyricsBackgroundImage(file).catch(error => {
+        console.warn('Could not persist uploaded Lyrics Video image:', error);
+        localStorage.removeItem('joelizer-lyrics-bg-image-active');
+      });
       setCustomBackground({
         type: 'image',
         value: url,
@@ -36,6 +42,7 @@ export function BackgroundCarousel() {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
+      localStorage.removeItem('joelizer-lyrics-bg-image-active');
       setCustomBackground({
         type: 'video',
         videoUrl: url,
@@ -228,7 +235,8 @@ export function BackgroundCarousel() {
             return (
               <div
                 key={preset.id}
-                onClick={() => {
+                  onClick={() => {
+                    localStorage.removeItem('joelizer-lyrics-bg-image-active');
                   setSelectedBackgroundPresetId(preset.id);
                   if (preset.id === 'cover') {
                     setCustomBackground({ type: 'blurred-artwork', value: '' });
