@@ -88,6 +88,7 @@ export interface RenderLyricsVideoOptions {
 // Media cache to avoid reconstructing elements every frame
 const imageCache = new Map<string, HTMLImageElement>();
 const videoCache = new Map<string, HTMLVideoElement>();
+const nextLoopVideoCache = new Map<string, HTMLVideoElement>();
 
 export function registerCachedImage(url: string, img: HTMLImageElement): void {
   if (url && img) imageCache.set(url, img);
@@ -107,19 +108,27 @@ export function getOrLoadImage(url?: string): HTMLImageElement | null {
   return img;
 }
 
+function createBackgroundVideo(url: string): HTMLVideoElement {
+  const vid = document.createElement('video');
+  if (!url.startsWith('blob:') && !url.startsWith('data:')) vid.crossOrigin = 'anonymous';
+  vid.preload = 'auto';
+  vid.muted = true;
+  vid.loop = true;
+  vid.playsInline = true;
+  vid.src = url;
+  vid.load();
+  return vid;
+}
+
 function getOrLoadVideo(url?: string): HTMLVideoElement | null {
   if (!url) return null;
   let vid = videoCache.get(url);
   if (!vid) {
-    vid = document.createElement('video');
-    if (!url.startsWith('blob:')) vid.crossOrigin = 'anonymous';
-    vid.preload = 'auto';
-    vid.muted = true;
-    vid.loop = true;
-    vid.playsInline = true;
-    vid.src = url;
-    // Playback is driven by the studio clock rather than autostarting.
+    vid = createBackgroundVideo(url);
     videoCache.set(url, vid);
+    // Predecode the first frame in a second element. The browser's native
+    // loop seek can otherwise leave a blank canvas at the clip boundary.
+    nextLoopVideoCache.set(url, createBackgroundVideo(url));
   }
   return vid;
 }
@@ -137,13 +146,32 @@ const backgroundClockState = new WeakMap<HTMLVideoElement, {
 }>();
 
 export function syncLyricsBackgroundVideo(url: string | undefined, time: number, playing: boolean): void {
-  const video = getOrLoadVideo(url);
+  let video = getOrLoadVideo(url);
   if (!video) return;
-  const state = backgroundClockState.get(video) || {
+  let state = backgroundClockState.get(video) || {
     lastTime: Number.NaN, lastPlaying: false, playPending: false
   };
   const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
   const target = duration > 0 ? ((time % duration) + duration) % duration : 0;
+  const previousTarget = duration > 0 && Number.isFinite(state.lastTime)
+    ? ((state.lastTime % duration) + duration) % duration : Number.NaN;
+  // Swap in the already-decoded start of the next loop before drawing it.
+  // Keep audio time authoritative, including after repeated loops.
+  const wrapped = playing && duration > 0 && Number.isFinite(previousTarget) &&
+    time > state.lastTime && time - state.lastTime < 1 &&
+    previousTarget > duration * 0.75 && target < duration * 0.25;
+  const standby = url ? nextLoopVideoCache.get(url) : undefined;
+  if (wrapped && standby && standby.readyState >= 2 && url) {
+    video.pause();
+    backgroundClockState.set(video, { ...state, lastPlaying: false });
+    videoCache.set(url, standby);
+    nextLoopVideoCache.set(url, video);
+    // Rewind the inactive element now, giving the decoder a full loop to
+    // prepare its opening frame before it is used again.
+    try { video.currentTime = 0; } catch {}
+    video = standby;
+    state = { ...state, lastPlaying: false, playPending: false };
+  }
   const scrubbed = Number.isFinite(state.lastTime) && Math.abs(time - state.lastTime) > 0.04;
   const resumed = playing && !state.lastPlaying;
   state.lastTime = time;
@@ -185,6 +213,9 @@ export function syncLyricsBackgroundVideo(url: string | undefined, time: number,
 export function pauseInactiveLyricsBackgroundVideos(activeUrl?: string): void {
   for (const [url, video] of videoCache) {
     if (url !== activeUrl && !video.paused) video.pause();
+  }
+  for (const video of nextLoopVideoCache.values()) {
+    if (!video.paused) video.pause();
   }
 }
 

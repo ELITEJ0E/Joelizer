@@ -273,6 +273,11 @@ export interface MediaFrameSettings {
   offsetY?: number;
 }
 
+// If a browser decoder briefly drops readyState during an uploaded video's
+// loop boundary, hold the last decoded background rather than flashing black.
+// Cache only near the wrap, so normal playback avoids costly frame copies.
+const lastLoopBackgroundFrame = new Map<string, HTMLCanvasElement>();
+
 /** Same user-selected crop and position for live MV frames and offline exports. */
 export function drawFramedMedia(
   ctx: CanvasRenderingContext2D,
@@ -412,6 +417,19 @@ export function drawBackgroundCanvas(
       ctx.drawImage(video, (W - drawW) / 2 + offsetX, (H - drawH) / 2 + offsetY, drawW, drawH);
       if (filterStr !== 'none') ctx.filter = 'none';
 
+      if (video instanceof HTMLVideoElement && Number.isFinite(video.duration) &&
+          video.duration > 0 && video.duration - video.currentTime < 0.22) {
+        const key = video.currentSrc || video.src;
+        let frame = lastLoopBackgroundFrame.get(key);
+        if (!frame || frame.width !== W || frame.height !== H) {
+          frame = document.createElement('canvas');
+          frame.width = W;
+          frame.height = H;
+          lastLoopBackgroundFrame.set(key, frame);
+        }
+        frame.getContext('2d')?.drawImage(ctx.canvas, 0, 0, W, H);
+      }
+
       // Explicit dim control: if user specified dim, respect it (0 = perfectly sharp un-dimmed video)
       const dimOpacity = typeof bgSettings.dim === 'number' ? bgSettings.dim : 0;
       if (dimOpacity > 0) {
@@ -420,8 +438,13 @@ export function drawBackgroundCanvas(
       }
       if (bgSettings.vignette) applyVignetteOverlay(bgSettings.vignette);
     } else {
-      ctx.fillStyle = '#09090b';
-      ctx.fillRect(0, 0, W, H);
+      const key = video instanceof HTMLVideoElement ? (video.currentSrc || video.src) : '';
+      const previous = lastLoopBackgroundFrame.get(key);
+      if (previous) ctx.drawImage(previous, 0, 0, W, H);
+      else {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, W, H);
+      }
     }
   } else if (bgSettings.type === 'blurred-artwork') {
     // Mureka-style Static Heavily Blurred Abstract Color Field (Aurora / Lava Lamp look)
