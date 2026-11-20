@@ -107,6 +107,7 @@ export interface CanonicalVideoClip {
   duration: number;  // Clip duration on timeline
   trimStart: number; // Internal trim start
   trimEnd: number;   // Internal trim end
+  speed?: number;    // Source seconds per timeline second (1 = normal)
   fit?: 'cover' | 'contain';
   zoom?: number;
   heightScale?: number;

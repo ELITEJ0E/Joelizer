@@ -13,6 +13,7 @@ import { renderVisualizer } from '../renderers';
 import { drawFramedMedia } from '../lyricsBackgrounds';
 import { drawOverlayEffects } from '../overlayEffects';
 import { lyricsVideoLoopFrame } from '../lyricsVideoLoop';
+import { clipSourceTime } from '../clipSpeed';
 
 type StageMedia = { element: HTMLVideoElement; lastFrame: number };
 
@@ -417,7 +418,7 @@ export class OfflineFrameCompositor {
         const lead = previous && clip.transition !== 'cut' && Math.abs(previous.endTime - clip.startTime) < 0.05
           ? Math.min(clip.transitionDuration ?? 0.5, (clip.endTime - clip.startTime) / 2,
             (previous.endTime - previous.startTime) / 2) : 0;
-        const sourceTime = clip.trimStart + lead + time - clip.startTime;
+        const sourceTime = clipSourceTime(clip, time, lead);
         const fast = this.fastVideos.get(clip.url);
         let renderedFastFrame = false;
         if (fast) {
@@ -542,7 +543,7 @@ export class OfflineFrameCompositor {
           const image = this.images.get(next.url);
           if (image) drawFramedMedia(ctx, image, W, H, image.naturalWidth, image.naturalHeight, next);
         } else if (next.type === 'video') {
-          const sourceTime = next.trimStart + progress * seconds;
+          const sourceTime = clipSourceTime(next, next.startTime, progress * seconds);
           const fast = this.fastVideos.get(next.url);
           let decoded = false;
           if (fast) {

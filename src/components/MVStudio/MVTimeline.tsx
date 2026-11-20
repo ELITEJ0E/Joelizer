@@ -20,6 +20,8 @@ import { ClipContextBar } from './Timeline/ClipContextBar';
 import { LyricContextBar } from './Timeline/LyricContextBar';
 import { WordContextBar } from './Timeline/WordContextBar';
 import { TrackHeaderMenu } from './Timeline/TrackHeaderMenu';
+import { ClipSpeedPopover } from './Timeline/ClipSpeedPopover';
+import { getClipSpeed } from '../../lib/clipSpeed';
 
 interface DragSession {
   target: 'clip-body' | 'clip-left' | 'clip-right' | 'lyric-body' | 'lyric-left' | 'lyric-right' | 'word-body' | 'word-left' | 'word-right';
@@ -75,6 +77,7 @@ export function MVTimeline() {
   const pasteTimelineClip = useMVStore(s => s.pasteTimelineClip);
   const addTimelineClip = useMVStore(s => s.addTimelineClip);
   const updateTimelineClip = useMVStore(s => s.updateTimelineClip);
+  const setClipSpeed = useMVStore(s => s.setClipSpeed);
   const commitTimeline = useMVStore(s => s.commitTimeline);
 
   // Global History hook
@@ -107,6 +110,7 @@ export function MVTimeline() {
   // Drag Session Ref & State (Pointer capture)
   const dragSessionRef = useRef<DragSession | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [speedMenu, setSpeedMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   // Synchronize lyrics from store if empty
   useEffect(() => {
@@ -332,6 +336,7 @@ export function MVTimeline() {
     clip: TimelineClip,
     type: 'clip-body' | 'clip-left' | 'clip-right'
   ) => {
+    if (e.button !== 0) return;
     if (clip.locked || visTrackLocked) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -439,6 +444,7 @@ export function MVTimeline() {
       const asset = videoAssets.find(v => v.id === clip.assetId);
       if (asset && asset.duration) maxAssetDuration = asset.duration;
       const currentTrimStart = clip.trimStart || 0;
+      const clipSpeed = getClipSpeed(clip);
 
       if (session.target === 'clip-body') {
         let rawStart = Math.max(0, Math.min(duration - dur, session.origStart + deltaTime));
@@ -467,7 +473,7 @@ export function MVTimeline() {
           endTime: Number((finalStart + dur).toFixed(2)),
         });
       } else if (session.target === 'clip-left') {
-        const maxLeftShift = session.origStart - (session.origTrimStart ?? currentTrimStart);
+        const maxLeftShift = session.origStart - (session.origTrimStart ?? currentTrimStart) / clipSpeed;
         let rawStart = Math.max(Math.max(0, maxLeftShift), Math.min(session.origEnd - 0.3, session.origStart + deltaTime));
         
         let finalStart = rawStart;
@@ -481,13 +487,13 @@ export function MVTimeline() {
         }
 
         setActiveSnapGuide(snapInfo);
-        const newTrimStart = Math.max(0, currentTrimStart + (finalStart - clip.startTime));
+        const newTrimStart = Math.max(0, currentTrimStart + (finalStart - clip.startTime) * clipSpeed);
         updateTimelineClip(session.id, {
           startTime: Number(finalStart.toFixed(2)),
           trimStart: Number(newTrimStart.toFixed(2)),
         });
       } else if (session.target === 'clip-right') {
-        const maxPossibleEnd = session.origStart + (maxAssetDuration - currentTrimStart);
+        const maxPossibleEnd = session.origStart + (maxAssetDuration - currentTrimStart) / clipSpeed;
         let rawEnd = Math.max(session.origStart + 0.3, Math.min(Math.min(duration, maxPossibleEnd), session.origEnd + deltaTime));
 
         let finalEnd = rawEnd;
@@ -501,7 +507,7 @@ export function MVTimeline() {
         }
 
         setActiveSnapGuide(snapInfo);
-        const newTrimEnd = Math.max(0.3, currentTrimStart + (finalEnd - session.origStart));
+        const newTrimEnd = Math.max(0.3 * clipSpeed, currentTrimStart + (finalEnd - session.origStart) * clipSpeed);
         updateTimelineClip(session.id, {
           endTime: Number(finalEnd.toFixed(2)),
           trimEnd: Number(newTrimEnd.toFixed(2)),
@@ -1325,6 +1331,7 @@ export function MVTimeline() {
                         setSelectedClipId(clip.id);
                         setSelectedLyricId(null);
                         setSelectedWordKey(null);
+                        setSpeedMenu({ id: clip.id, x: e.clientX, y: e.clientY });
                       }}
                       onPointerDown={(e) => handleClipPointerDown(e, clip, 'clip-body')}
                       className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-all select-none ${
@@ -1369,6 +1376,9 @@ export function MVTimeline() {
                           )}
                           {clipLabel}
                         </span>
+                        {Math.abs(getClipSpeed(clip) - 1) > 0.001 && (
+                          <span className="shrink-0 ml-1 rounded bg-emerald-950/80 px-1 text-emerald-300">{getClipSpeed(clip).toFixed(2)}×</span>
+                        )}
                         {clip.locked && <Lock size={10} className="text-amber-400 shrink-0" />}
                       </div>
 
@@ -1656,9 +1666,22 @@ export function MVTimeline() {
               commitTimeline();
             }}
             onClose={() => setSelectedClipId(null)}
+            onOpenSpeed={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setSpeedMenu({ id: selectedClip.id, x: rect.left, y: rect.top - 280 });
+            }}
           />
         </div>
       )}
+      {speedMenu && (() => {
+        const speedClip = timelineClips.find(c => c.id === speedMenu.id);
+        return speedClip ? <ClipSpeedPopover
+          clip={speedClip} x={speedMenu.x} y={speedMenu.y}
+          onChange={value => setClipSpeed(speedClip.id, value).error}
+          onCommit={commitTimeline}
+          onClose={() => setSpeedMenu(null)}
+        /> : null;
+      })()}
       {confirmClearClips && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4"

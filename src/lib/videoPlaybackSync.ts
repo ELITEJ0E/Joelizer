@@ -12,10 +12,13 @@ export function getVideoSyncDecision(input: {
   clipChanged: boolean;
   playing: boolean;
   seeking: boolean;
+  /** Source playback rate set on the clip, independent of drift correction. */
+  baseRate?: number;
 }): VideoSyncDecision {
   const { targetTime, actualTime, clipChanged, playing, seeking } = input;
+  const baseRate = Math.max(0.1, Math.min(8, input.baseRate ?? 1));
   if (!Number.isFinite(targetTime) || !Number.isFinite(actualTime)) {
-    return { seekTo: null, playbackRate: 1 };
+    return { seekTo: null, playbackRate: baseRate };
   }
   const drift = targetTime - actualTime;
   // A clip decoder may have already been pre-seeked before the cut.
@@ -24,20 +27,20 @@ export function getVideoSyncDecision(input: {
   if (clipChanged) {
     return {
       seekTo: Math.abs(drift) > 0.085 && !seeking ? Math.max(0, targetTime) : null,
-      playbackRate: 1
+      playbackRate: baseRate
     };
   }
   if (!playing && Math.abs(drift) > 0.04 && !seeking) {
-    return { seekTo: Math.max(0, targetTime), playbackRate: 1 };
+    return { seekTo: Math.max(0, targetTime), playbackRate: baseRate };
   }
   // Never enqueue another seek while the prior request is still decoding.
-  if (seeking) return { seekTo: null, playbackRate: 1 };
+  if (seeking) return { seekTo: null, playbackRate: baseRate };
   if (playing && Math.abs(drift) > 1) {
-    return { seekTo: Math.max(0, targetTime), playbackRate: 1 };
+    return { seekTo: Math.max(0, targetTime), playbackRate: baseRate };
   }
   // Gradually converge, avoiding the visible discontinuity of repeated seeks.
   if (playing && Math.abs(drift) > 0.12) {
-    return { seekTo: null, playbackRate: Math.max(0.92, Math.min(1.08, 1 + drift * 0.12)) };
+    return { seekTo: null, playbackRate: baseRate * Math.max(0.92, Math.min(1.08, 1 + drift * 0.12)) };
   }
-  return { seekTo: null, playbackRate: 1 };
+  return { seekTo: null, playbackRate: baseRate };
 }
