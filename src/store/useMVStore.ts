@@ -222,6 +222,8 @@ export interface MVProjectState {
   // Timeline
   timelineClips: TimelineClip[];
   selectedClipId: string | null;
+  soundtrackSpeed: number;
+  setSoundtrackSpeed: (speed: number) => void;
   autoTransitions: boolean;
   defaultTransition: NonNullable<TimelineClip['transition']>;
   transitionDuration: number;
@@ -312,6 +314,9 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   wordTimings: [],
   timelineClips: [],
   selectedClipId: null,
+  soundtrackSpeed: 1,
+  setSoundtrackSpeed: (soundtrackSpeed) => set({ soundtrackSpeed: Number.isFinite(soundtrackSpeed)
+    ? Math.max(0.1, Math.min(8, Math.round(soundtrackSpeed * 100) / 100)) : 1 }),
   autoTransitions: true,
   defaultTransition: 'crossfade',
   transitionDuration: 0.5,
@@ -508,6 +513,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       songAnalysis: null,
       wordTimings: [],
       mediaSourceFilter: 'all',
+      soundtrackSpeed: 1,
       style: 'Cinematic',
       pacing: 'Balanced',
       beatSync: 'Strong',
@@ -695,6 +701,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     videoAssets: state.videoAssets.filter(asset => /^https?:\/\//.test(asset.url))
       .map(({ file: _file, ...asset }) => asset),
     timelineClips: state.timelineClips,
+    soundtrackSpeed: state.soundtrackSpeed,
     autoTransitions: state.autoTransitions,
     defaultTransition: state.defaultTransition,
     transitionDuration: state.transitionDuration,

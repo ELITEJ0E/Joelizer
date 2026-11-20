@@ -42,7 +42,10 @@ export function MVTimeline() {
 
   // Audio / Player State
   const currentTime = useStore(s => s.currentTime);
-  const duration = useStore(s => s.audioDuration) || 120;
+  const rawAudioDuration = useStore(s => s.audioDuration) || 120;
+  const soundtrackSpeed = useMVStore(s => s.soundtrackSpeed);
+  const setSoundtrackSpeed = useMVStore(s => s.setSoundtrackSpeed);
+  const duration = Math.max(rawAudioDuration, rawAudioDuration / soundtrackSpeed);
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const isPlaying = useStore(s => s.isPlaying);
   const setIsPlaying = useStore(s => s.setIsPlaying);
@@ -65,6 +68,15 @@ export function MVTimeline() {
   const videoAssets = useMVStore(s => s.videoAssets);
   const wordTimings = useMVStore(s => s.wordTimings);
   const songAnalysis = useMVStore(s => s.songAnalysis);
+  const effectiveSongAnalysis = useMemo(() => songAnalysis ? {
+    ...songAnalysis,
+    bpm: songAnalysis.bpm * soundtrackSpeed,
+    sections: songAnalysis.sections.map(section => ({
+      ...section,
+      startTime: section.startTime / soundtrackSpeed,
+      endTime: section.endTime / soundtrackSpeed
+    }))
+  } : null, [songAnalysis, soundtrackSpeed]);
   const selectedClipId = useMVStore(s => s.selectedClipId);
   const setSelectedClipId = useMVStore(s => s.setSelectedClipId);
   const toggleLockClip = useMVStore(s => s.toggleLockClip);
@@ -111,6 +123,7 @@ export function MVTimeline() {
   const dragSessionRef = useRef<DragSession | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [speedMenu, setSpeedMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [soundtrackSpeedMenu, setSoundtrackSpeedMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Synchronize lyrics from store if empty
   useEffect(() => {
@@ -268,8 +281,14 @@ export function MVTimeline() {
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     const time = Math.max(0, Math.min(duration, x / rect.width * duration));
     setCurrentTime(time);
-    audioManager.seek(Math.min(time, Math.max(0, duration - 0.001)));
-  }, [duration, setCurrentTime]);
+    if (time * soundtrackSpeed < rawAudioDuration) {
+      audioManager.seek(time * soundtrackSpeed);
+    } else {
+      // Keep video-only tail frames scrubbable after the retimed song ends.
+      audioManager.pause();
+      setIsPlaying(false);
+    }
+  }, [duration, rawAudioDuration, soundtrackSpeed, setCurrentTime, setIsPlaying]);
 
   // Keep the playhead advancing through horizontally scrolled/zoomed sections.
   // A captured pointer can sit at the viewport edge while the timeline pans.
@@ -428,7 +447,7 @@ export function MVTimeline() {
         duration,
         clips: timelineClips,
         lyrics: displayLyrics,
-        songAnalysis,
+        songAnalysis: effectiveSongAnalysis,
         ignoreClipId: session.target.startsWith('clip') ? session.id : undefined,
         ignoreLyricId: session.target.startsWith('lyric') ? session.id : undefined,
         includeWords: wordsExpanded,
@@ -600,7 +619,7 @@ export function MVTimeline() {
         updateWordTiming(session.id, wordIdx, session.origStart, rawEnd, false);
       }
     }
-  }, [duration, snappingEnabled, currentTime, timelineClips, displayLyrics, songAnalysis, wordsExpanded, updateTimelineClip, videoAssets]);
+  }, [duration, snappingEnabled, currentTime, timelineClips, displayLyrics, effectiveSongAnalysis, wordsExpanded, updateTimelineClip, videoAssets]);
 
   // Global Pointer Up: Commit to History & Clean Session
   const handleGlobalPointerUp = useCallback((e: React.PointerEvent) => {
@@ -712,7 +731,7 @@ export function MVTimeline() {
         setWordsExpanded(true);
         recordSnapshot('Auto-Generate Words');
       } else if (action === 'align-beats') {
-        const bpm = songAnalysis?.bpm || 120;
+        const bpm = effectiveSongAnalysis?.bpm || 120;
         const beatSec = 60 / bpm;
         const aligned = displayLyrics.map(l => {
           const snappedStart = Math.round(l.startTime / beatSec) * beatSec;
@@ -1177,6 +1196,13 @@ export function MVTimeline() {
                 <Music size={11} className="text-accent" /> AUD
               </span>
               <div className="flex items-center gap-1">
+                <button type="button" onClick={event => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  setSoundtrackSpeedMenu({ x: rect.left, y: rect.top - 280 });
+                }} title="Soundtrack playback speed" aria-label="Edit soundtrack speed"
+                  className="px-1 rounded border border-emerald-800/60 text-[9px] font-mono text-emerald-300 hover:bg-emerald-900/30">
+                  {soundtrackSpeed.toFixed(2)}×
+                </button>
                 <button
                   onClick={handleToggleMute}
                   title={audioMuted ? 'Unmute' : 'Mute'}
@@ -1259,7 +1285,7 @@ export function MVTimeline() {
               ))}
 
               {/* Song Section Badges on Ruler (Intro, Verse, Chorus, Drop, etc.) */}
-              {songAnalysis?.sections?.map((sec, i) => (
+              {effectiveSongAnalysis?.sections?.map((sec, i) => (
                 <div
                   key={i}
                   className="absolute top-0.5 px-1.5 py-0.2 rounded text-[7px] font-mono font-bold uppercase tracking-wider bg-[#161b22] border border-[#232933] text-yellow-400 pointer-events-none -translate-x-1/2"
@@ -1524,9 +1550,11 @@ export function MVTimeline() {
               {/* ----------------------------------------------------------------- */}
               {/* TRACK 3: AUDIO (AUD) WITH WAVEFORM & BEAT GRID */}
               {/* ----------------------------------------------------------------- */}
-              <div className="h-12 relative bg-emerald-950/20 border-b border-white/10">
+              <div className="h-12 relative bg-emerald-950/20 border-b border-white/10"
+                onContextMenu={event => { event.preventDefault(); event.stopPropagation(); setSoundtrackSpeedMenu({ x: event.clientX, y: event.clientY }); }}>
                 {/* Waveform Visualization */}
-                <div className="absolute inset-y-1 inset-x-0 flex items-center opacity-70 pointer-events-none">
+                <div className="absolute inset-y-1 left-0 flex items-center opacity-70 pointer-events-none"
+                  style={{ width: `${Math.min(100, (rawAudioDuration / soundtrackSpeed / duration) * 100)}%` }}>
                   {waveformPeaks && waveformPeaks.length > 0 ? (
                     <svg preserveAspectRatio="none" viewBox={`0 0 ${waveformPeaks.length} 100`} className="w-full h-full fill-emerald-400">
                       {waveformPeaks.map((peak, i) => (
@@ -1539,15 +1567,18 @@ export function MVTimeline() {
                     </div>
                   )}
                 </div>
+                <span className="absolute left-2 top-0.5 rounded bg-[#0d231b]/90 px-1 text-[9px] font-mono font-semibold text-emerald-300 pointer-events-none">
+                  Audio · {soundtrackSpeed.toFixed(2)}×
+                </span>
 
                 {/* Subtle Beat Grid Ticks Overlay */}
-                {songAnalysis?.bpm && (
+                {effectiveSongAnalysis?.bpm && (
                   <div className="absolute inset-0 pointer-events-none opacity-20 flex">
-                    {Array.from({ length: Math.floor((duration / (60 / songAnalysis.bpm))) }).map((_, i) => (
+                    {Array.from({ length: Math.floor((rawAudioDuration / soundtrackSpeed) / (60 / effectiveSongAnalysis.bpm)) }).map((_, i) => (
                       <div
                         key={i}
                         className={`absolute top-0 bottom-0 w-[1px] ${i % 4 === 0 ? 'bg-emerald-300 opacity-60' : 'bg-emerald-500 opacity-30'}`}
-                        style={{ left: `${((i * (60 / songAnalysis.bpm)) / duration) * 100}%` }}
+                        style={{ left: `${((i * (60 / effectiveSongAnalysis.bpm)) / duration) * 100}%` }}
                       />
                     ))}
                   </div>
@@ -1682,6 +1713,17 @@ export function MVTimeline() {
           onClose={() => setSpeedMenu(null)}
         /> : null;
       })()}
+      {soundtrackSpeedMenu && <ClipSpeedPopover
+        clip={{ id: 'mv-soundtrack', assetId: 'mv-soundtrack', startTime: 0,
+          endTime: rawAudioDuration / soundtrackSpeed, trimStart: 0, trimEnd: rawAudioDuration,
+          speed: soundtrackSpeed, type: 'video' }}
+        x={soundtrackSpeedMenu.x} y={soundtrackSpeedMenu.y}
+        label="SOUNDTRACK SPEED"
+        hint="Changes master-song speed and pitch. Video and lyric timestamps stay where they are."
+        onChange={value => { setSoundtrackSpeed(value); return undefined; }}
+        onCommit={commitTimeline}
+        onClose={() => setSoundtrackSpeedMenu(null)}
+      />}
       {confirmClearClips && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4"

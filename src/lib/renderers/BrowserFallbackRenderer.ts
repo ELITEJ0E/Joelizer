@@ -176,10 +176,13 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     const originalTime = useStore.getState().currentTime;
     const wasPlaying = useStore.getState().isPlaying;
     const originalAudioTime = audioManager.currentTime;
+    const originalAudioRate = audioManager.element?.playbackRate ?? 1;
+    const soundtrackSpeed = project.exportMode === 'music-video' ? (project.audio.speed ?? 1) : 1;
 
     useStore.getState().setIsPlaying(false);
     useStore.getState().setCurrentTime(startTimeOffset);
-    audioManager.seek(startTimeOffset);
+    audioManager.setPlaybackRate(soundtrackSpeed);
+    audioManager.seek(startTimeOffset * soundtrackSpeed);
     const restorePlayback = () => {
       stopBrowserExportClock();
       useStore.getState().setExportResolutionOverride(oldResolution);
@@ -187,6 +190,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
       useStore.getState().setIsPlaying(wasPlaying);
       useStore.getState().setCurrentTime(originalTime);
       audioManager.seek(originalAudioTime);
+      audioManager.setPlaybackRate(originalAudioRate);
     };
 
     return new Promise((resolve, reject) => {

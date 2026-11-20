@@ -9,6 +9,7 @@ export interface GlobalProjectSnapshot {
   description: string;
   // MV Studio state
   timelineClips: TimelineClip[];
+  soundtrackSpeed?: number;
   wordTimings: TimelineText[];
   // Main Store state
   lyricsLines: LyricLine[];
@@ -41,6 +42,7 @@ class GlobalHistoryManager {
       timestamp: Date.now(),
       description,
       timelineClips: JSON.parse(JSON.stringify(mvState.timelineClips || [])),
+      soundtrackSpeed: mvState.soundtrackSpeed,
       wordTimings: JSON.parse(JSON.stringify(mvState.wordTimings || [])),
       lyricsLines: JSON.parse(JSON.stringify(mainState.lyricsSettings?.lines || [])),
       lyricsSettings: JSON.parse(JSON.stringify(mainState.lyricsSettings || {})),
@@ -116,6 +118,7 @@ class GlobalHistoryManager {
     // 1. Restore MV Store (Clips and word timings)
     useMVStore.setState({
       timelineClips: JSON.parse(JSON.stringify(snapshot.timelineClips || [])),
+      soundtrackSpeed: snapshot.soundtrackSpeed ?? 1,
       wordTimings: JSON.parse(JSON.stringify(snapshot.wordTimings || [])),
     });
 

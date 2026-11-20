@@ -4,12 +4,16 @@ import { audioManager } from '../../lib/audio';
 import { useGlobalKeyboardShortcuts } from '../../hooks/useGlobalKeyboardShortcuts';
 import { getStreamableAudioUrl } from '../../lib/utils';
 import { useDAWStore } from '../../store/useDAWStore';
+import { useMVStore } from '../../store/useMVStore';
 
 export function GlobalAudioPlayer() {
   useGlobalKeyboardShortcuts();
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const isDAW = useStore(s => s.activeTab === 'daw');
+  const isMV = useStore(s => s.activeTab === 'mv-studio');
+  const mvSoundtrackSpeed = useMVStore(s => s.soundtrackSpeed);
+  const audioRate = isMV ? mvSoundtrackSpeed : 1;
   const audioUrl = useStore(s => s.audioUrl);
   const streamUrl = getStreamableAudioUrl(audioUrl);
   const audioFile = useStore(s => s.audioFile);
@@ -27,6 +31,8 @@ export function GlobalAudioPlayer() {
   const currentTime = useStore(s => s.currentTime);
   const prevTrackIndexRef = useRef(currentTrackIndex);
   const prevAudioUrlRef = useRef(audioUrl);
+  const prevAudioRateRef = useRef(1);
+  const skipOldTimeSeekRef = useRef(false);
 
   // Decode audio data for waveform peaks whenever audioFile or audioUrl changes
   useEffect(() => {
@@ -81,11 +87,32 @@ export function GlobalAudioPlayer() {
   // when Lyrics Video / MV Studio is open (Editor Preview may be unmounted).
   useEffect(() => { audioManager.setSmoothing(visualizerSmoothing); }, [visualizerSmoothing, audioUrl]);
 
+  // Only the MV Studio master soundtrack is retimed. Switching back to LRC,
+  // Lyrics Video or Audio Lab restores normal speed and the raw source clock.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    const rate = Math.max(0.1, Math.min(8, audioRate));
+    el.defaultPlaybackRate = rate;
+    el.playbackRate = rate;
+    // Keep audio exports consistent across native playback, Web Audio and Remotion.
+    if ('preservesPitch' in el) el.preservesPitch = false;
+    if (prevAudioRateRef.current !== rate) {
+      prevAudioRateRef.current = rate;
+      skipOldTimeSeekRef.current = true;
+      setCurrentTime(el.currentTime / rate);
+    }
+  }, [audioRate, setCurrentTime]);
+
   // Handle track changes and explicit rewinds
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
     if (isDAW) return;
+    if (skipOldTimeSeekRef.current) {
+      skipOldTimeSeekRef.current = false;
+      return;
+    }
 
     const trackChanged = prevTrackIndexRef.current !== currentTrackIndex || prevAudioUrlRef.current !== streamUrl;
     if (trackChanged) {
@@ -93,10 +120,14 @@ export function GlobalAudioPlayer() {
       prevAudioUrlRef.current = streamUrl;
       el.currentTime = 0;
       el.load();
-    } else if (Math.abs(el.currentTime - currentTime) > 0.35) {
-      el.currentTime = currentTime;
+    } else if (Number.isFinite(el.duration) && currentTime * audioRate >= el.duration) {
+      // When the user scrubs beyond a shortened soundtrack, preserve the
+      // video-only timeline position; the media element cannot seek past EOF.
+      return;
+    } else if (Math.abs(el.currentTime - currentTime * audioRate) > 0.35) {
+      el.currentTime = currentTime * audioRate;
     }
-  }, [currentTrackIndex, streamUrl, currentTime, isDAW]);
+  }, [currentTrackIndex, streamUrl, currentTime, isDAW, audioRate]);
 
   // Sync play/pause state safely
   useEffect(() => {
@@ -165,7 +196,7 @@ export function GlobalAudioPlayer() {
     let lastDispatchedTime = -1;
 
     const tick = () => {
-      const preciseTime = audioManager.getPreciseCurrentTime();
+      const preciseTime = audioManager.getPreciseCurrentTime() / audioRate;
       // Only dispatch if time progressed by at least 15ms to keep UI performant
       if (Math.abs(preciseTime - lastDispatchedTime) >= 0.015) {
         lastDispatchedTime = preciseTime;
@@ -176,7 +207,7 @@ export function GlobalAudioPlayer() {
 
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, [isPlaying, isDAW]);
+  }, [isPlaying, isDAW, audioRate]);
 
   // Sync MediaSession metadata and action handlers for browser/keyboard/bluetooth controls
   useEffect(() => {
@@ -227,11 +258,14 @@ export function GlobalAudioPlayer() {
       onPause={() => { if (useStore.getState().activeTab !== 'daw') setIsPlaying(false); }}
       onTimeUpdate={() => {
         if (audioRef.current && useStore.getState().activeTab !== 'daw') {
-          setCurrentTime(audioRef.current.currentTime);
+          setCurrentTime(audioRef.current.currentTime / (useStore.getState().activeTab === 'mv-studio'
+            ? useMVStore.getState().soundtrackSpeed : 1));
         }
       }}
       onLoadedMetadata={() => {
         if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+          audioRef.current.playbackRate = useStore.getState().activeTab === 'mv-studio'
+            ? useMVStore.getState().soundtrackSpeed : 1;
           setAudioDuration(audioRef.current.duration);
         }
       }}

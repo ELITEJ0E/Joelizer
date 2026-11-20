@@ -34,11 +34,13 @@ export async function buildCanonicalProjectJson(options?: {
   // Audio track info
   const currentTrack = mainStore.tracks[mainStore.currentTrackIndex];
   const audioDuration = mainStore.audioDuration || currentTrack?.duration || 0;
+  const soundtrackSpeed = exportMode === 'music-video'
+    ? Math.max(0.1, Math.min(8, mvStore.soundtrackSpeed ?? 1)) : 1;
   const maxMVClipEnd = exportMode === 'music-video'
     ? Math.max(0, ...mvStore.timelineClips.map(clip => clip.endTime))
     : 0;
   const maxLyricEnd = Math.max(0, ...(mainStore.lyricsSettings.lines || []).map(line => line.endTime || 0));
-  const projectEnd = Math.max(audioDuration, maxMVClipEnd, maxLyricEnd) || 10;
+  const projectEnd = Math.max(audioDuration / soundtrackSpeed, maxMVClipEnd, maxLyricEnd) || 10;
   
   let rawAudioUrl = mainStore.audioUrl || currentTrack?.url || null;
   let stagedAudioUrl: string | null = rawAudioUrl;
@@ -60,7 +62,8 @@ export async function buildCanonicalProjectJson(options?: {
   const rangeStart = Math.max(0, mainStore.exportRangeStart || 0);
   const rawRangeEnd = mainStore.exportRangeEnd;
   // The default range created when loading audio must not silently truncate a longer MV timeline.
-  const inheritedAudioEnd = exportMode === 'music-video' && maxMVClipEnd > audioDuration
+  const inheritedAudioEnd = exportMode === 'music-video' &&
+    (maxMVClipEnd > audioDuration || Math.abs(soundtrackSpeed - 1) > 0.0001)
     && rawRangeEnd !== null && Math.abs(rawRangeEnd - audioDuration) < 0.02;
   const rangeEnd = (rawRangeEnd !== null && rawRangeEnd > rangeStart && !inheritedAudioEnd)
     ? rawRangeEnd : projectEnd;
@@ -193,12 +196,13 @@ export async function buildCanonicalProjectJson(options?: {
     },
     audio: {
       url: stagedAudioUrl,
+      speed: soundtrackSpeed,
       audioDataUri: null,
       title: currentTrack?.name || mainStore.name || 'Untitled Song',
       artist: currentTrack?.artist || 'Joelizer Studio',
       albumArt: albumArtUrl,
       duration: audioDuration,
-      bpm: mvStore.songAnalysis?.bpm,
+      bpm: mvStore.songAnalysis?.bpm ? mvStore.songAnalysis.bpm * soundtrackSpeed : undefined,
       key: mvStore.songAnalysis?.key
     },
     lyrics: {

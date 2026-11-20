@@ -240,7 +240,8 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       {audio?.audioDataUri && (
         <Audio 
           src={audio.audioDataUri} 
-          startFrom={Math.round((projectJson.exportRange?.start || 0) * fps)}
+          startFrom={Math.round((projectJson.exportRange?.start || 0) * fps * (audio.speed ?? 1))}
+          playbackRate={audio.speed ?? 1}
         />
       )}
     </AbsoluteFill>
