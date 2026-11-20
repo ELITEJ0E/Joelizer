@@ -58,7 +58,11 @@ export class OfflineAudioAnalysis {
     }
     for (let i = 0; i < n / 2; i++) {
       const amplitude = Math.hypot(real[i], imag[i]) / (n * 0.23);
-      spectrum[i] = Math.max(0, Math.min(255, Math.round(255 * Math.pow(Math.min(1, amplitude * 4), 0.55))));
+      // Preserve differences between quiet passages and mastered drum peaks.
+      // The previous 4x gain + power curve saturated common FFT bins at 255,
+      // making every exported beat look equally loud.
+      spectrum[i] = Math.max(0, Math.min(255,
+        Math.round(255 * Math.log1p(amplitude * 4) / Math.log(5))));
     }
     return { frequency: spectrum, waveform: wave };
   }

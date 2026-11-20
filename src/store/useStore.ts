@@ -16,6 +16,7 @@ export interface VisualizerSettings {
   enabled?: boolean;
   style: 'bars' | 'joelify-bars' | 'joelify-beat' | 'joelify-bottom' | 'spectrum-eq' | 'waveform' | 'radial' | 'particles' | 'kaleidoscope' | 'orb';
   color: string;
+  colorMode?: 'fixed' | 'rainbow';
   sensitivity: number;
   smoothing: number;
   segments?: number; // for kaleidoscope, e.g. 6 to 12
@@ -195,6 +196,7 @@ const defaultVisualizerSettings: VisualizerSettings = {
   enabled: true,
   style: 'joelify-beat',
   color: '#00e676',
+  colorMode: 'fixed',
   sensitivity: 0.95,
   smoothing: 0.65,
   segments: 8,
