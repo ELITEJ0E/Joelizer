@@ -4,6 +4,23 @@ import { formatTime } from '../../lib/utils';
 import { RefreshCw, Play, Square, Scissors } from 'lucide-react';
 import { WaveformTimeline } from './WaveformTimeline';
 
+const MIN_RANGE = 0.01;
+
+function preciseTime(seconds: number): string {
+  const centiseconds = Math.round(Math.max(0, seconds) * 100);
+  const minutes = Math.floor(centiseconds / 6000);
+  return `${String(minutes).padStart(2, '0')}:${String(Math.floor(centiseconds / 100) % 60).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`;
+}
+
+/** Accepts 83.25, 01:23.25, or 1:01:23.25. */
+function parseTimeInput(input: string): number | null {
+  const parts = input.trim().split(':');
+  if (parts.length > 3 || !parts.length || parts.some(part => !/^\d+(?:\.\d+)?$/.test(part))) return null;
+  const values = parts.map(Number);
+  const seconds = values.reduce((sum, n) => sum * 60 + n, 0);
+  return Number.isFinite(seconds) ? seconds : null;
+}
+
 interface ExportRangeSliderProps {
   duration: number;
   start: number;
@@ -20,15 +37,21 @@ export function ExportRangeSlider({
   activeColor,
 }: ExportRangeSliderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef<'start' | 'end' | null>(null);
   const [activeHandle, setActiveHandle] = useState<'start' | 'end' | null>(null);
+  const [editing, setEditing] = useState<'start' | 'end' | null>(null);
+  const [startInput, setStartInput] = useState(() => preciseTime(start));
+  const [endInput, setEndInput] = useState(() => preciseTime(end));
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
 
-  const resetExportRange = useStore((s) => s.resetExportRange);
   const isPlaying = useStore((s) => s.isPlaying);
   const setIsPlaying = useStore((s) => s.setIsPlaying);
   const currentTime = useStore((s) => s.currentTime);
   const setCurrentTime = useStore((s) => s.setCurrentTime);
   const waveformPeaks = useStore((s) => s.waveformPeaks);
+
+  useEffect(() => { if (editing !== 'start') setStartInput(preciseTime(start)); }, [start, editing]);
+  useEffect(() => { if (editing !== 'end') setEndInput(preciseTime(end)); }, [end, editing]);
 
   const startPct = duration > 0 ? (start / duration) * 100 : 0;
   const endPct = duration > 0 ? (end / duration) * 100 : 100;
@@ -41,39 +64,46 @@ export function ExportRangeSlider({
     return (x / rect.width) * duration;
   };
 
-  const handlePointerDown = (clientX: number) => {
+  const handlePointerDown = (clientX: number, forcedHandle?: 'start' | 'end') => {
     if (duration <= 0) return;
     const clickVal = calculateValueFromCoords(clientX);
-    
-    // Determine closest handle or range interaction
-    const distToStart = Math.abs(clickVal - start);
-    const distToEnd = Math.abs(clickVal - end);
-    const handleThreshold = duration * 0.04; // 4% tolerance threshold for handle selection
-
-    if (distToStart < handleThreshold || distToStart <= distToEnd) {
-      setActiveHandle('start');
-      updateHandleValue('start', clickVal);
-    } else if (distToEnd < handleThreshold) {
-      setActiveHandle('end');
-      updateHandleValue('end', clickVal);
+    const threshold = Math.max(0.07, duration * 0.018);
+    const distanceStart = Math.abs(clickVal - start);
+    const distanceEnd = Math.abs(clickVal - end);
+    const handle = forcedHandle || (Math.min(distanceStart, distanceEnd) <= threshold
+      ? distanceStart <= distanceEnd ? 'start' : 'end' : null);
+    if (handle) {
+      dragging.current = handle;
+      setActiveHandle(handle);
+      updateHandleValue(handle, clickVal);
+    } else if (clickVal >= start && clickVal <= end) {
+      setCurrentTime(clickVal);
+      const audioEl = document.querySelector('audio');
+      if (audioEl) audioEl.currentTime = clickVal;
     } else {
-      // Seek playback if clicking inside active region
-      if (clickVal >= start && clickVal <= end) {
-        setCurrentTime(clickVal);
-        const audioEl = document.querySelector('audio');
-        if (audioEl) audioEl.currentTime = clickVal;
-      }
+      const nearest = distanceStart < distanceEnd ? 'start' : 'end';
+      dragging.current = nearest;
+      setActiveHandle(nearest);
+      updateHandleValue(nearest, clickVal);
     }
   };
 
   const updateHandleValue = (handle: 'start' | 'end', value: number) => {
     if (handle === 'start') {
-      const newStart = Math.max(0, Math.min(value, end - 0.5));
+      const newStart = Math.max(0, Math.min(value, end - MIN_RANGE));
       onChange(newStart, end);
     } else {
-      const newEnd = Math.max(start + 0.5, Math.min(value, duration));
+      const newEnd = Math.max(start + MIN_RANGE, Math.min(value, duration));
       onChange(start, newEnd);
     }
+  };
+
+  const commitInput = (handle: 'start' | 'end') => {
+    const parsed = parseTimeInput(handle === 'start' ? startInput : endInput);
+    if (parsed !== null) updateHandleValue(handle, parsed);
+    setEditing(null);
+    setStartInput(preciseTime(handle === 'start' && parsed !== null ? Math.max(0, Math.min(parsed, end - MIN_RANGE)) : start));
+    setEndInput(preciseTime(handle === 'end' && parsed !== null ? Math.max(start + MIN_RANGE, Math.min(parsed, duration)) : end));
   };
 
   // Toggle range preview audio playback
@@ -121,56 +151,15 @@ export function ExportRangeSlider({
     }
   }, [isPlaying, isPreviewPlaying]);
 
-  // Global mouse/touch drag listeners with cursor locking
-  useEffect(() => {
-    if (!activeHandle) return;
-
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-
-    const handleMouseMove = (e: MouseEvent) => {
-      e.preventDefault();
-      const value = calculateValueFromCoords(e.clientX);
-      updateHandleValue(activeHandle, value);
-    };
-
-    const handleMouseUp = () => {
-      setActiveHandle(null);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length > 0) {
-        const value = calculateValueFromCoords(e.touches[0].clientX);
-        updateHandleValue(activeHandle, value);
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleMouseUp);
-
-    return () => {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleMouseUp);
-    };
-  }, [activeHandle, start, end, duration, onChange]);
-
   // Keyboard accessibility support
   const handleKeyDown = (handle: 'start' | 'end', e: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = e.shiftKey ? 1.0 : 0.1;
+    const step = e.altKey ? 0.01 : e.shiftKey ? 1.0 : 0.1;
     e.stopPropagation();
 
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (handle === 'start') {
-        onChange(Math.min(start + step, end - 0.5), end);
+        onChange(Math.min(start + step, end - MIN_RANGE), end);
       } else {
         onChange(start, Math.min(end + step, duration));
       }
@@ -179,19 +168,19 @@ export function ExportRangeSlider({
       if (handle === 'start') {
         onChange(Math.max(0, start - step), end);
       } else {
-        onChange(start, Math.max(start + 0.5, end - step));
+        onChange(start, Math.max(start + MIN_RANGE, end - step));
       }
     } else if (e.key === 'Home') {
       e.preventDefault();
       if (handle === 'start') {
         onChange(0, end);
       } else {
-        onChange(start, start + 0.5);
+        onChange(start, start + MIN_RANGE);
       }
     } else if (e.key === 'End') {
       e.preventDefault();
       if (handle === 'start') {
-        onChange(end - 0.5, end);
+        onChange(end - MIN_RANGE, end);
       } else {
         onChange(start, duration);
       }
@@ -207,7 +196,7 @@ export function ExportRangeSlider({
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[1.5px] text-slate-300 font-black">
             <Scissors size={12} style={{ color: activeColor }} />
-            <span>CapCut Timeline Trim</span>
+            <span>Joelizer Precision Trim</span>
           </div>
 
           <button
@@ -237,7 +226,7 @@ export function ExportRangeSlider({
               setIsPreviewPlaying(false);
               setIsPlaying(false);
             }
-            resetExportRange();
+            onChange(0, duration);
           }}
           disabled={isFullTrack}
           className="flex items-center gap-1 text-[9px] font-mono uppercase font-bold text-slate-500 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
@@ -247,16 +236,26 @@ export function ExportRangeSlider({
         </button>
       </div>
 
-      {/* CapCut-Style Waveform Timeline Track Container */}
+      {/* High precision waveform range editor */}
       <div 
         ref={containerRef}
-        onMouseDown={(e) => {
-          if (e.button === 0) handlePointerDown(e.clientX);
+        onPointerDown={e => {
+          if (e.button !== 0 && e.pointerType === 'mouse') return;
+          const node = (e.target as HTMLElement).closest('[data-trim-handle]');
+          const forced = node?.getAttribute('data-trim-handle') as 'start' | 'end' | null;
+          handlePointerDown(e.clientX, forced || undefined);
+          if (dragging.current) e.currentTarget.setPointerCapture(e.pointerId);
         }}
-        onTouchStart={(e) => {
-          if (e.touches.length > 0) handlePointerDown(e.touches[0].clientX);
+        onPointerMove={e => {
+          if (dragging.current) updateHandleValue(dragging.current, calculateValueFromCoords(e.clientX));
         }}
-        className="relative h-16 sm:h-20 w-full bg-black/60 rounded-lg overflow-hidden border border-white/15 cursor-ew-resize select-none outline-none group"
+        onPointerUp={e => {
+          dragging.current = null;
+          setActiveHandle(null);
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+        }}
+        onPointerCancel={() => { dragging.current = null; setActiveHandle(null); }}
+        className="relative h-16 sm:h-20 w-full bg-black/60 rounded-lg overflow-hidden border border-white/15 cursor-ew-resize select-none touch-none outline-none group"
       >
         {/* Peak Data Integration: Waveform Timeline Component rendered behind the slider */}
         <div className="absolute inset-0 z-0 opacity-90">
@@ -308,16 +307,9 @@ export function ExportRangeSlider({
         {/* Professional NLE Full-Height Left Handle */}
         <div
           tabIndex={0}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            setActiveHandle('start');
-          }}
-          onTouchStart={(e) => {
-            e.stopPropagation();
-            setActiveHandle('start');
-          }}
+          data-trim-handle="start"
           onKeyDown={(e) => handleKeyDown('start', e)}
-          className="absolute top-0 bottom-0 w-3.5 -ml-3.5 z-30 bg-white border-y-2 border-l-2 rounded-l-md shadow-2xl flex flex-col items-center justify-center cursor-ew-resize outline-none focus:ring-2 focus:ring-white transition-transform hover:scale-x-110 active:scale-x-110"
+          className={`absolute top-0 bottom-0 w-3.5 -ml-3.5 z-30 bg-white border-y-2 border-l-2 rounded-l-md shadow-2xl flex flex-col items-center justify-center cursor-ew-resize outline-none focus:ring-2 focus:ring-white ${activeHandle === 'start' ? 'brightness-125' : ''}`}
           style={{ 
             left: `${startPct}%`,
             borderColor: activeColor,
@@ -327,7 +319,7 @@ export function ExportRangeSlider({
           role="slider"
           aria-label="Export Start handle"
           aria-valuemin={0}
-          aria-valuemax={end - 0.5}
+          aria-valuemax={end - MIN_RANGE}
           aria-valuenow={start}
         >
           {/* NLE Vertical Grip Lines */}
@@ -338,23 +330,16 @@ export function ExportRangeSlider({
 
           {/* Time Tooltip */}
           <div className="absolute bottom-full mb-1.5 px-1.5 py-0.5 bg-black/90 border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-40 shadow-xl font-bold tracking-wider">
-            IN: {formatTime(start)}
+            IN: {preciseTime(start)}
           </div>
         </div>
 
         {/* Professional NLE Full-Height Right Handle */}
         <div
           tabIndex={0}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            setActiveHandle('end');
-          }}
-          onTouchStart={(e) => {
-            e.stopPropagation();
-            setActiveHandle('end');
-          }}
+          data-trim-handle="end"
           onKeyDown={(e) => handleKeyDown('end', e)}
-          className="absolute top-0 bottom-0 w-3.5 z-30 bg-white border-y-2 border-r-2 rounded-r-md shadow-2xl flex flex-col items-center justify-center cursor-ew-resize outline-none focus:ring-2 focus:ring-white transition-transform hover:scale-x-110 active:scale-x-110"
+          className={`absolute top-0 bottom-0 w-3.5 z-30 bg-white border-y-2 border-r-2 rounded-r-md shadow-2xl flex flex-col items-center justify-center cursor-ew-resize outline-none focus:ring-2 focus:ring-white ${activeHandle === 'end' ? 'brightness-125' : ''}`}
           style={{ 
             left: `${endPct}%`,
             borderColor: activeColor,
@@ -363,7 +348,7 @@ export function ExportRangeSlider({
           }}
           role="slider"
           aria-label="Export End handle"
-          aria-valuemin={start + 0.5}
+          aria-valuemin={start + MIN_RANGE}
           aria-valuemax={duration}
           aria-valuenow={end}
         >
@@ -375,20 +360,48 @@ export function ExportRangeSlider({
 
           {/* Time Tooltip */}
           <div className="absolute bottom-full mb-1.5 px-1.5 py-0.5 bg-black/90 border border-white/20 text-white text-[9px] font-mono rounded pointer-events-none whitespace-nowrap z-40 shadow-xl font-bold tracking-wider">
-            OUT: {formatTime(end)}
+            OUT: {preciseTime(end)}
           </div>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-3 pt-1">
+        {(['start', 'end'] as const).map(handle => (
+          <label key={handle} className="min-w-0 space-y-1">
+            <span className="block text-[10px] font-mono uppercase tracking-wider text-slate-400">
+              {handle === 'start' ? 'Start / In' : 'End / Out'}
+            </span>
+            <input type="text" inputMode="decimal" spellCheck={false}
+              aria-label={handle === 'start' ? 'Trim start time' : 'Trim end time'}
+              value={handle === 'start' ? startInput : endInput}
+              onFocus={() => setEditing(handle)}
+              onChange={e => handle === 'start' ? setStartInput(e.target.value) : setEndInput(e.target.value)}
+              onBlur={() => commitInput(handle)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                if (e.key === 'Escape') {
+                  handle === 'start' ? setStartInput(preciseTime(start)) : setEndInput(preciseTime(end));
+                  e.currentTarget.blur();
+                }
+              }}
+              placeholder="00:00.00"
+              className="h-9 w-full rounded-md border border-white/15 bg-black/40 px-2.5 font-mono text-sm text-white outline-none focus:border-emerald-400" />
+          </label>
+        ))}
+      </div>
+      <p className="text-[10px] text-slate-500 leading-relaxed">
+        Type seconds (83.25) or a timecode (01:23.25). Drag handles to trim; use arrow keys for 0.1s, Alt + arrows for 0.01s, or Shift + arrows for 1s.
+      </p>
 
       {/* Readout persistent values */}
       <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-0.5">
         <div className="flex items-center gap-1.5">
           <span className="text-slate-400">Duration:</span>
           <span className="text-white font-bold bg-white/10 px-1.5 py-0.5 rounded text-[10px]" style={{ color: activeColor }}>
-            {formatTime(end - start)}
+            {preciseTime(end - start)}
           </span>
           <span className="text-slate-500 text-[9px]">
-            ({formatTime(start)} → {formatTime(end)})
+            ({preciseTime(start)} → {preciseTime(end)})
           </span>
         </div>
         <div className="text-slate-400 text-[9px]">
