@@ -56,6 +56,48 @@ function LyricsBackdropControl() {
   );
 }
 
+/** Shared quick-access controls on mobile and desktop Lyrics Video panels. */
+function KineticQuickControls() {
+  const animationStyle = useLyricsVideoStore(s => s.animationStyle);
+  const setAnimationStyle = useLyricsVideoStore(s => s.setAnimationStyle);
+  const palette = useLyricsVideoStore(s => s.kineticPalette);
+  const intensity = useLyricsVideoStore(s => s.kineticIntensity);
+  const update = useLyricsVideoStore(s => s.setKineticSettings);
+
+  return (
+    <div className="space-y-2">
+      <button type="button" aria-pressed={animationStyle === 'kinetic'}
+        onClick={() => setAnimationStyle('kinetic')}
+        className={cn('w-full rounded border px-3 py-2 text-left cursor-pointer transition-colors',
+          animationStyle === 'kinetic' ? 'border-fuchsia-400 text-fuchsia-200 bg-fuchsia-500/15' : 'border-[#303947] bg-[#12161c] text-[#c7cbd5] hover:border-fuchsia-400/50')}>
+        <span className="block text-[11px] font-bold uppercase">✦ Kinetic Color Pop · NEW</span>
+        <span className="block text-[10px] opacity-75">Timestamp-synced word pops and changing text colors</span>
+      </button>
+      {animationStyle === 'kinetic' && (
+        <div className="space-y-2 rounded border border-fuchsia-400/30 bg-fuchsia-500/5 p-2.5">
+          <span className="text-[10px] uppercase font-bold text-[#aeb8c5]">Text color palette</span>
+          <div className="grid grid-cols-4 gap-1">
+            {(['neon', 'sunset', 'candy', 'rainbow'] as const).map(p => (
+              <button key={p} type="button" aria-pressed={palette === p}
+                onClick={() => update({ kineticPalette: p })}
+                className={cn('rounded border px-1 py-1.5 text-[10px] capitalize cursor-pointer',
+                  palette === p ? 'border-fuchsia-400 bg-fuchsia-500/20 text-fuchsia-200' : 'border-[#303947] text-[#9ba8ba]')}>
+                {p}
+              </button>
+            ))}
+          </div>
+          <label className="flex justify-between text-[10px] text-[#aeb8c5]">
+            Pop intensity <span className="text-fuchsia-200">{intensity.toFixed(1)}×</span>
+          </label>
+          <input aria-label="Kinetic lyric pop intensity" type="range" min="0.3" max="2" step="0.1"
+            value={intensity} onChange={e => update({ kineticIntensity: Number(e.target.value) })}
+            className="w-full accent-fuchsia-400" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LayerVisibilityControls() {
   const showArtwork = useLyricsVideoStore(s => s.showArtwork !== false);
   const setShowArtwork = useLyricsVideoStore(s => s.setShowArtwork);
@@ -532,7 +574,7 @@ export function LyricsVideoLayout() {
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-semibold text-[#7e8999]">Animation Style</span>
                         <span className="text-[10px] font-mono text-accent font-bold uppercase">
-                          {animationStyle === 'karaoke' ? 'Karaoke' : animationStyle === 'none' ? 'None' : 'Fade'}
+                          {animationStyle === 'kinetic' ? 'Kinetic' : animationStyle === 'karaoke' ? 'Karaoke' : animationStyle === 'none' ? 'None' : 'Fade'}
                         </span>
                       </div>
                       <div className="grid grid-cols-3 gap-1.5 bg-[#0e1115] p-1 rounded border border-[#232933]">
@@ -574,6 +616,7 @@ export function LyricsVideoLayout() {
                           <span className="text-[9px] text-[#7e8999]">Instant / Fast Songs</span>
                         </button>
                       </div>
+                      <KineticQuickControls />
                     </div>
                   </div>
                 )}
@@ -1092,7 +1135,7 @@ export function LyricsVideoLayout() {
                     <span>Animation Style</span>
                   </label>
                   <span className="text-[10px] font-mono text-accent font-bold uppercase">
-                    {animationStyle === 'karaoke' ? 'Karaoke' : 'Fade In/Out'}
+                    {animationStyle === 'kinetic' ? 'Kinetic' : animationStyle === 'karaoke' ? 'Karaoke' : animationStyle === 'none' ? 'None' : 'Fade In/Out'}
                   </span>
                 </div>
 
@@ -1139,6 +1182,7 @@ export function LyricsVideoLayout() {
                     <span className="text-[9px] text-[#7e8999]">Instant / Fast Songs</span>
                   </button>
                 </div>
+                <KineticQuickControls />
               </div>
 
               {/* 5. STYLE & TYPOGRAPHY SECTION */}
