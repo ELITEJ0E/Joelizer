@@ -756,6 +756,15 @@ function renderArtwork(
 
       ctx.restore();
     }
+  } else if (style === 'sticker') {
+    // A transparent PNG serves as an independently draggable cutout/sticker
+    // beside the lyrics, without a disc, border, or forced dark card.
+    if (albumArtImg && albumArtImg.complete && albumArtImg.naturalWidth > 0) {
+      const factor = Math.min(baseSize / albumArtImg.naturalWidth, baseSize / albumArtImg.naturalHeight);
+      const dw = albumArtImg.naturalWidth * factor;
+      const dh = albumArtImg.naturalHeight * factor;
+      ctx.drawImage(albumArtImg, -dw / 2, -dh / 2, dw, dh);
+    }
   } else if (style === 'circle') {
     const radius = baseSize / 2;
     ctx.shadowBlur = 30;
@@ -907,9 +916,12 @@ function renderLyrics(
   const rapidWord = !!shortActiveLine && shortActiveLine.endTime - shortActiveLine.startTime <= 0.42 &&
     shortActiveLine.text.trim().split(/\s+/).length <= 2;
   const instantLyrics = options.animationStyle === 'none' || rapidWord;
+  const revealLyrics = options.animationStyle === 'kinetic';
   // In instant mode, show only the line whose timestamps contain this frame.
   // Never render the next-line preview before its start on fast songs.
-  const visibleCount = instantLyrics ? 1 : (options.visibleLineCount || 1);
+  // Kinetic reveal is intentionally single-line: the upcoming lyric must not
+  // sneak into view as a dim preview while its own words are still hidden.
+  const visibleCount = instantLyrics || revealLyrics ? 1 : (options.visibleLineCount || 1);
   if (instantLyrics && !lyricsLines.some(line =>
     currentTime >= line.startTime && currentTime < line.endTime)) {
     ctx.restore();
@@ -950,7 +962,7 @@ function renderLyrics(
     (options.animationStyle ? options.animationStyle === 'karaoke' : null) ??
     (options.animationOverride?.wordAnimation === 'karaoke') ??
     (useStore.getState().lyricsSettings?.animationStyle === 'karaoke');
-  const isKinetic = options.animationStyle === 'kinetic';
+  const isKinetic = revealLyrics;
 
   // Cross-fade opacity computation for the active line
   const lineDuration = Math.max(0.4, activeLine.endTime - activeLine.startTime);
@@ -1045,7 +1057,9 @@ function renderLyrics(
   ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
   ctx.shadowBlur = 10;
 
-  const maxLineWidth = isPortrait ? W * 0.88 : W * 0.48;
+  // Large center-stage captions must be allowed to span the stage. The old
+  // landscape limit (48%) was tuned for lyrics beside a vinyl record.
+  const maxLineWidth = isPortrait ? W * 0.88 : W * (fontSizeScale >= 1.5 ? 0.88 : 0.48);
 
   // Build timed words list
   let timedWords: { word: string; startTime: number; endTime: number }[] = [];
@@ -1205,7 +1219,8 @@ function renderLyrics(
       const intensity = Math.min(2, Math.max(0.3, options.kineticIntensity ?? 1));
       const pop = Math.max(0, 1 - Math.max(0, elapsed) / 0.25);
       const settle = 1 + intensity * 0.22 * pop * pop;
-      // One colour for each word, rotating when the active lyric changes.
+      // Unlike karaoke highlighting, a future word must not be visible at all.
+      // Reveal the actual word at its start time, with a short timed entrance.
       // Word-level timings remain the source of truth where available.
       sublines.forEach((sublineWords, sIdx) => {
         const widths = sublineWords.map(w => ctx.measureText(w.word).width);
@@ -1214,17 +1229,21 @@ function renderLyrics(
         const y = startY + sIdx * lineHeight;
         sublineWords.forEach((w, idx) => {
           const wordElapsed = currentTime - w.startTime;
+          if (wordElapsed < 0) {
+            x += widths[idx] + spaceWidth;
+            return;
+          }
           const wordPop = Math.max(0, 1 - Math.max(0, wordElapsed) / 0.22);
-          const wordScale = settle + (wordElapsed >= 0 ? 0.14 * intensity * wordPop * wordPop : 0);
-          const active = wordElapsed >= 0;
+          const wordScale = settle + 0.14 * intensity * wordPop * wordPop;
           const colorIndex = (activeIndex + idx + sIdx) % palette.length;
           ctx.save();
-          ctx.translate(x + widths[idx] / 2, y + (active ? -fontSize * 0.12 * intensity * wordPop : fontSize * 0.07));
+          ctx.globalAlpha *= Math.min(1, wordElapsed / Math.max(0.04, 0.09 / intensity));
+          ctx.translate(x + widths[idx] / 2, y - fontSize * 0.12 * intensity * wordPop);
           ctx.scale(wordScale, wordScale);
           ctx.textAlign = 'center';
-          ctx.fillStyle = active ? palette[colorIndex] : inactiveWordColor;
-          ctx.shadowColor = active ? palette[colorIndex] : 'rgba(0,0,0,0.8)';
-          ctx.shadowBlur = active ? 13 * intensity : 5;
+          ctx.fillStyle = palette[colorIndex];
+          ctx.shadowColor = palette[colorIndex];
+          ctx.shadowBlur = 13 * intensity;
           ctx.fillText(w.word, 0, 0);
           ctx.restore();
           x += widths[idx] + spaceWidth;

@@ -17,6 +17,8 @@ export const CURATED_FONTS: CuratedFont[] = [
   { family: 'Bebas Neue', category: 'Display / Urban', weight: '400', previewText: 'BEBAS CONDENSED', description: 'Punchy tall all-caps headline, perfect for Trap, Hip-hop & EDM' },
   { family: 'Russo One', category: 'Display / Urban', weight: '400', previewText: 'RUSSO IMPACT', description: 'Heavy, impactful and bold display typeface' },
   { family: 'Permanent Marker', category: 'Display / Urban', weight: '400', previewText: 'Handwritten Vibe', description: 'Authentic street handwritten marker look for rock & rap' },
+  { family: 'Kalam', category: 'Display / Urban', weight: '400', previewText: 'Soft handwritten lyrics', description: 'Casual handwritten caption style for travel and sunset edits' },
+  { family: 'Caveat', category: 'Display / Urban', weight: '500', previewText: 'Dreamy ink script', description: 'Expressive hand-lettered script for intimate lyric videos' },
 
   // Retro, Synth & Tech
   { family: 'Orbitron', category: 'Retro / Synth', weight: '800', previewText: 'CYBERPUNK 2077', description: 'Futuristic sci-fi techno display for synthwave and electronic' },

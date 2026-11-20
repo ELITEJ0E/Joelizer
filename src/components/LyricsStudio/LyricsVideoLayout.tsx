@@ -9,6 +9,8 @@ import { VideoFramingControls } from '../shared/VideoFramingControls';
 import { OverlayEffectsPanel } from '../shared/OverlayEffectsPanel';
 import { GlobalSettingsPanel } from '../MVStudio/GlobalSettingsPanel';
 import { InteractiveStageOverlay } from './InteractiveStageOverlay';
+import { LyricSizeControl } from './LyricSizeControl';
+import { useOverlayEffectsStore } from '../../store/useOverlayEffectsStore';
 import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES } from '../../lib/lyricsTemplates';
 import { BACKGROUND_PRESETS } from '../../lib/lyricsBackgrounds';
 import { CURATED_FONTS, FONT_OPTIONS } from '../../lib/curatedFonts';
@@ -94,6 +96,87 @@ function KineticQuickControls() {
             className="w-full accent-fuchsia-400" />
         </div>
       )}
+    </div>
+  );
+}
+
+function CenterStageLyricsPreset() {
+  const setPosition = useLyricsVideoStore(s => s.setElementPosition);
+  const updateTypography = useLyricsVideoStore(s => s.updateTypographyOverride);
+  const setVisibleCount = useLyricsVideoStore(s => s.setVisibleLineCount);
+  const setAnimation = useLyricsVideoStore(s => s.setAnimationStyle);
+  const setShowArtwork = useLyricsVideoStore(s => s.setShowArtwork);
+  const setShowVisualizer = useLyricsVideoStore(s => s.setShowVisualizer);
+  const setShowMeta = useLyricsVideoStore(s => s.setShowMeta);
+
+  return (
+    <button type="button" onClick={() => {
+      setPosition('lyrics', { x: 0.5, y: 0.5 });
+      updateTypography({ fontSizeScale: 2.1, position: undefined, showContainerPill: false });
+      useStore.getState().updateLyricsSettings({ position: undefined, showBackgroundBox: false });
+      setVisibleCount(1);
+      setAnimation('fade');
+      setShowArtwork(false);
+      setShowVisualizer(false);
+      setShowMeta(false);
+    }}
+      className="w-full rounded-lg border border-sky-400/40 bg-sky-500/10 p-2.5 text-left hover:border-sky-300 cursor-pointer"
+      title="Apply large centered lyrics and hide artwork, spectrum and song metadata; all layers can be turned back on">
+      <span className="block text-[11px] font-bold text-sky-200">✧ Center Stage Lyrics</span>
+      <span className="block text-[10px] text-[#99a8bb] mt-0.5">Large full lines in the middle · Focus on text · Re-enable layers anytime</span>
+    </button>
+  );
+}
+
+/** Reusable arrangements based on the two reference videos. Media remains user's choice. */
+function ReferenceLyricPresets() {
+  const setPosition = useLyricsVideoStore(s => s.setElementPosition);
+  const updateTypography = useLyricsVideoStore(s => s.updateTypographyOverride);
+  const updateArtwork = useLyricsVideoStore(s => s.updateArtworkOverride);
+  const setVisibleCount = useLyricsVideoStore(s => s.setVisibleLineCount);
+  const setAnimation = useLyricsVideoStore(s => s.setAnimationStyle);
+  const setShowArtwork = useLyricsVideoStore(s => s.setShowArtwork);
+  const setShowVisualizer = useLyricsVideoStore(s => s.setShowVisualizer);
+  const setShowMeta = useLyricsVideoStore(s => s.setShowMeta);
+  const setCustomBackground = useLyricsVideoStore(s => s.setCustomBackground);
+  const applyBase = () => {
+    setVisibleCount(1);
+    setAnimation('fade');
+    setShowVisualizer(false);
+    setShowMeta(false);
+    useStore.getState().updateLyricsSettings({ position: undefined, showBackgroundBox: false });
+  };
+
+  return (
+    <div className="space-y-1.5 rounded border border-[#303846] bg-[#10151c] p-2.5">
+      <div className="text-[10px] font-bold uppercase tracking-wide text-[#8d9aab]">TikTok-inspired lyric layouts</div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <button type="button" onClick={() => {
+          applyBase();
+          setCustomBackground({ type: 'color', value: '#000000', blur: 0, dim: 0 });
+          setShowArtwork(true);
+          updateArtwork({ style: 'sticker', animation: 'none', sizeScale: 1.6 });
+          setPosition('artwork', { x: 0.71, y: 0.5 });
+          setPosition('lyrics', { x: 0.38, y: 0.5 });
+          updateTypography({ fontFamily: 'Playfair Display', fontWeight: 'italic 700', fontSizeScale: 1.65,
+            textColor: '#fff5e9', showContainerPill: false, position: undefined });
+        }} className="rounded border border-rose-400/35 bg-rose-500/10 p-2 text-left text-[11px] text-rose-100 hover:border-rose-300 cursor-pointer">
+          <span className="block font-bold">🌸 Sweetie Bloom</span>
+          <span className="block text-[10px] opacity-75 mt-0.5">Black backdrop · elegant cream text · right-side cutout</span>
+        </button>
+        <button type="button" onClick={() => {
+          applyBase();
+          setShowArtwork(false);
+          setPosition('lyrics', { x: 0.5, y: 0.51 });
+          updateTypography({ fontFamily: 'Kalam', fontWeight: '400', fontSizeScale: 1.4,
+            textColor: '#ffffff', showContainerPill: false, position: undefined });
+          useOverlayEffectsStore.getState().update('lyrics-video', { effect: 'cinematic', intensity: 0.18 });
+        }} className="rounded border border-amber-400/35 bg-amber-500/10 p-2 text-left text-[11px] text-amber-100 hover:border-amber-300 cursor-pointer">
+          <span className="block font-bold">🌅 Sunset Handwriting</span>
+          <span className="block text-[10px] opacity-75 mt-0.5">White ink text · centered on your uploaded footage</span>
+        </button>
+      </div>
+      <p className="text-[10px] leading-relaxed text-[#8191a3]">Bloom uses your track artwork as the cutout: use a transparent PNG for a flower. Sunset keeps your current background video. All styles and layers remain editable.</p>
     </div>
   );
 }
@@ -617,6 +700,9 @@ export function LyricsVideoLayout() {
                         </button>
                       </div>
                       <KineticQuickControls />
+                      <CenterStageLyricsPreset />
+                      <ReferenceLyricPresets />
+                      <LyricSizeControl />
                     </div>
                   </div>
                 )}
@@ -1183,6 +1269,9 @@ export function LyricsVideoLayout() {
                   </button>
                 </div>
                 <KineticQuickControls />
+                <CenterStageLyricsPreset />
+                <ReferenceLyricPresets />
+                <LyricSizeControl />
               </div>
 
               {/* 5. STYLE & TYPOGRAPHY SECTION */}
