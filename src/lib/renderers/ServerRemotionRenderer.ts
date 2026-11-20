@@ -25,7 +25,8 @@ export class ServerRemotionRenderer implements VideoRenderer {
 
   async render(
     project: CanonicalProjectJson,
-    onProgress: (progress: RenderProgress) => void
+    onProgress: (progress: RenderProgress) => void,
+    signal?: AbortSignal
   ): Promise<{ outputUrl: string; fileSize?: number }> {
     // Use a persistent render server. Background tab throttling cannot affect
     // server-side frame rendering even if the browser is minimized.
@@ -34,7 +35,8 @@ export class ServerRemotionRenderer implements VideoRenderer {
     const response = await fetch(renderApiUrl('/api/export-video'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(project)
+      body: JSON.stringify(project),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60000)]) : AbortSignal.timeout(60000)
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -50,11 +52,12 @@ export class ServerRemotionRenderer implements VideoRenderer {
     const deadline = Date.now() + 4 * 60 * 60 * 1000;
     let networkFailures = 0;
     while (Date.now() < deadline) {
+      if (signal?.aborted) throw new Error('Export cancelled by user.');
       await sleep(1400);
       let progressResponse: Response;
       try {
         progressResponse = await fetch(renderApiUrl(`/api/export-progress/${encodeURIComponent(exportId)}`), {
-          signal: AbortSignal.timeout(15000),
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
           cache: 'no-store'
         });
       } catch (error) {
