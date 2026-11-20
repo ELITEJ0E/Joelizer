@@ -10,6 +10,7 @@ import { KeyboardShortcutsModal } from './components/Shell/KeyboardShortcutsModa
 import { ExportModal } from './components/Editor/ExportModal';
 import { AudioSourceModal } from './components/Audio/AudioSourceModal';
 import { AudioMasteringLabModal } from './components/Audio/AudioMasteringLabModal';
+import { YouTubeAudioWorkspace } from './components/Audio/YouTubeAudioWorkspace';
 import { DAWLayout } from './components/DAW/DAWLayout';
 import { StudioLayout } from './components/Studio/StudioLayout';
 import { GlobalAudioPlayer } from './components/Audio/GlobalAudioPlayer';
@@ -140,6 +141,11 @@ export default function App() {
               currentAudio={audioFile}
               currentName={currentTrackName}
             />
+          </div>
+        )}
+        {activeTab === 'youtube-audio' && (
+          <div className="flex-1 min-h-0 w-full overflow-hidden relative animate-in fade-in duration-150">
+            <YouTubeAudioWorkspace />
           </div>
         )}
       </main>
