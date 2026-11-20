@@ -79,7 +79,12 @@ function drawJoelifyBars(
   let totalEnergy = 0;
   for (let i = 0; i < usefulRange; i++) totalEnergy += spectrum[i];
   const averageEnergy = totalEnergy / usefulRange;
-  const sensitivity = Math.max(0.1, settings.sensitivity || 1);
+  const sensitivity = Math.max(0.1, Math.min(5, settings.sensitivity ?? 1));
+  // Sensitivity grows the *available height* as well as the response. A gentle
+  // gain and soft knee preserve band differences even at the 5x setting.
+  const heightCap = height * (0.32 + (sensitivity - 0.1) / 4.9 * 0.63);
+  const responseGain = 0.55 + Math.sqrt(sensitivity) * 0.46;
+  const spatialSmoothing = Math.max(0, Math.min(1, settings.smoothing ?? 0.65));
   const raw = new Array<number>(bars);
 
   for (let i = 0; i < bars; i++) {
@@ -95,51 +100,52 @@ function drawJoelifyBars(
     const variation = i < 40
       ? 0.8 + Math.sin(phase) * 0.25 + Math.cos(phase * 1.5) * 0.15
       : 0.7 + Math.sin(phase) * 0.3 + Math.cos(phase * 1.2) * 0.2;
-    let normalized = Math.max(0, value * variation * sensitivity / 255);
-    if (averageEnergy < 12) normalized = 0.01;
+    const normalized = Math.max(0, value * variation / 255);
+    if (averageEnergy < 12) raw[i] = 0.008;
     else {
-      normalized *= i < 20 ? 1.5 : i < 40 ? 1.2 : i < 60 ? 1.05 : 0.9;
-      normalized = Math.pow(normalized, 0.4);
-      // Joelify's high-contrast response, with a smooth knee to retain
-      // midrange detail instead of abruptly hiding most musical frequencies.
-      normalized = normalized > 0.8 ? Math.pow(normalized, 0.55) * 1.18
-        : normalized > 0.5 ? normalized * 0.96 : normalized * 0.76;
+      const bandWeight = i < 20 ? 1.35 : i < 40 ? 1.15 : i < 60 ? 1.05 : 0.92;
+      const shaped = Math.pow(normalized * bandWeight, 0.85) * responseGain;
+      // No hard clipping: 0.4 and 0.9 remain visibly different at high gain.
+      raw[i] = shaped / (shaped + 0.55);
     }
-    raw[i] = Math.min(1.2, Math.max(0.01, normalized));
   }
 
   // Two neighboring-bar smoothing passes create Joelify's fluid wave shape.
   const smooth = (values: number[]) => values.map((v, i) =>
     i === 0 || i === bars - 1 ? v : (values[i - 1] + v * 2 + values[i + 1]) / 4);
-  const levels = smooth(smooth(raw));
+  const twiceSmoothed = smooth(smooth(raw));
+  const levels = raw.map((level, i) => level * (1 - spatialSmoothing) + twiceSmoothed[i] * spatialSmoothing);
   const barStep = width / bars;
-  const barWidth = Math.max(0.5, barStep - Math.max(0.5, barStep * 0.12));
-  const centerY = height / 2;
+  const thickness = Math.max(0.4, Math.min(3, settings.thickness ?? 1));
+  const barWidth = Math.max(0.5, Math.min(barStep, barStep * 0.84 * thickness));
+
+  // Respect a selected theme color while retaining Joelify's moving hue wave.
+  // Joelizer's stock green accent keeps Joelify's original cyan/blue starting hue.
+  const hex = settings.color?.replace('#', '') || '';
+  let baseHue = 200;
+  if (/^[0-9a-f]{6}$/i.test(hex) && hex.toLowerCase() !== '00e676') {
+    const r = parseInt(hex.slice(0, 2), 16) / 255;
+    const g = parseInt(hex.slice(2, 4), 16) / 255;
+    const b = parseInt(hex.slice(4, 6), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+    if (delta > 0) baseHue = ((max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4) * 60 + 360) % 360;
+  }
 
   for (let i = 0; i < bars; i++) {
     const level = levels[i];
-    const barHeight = Math.max(1, Math.min(height * 0.94, level * height * 0.7));
+    const barHeight = Math.max(1, level * heightCap);
     const x = i * barStep;
-    const y = centerY - barHeight / 2;
-    const hue = (200 + i * 2 + timelineTime * 50) % 360;
+    const y = height - barHeight; // Grounded baseline: bars grow upward only.
+    const hue = (baseHue + i * 2 + timelineTime * 50) % 360;
     const lightness = Math.min(85, 50 + barHeight / height * 40);
     ctx.fillStyle = `hsla(${hue}, 82%, ${lightness}%, ${0.7 + Math.min(1, level) * 0.3})`;
-    if (averageEnergy > 100 && level > 0.6) {
+    if (averageEnergy > 100 && level > 0.55) {
       ctx.shadowColor = `hsla(${hue}, 100%, 65%, 0.6)`;
       ctx.shadowBlur = Math.min(12, height * 0.15);
     } else ctx.shadowBlur = 0;
     ctx.fillRect(x, y, barWidth, barHeight);
   }
   ctx.shadowBlur = 0;
-  if (averageEnergy > 50) {
-    const pulseSize = Math.min(height / 2, 20 + averageEnergy / 255 * 100);
-    const glow = ctx.createRadialGradient(width / 2, centerY, 0, width / 2, centerY, pulseSize);
-    glow.addColorStop(0, `rgba(255,255,255,${Math.min(0.8, 0.2 + averageEnergy / 510)})`);
-    glow.addColorStop(0.7, 'rgba(100,100,255,0.15)');
-    glow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(width / 2 - pulseSize, centerY - pulseSize, pulseSize * 2, pulseSize * 2);
-  }
 }
 
 export function renderVisualizer(
