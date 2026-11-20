@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useStore, AspectRatio } from '../../store/useStore';
 import { 
-  Download, Music, AlignLeft, Disc3, Film, Keyboard, Monitor, SlidersHorizontal, Piano
+  Download, Music, AlignLeft, Disc3, Film, Keyboard, Monitor, SlidersHorizontal, Piano, Youtube
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StudioButton } from '../ui/StudioButton';
@@ -64,6 +64,12 @@ export function TopBar({ onExport, onOpenAudioModal, onOpenShortcutsModal }: Top
       label: 'Audio Lab',
       title: 'Audio Lab — Mastering, A/B Comparison & Provenance',
       icon: SlidersHorizontal
+    },
+    {
+      id: 'youtube-audio' as const,
+      label: 'YouTube Audio',
+      title: 'YouTube Audio — Extract authorized media to MP3 or WAV',
+      icon: Youtube
     }
   ];
 

@@ -5,6 +5,8 @@ import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import { spawn } from 'node:child_process';
+import os from 'node:os';
 import { jsonrepair } from 'jsonrepair';
 import { generateMusic } from './server/aceStep';
 import { startExportJob, getExportJob, runAutomatedRenderTest } from './server/renderEngine';
@@ -35,7 +37,7 @@ async function startServer() {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Youtube-Import-Key');
       res.setHeader('Access-Control-Max-Age', '86400');
     }
     if (req.method === 'OPTIONS') {
@@ -215,6 +217,79 @@ async function startServer() {
   // 1. Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', hasRemotion: true, platform: 'node', time: new Date().toISOString() });
+  });
+
+  // Opt-in, key-protected conversion for content the user is authorized to
+  // download. Requires yt-dlp + FFmpeg on a persistent Node server; Vercel's
+  // serverless API does not provide either executable or persistent disk.
+  let youtubeAudioBusy = false;
+  app.post('/api/youtube-audio/convert', async (req, res) => {
+    if (process.env.YOUTUBE_AUDIO_IMPORT_ENABLED !== 'true') {
+      return res.status(503).json({ error: 'YouTube audio conversion is not enabled on this server. Configure a persistent Node render service with yt-dlp and FFmpeg.' });
+    }
+    const secret = process.env.YOUTUBE_AUDIO_IMPORT_TOKEN;
+    if (!secret || req.headers['x-youtube-import-key'] !== secret) {
+      return res.status(401).json({ error: 'A valid private converter access key is required.' });
+    }
+    if (req.body?.authorized !== true) {
+      return res.status(400).json({ error: 'Confirm that you have permission to download and convert this video.' });
+    }
+    const format = req.body?.format;
+    const rawUrl = req.body?.url;
+    if (format !== 'wav' && format !== 'mp3') return res.status(400).json({ error: 'Choose WAV or MP3.' });
+    let videoId = '';
+    try {
+      const u = new URL(rawUrl);
+      if (u.protocol !== 'https:' || u.hostname !== 'www.youtube.com' || u.pathname !== '/watch') throw new Error();
+      videoId = u.searchParams.get('v') || '';
+    } catch { return res.status(400).json({ error: 'Invalid YouTube video URL.' }); }
+    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return res.status(400).json({ error: 'Invalid YouTube video ID.' });
+    if (youtubeAudioBusy) return res.status(429).json({ error: 'Converter busy; please try again when the current job finishes.' });
+
+    youtubeAudioBusy = true;
+    let tempDir: string | null = null;
+    try {
+      tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'joelizer-yt-audio-'));
+      const output = path.join(tempDir, `audio.${format}`);
+      const args = [
+        '--ignore-config', '--no-playlist', '--no-progress', '--no-cache-dir',
+        '--match-filter', 'duration <= 900', '--max-filesize', '250M',
+        '--extract-audio', '--audio-format', format,
+        ...(format === 'mp3' ? ['--audio-quality', '320K'] : []),
+        '--output', path.join(tempDir, 'audio.%(ext)s'),
+        `https://www.youtube.com/watch?v=${videoId}`
+      ];
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(process.env.YT_DLP_BIN || 'yt-dlp', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+        let stderr = '';
+        const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('Conversion timed out after 3 minutes.')); }, 180_000);
+        child.stderr.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-2500); });
+        child.once('error', err => { clearTimeout(timer); reject(err); });
+        child.once('close', code => {
+          clearTimeout(timer);
+          if (code === 0) resolve();
+          else {
+            console.warn('[YouTube audio converter] yt-dlp failed:', stderr.slice(-500));
+            reject(new Error('YouTube conversion failed. The video may be restricted, unavailable, too long or blocked by YouTube.'));
+          }
+        });
+      });
+      const stat = await fs.promises.stat(output);
+      if (stat.size < 100 || stat.size > 250 * 1024 * 1024) throw new Error('The converted audio is empty or too large.');
+      res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : 'audio/wav');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Disposition', `attachment; filename="youtube-${videoId}.${format}"`);
+      await new Promise<void>((resolve, reject) => {
+        res.download(output, `youtube-${videoId}.${format}`, err => err ? reject(err) : resolve());
+      });
+    } catch (error) {
+      console.error('[YouTube audio converter]', error);
+      if (!res.headersSent) res.status(500).json({ error: error instanceof Error ? error.message : 'Conversion failed.' });
+    } finally {
+      if (tempDir) await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      youtubeAudioBusy = false;
+    }
   });
 
   // 1b. Asset Staging Endpoint (Converts local Blobs/Files into server-renderable URLs)
