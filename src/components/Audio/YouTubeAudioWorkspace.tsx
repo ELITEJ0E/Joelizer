@@ -3,6 +3,16 @@ import { Download, ExternalLink, FileAudio, Loader2, Music2, Youtube } from 'luc
 import { useStore } from '../../store/useStore';
 
 type OutputFormat = 'mp3' | 'wav';
+const ACCESS_KEY_STORAGE = 'joelizer.youtubeConverter.accessKey.v1';
+
+function readSavedKey(): string {
+  try { return window.localStorage.getItem(ACCESS_KEY_STORAGE) || ''; }
+  catch { return ''; }
+}
+
+function forgetSavedKey() {
+  try { window.localStorage.removeItem(ACCESS_KEY_STORAGE); } catch { /* Storage may be disabled. */ }
+}
 
 function parseYouTubeId(input: string): string | null {
   try {
@@ -22,7 +32,9 @@ export function YouTubeAudioWorkspace() {
   const [link, setLink] = useState('');
   const [format, setFormat] = useState<OutputFormat>('wav');
   const [authorized, setAuthorized] = useState(false);
-  const [key, setKey] = useState('');
+  const [key, setKey] = useState(readSavedKey);
+  const [savedKey, setSavedKey] = useState(readSavedKey);
+  const [rememberKey, setRememberKey] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ url: string; blob: Blob; filename: string } | null>(null);
@@ -54,12 +66,27 @@ export function YouTubeAudioWorkspace() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
+        if (response.status === 401 && savedKey && key === savedKey) {
+          forgetSavedKey();
+          setSavedKey('');
+          setKey('');
+          throw new Error('Your saved converter key was rejected and has been forgotten. Enter the current key from your server configuration.');
+        }
         throw new Error(data?.error || (response.status === 404
           ? 'The YouTube converter is not available on this deployment. Connect a persistent Joelizer Node render server.'
           : `Audio conversion failed (HTTP ${response.status}).`));
       }
       const blob = await response.blob();
       if (blob.size < 100) throw new Error('The converter returned an empty audio file.');
+      if (key && rememberKey) {
+        try {
+          window.localStorage.setItem(ACCESS_KEY_STORAGE, key);
+          setSavedKey(key);
+        } catch { /* Conversion succeeds even when browser storage is unavailable. */ }
+      } else if (!rememberKey && savedKey) {
+        forgetSavedKey();
+        setSavedKey('');
+      }
       const filename = `youtube-${videoId}.${format}`;
       setResult({ url: URL.createObjectURL(blob), blob, filename });
     } catch (cause) {
@@ -118,9 +145,18 @@ export function YouTubeAudioWorkspace() {
 
           <label className="block space-y-1 text-xs">
             <span className="text-slate-300">Private converter access key (if your server requires one)</span>
-            <input type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)}
+            <input type="password" autoComplete="off" value={key} onChange={e => { setKey(e.target.value); setError(''); }}
               placeholder="Access key" className="h-9 w-full rounded-lg border border-white/15 bg-[#0a0c0f] px-3 text-white" />
           </label>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <label className="flex items-center gap-2 text-slate-300">
+              <input type="checkbox" checked={rememberKey} onChange={e => setRememberKey(e.target.checked)} />
+              Remember key on this device after a successful conversion
+            </label>
+            {savedKey && <button type="button" onClick={() => { forgetSavedKey(); setSavedKey(''); setKey(''); setError(''); }}
+              className="rounded border border-white/20 px-2 py-1 text-slate-300 hover:text-white">Forget saved key</button>}
+          </div>
+          {savedKey && key === savedKey && <p className="text-xs text-emerald-300">Saved key loaded from this browser. You can convert without entering it again.</p>}
           <label className="flex items-start gap-2 text-xs leading-relaxed text-slate-300">
             <input type="checkbox" checked={authorized} onChange={e => setAuthorized(e.target.checked)} className="mt-0.5" />
             <span>I own this video or have permission from the rights holder and the platform to download and convert it.</span>
