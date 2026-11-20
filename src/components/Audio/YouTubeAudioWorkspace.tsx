@@ -3,6 +3,7 @@ import { Download, ExternalLink, FileAudio, Loader2, Music2, Youtube } from 'luc
 import { useStore } from '../../store/useStore';
 
 type OutputFormat = 'mp3' | 'wav';
+type ConverterMode = 'cloud' | 'local';
 const ACCESS_KEY_STORAGE = 'joelizer.youtubeConverter.accessKey.v1';
 
 function readSavedKey(): string {
@@ -31,6 +32,7 @@ function parseYouTubeId(input: string): string | null {
 export function YouTubeAudioWorkspace() {
   const [link, setLink] = useState('');
   const [format, setFormat] = useState<OutputFormat>('wav');
+  const [converterMode, setConverterMode] = useState<ConverterMode>('cloud');
   const [authorized, setAuthorized] = useState(false);
   const [key, setKey] = useState(readSavedKey);
   const [savedKey, setSavedKey] = useState(readSavedKey);
@@ -54,19 +56,20 @@ export function YouTubeAudioWorkspace() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const base = ((import.meta as any).env?.VITE_RENDER_SERVER_URL || '').replace(/\/$/, '');
-      if (base && !base.startsWith('https://') && !/^http:\/\/localhost(?::\d+)?$/.test(base)) {
+      const base = converterMode === 'local' ? 'http://127.0.0.1:39847'
+        : ((import.meta as any).env?.VITE_RENDER_SERVER_URL || '').replace(/\/$/, '');
+      if (converterMode === 'cloud' && base && !base.startsWith('https://') && !/^http:\/\/localhost(?::\d+)?$/.test(base)) {
         throw new Error('Converter backend must use HTTPS to protect the access key.');
       }
-      const response = await fetch(`${base}/api/youtube-audio/convert`, {
+      const response = await fetch(`${base}${converterMode === 'local' ? '/convert' : '/api/youtube-audio/convert'}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(key ? { 'X-Youtube-Import-Key': key } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(converterMode === 'cloud' && key ? { 'X-Youtube-Import-Key': key } : {}) },
         body: JSON.stringify({ url: `https://www.youtube.com/watch?v=${videoId}`, format, authorized: true }),
         signal: controller.signal
       });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        if (response.status === 401 && savedKey && key === savedKey) {
+        if (converterMode === 'cloud' && response.status === 401 && savedKey && key === savedKey) {
           forgetSavedKey();
           setSavedKey('');
           setKey('');
@@ -78,7 +81,7 @@ export function YouTubeAudioWorkspace() {
       }
       const blob = await response.blob();
       if (blob.size < 100) throw new Error('The converter returned an empty audio file.');
-      if (key && rememberKey) {
+      if (converterMode === 'cloud' && key && rememberKey) {
         try {
           window.localStorage.setItem(ACCESS_KEY_STORAGE, key);
           setSavedKey(key);
@@ -90,7 +93,11 @@ export function YouTubeAudioWorkspace() {
       const filename = `youtube-${videoId}.${format}`;
       setResult({ url: URL.createObjectURL(blob), blob, filename });
     } catch (cause) {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Conversion failed.');
+      if (!controller.signal.aborted) {
+        const message = cause instanceof Error ? cause.message : 'Conversion failed.';
+        setError(converterMode === 'local' && /Failed to fetch|NetworkError|Load failed/i.test(message)
+          ? 'Cannot reach the local converter. Start the helper on this computer and ensure your browser permits localhost connections.' : message);
+      }
     } finally { setBusy(false); abortRef.current = null; }
   };
 
@@ -134,6 +141,13 @@ export function YouTubeAudioWorkspace() {
           </div>}
 
           <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs"><span className="text-slate-300">Converter</span>
+              <select value={converterMode} onChange={e => { setConverterMode(e.target.value as ConverterMode); setError(''); setResult(null); }}
+                className="h-9 rounded-lg border border-white/20 bg-[#0a0c0f] px-3 text-white">
+                <option value="cloud">Cloud · Render</option>
+                <option value="local">Local · This computer</option>
+              </select>
+            </label>
             <label className="flex items-center gap-2 text-xs"><span className="text-slate-300">Audio format</span>
               <select value={format} onChange={e => setFormat(e.target.value as OutputFormat)}
                 className="h-9 rounded-lg border border-white/20 bg-[#0a0c0f] px-3 text-white">
@@ -143,20 +157,25 @@ export function YouTubeAudioWorkspace() {
             </label>
           </div>
 
-          <label className="block space-y-1 text-xs">
+          {converterMode === 'local' && <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-xs leading-relaxed text-sky-200">
+            Run the optional local helper on your Windows computer first. Install Node.js, yt-dlp and FFmpeg, then run <code>node scripts/local-youtube-converter.mjs</code> from the Joelizer repository.
+            The helper only listens on your computer; it does not need the Render access key. YouTube can still restrict requests.
+            <a href="https://github.com/ELITEJ0E/Joelizer/blob/main/docs/LOCAL_YOUTUBE_CONVERTER.md" target="_blank" rel="noreferrer" className="mt-1 block underline">Windows setup guide</a>
+          </div>}
+          {converterMode === 'cloud' && <label className="block space-y-1 text-xs">
             <span className="text-slate-300">Private converter access key (if your server requires one)</span>
             <input type="password" autoComplete="off" value={key} onChange={e => { setKey(e.target.value); setError(''); }}
               placeholder="Access key" className="h-9 w-full rounded-lg border border-white/15 bg-[#0a0c0f] px-3 text-white" />
-          </label>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          </label>}
+          {converterMode === 'cloud' && <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <label className="flex items-center gap-2 text-slate-300">
               <input type="checkbox" checked={rememberKey} onChange={e => setRememberKey(e.target.checked)} />
               Remember key on this device after a successful conversion
             </label>
             {savedKey && <button type="button" onClick={() => { forgetSavedKey(); setSavedKey(''); setKey(''); setError(''); }}
               className="rounded border border-white/20 px-2 py-1 text-slate-300 hover:text-white">Forget saved key</button>}
-          </div>
-          {savedKey && key === savedKey && <p className="text-xs text-emerald-300">Saved key loaded from this browser. You can convert without entering it again.</p>}
+          </div>}
+          {converterMode === 'cloud' && savedKey && key === savedKey && <p className="text-xs text-emerald-300">Saved key loaded from this browser. You can convert without entering it again.</p>}
           <label className="flex items-start gap-2 text-xs leading-relaxed text-slate-300">
             <input type="checkbox" checked={authorized} onChange={e => setAuthorized(e.target.checked)} className="mt-0.5" />
             <span>I own this video or have permission from the rights holder and the platform to download and convert it.</span>
@@ -168,7 +187,7 @@ export function YouTubeAudioWorkspace() {
             {busy ? 'Converting audio…' : `Convert to ${format.toUpperCase()}`}
           </button>
           <p className="text-[11px] leading-relaxed text-slate-400">
-            Requires a configured Joelizer Node render service with yt-dlp and FFmpeg. Vercel-only deployments cannot run this converter.
+            {converterMode === 'cloud' ? 'Cloud conversion requires the Joelizer Render backend with yt-dlp and FFmpeg. ' : 'Local conversion requires the helper running on this computer with yt-dlp and FFmpeg. '}
             Protected, unavailable, private or restricted videos may fail. WAV does not restore quality missing from the original stream.
           </p>
           {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{error}</p>}
