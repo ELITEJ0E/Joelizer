@@ -36,7 +36,9 @@ function VisualizerSettingsPanel() {
           </SelectTrigger>
           <SelectContent className="bg-[#0b0b0b]/90 backdrop-blur-xl border-white/10 uppercase text-xs font-bold tracking-wider">
             <SelectItem value="bars">Classic Bars</SelectItem>
-            <SelectItem value="joelify-bars">Joelify Bars · Mirrored Spectrum</SelectItem>
+            <SelectItem value="joelify-beat">Joelify Beat · Mirrored Bars</SelectItem>
+            <SelectItem value="joelify-bottom">Joelify Beat · Bottom-Up Bars</SelectItem>
+            <SelectItem value="joelify-bars">Joelify Classic · Smooth Wave</SelectItem>
             <SelectItem value="spectrum-eq">Rainbow EQ · Bottom-Up Bars</SelectItem>
             <SelectItem value="waveform">Waveform</SelectItem>
             <SelectItem value="radial">Radial Circle</SelectItem>

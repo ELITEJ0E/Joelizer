@@ -1491,6 +1491,8 @@ export function renderLyricsVideoFrame(
       visSettings.style === 'waveform' ||
       visSettings.style === 'radial' ||
       visSettings.style === 'joelify-bars' ||
+      visSettings.style === 'joelify-beat' ||
+      visSettings.style === 'joelify-bottom' ||
       visSettings.style === 'spectrum-eq' ||
       visSettings.style === 'bars') &&
     audioFrequencyData &&

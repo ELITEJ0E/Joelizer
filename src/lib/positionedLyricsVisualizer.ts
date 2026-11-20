@@ -78,7 +78,11 @@ export function drawPositionedLyricsVisualizer(
   const boxH = circular ? boxW : Math.max(24, Math.round(height * (portrait ? 0.095 : 0.082) * scale));
   const frequency = frequencyData?.length ? frequencyData : new Uint8Array(1024);
   const waveform = timeData?.length ? timeData : new Uint8Array(1024).fill(128);
-  const responsiveFrequency = prepareBeatReactiveSpectrum(frequency, waveform, settings.adaptiveLevel !== false);
+  // Per-frame normalization removes real volume differences and makes the
+  // Joelify bars look animated rather than beat-synced. These styles use
+  // the original spectrum and waveform RMS for honest loudness response.
+  const useRawAudio = ['joelify-beat', 'joelify-bottom', 'joelify-bars', 'spectrum-eq'].includes(settings.style);
+  const responsiveFrequency = useRawAudio ? frequency : prepareBeatReactiveSpectrum(frequency, waveform, settings.adaptiveLevel !== false);
 
   ctx.save();
   ctx.translate(pos.x * width - boxW / 2, pos.y * height - boxH / 2);

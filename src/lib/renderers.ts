@@ -206,6 +206,72 @@ function drawSpectrumEQ(
   ctx.shadowBlur = 0;
 }
 
+/** True audio-driven Joelify bars. No independent sine animation, no
+ * per-frame loudness normalization, and no stateful animation that would
+ * differ between the editor and offline video exports. */
+function drawJoelifyBeatBars(
+  ctx: CanvasRenderingContext2D,
+  spectrum: Uint8Array,
+  waveform: Uint8Array,
+  settings: VisualizerSettings,
+  width: number,
+  height: number,
+  bottomUp: boolean
+) {
+  const count = bottomUp ? 64 : 80;
+  const sensitivity = Math.max(0.1, Math.min(5, settings.sensitivity ?? 1));
+  const gain = Math.sqrt(sensitivity) * 1.1;
+  const maxHeight = height * (0.25 + (sensitivity - 0.1) / 4.9 * 0.66);
+  const smoothness = Math.max(0, Math.min(0.98, settings.smoothing ?? 0.65));
+  const thickness = Math.max(0.4, Math.min(3, settings.thickness ?? 1));
+  const bandLimit = Math.max(1, Math.floor(spectrum.length * 0.4));
+  const rms = waveform.length ? Math.sqrt(waveform.reduce((sum, b) => {
+    const v = (b - 128) / 128;
+    return sum + v * v;
+  }, 0) / waveform.length) : 0;
+  const volume = Math.min(1, rms / 0.28);
+  const hit = Math.max(0, settings.hitResponse ?? 0);
+  const samples: number[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const frequencyIndex = bottomUp ? i : Math.min(i, count - 1 - i);
+    const frequencyCount = bottomUp ? count : count / 2;
+    const from = Math.min(bandLimit - 1, Math.floor(Math.pow(frequencyIndex / frequencyCount, 1.65) * bandLimit));
+    const to = Math.max(from + 1, Math.min(bandLimit, Math.ceil(Math.pow((frequencyIndex + 1) / frequencyCount, 1.65) * bandLimit)));
+    let mean = 0, peak = 0;
+    for (let k = from; k < to; k++) { mean += spectrum[k]; peak = Math.max(peak, spectrum[k]); }
+    const spectral = (mean / (to - from) * 0.55 + peak * 0.45) / 255;
+    const bassBoost = 1 + hit * (1 - frequencyIndex / frequencyCount) * 0.36;
+    // RMS is the audible loudness envelope: bars shrink on quieter beats,
+    // while independent spectral differences survive strong bass transients.
+    const drive = Math.pow(spectral, 1.15) * gain * bassBoost * Math.pow(volume, 0.75);
+    samples.push(drive / (drive + 0.52));
+  }
+
+  const neighborBlend = (data: number[]) => data.map((v, i) =>
+    i === 0 || i === count - 1 ? v : (data[i - 1] + 2 * v + data[i + 1]) / 4);
+  const soft = neighborBlend(neighborBlend(samples));
+  const stride = width / count;
+  const barWidth = Math.max(0.5, Math.min(stride * 0.95, stride * 0.75 * thickness));
+  const baseY = bottomUp ? height * 0.94 : height * 0.5;
+
+  for (let i = 0; i < count; i++) {
+    const value = samples[i] * (1 - smoothness) + soft[i] * smoothness;
+    const barHeight = Math.max(0.5, value * maxHeight * (bottomUp ? 1 : 0.87));
+    const x = i * stride + (stride - barWidth) / 2;
+    const y = bottomUp ? baseY - barHeight : baseY - barHeight / 2;
+    // Use the exact user-selected color; the former time-shifting rainbow
+    // made the Color control seem ineffective.
+    ctx.fillStyle = settings.color || '#00e676';
+    ctx.shadowColor = settings.color || '#00e676';
+    ctx.shadowBlur = Math.min(8, height * 0.07) * Math.min(1, value + 0.15);
+    ctx.globalAlpha = 0.45 + Math.min(0.55, value * 0.9);
+    ctx.fillRect(x, y, barWidth, barHeight);
+  }
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+}
+
 export function renderVisualizer(
   ctx: CanvasRenderingContext2D,
   frequencyData: Uint8Array,
@@ -226,6 +292,10 @@ export function renderVisualizer(
   
   if (style === 'joelify-bars') {
     drawJoelifyBars(ctx, frequencyData, settings, width, height, timelineTime);
+  } else if (style === 'joelify-beat') {
+    drawJoelifyBeatBars(ctx, frequencyData, timeData, settings, width, height, false);
+  } else if (style === 'joelify-bottom') {
+    drawJoelifyBeatBars(ctx, frequencyData, timeData, settings, width, height, true);
   } else if (style === 'spectrum-eq') {
     drawSpectrumEQ(ctx, frequencyData, settings, width, height);
   } else if (style === 'bars') {
