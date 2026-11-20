@@ -135,7 +135,7 @@ function drawJoelifyBars(
     const level = levels[i];
     const barHeight = Math.max(1, level * heightCap);
     const x = i * barStep;
-    const y = height - barHeight; // Grounded baseline: bars grow upward only.
+    const y = (height - barHeight) / 2; // Original Joelify butterfly / center-mirrored wave.
     const hue = (baseHue + i * 2 + timelineTime * 50) % 360;
     const lightness = Math.min(85, 50 + barHeight / height * 40);
     ctx.fillStyle = `hsla(${hue}, 82%, ${lightness}%, ${0.7 + Math.min(1, level) * 0.3})`;
@@ -144,6 +144,64 @@ function drawJoelifyBars(
       ctx.shadowBlur = Math.min(12, height * 0.15);
     } else ctx.shadowBlur = 0;
     ctx.fillRect(x, y, barWidth, barHeight);
+  }
+  ctx.shadowBlur = 0;
+}
+
+/** A separate bottom-up spectrum EQ: independent musical-frequency columns,
+ * warm-to-cool rainbow groups, a flat baseline, and a subtle reflection.
+ * Entirely derived from the frame's spectrum for preview/export parity. */
+function drawSpectrumEQ(
+  ctx: CanvasRenderingContext2D,
+  spectrum: Uint8Array,
+  settings: VisualizerSettings,
+  width: number,
+  height: number
+) {
+  const barCount = 64;
+  const sensitivity = Math.max(0.1, Math.min(5, settings.sensitivity ?? 1));
+  const maxHeight = height * (0.27 + (sensitivity - 0.1) / 4.9 * 0.57);
+  const gain = 0.62 + 0.43 * Math.sqrt(sensitivity);
+  const smoothing = Math.max(0, Math.min(1, settings.smoothing ?? 0.65));
+  const thickness = Math.max(0.4, Math.min(3, settings.thickness ?? 1));
+  const baseline = height * 0.84;
+  const bandLimit = Math.max(1, Math.floor(spectrum.length * 0.72));
+  const raw: number[] = [];
+
+  for (let i = 0; i < barCount; i++) {
+    // Logarithmic coverage groups bass, mids and highs into visible peaks.
+    const from = Math.min(bandLimit - 1, Math.floor(Math.pow(i / barCount, 1.7) * bandLimit));
+    const to = Math.max(from + 1, Math.min(bandLimit, Math.ceil(Math.pow((i + 1) / barCount, 1.7) * bandLimit)));
+    let sum = 0, peak = 0;
+    for (let k = from; k < to; k++) { sum += spectrum[k]; peak = Math.max(peak, spectrum[k]); }
+    const amplitude = (sum / (to - from) * 0.65 + peak * 0.35) / 255;
+    // No hard ceiling: gain changes the peak range without flattening the bars.
+    const shaped = Math.pow(amplitude, 1.1) * gain;
+    raw.push(shaped / (shaped + 0.5));
+  }
+
+  const smooth = (data: number[]) => data.map((n, i) =>
+    i === 0 || i === barCount - 1 ? n : (data[i - 1] + n * 2 + data[i + 1]) / 4);
+  const smoothed = smooth(smooth(raw));
+  const step = width / barCount;
+  const barWidth = Math.max(0.5, Math.min(step * 0.96, step * 0.76 * thickness));
+  // Colors follow the reference's red/orange → yellow → green → cyan/blue.
+  const hueFor = (i: number) => (8 + (i / (barCount - 1)) * 205) % 360;
+
+  for (let i = 0; i < barCount; i++) {
+    const level = raw[i] * (1 - smoothing) + smoothed[i] * smoothing;
+    const barHeight = Math.max(1, level * maxHeight);
+    const x = i * step + (step - barWidth) / 2;
+    const y = baseline - barHeight;
+    const hue = hueFor(i);
+    ctx.fillStyle = `hsl(${hue}, 93%, 60%)`;
+    ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.55)`;
+    ctx.shadowBlur = Math.min(5, height * 0.05);
+    ctx.fillRect(x, y, barWidth, barHeight);
+    // Small reflection beneath the baseline, fading with distance.
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `hsla(${hue}, 90%, 52%, 0.2)`;
+    ctx.fillRect(x, baseline + 2, barWidth, Math.min(height - baseline - 2, barHeight * 0.16));
   }
   ctx.shadowBlur = 0;
 }
@@ -168,6 +226,8 @@ export function renderVisualizer(
   
   if (style === 'joelify-bars') {
     drawJoelifyBars(ctx, frequencyData, settings, width, height, timelineTime);
+  } else if (style === 'spectrum-eq') {
+    drawSpectrumEQ(ctx, frequencyData, settings, width, height);
   } else if (style === 'bars') {
     const isVertical = width < height;
     // Choose chunky bar count (smaller, thicker type: 16 bars for compact, up to 24 for wide)

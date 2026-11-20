@@ -14,7 +14,7 @@ export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '3:4' | '4:3';
 
 export interface VisualizerSettings {
   enabled?: boolean;
-  style: 'bars' | 'joelify-bars' | 'waveform' | 'radial' | 'particles' | 'kaleidoscope' | 'orb';
+  style: 'bars' | 'joelify-bars' | 'spectrum-eq' | 'waveform' | 'radial' | 'particles' | 'kaleidoscope' | 'orb';
   color: string;
   sensitivity: number;
   smoothing: number;
