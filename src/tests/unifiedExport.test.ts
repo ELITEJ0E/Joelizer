@@ -137,9 +137,10 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
           assetId: 'asset-1',
           type: 'video',
           startTime: 0,
-          endTime: 5,
+          endTime: 2.5,
           trimStart: 0,
           trimEnd: 5,
+          speed: 2,
           effect: 'ken-burns-in',
           transition: 'fade'
         }
@@ -159,8 +160,9 @@ export async function runUnifiedExportTestSuite(): Promise<{ passed: number; fai
 
     const json = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'music-video' });
     assert(
-      json.videoClips.length === 1 && json.videoClips[0].url === 'https://example.com/video1.mp4',
-      '4. Converts video timeline clips into canonical representation'
+      json.videoClips.length === 1 && json.videoClips[0].url === 'https://example.com/video1.mp4' &&
+        json.videoClips[0].speed === 2 && json.videoClips[0].duration === 2.5,
+      '4. Preserves video clip playback rate and timeline duration in all export engines'
     );
   } catch (e: any) {
     assert(false, '4. Converts video timeline clips into canonical representation', e.message);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { TimelineClip, isAutoManagedClip } from '../../../store/useMVStore';
-import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles } from 'lucide-react';
+import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles, Gauge } from 'lucide-react';
+import { getClipSpeed } from '../../../lib/clipSpeed';
 import { formatTime } from '../../../lib/utils';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../ui/select';
 
@@ -19,6 +20,7 @@ interface ClipContextBarProps {
   onUpdateEffect?: (effect: any) => void;
   onUpdateTransition?: (transition: any) => void;
   onClose: () => void;
+  onOpenSpeed: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 export function ClipContextBar({
@@ -36,6 +38,7 @@ export function ClipContextBar({
   onUpdateEffect,
   onUpdateTransition,
   onClose,
+  onOpenSpeed,
 }: ClipContextBarProps) {
   const canSplit = currentTime > clip.startTime + 0.1 && currentTime < clip.endTime - 0.1;
   const duration = clip.endTime - clip.startTime;
@@ -54,6 +57,11 @@ export function ClipContextBar({
       </div>
 
       {/* Split button */}
+      <button type="button" onClick={onOpenSpeed} disabled={clip.locked}
+        title="Edit this clip’s playback speed"
+        className="px-2 py-0.5 rounded border border-emerald-700/50 bg-emerald-950/20 text-emerald-300 hover:bg-emerald-900/30 disabled:opacity-40 flex items-center gap-1 font-semibold cursor-pointer">
+        <Gauge size={12} /> {getClipSpeed(clip).toFixed(2).replace(/0$/, '')}×
+      </button>
       <button
         onClick={onSplit}
         disabled={!canSplit || clip.locked}

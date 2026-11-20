@@ -143,6 +143,7 @@ export async function buildCanonicalProjectJson(options?: {
       duration: Number((clip.endTime - clip.startTime).toFixed(3)),
       trimStart: Number(clip.trimStart.toFixed(3)),
       trimEnd: Number(clip.trimEnd.toFixed(3)),
+      speed: clip.speed ?? 1,
       fit: clip.fit,
       zoom: clip.zoom,
       heightScale: clip.heightScale,

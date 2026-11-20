@@ -2,6 +2,7 @@ import { useOverlayEffectsStore } from '../../store/useOverlayEffectsStore';
 import { drawOverlayEffects } from '../../lib/overlayEffects';
 import { getEffectiveMVTransition } from '../../lib/mvTransitionSettings';
 import { getVideoSyncDecision } from '../../lib/videoPlaybackSync';
+import { clipSourceTime, getClipSpeed } from '../../lib/clipSpeed';
 import { layoutMVCaption, drawMVCaption, MVCaptionLayout } from '../../lib/mvCaptionLayout';
 import { getBrowserExportTime, sampleBrowserExportVideo } from '../../lib/browserExportClock';
 import React, { useEffect, useRef, useState } from 'react';
@@ -521,7 +522,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
                   (activeClip.endTime - activeClip.startTime) / 2) : 0;
               // The incoming source started during the outgoing clip's final
               // frames; keep advancing it instead of rewinding at the cut.
-              const targetVideoTime = activeClip.trimStart + activeLead + (curTime - activeClip.startTime);
+              const playbackSpeed = getClipSpeed(activeClip);
+              const targetVideoTime = clipSourceTime(activeClip, curTime, activeLead);
               const clipChanged = lastActiveVideoClipRef.current !== activeClip.id;
               // A pending seek can overlap a cut. Keep clipChanged pending
               // until the decoder accepts its new trim offset.
@@ -531,7 +533,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
                 actualTime: videoEl.currentTime,
                 clipChanged,
                 playing,
-                seeking: videoEl.seeking
+                seeking: videoEl.seeking,
+                baseRate: playbackSpeed
               });
               // Avoid repeatedly seeking for ~200ms audio/video clock jitter.
               // Seek on timeline cuts and large desync only; small drift is
@@ -665,7 +668,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           let incoming: HTMLVideoElement | HTMLImageElement | null = null;
           if (nextAsset.type === 'video' && nextAsset.url) {
             const video = ensureClipVideo(nextClip.id, nextAsset.url);
-            const desired = nextClip.trimStart + progress * transitionLead;
+            const nextSpeed = getClipSpeed(nextClip);
+            const desired = clipSourceTime(nextClip, nextClip.startTime, progress * transitionLead);
+            if (Math.abs(video.playbackRate - nextSpeed) > 0.005) video.playbackRate = nextSpeed;
             if (!video.seeking && Math.abs(video.currentTime - desired) > 0.18) {
               try { video.currentTime = desired; } catch (_) {}
             }

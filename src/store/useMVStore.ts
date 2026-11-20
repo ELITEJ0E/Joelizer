@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { saveMVAssetToStorage, removeMVAssetFromStorage, loadMVAssetsFromStorage, clearMVAssetsFromStorage } from '../lib/storage';
 import { useStore } from './useStore';
 import { globalHistory } from '../lib/globalHistory';
+import { getClipSpeed, retimeClips } from '../lib/clipSpeed';
 const MV_STORAGE_KEY = 'mv-studio-storage';
 let mvProjectDeleteEpoch = 0;
 
@@ -48,6 +49,8 @@ export interface TimelineClip {
   endTime: number;   // End time on timeline
   trimStart: number; // Start trim within media asset
   trimEnd: number;   // End trim within media asset
+  /** Source seconds played per timeline second; omitted means normal speed. */
+  speed?: number;
   locked?: boolean;
   /** Tracks whether this clip was generated or explicitly placed by a user. */
   editOrigin?: 'auto' | 'manual';
@@ -140,15 +143,17 @@ function avoidClipCollision(current: TimelineClip, proposed: TimelineClip, other
     if (end - start < MIN_CLIP_SECONDS - 1e-6) return current;
   }
   const shiftedIn = start - current.startTime;
-  const newTrimStart = proposed.trimStart !== current.trimStart
-    ? Math.max(0, current.trimStart + shiftedIn) : proposed.trimStart;
-  const newTrimEnd = proposed.trimEnd !== current.trimEnd
-    ? proposed.trimEnd
-    : current.trimEnd + (end - current.endTime);
+  const speed = getClipSpeed(current);
+  // Derive source trims from the *clamped* timeline edges, not the raw drag
+  // proposal. Otherwise dragging into a neighbor silently loses source frames.
+  const newTrimStart = proposed.startTime !== current.startTime
+    ? Math.max(0, current.trimStart + shiftedIn * speed) : proposed.trimStart;
+  const newTrimEnd = proposed.endTime !== current.endTime
+    ? current.trimEnd + (end - current.endTime) * speed : proposed.trimEnd;
   return {
     ...proposed, startTime: roundTime(start), endTime: roundTime(end),
     trimStart: moving ? current.trimStart : roundTime(newTrimStart),
-    trimEnd: moving ? current.trimEnd : roundTime(Math.max(newTrimStart + MIN_CLIP_SECONDS, newTrimEnd)),
+    trimEnd: moving ? current.trimEnd : roundTime(Math.max(newTrimStart + MIN_CLIP_SECONDS * speed, newTrimEnd)),
   };
 }
 
@@ -271,6 +276,7 @@ export interface MVProjectState {
   addGapFillClips: (clips: TimelineClip[]) => number;
   addTimelineClip: (clip: TimelineClip) => void;
   updateTimelineClip: (id: string, updates: Partial<TimelineClip>) => void;
+  setClipSpeed: (id: string, speed: number) => { applied: boolean; error?: string };
   toggleLockClip: (id: string) => void;
   setClipAutoManaged: (id: string, enabled: boolean) => void;
   removeTimelineClip: (id: string) => void;
@@ -604,6 +610,17 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
           (updates.transition !== undefined && updates.transition !== c.transition) };
     })
   })),
+  setClipSpeed: (id, speed) => {
+    let result: { applied: boolean; error?: string } = { applied: false };
+    set((state) => {
+      const retimed = retimeClips(state.timelineClips, id, speed, MIN_CLIP_SECONDS);
+      result = { applied: retimed.applied, error: retimed.error };
+      if (!retimed.applied) return state;
+      return { timelineClips: retimed.clips.map(c => c.id === id
+        ? { ...c, editOrigin: 'manual', manuallyEdited: true } : c) };
+    });
+    return result;
+  },
   setClipAutoManaged: (id, enabled) => set((s) => ({
     timelineClips: s.timelineClips.map(c => c.id === id
       ? { ...c, editOrigin: enabled ? 'auto' : 'manual', manuallyEdited: !enabled }
@@ -644,7 +661,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
     const clip = s.timelineClips[clipIndex];
     if (clip.locked || splitTime <= clip.startTime + 0.1 || splitTime >= clip.endTime - 0.1) return s;
 
-    const splitOffset = splitTime - clip.startTime;
+    const splitOffset = (splitTime - clip.startTime) * getClipSpeed(clip);
     
     const clip1: TimelineClip = {
       ...clip,

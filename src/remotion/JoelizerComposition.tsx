@@ -285,8 +285,9 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height, st
             src={clip.url}
             muted
             style={mediaStyle}
+            playbackRate={clip.speed ?? 1}
             startFrom={Math.round(clip.trimStart * fps)}
-            endAt={Math.round((clip.trimStart + clip.duration + startShift) * fps)}
+            endAt={Math.round((clip.trimStart + (clip.duration + startShift) * (clip.speed ?? 1)) * fps)}
           />
         </Sequence>
       ) : (
