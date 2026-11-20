@@ -3,7 +3,7 @@ import { Download, ExternalLink, FileAudio, Loader2, Music2, Upload, Youtube } f
 import { useStore } from '../../store/useStore';
 
 type OutputFormat = 'mp3' | 'wav';
-type ConverterMode = 'online' | 'cloud' | 'local';
+type ConverterMode = 'online' | 'cloud';
 const ACCESS_KEY_STORAGE = 'joelizer.youtubeConverter.accessKey.v1';
 
 function readSavedKey(): string {
@@ -81,20 +81,19 @@ export function YouTubeAudioWorkspace() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const base = converterMode === 'local' ? 'http://127.0.0.1:39847'
-        : ((import.meta as any).env?.VITE_RENDER_SERVER_URL || '').replace(/\/$/, '');
-      if (converterMode === 'cloud' && base && !base.startsWith('https://') && !/^http:\/\/localhost(?::\d+)?$/.test(base)) {
+      const base = ((import.meta as any).env?.VITE_RENDER_SERVER_URL || '').replace(/\/$/, '');
+      if (base && !base.startsWith('https://') && !/^http:\/\/localhost(?::\d+)?$/.test(base)) {
         throw new Error('Converter backend must use HTTPS to protect the access key.');
       }
-      const response = await fetch(`${base}${converterMode === 'local' ? '/convert' : '/api/youtube-audio/convert'}`, {
+      const response = await fetch(`${base}/api/youtube-audio/convert`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(converterMode === 'cloud' && key ? { 'X-Youtube-Import-Key': key } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(key ? { 'X-Youtube-Import-Key': key } : {}) },
         body: JSON.stringify({ url: `https://www.youtube.com/watch?v=${videoId}`, format, authorized: true }),
         signal: controller.signal
       });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        if (converterMode === 'cloud' && response.status === 401 && savedKey && key === savedKey) {
+        if (response.status === 401 && savedKey && key === savedKey) {
           forgetSavedKey();
           setSavedKey('');
           setKey('');
@@ -106,7 +105,7 @@ export function YouTubeAudioWorkspace() {
       }
       const blob = await response.blob();
       if (blob.size < 100) throw new Error('The converter returned an empty audio file.');
-      if (converterMode === 'cloud' && key && rememberKey) {
+      if (key && rememberKey) {
         try {
           window.localStorage.setItem(ACCESS_KEY_STORAGE, key);
           setSavedKey(key);
@@ -118,11 +117,7 @@ export function YouTubeAudioWorkspace() {
       const filename = `youtube-${videoId}.${format}`;
       setResult({ url: URL.createObjectURL(blob), blob, filename });
     } catch (cause) {
-      if (!controller.signal.aborted) {
-        const message = cause instanceof Error ? cause.message : 'Conversion failed.';
-        setError(converterMode === 'local' && /Failed to fetch|NetworkError|Load failed/i.test(message)
-          ? 'Cannot reach the local converter. Start the helper on this computer and ensure your browser permits localhost connections.' : message);
-      }
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Conversion failed.');
     } finally { setBusy(false); abortRef.current = null; }
   };
 
@@ -158,7 +153,6 @@ export function YouTubeAudioWorkspace() {
               className="h-9 rounded-lg border border-white/20 bg-[#0a0c0f] px-3 text-white">
               <option value="online">Online · MP3Juice</option>
               <option value="cloud">Cloud · Render</option>
-              <option value="local">Local · This computer</option>
             </select>
           </label>
           {converterMode === 'online' && <div className="space-y-4">
@@ -211,11 +205,6 @@ export function YouTubeAudioWorkspace() {
             </label>
           </div>
 
-          {converterMode === 'local' && <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-xs leading-relaxed text-sky-200">
-            Run the optional local helper on your Windows computer first. Install Node.js, yt-dlp and FFmpeg, then run <code>node scripts/local-youtube-converter.mjs</code> from the Joelizer repository.
-            The helper only listens on your computer; it does not need the Render access key. YouTube can still restrict requests.
-            <a href="https://github.com/ELITEJ0E/Joelizer/blob/main/docs/LOCAL_YOUTUBE_CONVERTER.md" target="_blank" rel="noreferrer" className="mt-1 block underline">Windows setup guide</a>
-          </div>}
           {converterMode === 'cloud' && <label className="block space-y-1 text-xs">
             <span className="text-slate-300">Private converter access key (if your server requires one)</span>
             <input type="password" autoComplete="off" value={key} onChange={e => { setKey(e.target.value); setError(''); }}
@@ -241,7 +230,7 @@ export function YouTubeAudioWorkspace() {
             {busy ? 'Converting audio…' : `Convert to ${format.toUpperCase()}`}
           </button>
           <p className="text-[11px] leading-relaxed text-slate-400">
-            {converterMode === 'cloud' ? 'Cloud conversion requires the Joelizer Render backend with yt-dlp and FFmpeg. ' : 'Local conversion requires the helper running on this computer with yt-dlp and FFmpeg. '}
+            Cloud conversion requires the Joelizer Render backend with yt-dlp and FFmpeg.{' '}
             Protected, unavailable, private or restricted videos may fail. WAV does not restore quality missing from the original stream.
           </p>
           {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{error}</p>}
