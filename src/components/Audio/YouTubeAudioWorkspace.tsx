@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, ExternalLink, FileAudio, Loader2, Music2, Youtube } from 'lucide-react';
+import { Download, ExternalLink, FileAudio, Loader2, Music2, Upload, Youtube } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 
 type OutputFormat = 'mp3' | 'wav';
-type ConverterMode = 'cloud' | 'local';
+type ConverterMode = 'online' | 'cloud' | 'local';
 const ACCESS_KEY_STORAGE = 'joelizer.youtubeConverter.accessKey.v1';
 
 function readSavedKey(): string {
@@ -32,7 +32,10 @@ function parseYouTubeId(input: string): string | null {
 export function YouTubeAudioWorkspace() {
   const [link, setLink] = useState('');
   const [format, setFormat] = useState<OutputFormat>('wav');
-  const [converterMode, setConverterMode] = useState<ConverterMode>('cloud');
+  const [converterMode, setConverterMode] = useState<ConverterMode>('online');
+  const [dragging, setDragging] = useState(false);
+  const [importedName, setImportedName] = useState('');
+  const filePickerRef = useRef<HTMLInputElement | null>(null);
   const [authorized, setAuthorized] = useState(false);
   const [key, setKey] = useState(readSavedKey);
   const [savedKey, setSavedKey] = useState(readSavedKey);
@@ -45,6 +48,28 @@ export function YouTubeAudioWorkspace() {
   const setName = useStore(s => s.setName);
   const accent = useStore(s => s.visualizerSettings.color) || '#00e676';
   const videoId = parseYouTubeId(link);
+
+  const importAudio = async (file?: File) => {
+    if (!file) return;
+    if (!/\.(mp3|wav|flac|m4a|aac|ogg|opus|webm)$/i.test(file.name) && !file.type.startsWith('audio/')) {
+      setError('Choose an audio file such as MP3, WAV, FLAC or M4A.');
+      return;
+    }
+    setError('');
+    const sourceUrl = URL.createObjectURL(file);
+    const audio = document.createElement('audio');
+    audio.preload = 'metadata';
+    audio.src = sourceUrl;
+    const duration = await new Promise<number>(resolve => {
+      audio.onloadedmetadata = () => resolve(Number.isFinite(audio.duration) ? audio.duration : 0);
+      audio.onerror = () => resolve(0);
+      setTimeout(() => resolve(0), 5000);
+    });
+    const name = file.name.replace(/\.[^.]+$/, '');
+    setAudio(file, sourceUrl, duration, null, { name, artist: 'Imported Audio' });
+    setName(name);
+    setImportedName(file.name);
+  };
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
   useEffect(() => () => { if (result) URL.revokeObjectURL(result.url); }, [result]);
@@ -128,6 +153,42 @@ export function YouTubeAudioWorkspace() {
         </header>
 
         <div className="space-y-4 rounded-xl border border-white/10 bg-[#12161c] p-4 sm:p-5">
+          <label className="flex flex-wrap items-center gap-2 text-xs"><span className="text-slate-300">Converter</span>
+            <select value={converterMode} onChange={e => { setConverterMode(e.target.value as ConverterMode); setError(''); setResult(null); }}
+              className="h-9 rounded-lg border border-white/20 bg-[#0a0c0f] px-3 text-white">
+              <option value="online">Online · MP3Juice</option>
+              <option value="cloud">Cloud · Render</option>
+              <option value="local">Local · This computer</option>
+            </select>
+          </label>
+          {converterMode === 'online' && <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs leading-relaxed text-slate-300">Third-party converter opens below if its website permits embedding. Joelizer does not control its service or downloads.</p>
+              <a href="https://v6.mp3juice.za.com/convert" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-2 text-xs text-white hover:bg-white/10">
+                <ExternalLink size={14} /> Open MP3Juice in new tab
+              </a>
+            </div>
+            <iframe title="MP3Juice third-party converter" src="https://v6.mp3juice.za.com/convert" referrerPolicy="no-referrer"
+              className="h-[570px] w-full rounded-lg border border-white/20 bg-white" loading="lazy" />
+            <p className="text-xs text-amber-300">If the embedded website is blank or refuses to load, use the new-tab button above. Files downloaded there cannot be accessed automatically by Joelizer.</p>
+            <div className={`rounded-xl border-2 border-dashed p-5 text-center transition-colors ${dragging ? 'border-emerald-400 bg-emerald-500/10' : 'border-white/20 bg-[#0b0e12]'}`}
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={e => { e.preventDefault(); setDragging(false); }}
+              onDrop={e => { e.preventDefault(); setDragging(false); void importAudio(e.dataTransfer.files[0]); }}>
+              <Upload className="mx-auto mb-2 text-emerald-400" size={24} />
+              <p className="text-sm font-semibold">Drag downloaded audio here to use it in Joelizer</p>
+              <p className="mt-1 text-xs text-slate-400">MP3, WAV, FLAC, M4A and other supported audio formats</p>
+              <input ref={filePickerRef} type="file" accept="audio/*,.mp3,.wav,.flac,.m4a,.aac,.ogg,.opus,.webm" className="hidden"
+                onChange={e => { void importAudio(e.target.files?.[0]); e.target.value = ''; }} />
+              <button type="button" onClick={() => filePickerRef.current?.click()} className="mt-3 rounded-lg px-4 py-2 text-xs font-bold text-black" style={{ backgroundColor: accent }}>
+                Choose downloaded audio
+              </button>
+              {importedName && <p role="status" className="mt-2 text-xs text-emerald-300">Imported into Joelizer: {importedName}</p>}
+              {error && <p role="alert" className="mt-2 text-xs text-red-300">{error}</p>}
+            </div>
+            <p className="text-[11px] text-slate-400">Only download content you own or are permitted to use. Downloads from third-party sites may have varying quality or security risks.</p>
+          </div>}
+          {converterMode !== 'online' && <>
           <label className="block space-y-1.5 text-xs font-semibold">
             <span>YouTube video or YouTube Music link</span>
             <input value={link} onChange={e => { setLink(e.target.value); setError(''); }}
@@ -141,13 +202,6 @@ export function YouTubeAudioWorkspace() {
           </div>}
 
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-xs"><span className="text-slate-300">Converter</span>
-              <select value={converterMode} onChange={e => { setConverterMode(e.target.value as ConverterMode); setError(''); setResult(null); }}
-                className="h-9 rounded-lg border border-white/20 bg-[#0a0c0f] px-3 text-white">
-                <option value="cloud">Cloud · Render</option>
-                <option value="local">Local · This computer</option>
-              </select>
-            </label>
             <label className="flex items-center gap-2 text-xs"><span className="text-slate-300">Audio format</span>
               <select value={format} onChange={e => setFormat(e.target.value as OutputFormat)}
                 className="h-9 rounded-lg border border-white/20 bg-[#0a0c0f] px-3 text-white">
@@ -199,6 +253,7 @@ export function YouTubeAudioWorkspace() {
               <button type="button" onClick={useAsSource} className="rounded-lg border border-white/20 bg-[#171c23] px-3 py-2 text-xs font-semibold text-white">Use in Joelizer</button>
             </div>
           </div>}
+          </>}
         </div>
         <a href="https://studio.youtube.com/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white">
           <ExternalLink size={13} /> Download your own uploaded videos from YouTube Studio
