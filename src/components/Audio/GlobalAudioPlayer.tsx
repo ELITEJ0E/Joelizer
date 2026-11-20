@@ -16,6 +16,7 @@ export function GlobalAudioPlayer() {
   const setWaveformPeaks = useStore(s => s.setWaveformPeaks);
   const isPlaying = useStore(s => s.isPlaying);
   const isLooping = useStore(s => s.isLooping);
+  const visualizerSmoothing = useStore(s => s.visualizerSettings.smoothing);
   const setIsPlaying = useStore(s => s.setIsPlaying);
   const setCurrentTime = useStore(s => s.setCurrentTime);
   const setAudioDuration = useStore(s => s.setAudioDuration);
@@ -75,6 +76,10 @@ export function GlobalAudioPlayer() {
       audioManager.init(audioRef.current);
     }
   }, [audioUrl]);
+
+  // The visualizer smoothing slider must control the shared analyser even
+  // when Lyrics Video / MV Studio is open (Editor Preview may be unmounted).
+  useEffect(() => { audioManager.setSmoothing(visualizerSmoothing); }, [visualizerSmoothing, audioUrl]);
 
   // Handle track changes and explicit rewinds
   useEffect(() => {
