@@ -12,6 +12,7 @@ import { useStore, type LyricLine } from '../../store/useStore';
 import { renderVisualizer } from '../renderers';
 import { drawFramedMedia } from '../lyricsBackgrounds';
 import { drawOverlayEffects } from '../overlayEffects';
+import { lyricsVideoLoopFrame } from '../lyricsVideoLoop';
 
 type StageMedia = { element: HTMLVideoElement; lastFrame: number };
 
@@ -150,6 +151,8 @@ export class OfflineFrameCompositor {
   private ctx: CanvasRenderingContext2D;
   private videos = new Map<string, StageMedia>();
   private fastVideos = new Map<string, FastMp4Source>();
+  private loopFastVideos = new Map<string, FastMp4Source>();
+  private loopVideos = new Map<string, StageMedia>();
   private fastDecodeErrors = new Map<string, string>();
   private images = new Map<string, HTMLImageElement>();
   private loaded = false;
@@ -239,6 +242,19 @@ export class OfflineFrameCompositor {
       }),
       ...[...requiredImageUrls].map(async url => this.images.set(url, await loadImage(url)))
     ]);
+    // The end/start overlap needs simultaneous frames from two timestamps.
+    // Independent decoders avoid seeking the same source backwards per frame.
+    if (backgroundVideoUrl && (project.exportMode === 'lyrics-video' || clips.some(c => c.type === 'vinyl-lyrics'))) {
+      if (this.fastVideos.has(backgroundVideoUrl)) {
+        try {
+          this.loopFastVideos.set(backgroundVideoUrl, await FastMp4Source.open(backgroundVideoUrl));
+        } catch (error) { console.warn('[Lyrics export] Loop decoder unavailable:', error); }
+      } else if (this.videos.has(backgroundVideoUrl)) {
+        try {
+          this.loopVideos.set(backgroundVideoUrl, { element: await loadVideo(backgroundVideoUrl, false), lastFrame: NaN });
+        } catch (error) { console.warn('[Lyrics export] Loop video unavailable:', error); }
+      }
+    }
     const needsArtwork = project.exportMode === 'lyrics-video' ||
       clips.some(clip => clip.type === 'vinyl-lyrics');
     if (project.audio.albumArt && needsArtwork) {
@@ -271,7 +287,12 @@ export class OfflineFrameCompositor {
     if (project.exportMode === 'lyrics-video' || clip?.type === 'vinyl-lyrics') {
       const lyricsState = useLyricsVideoStore.getState();
       const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
-      const bg: typeof lyricsState.customBackground & { videoElement?: HTMLVideoElement | VideoFrame; imageElement?: HTMLImageElement } = {
+      const bg: typeof lyricsState.customBackground & {
+        videoElement?: HTMLVideoElement | VideoFrame;
+        videoCrossfadeElement?: HTMLVideoElement | VideoFrame;
+        videoCrossfadeAlpha?: number;
+        imageElement?: HTMLImageElement;
+      } = {
         ...lyricsState.customBackground,
         type: project.background.type,
         value: project.background.value,
@@ -284,14 +305,18 @@ export class OfflineFrameCompositor {
         : null;
       const fastBackground = backgroundUrl ? this.fastVideos.get(backgroundUrl) : null;
       const bgVideo = backgroundUrl ? this.videos.get(backgroundUrl) : null;
+      const duration = fastBackground?.durationSeconds || bgVideo?.element.duration || 0;
+      const loop = lyricsVideoLoopFrame(time, duration);
       if (fastBackground) {
-        const duration = fastBackground.durationSeconds;
-        const loopTime = Number.isFinite(duration) && duration > 0
-          ? ((time % duration) + duration) % duration : time;
         try {
           // Sequential decoder reuses frames across 30/60fps output, avoiding
           // hundreds of expensive HTML video seeks per second of footage.
-          bg.videoElement = await fastBackground.frameAt(loopTime);
+          bg.videoElement = await fastBackground.frameAt(loop.primaryTime);
+          const incoming = backgroundUrl ? this.loopFastVideos.get(backgroundUrl) : null;
+          if (incoming && loop.incomingTime !== null) {
+            bg.videoCrossfadeElement = await incoming.frameAt(loop.incomingTime);
+            bg.videoCrossfadeAlpha = loop.mix;
+          }
         } catch (error) {
           console.warn('[Lyrics export] Fast background decoder unavailable; using video element:', error);
           fastBackground.dispose();
@@ -299,19 +324,19 @@ export class OfflineFrameCompositor {
           const fallback = await loadVideo(backgroundUrl!, false);
           const media = { element: fallback, lastFrame: NaN };
           this.videos.set(backgroundUrl!, media);
-          const fallbackDuration = fallback.duration;
-          const fallbackTime = Number.isFinite(fallbackDuration) && fallbackDuration > 0
-            ? ((time % fallbackDuration) + fallbackDuration) % fallbackDuration : time;
-          await atTime(media, fallbackTime);
+          await atTime(media, lyricsVideoLoopFrame(time, fallback.duration).primaryTime);
           bg.videoElement = fallback;
         }
         bg.videoUrl = undefined;
       } else if (bgVideo) {
-        const duration = bgVideo.element.duration;
-        const loopTime = Number.isFinite(duration) && duration > 0
-          ? ((time % duration) + duration) % duration : time;
-        await atTime(bgVideo, loopTime);
+        await atTime(bgVideo, loop.primaryTime);
         bg.videoElement = bgVideo.element;
+        const incoming = backgroundUrl ? this.loopVideos.get(backgroundUrl) : null;
+        if (incoming && loop.incomingTime !== null) {
+          await atTime(incoming, loop.incomingTime);
+          bg.videoCrossfadeElement = incoming.element;
+          bg.videoCrossfadeAlpha = loop.mix;
+        }
         bg.videoUrl = undefined;
       } else if (backgroundUrl) {
         throw new Error('The looping background video could not be prepared for export.');
@@ -549,6 +574,14 @@ export class OfflineFrameCompositor {
     this.videos.clear();
     for (const source of this.fastVideos.values()) source.dispose();
     this.fastVideos.clear();
+    for (const source of this.loopFastVideos.values()) source.dispose();
+    this.loopFastVideos.clear();
+    for (const media of this.loopVideos.values()) {
+      media.element.pause();
+      media.element.removeAttribute('src');
+      media.element.load();
+    }
+    this.loopVideos.clear();
     this.fastDecodeErrors.clear();
     this.images.clear();
   }

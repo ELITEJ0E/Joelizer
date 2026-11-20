@@ -252,6 +252,8 @@ export interface DrawBackgroundSettings {
   videoUrl?: string;
   imageElement?: HTMLImageElement | null;
   videoElement?: HTMLVideoElement | VideoFrame | null;
+  videoCrossfadeElement?: HTMLVideoElement | VideoFrame | null;
+  videoCrossfadeAlpha?: number;
   fit?: 'cover' | 'contain';
   zoom?: number;
   heightScale?: number;
@@ -415,6 +417,17 @@ export function drawBackgroundCanvas(
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, W, H);
       ctx.drawImage(video, (W - drawW) / 2 + offsetX, (H - drawH) / 2 + offsetY, drawW, drawH);
+      const incoming = bgSettings.videoCrossfadeElement;
+      const incomingAlpha = Math.max(0, Math.min(1, bgSettings.videoCrossfadeAlpha || 0));
+      if (incoming && incomingAlpha > 0 &&
+          (!(incoming instanceof HTMLVideoElement) || incoming.readyState >= 2)) {
+        // Draw incoming footage over the outgoing frame, preserving crop,
+        // zoom, color filters and overlays on both sides of the transition.
+        ctx.save();
+        ctx.globalAlpha = incomingAlpha;
+        ctx.drawImage(incoming, (W - drawW) / 2 + offsetX, (H - drawH) / 2 + offsetY, drawW, drawH);
+        ctx.restore();
+      }
       if (filterStr !== 'none') ctx.filter = 'none';
 
       if (video instanceof HTMLVideoElement && Number.isFinite(video.duration) &&

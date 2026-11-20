@@ -12,6 +12,7 @@ import { renderVisualizer } from './renderers';
 import type { VisualizerSettings } from '../store/useStore';
 import { computeContinuousLineSweep, TimedWordMetric } from './karaokeSweep';
 import { computeFadeOpacity } from './mvCaptionLayout';
+import { lyricsVideoLoopFrame } from './lyricsVideoLoop';
 
 export interface LyricsVideoMetadata {
   title: string;
@@ -42,6 +43,8 @@ export interface RenderLyricsVideoOptions {
     videoUrl?: string;
     imageElement?: HTMLImageElement | null;
     videoElement?: HTMLVideoElement | VideoFrame | null;
+    videoCrossfadeElement?: HTMLVideoElement | VideoFrame | null;
+    videoCrossfadeAlpha?: number;
     fit?: 'cover' | 'contain';
     zoom?: number;
     heightScale?: number;
@@ -152,22 +155,18 @@ export function syncLyricsBackgroundVideo(url: string | undefined, time: number,
     lastTime: Number.NaN, lastPlaying: false, playPending: false
   };
   const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
-  const target = duration > 0 ? ((time % duration) + duration) % duration : 0;
-  const previousTarget = duration > 0 && Number.isFinite(state.lastTime)
-    ? ((state.lastTime % duration) + duration) % duration : Number.NaN;
-  // Swap in the already-decoded start of the next loop before drawing it.
-  // Keep audio time authoritative, including after repeated loops.
-  const wrapped = playing && duration > 0 && Number.isFinite(previousTarget) &&
-    time > state.lastTime && time - state.lastTime < 1 &&
-    previousTarget > duration * 0.75 && target < duration * 0.25;
+  const blend = lyricsVideoLoopFrame(time, duration);
+  const target = blend.primaryTime;
+  const previousCycle = Number.isFinite(state.lastTime)
+    ? lyricsVideoLoopFrame(state.lastTime, duration).cycle : blend.cycle;
+  const wrapped = playing && blend.cycle > previousCycle && blend.cycle - previousCycle === 1;
   const standby = url ? nextLoopVideoCache.get(url) : undefined;
   if (wrapped && standby && standby.readyState >= 2 && url) {
     video.pause();
     backgroundClockState.set(video, { ...state, lastPlaying: false });
     videoCache.set(url, standby);
     nextLoopVideoCache.set(url, video);
-    // Rewind the inactive element now, giving the decoder a full loop to
-    // prepare its opening frame before it is used again.
+    // Prepare the outgoing element for the next overlapping cycle.
     try { video.currentTime = 0; } catch {}
     video = standby;
     state = { ...state, lastPlaying: false, playPending: false };
@@ -177,6 +176,17 @@ export function syncLyricsBackgroundVideo(url: string | undefined, time: number,
   state.lastTime = time;
   state.lastPlaying = playing;
   backgroundClockState.set(video, state);
+
+  if (standby && duration > 0 && blend.incomingTime !== null) {
+    const incoming = Math.max(0, blend.incomingTime);
+    if (!standby.seeking && Math.abs(standby.currentTime - incoming) > 0.12) {
+      try { standby.currentTime = incoming; } catch {}
+    }
+    if (playing && standby.paused) standby.play().catch(() => {});
+    else if (!playing && !standby.paused) standby.pause();
+  } else if (standby && !standby.paused) {
+    standby.pause();
+  }
 
   if (!playing) {
     if (!video.paused) video.pause();
@@ -208,6 +218,16 @@ export function syncLyricsBackgroundVideo(url: string | undefined, time: number,
       if (!state.lastPlaying && !video.paused) video.pause();
     });
   }
+}
+
+function getLyricsBackgroundCrossfade(url: string | undefined, time: number) {
+  const active = url ? videoCache.get(url) : undefined;
+  const standby = url ? nextLoopVideoCache.get(url) : undefined;
+  const duration = active?.duration || 0;
+  const blend = lyricsVideoLoopFrame(time, duration);
+  return blend.mix > 0 && standby && standby.readyState >= 2
+    ? { videoCrossfadeElement: standby, videoCrossfadeAlpha: blend.mix }
+    : {};
 }
 
 export function pauseInactiveLyricsBackgroundVideos(activeUrl?: string): void {
@@ -1478,6 +1498,10 @@ export function renderLyricsVideoFrame(
     ? (options.customBackground?.imageElement || getOrLoadImage(bgValue))
     : null;
   const videoElem = options.customBackground?.videoElement || (bgVideoUrl ? getOrLoadVideo(bgVideoUrl) : null);
+  const crossfade = options.customBackground?.videoCrossfadeElement
+    ? { videoCrossfadeElement: options.customBackground.videoCrossfadeElement,
+        videoCrossfadeAlpha: options.customBackground.videoCrossfadeAlpha || 0 }
+    : !options.offlineExport ? getLyricsBackgroundCrossfade(bgVideoUrl, currentTime) : {};
 
   // 1. Draw Canvas Background
   drawBackgroundCanvas(
@@ -1489,6 +1513,7 @@ export function renderLyricsVideoFrame(
       type: bgType,
       value: bgValue,
       videoElement: videoElem,
+      ...crossfade,
       fit: options.customBackground?.fit,
       zoom: options.customBackground?.zoom,
       heightScale: options.customBackground?.heightScale,
