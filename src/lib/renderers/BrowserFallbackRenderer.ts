@@ -79,6 +79,8 @@ export class BrowserFallbackRenderer implements VideoRenderer {
               template: tmpl,
               aspectRatio: useStore.getState().aspectRatio,
               animationStyle: lyricsVideoState.animationStyle,
+              kineticPalette: lyricsVideoState.kineticPalette,
+              kineticIntensity: lyricsVideoState.kineticIntensity,
               visibleLineCount: lyricsVideoState.visibleLineCount,
               customBackground: lyricsVideoState.customBackground,
               typographyOverride: lyricsVideoState.typographyOverride,

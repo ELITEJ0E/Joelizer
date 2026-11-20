@@ -41,7 +41,9 @@ export interface CanonicalLyricsConfig {
   glowColor: string;
   showContainerPill: boolean;
   pillBgColor: string;
-  animationStyle: 'karaoke' | 'fade' | 'none' | 'slide-up' | 'pop';
+  animationStyle: 'karaoke' | 'fade' | 'none' | 'slide-up' | 'pop' | 'kinetic';
+  kineticPalette?: 'neon' | 'sunset' | 'candy' | 'rainbow';
+  kineticIntensity?: number;
   position?: 'bottom' | 'center' | 'top';
   showBackgroundBox?: boolean;
   visibleLineCount?: 1 | 2 | 5;

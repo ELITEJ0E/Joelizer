@@ -212,6 +212,8 @@ export async function buildCanonicalProjectJson(options?: {
       showContainerPill: typo.showContainerPill ?? false,
       pillBgColor: typo.pillBgColor || 'rgba(10, 10, 12, 0.85)',
       animationStyle: lyricsVideoStore.animationStyle || (lyricsVideoStore.animationOverride?.wordAnimation === 'karaoke' ? 'karaoke' : 'fade'),
+      kineticPalette: lyricsVideoStore.kineticPalette || 'neon',
+      kineticIntensity: lyricsVideoStore.kineticIntensity ?? 1,
       position: typo.position ?? mainStore.lyricsSettings?.position,
       showBackgroundBox: mainStore.lyricsSettings?.showBackgroundBox ?? false,
       visibleLineCount: exportMode === 'music-video'

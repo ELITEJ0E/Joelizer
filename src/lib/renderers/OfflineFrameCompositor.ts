@@ -355,6 +355,8 @@ export class OfflineFrameCompositor {
         template,
         aspectRatio: project.aspectRatio,
         animationStyle: project.lyrics.animationStyle,
+        kineticPalette: project.lyrics.kineticPalette,
+        kineticIntensity: project.lyrics.kineticIntensity,
         visibleLineCount: lyricsState.visibleLineCount,
         showArtwork: project.showArtwork ?? (project.templateId !== 'cinematic-clean'),
         // Draw with the same shared layer used by Lyrics Studio preview.
@@ -491,6 +493,8 @@ export class OfflineFrameCompositor {
           template,
           aspectRatio: project.aspectRatio,
           animationStyle: project.lyrics.animationStyle,
+          kineticPalette: project.lyrics.kineticPalette,
+          kineticIntensity: project.lyrics.kineticIntensity,
           visibleLineCount: project.lyrics.visibleLineCount ?? 2,
           showLyrics: true,
           bilingualEnabled: project.lyrics.bilingualEnabled,
