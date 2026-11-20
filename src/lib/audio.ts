@@ -82,7 +82,13 @@ export class AudioContextManager {
 
   seek(time: number) {
     if (this.audioEl) {
-      this.audioEl.currentTime = time;
+      const duration = this.audioEl.duration;
+      const target = Math.max(0, Number.isFinite(duration) ? Math.min(time, duration) : time);
+      this.audioEl.currentTime = target;
+      // Reset the interpolation origin immediately. Otherwise a requestAnimationFrame
+      // between the seek and the next media timeupdate can reuse the old position.
+      this.lastAudioTime = target;
+      this.lastPerfTime = performance.now();
     }
   }
 

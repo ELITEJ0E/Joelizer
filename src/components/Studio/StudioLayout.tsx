@@ -464,6 +464,16 @@ export function StudioLayout() {
     setCurrentTime(time);
   };
 
+  // A line's play button must start playback at its timestamp, not merely
+  // move the playhead while the global player remains paused.
+  const playLineFromStart = (time: number) => {
+    handleSeek(time);
+    setIsPlaying(true);
+    // Also start directly: if playback was already enabled, setting true again
+    // does not retrigger the global player's play-state effect.
+    audioManager.play();
+  };
+
   // Handle Audio File Upload
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1643,9 +1653,9 @@ export function StudioLayout() {
 
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); handleSeek(line.startTime); }}
+                          onClick={(e) => { e.stopPropagation(); playLineFromStart(line.startTime); }}
                           className="p-1 rounded hover:bg-[#1f2631] text-[#7e8999] hover:text-[#f0f3f6] cursor-pointer transition-colors"
-                          title="Seek audio to line start"
+                          title="Play audio from this line's exact start timestamp"
                         >
                           <Play size={10} fill="currentColor" />
                         </button>
