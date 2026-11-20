@@ -41,6 +41,7 @@ function VisualizerSettingsPanel() {
           <SelectContent className="bg-[#0b0b0b]/90 backdrop-blur-xl border-white/10 uppercase text-xs font-bold tracking-wider">
             <SelectItem value="bars">Bars</SelectItem>
             <SelectItem value="joelify-bars">Joelify Bars · Mirrored Spectrum</SelectItem>
+            <SelectItem value="spectrum-eq">Rainbow EQ · Bottom-Up Bars</SelectItem>
             <SelectItem value="waveform">Waveform</SelectItem>
             <SelectItem value="radial">Radial</SelectItem>
             <SelectItem value="particles">Particles</SelectItem>
