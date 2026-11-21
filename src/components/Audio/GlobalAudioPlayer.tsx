@@ -11,6 +11,7 @@ export function GlobalAudioPlayer() {
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const isDAW = useStore(s => s.activeTab === 'daw');
+  const activeTab = useStore(s => s.activeTab);
   const isMV = useStore(s => s.activeTab === 'mv-studio');
   const mvSoundtrackSpeed = useMVStore(s => s.soundtrackSpeed);
   const audioRate = isMV ? mvSoundtrackSpeed : 1;
@@ -120,6 +121,10 @@ export function GlobalAudioPlayer() {
       prevAudioUrlRef.current = streamUrl;
       el.currentTime = 0;
       el.load();
+    } else if (activeTab === 'lrc') {
+      // LRC controls seek through audioManager directly. State changes from
+      // playback are display updates, not commands to seek the media again.
+      return;
     } else if (Number.isFinite(el.duration) && currentTime * audioRate >= el.duration) {
       // When the user scrubs beyond a shortened soundtrack, preserve the
       // video-only timeline position; the media element cannot seek past EOF.
@@ -127,7 +132,7 @@ export function GlobalAudioPlayer() {
     } else if (Math.abs(el.currentTime - currentTime * audioRate) > 0.35) {
       el.currentTime = currentTime * audioRate;
     }
-  }, [currentTrackIndex, streamUrl, currentTime, isDAW, audioRate]);
+  }, [currentTrackIndex, streamUrl, currentTime, isDAW, audioRate, activeTab]);
 
   // Sync play/pause state safely
   useEffect(() => {
@@ -257,10 +262,14 @@ export function GlobalAudioPlayer() {
       onPlay={() => { if (useStore.getState().activeTab !== 'daw') setIsPlaying(true); }}
       onPause={() => { if (useStore.getState().activeTab !== 'daw') setIsPlaying(false); }}
       onTimeUpdate={() => {
-        if (audioRef.current && useStore.getState().activeTab !== 'daw') {
+        if (audioRef.current && audioRef.current.paused && !audioRef.current.seeking && useStore.getState().activeTab !== 'daw') {
           setCurrentTime(audioRef.current.currentTime / (useStore.getState().activeTab === 'mv-studio'
             ? useMVStore.getState().soundtrackSpeed : 1));
         }
+      }}
+      onSeeked={() => {
+        const el = audioRef.current;
+        if (el && useStore.getState().activeTab === 'lrc') setCurrentTime(el.currentTime);
       }}
       onLoadedMetadata={() => {
         if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
