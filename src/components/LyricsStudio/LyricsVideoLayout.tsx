@@ -451,7 +451,7 @@ export function LyricsVideoLayout() {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-    setCurrentTime(ratio * audioDuration);
+    handleSeek(ratio * audioDuration);
   };
 
   const playbackProgress = Math.max(0, Math.min(1, currentTime / (audioDuration || 1)));

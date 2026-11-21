@@ -128,6 +128,7 @@ interface ProjectState {
   currentTime: number;
   isPlaying: boolean;
   isLooping: boolean;
+  lrcPlaybackRate: number;
   
   exportResolutionOverride: '1080p' | '720p' | '360p' | null;
   activeTab: 'lrc' | 'lyrics' | 'mv-studio' | 'audio-lab' | 'youtube-audio' | 'daw';
@@ -174,6 +175,7 @@ interface ProjectState {
   setAudioDuration: (duration: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setIsLooping: (looping: boolean) => void;
+  setLrcPlaybackRate: (rate: number) => void;
 
   setExportRange: (start: number, end: number) => void;
   resetExportRange: () => void;
@@ -269,6 +271,7 @@ export const useStore = create<ProjectState>((set, get) => ({
   currentTime: 0,
   isPlaying: false,
   isLooping: false,
+  lrcPlaybackRate: 1,
   exportResolutionOverride: null,
   activeTab: 'lrc',
 
@@ -430,6 +433,7 @@ export const useStore = create<ProjectState>((set, get) => ({
   setAudioDuration: (audioDuration) => set({ audioDuration }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setIsLooping: (isLooping) => set({ isLooping }),
+  setLrcPlaybackRate: (rate) => set({ lrcPlaybackRate: Number.isFinite(rate) ? Math.max(0.5, Math.min(2, rate)) : 1 }),
 
   setExportRange: (start, end) => set((state) => {
     // MV timelines can extend beyond the soundtrack; respect the caller's full range.
