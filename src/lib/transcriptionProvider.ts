@@ -1,7 +1,8 @@
 import { LyricLineWithWords, TranscriptionProvider, TranscriptionResult, TranscriptionOptions, AlignmentOptions } from '../types/studio';
+import { effectiveLyricEnd } from './lyricTiming';
 
 // Get current active lyric line given currentTime
-export function getActiveLyricLine<T extends { startTime: number; endTime?: number; text: string; id?: string }>(
+export function getActiveLyricLine<T extends { startTime: number; endTime: number; endTimeAuto?: boolean; text: string; id?: string }>(
   lines: T[],
   currentTime: number
 ): T | null {
@@ -20,9 +21,10 @@ export function getActiveLyricLine<T extends { startTime: number; endTime?: numb
   }
 
   // Check if currentTime is within candidate's active window
-  const end = (candidate.endTime !== undefined && candidate.endTime > candidate.startTime)
-    ? candidate.endTime
-    : candidate.startTime + 3.5;
+  const end = candidate.endTimeAuto
+    ? effectiveLyricEnd(candidate, lines)
+    : (candidate.endTime !== undefined && candidate.endTime > candidate.startTime)
+      ? candidate.endTime : candidate.startTime + 3.5;
 
   // Half-open interval prevents the previous word remaining visible on the
   // very frame the next rapid lyric begins.
