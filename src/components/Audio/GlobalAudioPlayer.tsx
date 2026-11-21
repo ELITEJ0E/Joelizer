@@ -5,6 +5,7 @@ import { useGlobalKeyboardShortcuts } from '../../hooks/useGlobalKeyboardShortcu
 import { getStreamableAudioUrl } from '../../lib/utils';
 import { useDAWStore } from '../../store/useDAWStore';
 import { useMVStore } from '../../store/useMVStore';
+import { playbackRateForTab, sourceTimeToTimelineTime } from '../../lib/playbackClock';
 
 export function GlobalAudioPlayer() {
   useGlobalKeyboardShortcuts();
@@ -12,9 +13,9 @@ export function GlobalAudioPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const isDAW = useStore(s => s.activeTab === 'daw');
   const activeTab = useStore(s => s.activeTab);
-  const isMV = useStore(s => s.activeTab === 'mv-studio');
   const mvSoundtrackSpeed = useMVStore(s => s.soundtrackSpeed);
-  const audioRate = isMV ? mvSoundtrackSpeed : 1;
+  const lrcPlaybackRate = useStore(s => s.lrcPlaybackRate);
+  const audioRate = playbackRateForTab(activeTab, lrcPlaybackRate, mvSoundtrackSpeed);
   const audioUrl = useStore(s => s.audioUrl);
   const streamUrl = getStreamableAudioUrl(audioUrl);
   const audioFile = useStore(s => s.audioFile);
@@ -33,6 +34,7 @@ export function GlobalAudioPlayer() {
   const prevTrackIndexRef = useRef(currentTrackIndex);
   const prevAudioUrlRef = useRef(audioUrl);
   const prevAudioRateRef = useRef(1);
+  const prevClockTabRef = useRef(activeTab);
   const skipOldTimeSeekRef = useRef(false);
 
   // Decode audio data for waveform peaks whenever audioFile or audioUrl changes
@@ -93,45 +95,49 @@ export function GlobalAudioPlayer() {
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
-    const rate = Math.max(0.1, Math.min(8, audioRate));
+    const rate = audioRate;
     el.defaultPlaybackRate = rate;
     el.playbackRate = rate;
     // Keep audio exports consistent across native playback, Web Audio and Remotion.
     if ('preservesPitch' in el) el.preservesPitch = false;
-    if (prevAudioRateRef.current !== rate) {
+    const tabChanged = prevClockTabRef.current !== activeTab;
+    if (prevAudioRateRef.current !== rate || tabChanged) {
+      // The timestamp of the song never changes when its playback rate does.
+      // Only MV has a separate stretched video timeline coordinate system.
       prevAudioRateRef.current = rate;
       skipOldTimeSeekRef.current = true;
-      setCurrentTime(el.currentTime / rate);
+      setCurrentTime(sourceTimeToTimelineTime(el.currentTime, activeTab, mvSoundtrackSpeed));
     }
-  }, [audioRate, setCurrentTime]);
+    prevClockTabRef.current = activeTab;
+  }, [activeTab, audioRate, mvSoundtrackSpeed, setCurrentTime]);
 
   // Handle track changes and explicit rewinds
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
     if (isDAW) return;
-    if (skipOldTimeSeekRef.current) {
-      skipOldTimeSeekRef.current = false;
-      return;
-    }
-
     const trackChanged = prevTrackIndexRef.current !== currentTrackIndex || prevAudioUrlRef.current !== streamUrl;
     if (trackChanged) {
       prevTrackIndexRef.current = currentTrackIndex;
       prevAudioUrlRef.current = streamUrl;
+      skipOldTimeSeekRef.current = false;
       el.currentTime = 0;
       el.load();
-    } else if (activeTab === 'lrc') {
-      // LRC controls seek through audioManager directly. State changes from
-      // playback are display updates, not commands to seek the media again.
       return;
-    } else if (Number.isFinite(el.duration) && currentTime * audioRate >= el.duration) {
-      // When the user scrubs beyond a shortened soundtrack, preserve the
-      // video-only timeline position; the media element cannot seek past EOF.
-      return;
-    } else if (Math.abs(el.currentTime - currentTime * audioRate) > 0.35) {
-      el.currentTime = currentTime * audioRate;
     }
+    if (skipOldTimeSeekRef.current) {
+      skipOldTimeSeekRef.current = false;
+      return;
+    }
+    if (activeTab !== 'mv-studio') {
+      // LRC and Lyrics Video seek directly via audioManager. Never feed the
+      // displayed playback position back as a new media seek.
+      return;
+    }
+    const sourceTarget = currentTime * audioRate;
+    // Keep MV's existing stretched-timeline mapping without affecting lyrics.
+    if (Number.isFinite(el.duration) && sourceTarget >= el.duration) return;
+    if (Math.abs(el.currentTime - sourceTarget) > 0.35) el.currentTime = sourceTarget;
   }, [currentTrackIndex, streamUrl, currentTime, isDAW, audioRate, activeTab]);
 
   // Sync play/pause state safely
@@ -201,7 +207,7 @@ export function GlobalAudioPlayer() {
     let lastDispatchedTime = -1;
 
     const tick = () => {
-      const preciseTime = audioManager.getPreciseCurrentTime() / audioRate;
+      const preciseTime = sourceTimeToTimelineTime(audioManager.getPreciseCurrentTime(), activeTab, mvSoundtrackSpeed);
       // Only dispatch if time progressed by at least 15ms to keep UI performant
       if (Math.abs(preciseTime - lastDispatchedTime) >= 0.015) {
         lastDispatchedTime = preciseTime;
@@ -212,7 +218,7 @@ export function GlobalAudioPlayer() {
 
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, [isPlaying, isDAW, audioRate]);
+  }, [isPlaying, isDAW, activeTab, mvSoundtrackSpeed]);
 
   // Sync MediaSession metadata and action handlers for browser/keyboard/bluetooth controls
   useEffect(() => {
@@ -263,18 +269,24 @@ export function GlobalAudioPlayer() {
       onPause={() => { if (useStore.getState().activeTab !== 'daw') setIsPlaying(false); }}
       onTimeUpdate={() => {
         if (audioRef.current && audioRef.current.paused && !audioRef.current.seeking && useStore.getState().activeTab !== 'daw') {
-          setCurrentTime(audioRef.current.currentTime / (useStore.getState().activeTab === 'mv-studio'
-            ? useMVStore.getState().soundtrackSpeed : 1));
+          setCurrentTime(sourceTimeToTimelineTime(audioRef.current.currentTime,
+            useStore.getState().activeTab, useMVStore.getState().soundtrackSpeed));
         }
       }}
       onSeeked={() => {
         const el = audioRef.current;
-        if (el && useStore.getState().activeTab === 'lrc') setCurrentTime(el.currentTime);
+        if (el && useStore.getState().activeTab !== 'daw') {
+          setCurrentTime(sourceTimeToTimelineTime(el.currentTime,
+            useStore.getState().activeTab, useMVStore.getState().soundtrackSpeed));
+        }
       }}
       onLoadedMetadata={() => {
         if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
-          audioRef.current.playbackRate = useStore.getState().activeTab === 'mv-studio'
-            ? useMVStore.getState().soundtrackSpeed : 1;
+          const state = useStore.getState();
+          const rate = playbackRateForTab(state.activeTab, state.lrcPlaybackRate,
+            useMVStore.getState().soundtrackSpeed);
+          audioRef.current.defaultPlaybackRate = rate;
+          audioRef.current.playbackRate = rate;
           setAudioDuration(audioRef.current.duration);
         }
       }}

@@ -88,7 +88,8 @@ export function StudioLayout() {
   const isDraggingPlayheadRef = useRef<boolean>(false);
 
   // Playback state
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const playbackSpeed = useStore(s => s.lrcPlaybackRate);
+  const setPlaybackSpeed = useStore(s => s.setLrcPlaybackRate);
 
   // Song AI Intelligence & Language
   const [selectedLanguage, setSelectedLanguage] = useState<string>('Auto');
@@ -1969,7 +1970,6 @@ export function StudioLayout() {
                 type="button"
                 onClick={() => {
                   setPlaybackSpeed(s);
-                  audioManager.setPlaybackRate(s);
                 }}
                 className={cn(
                   "px-1.5 py-0.5 rounded cursor-pointer transition-colors shrink-0",
