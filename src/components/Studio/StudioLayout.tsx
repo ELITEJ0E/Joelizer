@@ -9,7 +9,6 @@ import {
   SkipBack, SkipForward, Repeat, Film
 } from 'lucide-react';
 import { cn, formatTime } from '../../lib/utils';
-import { effectiveLyricEnd } from '../../lib/lyricTiming';
 import { Scrubber } from '../ui/scrubber';
 import { VideoSlider } from '../ui/video-slider';
 import { audioManager } from '../../lib/audio';
