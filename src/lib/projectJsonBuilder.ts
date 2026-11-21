@@ -207,7 +207,7 @@ export async function buildCanonicalProjectJson(options?: {
     },
     lyrics: {
       lines: canonicalLines,
-      fontFamily: typo.fontFamily || 'Outfit',
+      fontFamily: typo.fontFamily || 'Permanent Marker',
       fontWeight: typo.fontWeight || '700',
       fontSizeScale: typo.fontSizeScale || 1.0,
       textColor: typo.textColor || '#ffffff',
