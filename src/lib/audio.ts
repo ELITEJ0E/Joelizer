@@ -122,34 +122,12 @@ export class AudioContextManager {
    */
   getPreciseCurrentTime(): number {
     if (!this.audioEl) return 0;
-    if (this.audioEl.paused) {
-      this.lastAudioTime = this.audioEl.currentTime;
-      this.lastPerfTime = performance.now();
-      return this.audioEl.currentTime;
-    }
-
-    const curAudioTime = this.audioEl.currentTime;
-    const now = performance.now();
-
-    if (curAudioTime !== this.lastAudioTime) {
-      this.lastAudioTime = curAudioTime;
-      this.lastPerfTime = now;
-      return curAudioTime;
-    }
-
-    // Extrapolate between discrete audio hardware clock ticks
-    const dt = (now - this.lastPerfTime) / 1000;
-    const rate = this.audioEl.playbackRate || 1;
-    const extrapolated = this.lastAudioTime + dt * rate;
-
-    // Safety guard: clamp if drift exceeds 120ms
-    if (Math.abs(extrapolated - curAudioTime) > 0.12) {
-      this.lastAudioTime = curAudioTime;
-      this.lastPerfTime = now;
-      return curAudioTime;
-    }
-
-    return extrapolated;
+    // Media element is the only authoritative clock. A separate predicted
+    // position can lag or jump after repeated seeks and rapid rewinds.
+    const position = this.audioEl.currentTime;
+    this.lastAudioTime = position;
+    this.lastPerfTime = performance.now();
+    return position;
   }
 
   getMediaStream(): MediaStream | null {
