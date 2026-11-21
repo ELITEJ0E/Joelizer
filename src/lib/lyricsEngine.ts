@@ -1,4 +1,5 @@
 import { useStore, LyricLine } from '../store/useStore';
+import { resolvedLyricLines } from './lyricTiming';
 import {
   LyricVideoTemplate,
   ArtworkStyle,
@@ -906,6 +907,7 @@ function renderLyrics(
   pos?: ElementPos
 ) {
   if (!lyricsLines || lyricsLines.length === 0) return;
+  lyricsLines = resolvedLyricLines(lyricsLines, useStore.getState().audioDuration);
 
   ctx.save();
   const isPortrait = H > W;

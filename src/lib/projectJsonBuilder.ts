@@ -1,6 +1,7 @@
 import { useOverlayEffectsStore } from '../store/useOverlayEffectsStore';
 import { getEffectiveMVTransition } from './mvTransitionSettings';
 import { useStore } from '../store/useStore';
+import { effectiveLyricEnd } from './lyricTiming';
 import { useMVStore } from '../store/useMVStore';
 import { useLyricsVideoStore } from '../store/useLyricsVideoStore';
 import { stageAssetIfNeeded } from './assetStaging';
@@ -76,7 +77,9 @@ export async function buildCanonicalProjectJson(options?: {
   const rawLines = mainStore.lyricsSettings.lines || [];
   const canonicalLines: CanonicalLyricLine[] = rawLines.map((line, idx) => {
     const lineStart = typeof line.startTime === 'number' ? line.startTime : idx * 4;
-    const lineEnd = typeof line.endTime === 'number' ? line.endTime : lineStart + 3.5;
+    const lineEnd = line.endTimeAuto
+      ? effectiveLyricEnd(line, rawLines, projectEnd)
+      : typeof line.endTime === 'number' ? line.endTime : lineStart + 3.5;
 
     let canonicalWords = undefined;
     if (Array.isArray(line.words) && line.words.length > 0) {

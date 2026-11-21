@@ -49,7 +49,8 @@ export interface LyricLine {
   text: string;
   secondaryText?: string; // Optional bilingual translation / second language line
   startTime: number; // in seconds
-  endTime: number; // in seconds
+  endTime: number; // in seconds; ignored while endTimeAuto is enabled
+  endTimeAuto?: boolean; // no fixed end: hold until next lyric or song end
   words?: { word: string; start?: number; end?: number; startTime?: number; endTime?: number }[];
 }
 

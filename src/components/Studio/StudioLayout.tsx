@@ -9,6 +9,7 @@ import {
   SkipBack, SkipForward, Repeat, Film
 } from 'lucide-react';
 import { cn, formatTime } from '../../lib/utils';
+import { effectiveLyricEnd } from '../../lib/lyricTiming';
 import { Scrubber } from '../ui/scrubber';
 import { VideoSlider } from '../ui/video-slider';
 import { audioManager } from '../../lib/audio';
@@ -709,7 +710,7 @@ export function StudioLayout() {
 
     const updated = lines.map((l, idx) => {
       if (idx === targetIdx) {
-        const oldDur = (l.endTime && l.endTime > l.startTime) ? (l.endTime - l.startTime) : 3.5;
+        const oldDur = (!l.endTimeAuto && l.endTime > l.startTime) ? (l.endTime - l.startTime) : 3.5;
         const newEnd = Math.max(newStart + 0.04, newStart + oldDur);
         
         let newWords = l.words;
@@ -732,6 +733,7 @@ export function StudioLayout() {
           ...l,
           startTime: newStart,
           endTime: newEnd,
+          endTimeAuto: l.endTimeAuto,
           words: newWords
         };
       } else if (idx === targetIdx - 1) {
@@ -759,7 +761,8 @@ export function StudioLayout() {
         const newEnd = Math.max(Number((l.startTime + 0.04).toFixed(2)), Number(newTimeSec.toFixed(2)));
         return {
           ...l,
-          endTime: newEnd
+          endTime: newEnd,
+          endTimeAuto: false
         };
       }
       return l;
@@ -767,6 +770,13 @@ export function StudioLayout() {
 
     setSelectedLineId(nextSelectId || id);
     updateLinesWithHistory(updated);
+  };
+
+  const handleClearEnd = (id: string) => {
+    if (!lines.some(line => line.id === id && !line.endTimeAuto)) return;
+    updateLinesWithHistory(lines.map(line => line.id === id
+      ? { ...line, endTimeAuto: true } : line));
+    setSelectedLineId(id);
   };
 
   const handleLineTimeChange = (id: string, newTimeSec: number) => {
@@ -1738,6 +1748,16 @@ export function StudioLayout() {
                         >
                           <span>Mark End</span>
                           <kbd className="text-[8px] bg-black/60 px-1 py-0.5 rounded border border-white/20 text-[#c4cad4] font-bold">]</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={line.endTimeAuto === true}
+                          onClick={e => { e.stopPropagation(); handleClearEnd(line.id); }}
+                          className="px-1.5 py-0.5 bg-[#181d26] hover:bg-[#222935] disabled:opacity-40 disabled:cursor-default border border-[#2b3442] rounded text-[9px] font-mono font-semibold text-[#a9b5c7] hover:text-white cursor-pointer transition-colors"
+                          title="Remove fixed end time; show until next lyric or song end"
+                          aria-label={`Clear end time for lyric line ${idx + 1}`}
+                        >
+                          {line.endTimeAuto ? 'Auto End' : 'Clear End'}
                         </button>
                       </div>
                     </div>

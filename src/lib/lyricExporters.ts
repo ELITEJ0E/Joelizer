@@ -75,7 +75,7 @@ export function generateLRC(lines: LyricLineWithWords[], title?: string, artist?
     // If an explicit endTime exists that ends before the next line starts (or for the final line),
     // insert an empty timestamp marker so standard music players clear the screen at that exact moment.
     const nextLine = sorted[index + 1];
-    if (line.endTime && line.endTime > line.startTime) {
+    if (!line.endTimeAuto && line.endTime && line.endTime > line.startTime) {
       const gapToNext = nextLine ? nextLine.startTime - line.endTime : 999;
       // If there is a noticeable gap (>= 0.25s) before the next line, or if it's the last line
       if (gapToNext >= 0.25) {
@@ -105,7 +105,7 @@ export function generateEnhancedLRC(lines: LyricLineWithWords[], title?: string,
         lrc += `${formatWordStamp(wStart)}${w.word} `;
       });
       // Append end timestamp marker for word karaoke
-      if (line.endTime && line.endTime > line.startTime) {
+      if (!line.endTimeAuto && line.endTime && line.endTime > line.startTime) {
         lrc += `${formatWordStamp(line.endTime)}`;
       }
       lrc = lrc.trimEnd();
@@ -117,7 +117,7 @@ export function generateEnhancedLRC(lines: LyricLineWithWords[], title?: string,
 
     // Also insert empty timestamp line if there is a gap before the next line
     const nextLine = sorted[index + 1];
-    if (line.endTime && line.endTime > line.startTime) {
+    if (!line.endTimeAuto && line.endTime && line.endTime > line.startTime) {
       const gapToNext = nextLine ? nextLine.startTime - line.endTime : 999;
       if (gapToNext >= 0.25) {
         lrc += `${formatLRCStamp(line.endTime)}\n`;
