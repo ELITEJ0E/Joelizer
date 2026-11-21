@@ -135,6 +135,7 @@ interface ProjectState {
   selectedStudioLineId: string | null;
   studioZoom: number;
   studioScrollOffset: number;
+  studioLyricsScrollTop: number;
 
   exportRangeStart: number;
   exportRangeEnd: number | null;
@@ -147,6 +148,7 @@ interface ProjectState {
   setSelectedStudioLineId: (id: string | null | ((prev: string | null) => string | null)) => void;
   setStudioZoom: (zoom: number | ((prev: number) => number)) => void;
   setStudioScrollOffset: (offset: number | ((prev: number) => number)) => void;
+  setStudioLyricsScrollTop: (top: number) => void;
   setExportResolutionOverride: (override: '1080p' | '720p' | '360p' | null) => void;
   setAudio: (
     file: File | Blob | null,
@@ -273,6 +275,7 @@ export const useStore = create<ProjectState>((set, get) => ({
   selectedStudioLineId: null,
   studioZoom: 2.0,
   studioScrollOffset: 0,
+  studioLyricsScrollTop: 0,
   
   exportRangeStart: 0,
   exportRangeEnd: null,
@@ -290,6 +293,7 @@ export const useStore = create<ProjectState>((set, get) => ({
   setStudioScrollOffset: (studioScrollOffset) => set((state) => ({
     studioScrollOffset: typeof studioScrollOffset === 'function' ? (studioScrollOffset as Function)(state.studioScrollOffset) : studioScrollOffset
   })),
+  setStudioLyricsScrollTop: (studioLyricsScrollTop) => set({ studioLyricsScrollTop: Math.max(0, studioLyricsScrollTop) }),
   setExportResolutionOverride: (exportResolutionOverride) => set({ exportResolutionOverride }),
   setAudio: (file, url, duration, albumArt, meta) => {
     const streamableUrl = getStreamableAudioUrl(url);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useStore, LyricLine } from '../../store/useStore';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { 
@@ -52,6 +52,10 @@ export function StudioLayout() {
   const setZoom = useStore(s => s.setStudioZoom);
   const scrollOffset = useStore(s => s.studioScrollOffset);
   const setScrollOffset = useStore(s => s.setStudioScrollOffset);
+  const setStudioLyricsScrollTop = useStore(s => s.setStudioLyricsScrollTop);
+  const lyricListRef = useRef<HTMLDivElement | null>(null);
+  // Restore the editor viewport only once after its saved lyrics are mounted.
+  const restoredLyricsViewportRef = useRef(false);
   const [isFollowingPlayhead, setIsFollowingPlayhead] = useState(false);
 
   // Local Studio State
@@ -430,13 +434,27 @@ export function StudioLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [selectedLineId, lines, currentTime, isPlaying, audioDuration, historyIndex, history, undo, redo]);
 
-  // Auto-scroll selected lyric line into view
+  // A tab switch unmounts LRC Studio. Restore its previous editing viewport
+  // after lyric rows exist, rather than jumping back to the first line.
+  useLayoutEffect(() => {
+    const list = lyricListRef.current;
+    if (!list || restoredLyricsViewportRef.current || lines.length === 0) return;
+    list.scrollTop = useStore.getState().studioLyricsScrollTop;
+    restoredLyricsViewportRef.current = true;
+  }, [lines.length]);
+
+  // Scroll to a newly selected lyric, but don't overwrite the restored
+  // scroll position when returning from Lyrics Video preview.
   useEffect(() => {
-    if (selectedLineId) {
-      const el = document.getElementById(`lyric-line-${selectedLineId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
+    if (!restoredLyricsViewportRef.current || !selectedLineId) return;
+    const list = lyricListRef.current;
+    const line = document.getElementById(`lyric-line-${selectedLineId}`);
+    if (!list || !line || !list.contains(line)) return;
+    const lineTop = line.offsetTop - list.offsetTop;
+    const lineBottom = lineTop + line.offsetHeight;
+    if (lineTop < list.scrollTop) list.scrollTop = lineTop;
+    else if (lineBottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = lineBottom - list.clientHeight;
     }
   }, [selectedLineId]);
 
@@ -1618,8 +1636,14 @@ export function StudioLayout() {
             </div>
           </div>
 
-          {/* Editable Line List */}
-          <div className="flex-1 min-h-0 h-0 overflow-y-auto p-2.5 space-y-2 overscroll-contain">
+          {/* Editable Line List: keep viewport when switching to Lyrics Video */}
+          <div
+            ref={lyricListRef}
+            onScroll={e => {
+              if (restoredLyricsViewportRef.current) setStudioLyricsScrollTop(e.currentTarget.scrollTop);
+            }}
+            className="flex-1 min-h-0 h-0 overflow-y-auto p-2.5 space-y-2 overscroll-contain"
+          >
             {lines.length === 0 ? (
               <div className="text-center text-[#5e6877] font-mono text-xs py-12">
                 No lyric lines generated yet. <br />
