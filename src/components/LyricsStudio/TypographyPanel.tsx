@@ -326,7 +326,7 @@ export function TypographyPanel() {
             Curated Font Families
           </span>
           <span className="text-[9px] font-mono text-accent font-semibold">
-            {typo.fontFamily || 'Outfit'}
+            {typo.fontFamily || 'Permanent Marker'}
           </span>
         </div>
 

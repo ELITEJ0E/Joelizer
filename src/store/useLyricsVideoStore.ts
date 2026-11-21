@@ -136,8 +136,8 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       },
 
       typographyOverride: {
-        fontFamily: 'Outfit',
-        fontWeight: '700',
+        fontFamily: 'Permanent Marker',
+        fontWeight: '400',
         fontSizeScale: 1.05,
         textColor: '#ffffff',
         activeWordColor: '#fef08a',
@@ -313,11 +313,19 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
     {
       name: 'lyrics-video-storage',
       storage: createJSONStorage(() => sessionStorage),
-      version: 1,
+      version: 2,
       migrate: (persistedState: unknown) => {
         const state = (persistedState || {}) as Partial<LyricsVideoState>;
         const typography = { ...state.typographyOverride };
         const background = { ...state.customBackground };
+        // Migrate only the untouched legacy starter typography. Existing
+        // custom font choices remain intact when returning to the editor.
+        if (typography.fontFamily === 'Outfit' && typography.fontWeight === '700' &&
+            typography.fontSizeScale === 1.05 && typography.textColor === '#ffffff' &&
+            typography.activeWordColor === '#fef08a' && typography.glowColor === '#eab308') {
+          typography.fontFamily = 'Permanent Marker';
+          typography.fontWeight = '400';
+        }
         // Previous builds shipped an opaque pill and blurred cover as their
         // hardcoded startup values. Migrate only that stock configuration;
         // custom backgrounds and customized caption styles remain untouched.
