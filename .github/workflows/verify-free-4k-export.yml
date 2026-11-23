@@ -27,5 +27,6 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: npx tsx src/tests/browserHighResolution.test.ts
+      - name: Validate 1440p/4K codec levels and exact-resolution preflight
+        run: npx tsx src/tests/browserHighResolution.test.ts
       - run: npm run build

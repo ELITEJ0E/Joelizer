@@ -21,6 +21,11 @@ support 4K H.264 encoding. A successful codec support probe also cannot
 guarantee sufficient memory for a long 4K project. A full-length music video,
 especially 4K/60, may be impractical on integrated graphics.
 
+The export settings panel now checks the H.264 encoder's support at the exact
+resolution, orientation and frame rate. A positive probe means the encoder
+reports that configuration as supported, not that long 4K projects are guaranteed
+to fit in GPU and system memory.
+
 If there is no browser VideoEncoder, or your GPU cannot encode the requested
 resolution/frame rate, the app will explain the issue and fail without
 mislabeling a 1080p file as 4K. Try 1440p/30 or a dedicated render machine.
