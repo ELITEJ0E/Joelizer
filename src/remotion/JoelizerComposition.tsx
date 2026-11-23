@@ -12,6 +12,7 @@ import {
 import { CanonicalProjectJson, CanonicalLyricLine, CanonicalVideoClip } from '../types/projectJson';
 import { getDefaultPositions } from '../lib/lyricsLayout';
 import { computeContinuousLineSweep, TimedWordMetric } from '../lib/karaokeSweep';
+import { kineticGlowEnabled, kineticWordColor } from '../lib/kineticColor';
 
 export interface JoelizerCompositionProps {
   projectJson: CanonicalProjectJson;
@@ -921,12 +922,15 @@ function LyricsLayer({
   const smoothOut = rawFadeOut * rawFadeOut * (3 - 2 * rawFadeOut);
   const rapidWord = activeLine.endTime - activeLine.startTime <= 0.42 &&
     activeLine.text.trim().split(/\s+/).length <= 2;
-  const instantLyrics = lyrics?.animationStyle === 'none' || rapidWord;
+  const isKinetic = lyrics?.animationStyle === 'kinetic';
+  const instantLyrics = !isKinetic && (lyrics?.animationStyle === 'none' || rapidWord);
   // Respect half-open [start, end) so the exported frame at the boundary
   // switches immediately, with no crossfade or early preview.
   const lineOpacity = instantLyrics
     ? (currentTime >= activeLine.startTime && currentTime < activeLine.endTime ? 1 : 0)
-    : Math.min(smoothIn, smoothOut);
+    : isKinetic
+      ? Math.min(1, Math.max(0, elapsed / 0.16)) * Math.min(1, Math.max(0, remaining / 0.13))
+      : Math.min(smoothIn, smoothOut);
   if (instantLyrics && lineOpacity === 0) return null;
 
   const isKaraoke = lyrics?.animationStyle === 'karaoke';
@@ -937,7 +941,7 @@ function LyricsLayer({
   const fontFamily = lyrics?.fontFamily || 'Outfit, system-ui, sans-serif';
   const fontWeight = lyrics?.fontWeight || '700';
   const fontCss = `${fontWeight} ${fontSize}px ${fontFamily}`;
-  const count: 1 | 2 | 5 = instantLyrics ? 1
+  const count: 1 | 2 | 5 = (instantLyrics || isKinetic) ? 1
     : ([1, 2, 5].includes(lyrics?.visibleLineCount) ? lyrics.visibleLineCount : 2);
   const allLines: CanonicalLyricLine[] = lyrics?.lines || [];
   const beforeCount = count === 5 ? Math.min(2, activeLineIndex) : 0;
@@ -947,7 +951,7 @@ function LyricsLayer({
   const afterLines = allLines.slice(activeLineIndex + 1, activeLineIndex + 1 + afterCount);
 
   const spaceWidth = measureRemotionWord(' ', fontCss) || fontSize * 0.32;
-  const maxLineWidth = isPortrait ? width * 0.88 : width * 0.50;
+  const maxLineWidth = isPortrait ? width * 0.88 : width * ((lyrics?.fontSizeScale ?? 1) >= 1.5 ? 0.88 : 0.48);
 
   // Build timed words list
   interface TimedWord {
@@ -1090,6 +1094,35 @@ function LyricsLayer({
                       {sublineText}
                     </span>
                   )}
+                </div>
+              );
+            })
+          ) : isKinetic ? (
+            sublines.map((subline, lineIdx) => {
+              const intensity = Math.min(2, Math.max(0.3, lyrics?.kineticIntensity ?? 1));
+              const glow = kineticGlowEnabled(lyrics?.kineticPalette, lyrics?.kineticGlow);
+              const pop = Math.max(0, 1 - Math.max(0, elapsed) / 0.25);
+              const settle = 1 + intensity * 0.22 * pop * pop;
+              return (
+                <div key={`kinetic-${lineIdx}`} style={{ display: 'flex', justifyContent: 'center', gap: spaceWidth, whiteSpace: 'nowrap' }}>
+                  {subline.map((word, wordIdx) => {
+                    const wordElapsed = currentTime - word.startTime;
+                    const wordPop = Math.max(0, 1 - Math.max(0, wordElapsed) / 0.22);
+                    const wordScale = settle + 0.14 * intensity * wordPop * wordPop;
+                    const color = kineticWordColor(lyrics?.kineticPalette, lyrics?.kineticColor, activeLineIndex, wordIdx, lineIdx);
+                    return (
+                      <span key={wordIdx} style={{
+                        display: 'inline-block',
+                        flexShrink: 0,
+                        width: word.width,
+                        color,
+                        opacity: wordElapsed < 0 ? 0 : Math.min(1, wordElapsed / Math.max(0.04, 0.09 / intensity)),
+                        transform: `translateY(${-fontSize * 0.12 * intensity * wordPop}px) scale(${wordScale})`,
+                        transformOrigin: 'center',
+                        textShadow: glow ? `0 0 ${13 * intensity}px ${color}` : 'none'
+                      }}>{word.word}</span>
+                    );
+                  })}
                 </div>
               );
             })

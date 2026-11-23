@@ -63,8 +63,19 @@ function KineticQuickControls() {
   const animationStyle = useLyricsVideoStore(s => s.animationStyle);
   const setAnimationStyle = useLyricsVideoStore(s => s.setAnimationStyle);
   const palette = useLyricsVideoStore(s => s.kineticPalette);
+  const solidColor = useLyricsVideoStore(s => s.kineticColor || '#ffffff');
+  const glowSetting = useLyricsVideoStore(s => s.kineticGlow);
   const intensity = useLyricsVideoStore(s => s.kineticIntensity);
   const update = useLyricsVideoStore(s => s.setKineticSettings);
+  const [colorDraft, setColorDraft] = useState(solidColor);
+  useEffect(() => setColorDraft(solidColor), [solidColor]);
+  const glow = glowSetting ?? (palette !== 'solid');
+
+  const saveHex = () => {
+    const candidate = colorDraft.trim();
+    if (/^#[0-9a-f]{6}$/i.test(candidate)) update({ kineticColor: candidate });
+    else setColorDraft(solidColor);
+  };
 
   return (
     <div className="space-y-2">
@@ -72,22 +83,51 @@ function KineticQuickControls() {
         onClick={() => setAnimationStyle('kinetic')}
         className={cn('w-full rounded border px-3 py-2 text-left cursor-pointer transition-colors',
           animationStyle === 'kinetic' ? 'border-fuchsia-400 text-fuchsia-200 bg-fuchsia-500/15' : 'border-[#303947] bg-[#12161c] text-[#c7cbd5] hover:border-fuchsia-400/50')}>
-        <span className="block text-[11px] font-bold uppercase">✦ Kinetic Color Pop · NEW</span>
-        <span className="block text-[10px] opacity-75">Timestamp-synced word pops and changing text colors</span>
+        <span className="block text-[11px] font-bold uppercase">✦ Kinetic Word Pop</span>
+        <span className="block text-[10px] opacity-75">Words appear at their timestamps. Choose one fixed color or a changing palette.</span>
       </button>
       {animationStyle === 'kinetic' && (
         <div className="space-y-2 rounded border border-fuchsia-400/30 bg-fuchsia-500/5 p-2.5">
-          <span className="text-[10px] uppercase font-bold text-[#aeb8c5]">Text color palette</span>
-          <div className="grid grid-cols-4 gap-1">
-            {(['neon', 'sunset', 'candy', 'rainbow'] as const).map(p => (
+          <span className="text-[10px] uppercase font-bold text-[#aeb8c5]">Kinetic text color</span>
+          <div className="grid grid-cols-5 gap-1">
+            {(['solid', 'neon', 'sunset', 'candy', 'rainbow'] as const).map(p => (
               <button key={p} type="button" aria-pressed={palette === p}
                 onClick={() => update({ kineticPalette: p })}
                 className={cn('rounded border px-1 py-1.5 text-[10px] capitalize cursor-pointer',
                   palette === p ? 'border-fuchsia-400 bg-fuchsia-500/20 text-fuchsia-200' : 'border-[#303947] text-[#9ba8ba]')}>
-                {p}
+                {p === 'solid' ? 'Solid' : p}
               </button>
             ))}
           </div>
+          {palette === 'solid' && (
+            <div className="space-y-1.5 rounded border border-[#303947] bg-[#0e1115] p-2">
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="kinetic-solid-color" className="text-[10px] text-[#aeb8c5]">Fixed text color</label>
+                <button type="button" onClick={() => update({ kineticColor: '#ffffff' })}
+                  className="rounded border border-[#566172] bg-[#19202a] px-2 py-1 text-[10px] text-white">
+                  White
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <input id="kinetic-solid-color" aria-label="Choose a fixed kinetic lyric color"
+                  type="color" value={solidColor} onChange={e => update({ kineticColor: e.target.value })}
+                  className="h-8 w-10 cursor-pointer rounded border border-[#566172] bg-transparent" />
+                <input aria-label="Kinetic lyric hex color" type="text" value={colorDraft}
+                  maxLength={7} spellCheck={false} onChange={e => setColorDraft(e.target.value)}
+                  onBlur={saveHex}
+                  onKeyDown={e => { if (e.key === 'Enter') { saveHex(); e.currentTarget.blur(); } }}
+                  className="min-w-0 flex-1 rounded border border-[#303947] bg-[#10151d] px-2 py-1.5 font-mono text-[11px] text-white"
+                  placeholder="#ffffff" />
+              </div>
+              <p className="text-[10px] text-[#8b98a9]">All words keep this color, even while popping in.</p>
+            </div>
+          )}
+          <label className="flex items-center justify-between gap-2 text-[10px] text-[#aeb8c5]">
+            <span>Text glow</span>
+            <input aria-label="Kinetic lyric glow" type="checkbox" checked={glow}
+              onChange={e => update({ kineticGlow: e.target.checked })}
+              className="h-4 w-4 accent-fuchsia-400" />
+          </label>
           <label className="flex justify-between text-[10px] text-[#aeb8c5]">
             Pop intensity <span className="text-fuchsia-200">{intensity.toFixed(1)}×</span>
           </label>

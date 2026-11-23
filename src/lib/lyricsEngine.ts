@@ -14,6 +14,7 @@ import type { VisualizerSettings } from '../store/useStore';
 import { computeContinuousLineSweep, TimedWordMetric } from './karaokeSweep';
 import { computeFadeOpacity } from './mvCaptionLayout';
 import { lyricsVideoLoopFrame } from './lyricsVideoLoop';
+import { kineticWordColor, kineticGlowEnabled, type KineticPalette } from './kineticColor';
 
 export interface LyricsVideoMetadata {
   title: string;
@@ -25,7 +26,9 @@ export interface RenderLyricsVideoOptions {
   template: LyricVideoTemplate;
   aspectRatio: string;
   animationStyle?: string;
-  kineticPalette?: 'neon' | 'sunset' | 'candy' | 'rainbow';
+  kineticPalette?: KineticPalette;
+  kineticColor?: string;
+  kineticGlow?: boolean;
   kineticIntensity?: number;
   visibleLineCount?: number;
   showVisualizer?: boolean;
@@ -1211,13 +1214,7 @@ function renderLyrics(
     ctx.globalAlpha = activeLineOpacity;
 
     if (isKinetic) {
-      const palettes = {
-        neon: ['#00f5d4', '#fb37ff', '#ffe45e', '#60a5fa'],
-        sunset: ['#ff5d73', '#ffbe0b', '#ff6d00', '#e879f9'],
-        candy: ['#ff69b4', '#a78bfa', '#67e8f9', '#f9a8d4'],
-        rainbow: ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93']
-      };
-      const palette = palettes[options.kineticPalette || 'neon'];
+      const glowEnabled = kineticGlowEnabled(options.kineticPalette, options.kineticGlow);
       const intensity = Math.min(2, Math.max(0.3, options.kineticIntensity ?? 1));
       const pop = Math.max(0, 1 - Math.max(0, elapsed) / 0.25);
       const settle = 1 + intensity * 0.22 * pop * pop;
@@ -1237,15 +1234,15 @@ function renderLyrics(
           }
           const wordPop = Math.max(0, 1 - Math.max(0, wordElapsed) / 0.22);
           const wordScale = settle + 0.14 * intensity * wordPop * wordPop;
-          const colorIndex = (activeIndex + idx + sIdx) % palette.length;
+          const wordColor = kineticWordColor(options.kineticPalette, options.kineticColor, activeIndex, idx, sIdx);
           ctx.save();
           ctx.globalAlpha *= Math.min(1, wordElapsed / Math.max(0.04, 0.09 / intensity));
           ctx.translate(x + widths[idx] / 2, y - fontSize * 0.12 * intensity * wordPop);
           ctx.scale(wordScale, wordScale);
           ctx.textAlign = 'center';
-          ctx.fillStyle = palette[colorIndex];
-          ctx.shadowColor = palette[colorIndex];
-          ctx.shadowBlur = 13 * intensity;
+          ctx.fillStyle = wordColor;
+          ctx.shadowColor = glowEnabled ? wordColor : 'transparent';
+          ctx.shadowBlur = glowEnabled ? 13 * intensity : 0;
           ctx.fillText(w.word, 0, 0);
           ctx.restore();
           x += widths[idx] + spaceWidth;
