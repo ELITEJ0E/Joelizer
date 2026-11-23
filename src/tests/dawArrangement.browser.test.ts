@@ -283,10 +283,19 @@ try {
   let moved = await state(); assert.equal(moved.tracks[0].clips[0].startTime, 1.5); assert.equal(moved.historyIndex, before.historyIndex + 1);
   await page.getByTitle('Undo (Ctrl+Z)', { exact: true }).click(); assert.equal((await state()).tracks[0].clips[0].startTime, 1);
   await page.getByRole('combobox', { name: 'Snap grid division' }).click();
-  await page.getByRole('option', { name: '1/8', exact: true }).click(); await dragClip(46); assert.equal((await state()).tracks[0].clips[0].startTime, 1.75);
+  await page.getByRole('option', { name: '1/8', exact: true }).click();
+  await page.getByRole('listbox').waitFor({ state: 'hidden' });
+  assert.equal(await page.evaluate(() => (window as any).__daw.getState().gridDivision), '1/8',
+    'Snap grid selection must update the DAW model');
+  await page.waitForTimeout(140); // Radix close animation releases pointer events after the menu disappears.
+  await dragClip(46); assert.equal((await state()).tracks[0].clips[0].startTime, 1.75);
   await page.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
   await page.getByRole('combobox', { name: 'Snap grid division' }).click();
-  await page.getByRole('option', { name: 'Off', exact: true }).click(); await dragClip(46); assert.ok(Math.abs((await state()).tracks[0].clips[0].startTime - (1 + 46 / 70)) < .001);
+  await page.getByRole('option', { name: 'Off', exact: true }).click();
+  await page.getByRole('listbox').waitFor({ state: 'hidden' });
+  assert.equal(await page.evaluate(() => (window as any).__daw.getState().gridDivision), 'off');
+  await page.waitForTimeout(140);
+  await dragClip(46); assert.ok(Math.abs((await state()).tracks[0].clips[0].startTime - (1 + 46 / 70)) < .001);
   await page.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
 
   // Trimming cannot expose negative source time or extend beyond decoded audio.
