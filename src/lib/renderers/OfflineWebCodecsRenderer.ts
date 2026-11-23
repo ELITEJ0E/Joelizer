@@ -3,7 +3,7 @@ import type { RenderProgress, VideoRenderer, RendererType } from './types';
 import { OfflineFrameCompositor } from './OfflineFrameCompositor';
 import { renderSynchronizedMp4 } from './SynchronizedMp4Renderer';
 import { canEncodeVideo, Quality } from 'mediabunny';
-import { getResolutionDimensions } from '../../types/projectJson';
+import { getResolutionDimensions, type AspectRatioType, type ExportResolutionType } from '../../types/projectJson';
 import { getExportVideoBitrate } from './exportQuality';
 
 const SAMPLE_RATE = 48000;
@@ -22,13 +22,18 @@ export function getCandidateCodecs(width: number, height: number, fps: number): 
   // H.264 levels constrain the number of macroblocks in a frame AND per second.
   // UHD 3840x2160 @30 needs Level 5.1 (0x33); @60 needs Level 5.2 (0x34).
   // An AVC level capped at 4.2 cannot describe UHD, even with a 4K-capable GPU.
-  const isUhd = macroblocks > 16384;
-  const is1080pOrHigher = macroblocks > 3600;
-  const levels = isUhd
-    ? (fps > 30 ? ['34', '33', '32'] : ['33', '34', '32'])
-    : is1080pOrHigher
-      ? (fps > 30 ? ['2a', '32', '33', '34'] : ['28', '2a', '32', '33', '34'])
-      : (fps > 30 ? ['20', '1f', '28', '2a'] : ['1f', '20', '28', '2a']);
+  const macroblocksPerSecond = macroblocks * fps;
+  // Never fall back to a level whose frame or macroblock-rate limit is too low.
+  // In particular, 4K/60 must use 5.2 and 1440p/60 must use 5.1 or higher.
+  const levels = macroblocksPerSecond > 983_040
+    ? ['34']
+    : macroblocks > 22_080 || macroblocksPerSecond > 589_824
+      ? ['33', '34']
+      : macroblocks > 8_192
+        ? ['32', '33', '34']
+        : macroblocks > 3_600
+          ? (fps > 30 ? ['2a', '32', '33'] : ['28', '2a', '32'])
+          : (fps > 30 ? ['20', '1f', '28', '2a'] : ['1f', '20', '28', '2a']);
 
   const list: string[] = [];
   // Prioritize High -> Main -> Constrained Baseline -> Baseline across appropriate levels
@@ -68,6 +73,23 @@ async function findVideoConfig(project: { width: number; height: number; fps: nu
     }
   }
   return null;
+}
+
+/** Reports H.264 VideoEncoder support for the selected pixel dimensions and FPS. */
+export async function canEncodeBrowserResolution(
+  resolution: ExportResolutionType,
+  aspectRatio: AspectRatioType,
+  fps: number
+): Promise<boolean> {
+  if (typeof window === 'undefined' || typeof (globalThis as any).VideoFrame !== 'function') {
+    return false;
+  }
+  try {
+    const { width, height } = getResolutionDimensions(aspectRatio, resolution);
+    return !!(await findVideoConfig({ width, height, fps, exportQuality: 'maximum' }));
+  } catch {
+    return false;
+  }
 }
 
 /**

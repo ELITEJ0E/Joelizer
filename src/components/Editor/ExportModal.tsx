@@ -15,7 +15,7 @@ import { ExportRangeSlider } from './ExportRangeSlider';
 import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
 import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
 import { ServerRemotionRenderer } from '../../lib/renderers/ServerRemotionRenderer';
-import { OfflineWebCodecsRenderer } from '../../lib/renderers/OfflineWebCodecsRenderer';
+import { OfflineWebCodecsRenderer, canEncodeBrowserResolution } from '../../lib/renderers/OfflineWebCodecsRenderer';
 import { AspectRatioType, ExportResolutionType, ExportModeType, ExportQualityType } from '../../types/projectJson';
 import { 
   generateLRC, generateEnhancedLRC, generateSRT, generateASS, 
@@ -71,6 +71,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [exportQuality, setExportQuality] = useState<ExportQualityType>('maximum');
   const [videoQualityPreset, setVideoQualityPreset] = useState<VideoQualityPreset>('1080-max');
   const [offlineAvailable, setOfflineAvailable] = useState<boolean | null>(null);
+  const [highResPreflight, setHighResPreflight] = useState<'checking' | 'supported' | 'unsupported' | null>(null);
   const chooseVideoQuality = (preset: VideoQualityPreset) => {
     const settings = EXPORT_VIDEO_PRESETS[preset];
     if (!settings) return;
@@ -111,6 +112,22 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   }, []);
   const currentAspectRatio = useStore(s => s.aspectRatio);
   const [aspectRatio, setAspectRatioState] = useState<AspectRatioType>(currentAspectRatio as AspectRatioType);
+  // H.264 1080p encoder support does not guarantee support for 1440p or 4K.
+  // Probe the precise output geometry and rate when the user changes settings.
+  useEffect(() => {
+    if ((resolution !== '1440p' && resolution !== '2160p') || offlineAvailable !== true) {
+      setHighResPreflight(null);
+      return;
+    }
+    let active = true;
+    setHighResPreflight('checking');
+    canEncodeBrowserResolution(resolution, aspectRatio, fps).then(supported => {
+      if (active) setHighResPreflight(supported ? 'supported' : 'unsupported');
+    }).catch(() => {
+      if (active) setHighResPreflight('unsupported');
+    });
+    return () => { active = false; };
+  }, [resolution, aspectRatio, fps, offlineAvailable]);
   const [exportMode, setExportMode] = useState<ExportModeType>('lyrics-video');
   const [allowSilentExport, setAllowSilentExport] = useState(false);
 
@@ -280,7 +297,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       // on capable computers with no paid backend. We never allow real-time
       // MediaRecorder for high resolution, or silently reduce pixel dimensions.
       if (highResolution) {
-        const offlineReady = await new OfflineWebCodecsRenderer().isAvailable();
+        const offlineReady = await new OfflineWebCodecsRenderer().isAvailable() &&
+          await canEncodeBrowserResolution(resolution, aspectRatio, fps);
         const serverReady = !offlineReady || targetEngine === 'server'
           ? await new ServerRemotionRenderer().isAvailable() : false;
         if (targetEngine === 'server' && serverReady) {
@@ -290,7 +308,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         } else if (serverReady) {
           targetEngine = 'server';
         } else {
-          throw new Error('This browser has no supported offline H.264 encoder, and no persistent render server is connected. Open Joelizer in current Chrome/Edge with hardware acceleration enabled or connect a Remotion backend.');
+          throw new Error(
+            `This browser cannot encode ${resolution} at ${fps} FPS in H.264, and no Remotion server is connected. ` +
+            'Try 30 FPS, use current Chrome/Edge with hardware acceleration, or connect a renderer. ' +
+            'The export was not downscaled.'
+          );
         }
       }
       if (abortControllerRef.current) {
@@ -766,9 +788,20 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       : ' High and Maximum preserve more source detail; 60 FPS is best with 60 FPS source footage.'}
                   </p>
                   {(resolution === '2160p' || resolution === '1440p') && offlineAvailable === true && engineChoice !== 'server' && (
-                    <p className="text-[10px] text-amber-300">
-                      Free local export (beta): Your computer encodes every frame. Keep this tab open, start with 30 FPS and a 5-10 second trim, and allow plenty of RAM and disk space. If the hardware cannot encode the selected size, the export stops without reducing resolution.
-                    </p>
+                    <div className="space-y-1" role="status">
+                      <p className="text-[10px] text-amber-300">
+                        Free local export (beta): Your computer encodes every frame. Keep this tab open, start with 30 FPS and a 5-10 second trim, and allow plenty of RAM and disk space.
+                      </p>
+                      <p className={highResPreflight === 'supported' ? 'text-[10px] text-emerald-300' : 'text-[10px] text-amber-300'}>
+                        {highResPreflight === 'checking'
+                          ? 'Checking H.264 encoding support for this exact resolution and FPS…'
+                          : highResPreflight === 'supported'
+                            ? 'H.264 encoder reports support at this size. Long export success also depends on available memory.'
+                            : highResPreflight === 'unsupported'
+                              ? 'This browser reports that it cannot encode this resolution/FPS. Try 30 FPS or another computer.'
+                              : 'Checking local 4K encoder availability…'}
+                      </p>
+                    </div>
                   )}
                   {offlineAvailable === false && serverAvailable !== true && <p className="text-[10px] text-amber-300">
                     No high-resolution engine detected. Use Chrome/Edge with WebCodecs, or connect the separate Remotion server.
