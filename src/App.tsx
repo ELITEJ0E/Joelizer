@@ -54,11 +54,17 @@ export default function App() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
+      // Custom Radix/shadcn dropdowns expose a focused combobox button rather
+      // than a native <select>. Do not steal typing/number-key gestures from
+      // any editing control, or changing a musical time signature switches
+      // studios instead of operating the selected dropdown.
       if (
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.tagName === 'SELECT' ||
-        target?.isContentEditable
+        target?.isContentEditable ||
+        target?.closest(
+          'input, textarea, select, [contenteditable="true"], ' +
+          '[role="combobox"], [role="listbox"], [role="option"], ' +
+          '[role="menu"], [role="menuitem"], [role="spinbutton"]'
+        )
       ) {
         return;
       }
