@@ -17,14 +17,18 @@ function videoEncoderClass(): EncoderClass | null {
   return (globalThis as any).VideoEncoder || null;
 }
 
-function getCandidateCodecs(width: number, height: number, fps: number): string[] {
+export function getCandidateCodecs(width: number, height: number, fps: number): string[] {
   const macroblocks = Math.ceil(width / 16) * Math.ceil(height / 16);
-  // Level indication: 1080p is 8160 macroblocks -> requires Level 4.0 (0x28) for 30fps, 4.2 (0x2a) for 60fps, or 5.0 (0x32) / 5.1 (0x33).
-  // 720p is 3600 macroblocks -> requires Level 3.1 (0x1f) for 30fps, 3.2 (0x20) for 60fps, or 4.0 (0x28).
+  // H.264 levels constrain the number of macroblocks in a frame AND per second.
+  // UHD 3840x2160 @30 needs Level 5.1 (0x33); @60 needs Level 5.2 (0x34).
+  // An AVC level capped at 4.2 cannot describe UHD, even with a 4K-capable GPU.
+  const isUhd = macroblocks > 16384;
   const is1080pOrHigher = macroblocks > 3600;
-  const levels = is1080pOrHigher
-    ? (fps > 30 ? ['2a', '28', '32', '33'] : ['28', '2a', '32', '33'])
-    : (fps > 30 ? ['20', '1f', '28', '2a'] : ['1f', '20', '28', '2a']);
+  const levels = isUhd
+    ? (fps > 30 ? ['34', '33', '32'] : ['33', '34', '32'])
+    : is1080pOrHigher
+      ? (fps > 30 ? ['2a', '32', '33', '34'] : ['28', '2a', '32', '33', '34'])
+      : (fps > 30 ? ['20', '1f', '28', '2a'] : ['1f', '20', '28', '2a']);
 
   const list: string[] = [];
   // Prioritize High -> Main -> Constrained Baseline -> Baseline across appropriate levels
