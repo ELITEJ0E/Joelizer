@@ -1,0 +1,47 @@
+name: Verify Kinetic Lyrics
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/kineticColor.ts'
+      - 'src/lib/lyricsEngine.ts'
+      - 'src/components/LyricsStudio/LyricsVideoLayout.tsx'
+      - 'src/store/useLyricsVideoStore.ts'
+      - 'src/lib/projectJsonBuilder.ts'
+      - 'src/types/projectJson.ts'
+      - 'src/components/MVStudio/MVPreview.tsx'
+      - 'src/lib/renderers/OfflineFrameCompositor.ts'
+      - 'src/remotion/JoelizerComposition.tsx'
+      - 'src/tests/kineticLyrics.test.ts'
+      - '.github/workflows/verify-kinetic-lyrics.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/lib/kineticColor.ts'
+      - 'src/lib/lyricsEngine.ts'
+      - 'src/components/LyricsStudio/LyricsVideoLayout.tsx'
+      - 'src/store/useLyricsVideoStore.ts'
+      - 'src/lib/projectJsonBuilder.ts'
+      - 'src/types/projectJson.ts'
+      - 'src/components/MVStudio/MVPreview.tsx'
+      - 'src/lib/renderers/OfflineFrameCompositor.ts'
+      - 'src/remotion/JoelizerComposition.tsx'
+      - 'src/tests/kineticLyrics.test.ts'
+      - '.github/workflows/verify-kinetic-lyrics.yml'
+  workflow_dispatch:
+
+jobs:
+  verify-kinetic-lyrics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify fixed/palette colors and timed word reveal
+        run: npx tsx src/tests/kineticLyrics.test.ts
+      - name: Verify production bundle
+        run: npm run build
