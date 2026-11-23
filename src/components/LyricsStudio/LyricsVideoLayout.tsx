@@ -449,7 +449,7 @@ export function LyricsVideoLayout() {
   };
 
   const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files: File[] = Array.from(e.currentTarget.files ?? []);
     const firstMedia = files.find(file => file.type.startsWith('image/') || file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|png|jpe?g|webp|gif|avif|bmp)$/i.test(file.name));
     applyCustomBackgroundFile(firstMedia || files[0]);
     if (firstMedia) setShowBackgroundImport(false);
@@ -467,7 +467,7 @@ export function LyricsVideoLayout() {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingBackground(false);
-    const files = Array.from(e.dataTransfer.files);
+    const files: File[] = Array.from(e.dataTransfer.files);
     const firstMedia = files.find(file => file.type.startsWith('image/') || file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|png|jpe?g|webp|gif|avif|bmp)$/i.test(file.name));
     applyCustomBackgroundFile(firstMedia || files[0]);
     if (firstMedia) setShowBackgroundImport(false);
