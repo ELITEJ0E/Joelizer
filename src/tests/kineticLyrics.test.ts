@@ -28,10 +28,11 @@ function recordingCanvas() {
 }
 
 useLyricsVideoStore.getState().setAnimationStyle('kinetic');
-useLyricsVideoStore.getState().setKineticSettings({ kineticPalette: 'rainbow', kineticIntensity: 1.6 });
+useLyricsVideoStore.getState().setKineticSettings({ kineticPalette: 'rainbow', kineticIntensity: 1.6, kineticColor: '#ffffff' });
 const project = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'lyrics-video' });
 assert.equal(project.lyrics.animationStyle, 'kinetic');
 assert.equal(project.lyrics.kineticPalette, 'rainbow');
+assert.equal(project.lyrics.kineticColor, '#ffffff');
 assert.equal(project.lyrics.kineticIntensity, 1.6);
 
 const lyrics = [
@@ -45,12 +46,13 @@ const lyrics = [
   ] }
 ];
 
-function render(time: number, palette: 'rainbow' | 'neon') {
+function render(time: number, palette: 'rainbow' | 'neon' | 'solid', fixedColor = '#ffffff', glow = false) {
   const canvas = recordingCanvas();
   renderLyricsOverlayFrame(canvas.context, 640, 360, time, lyrics, {
     template: LYRIC_VIDEO_TEMPLATES.vinyl,
     aspectRatio: '16:9', animationStyle: project.lyrics.animationStyle,
-    kineticPalette: palette, kineticIntensity: project.lyrics.kineticIntensity,
+    kineticPalette: palette, kineticColor: fixedColor, kineticGlow: glow,
+    kineticIntensity: project.lyrics.kineticIntensity,
     visibleLineCount: 2, // Kinetic mode suppresses upcoming-line previews itself.
     elementPositions: { lyrics: { x: 0.5, y: 0.5 } } as any,
     preferElementPosition: true
@@ -65,6 +67,18 @@ assert.notDeepEqual(render(0.5, 'rainbow'), render(1.2, 'rainbow'), 'word activa
 assert.notDeepEqual(render(0.5, 'rainbow'), render(2.5, 'rainbow'), 'next line should replace text and palette');
 assert.notDeepEqual(render(1.2, 'rainbow'), render(1.2, 'neon'), 'palette selection should change rendered colors');
 assert.ok(render(1.2, 'rainbow').some(s => s.color.startsWith('#')), 'active words should use palette colors');
+assert.deepEqual(render(0.5, 'solid').map(s => s.color), ['#ffffff'], 'white is a valid fixed kinetic color');
+assert.deepEqual(render(1.2, 'solid').map(s => s.color), ['#ffffff', '#ffffff'],
+  'reveal timing must not cause any solid-color cycling');
+assert.deepEqual(render(1.2, 'solid', '#ff6600').map(s => s.color), ['#ff6600', '#ff6600'],
+  'custom fixed colors must be applied to all revealed words');
+assert.notDeepEqual(render(1.2, 'solid', '#ffffff'), render(1.2, 'solid', '#ff6600'),
+  'color picker must affect actual rendered frames');
+useLyricsVideoStore.getState().setKineticSettings({ kineticPalette: 'solid', kineticColor: '#3388ff', kineticGlow: false });
+const solidProject = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'music-video' });
+assert.equal(solidProject.lyrics.kineticPalette, 'solid');
+assert.equal(solidProject.lyrics.kineticColor, '#3388ff');
+assert.equal(solidProject.lyrics.kineticGlow, false, 'glow toggle must survive MV export serialization');
 useLyricsVideoStore.getState().updateTypographyOverride({ fontSizeScale: 2.2 });
 useLyricsVideoStore.getState().setElementPosition('lyrics', { x: 0.35, y: 0.62 });
 const resizedProject = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'music-video' });

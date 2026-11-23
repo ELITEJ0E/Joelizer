@@ -30,7 +30,11 @@ export interface LyricsVideoState {
 
   elementPositions: CanvasElementPositions;
   animationStyle: 'karaoke' | 'fade' | 'none' | 'kinetic';
-  kineticPalette: 'neon' | 'sunset' | 'candy' | 'rainbow';
+  kineticPalette: 'solid' | 'neon' | 'sunset' | 'candy' | 'rainbow';
+  /** Stable lyric color used with the solid Kinetic palette. */
+  kineticColor: string;
+  /** Undefined preserves existing palette glow for migrated projects. */
+  kineticGlow?: boolean;
   kineticIntensity: number;
   
   customBackground: {
@@ -87,7 +91,7 @@ export interface LyricsVideoState {
   updateArtworkOverride: (updates: Partial<LyricsVideoState['artworkOverride']>) => void;
   updateAnimationOverride: (updates: Partial<LyricsVideoState['animationOverride']>) => void;
   setAnimationStyle: (style: LyricsVideoState['animationStyle']) => void;
-  setKineticSettings: (settings: Partial<Pick<LyricsVideoState, 'kineticPalette' | 'kineticIntensity'>>) => void;
+  setKineticSettings: (settings: Partial<Pick<LyricsVideoState, 'kineticPalette' | 'kineticColor' | 'kineticGlow' | 'kineticIntensity'>>) => void;
   setShowSafeArea: (show: boolean) => void;
   setSelectedElement: (el: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null) => void;
   setVisibleLineCount: (count: number) => void;
@@ -109,7 +113,9 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
   persist(
     (set, get) => ({
       videoMode: 'lyrics-video',
-      kineticPalette: 'neon',
+      kineticPalette: 'solid',
+      kineticColor: '#ffffff',
+      kineticGlow: undefined,
       kineticIntensity: 1,
       selectedTemplateId: 'vinyl',
       selectedBackgroundPresetId: 'sunset',
@@ -248,7 +254,16 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
           }
         }));
       },
-      setKineticSettings: (settings) => set(settings),
+      setKineticSettings: (settings) => set((s) => ({
+        ...settings,
+        ...(settings.kineticColor !== undefined ? {
+          kineticColor: /^#[0-9a-f]{6}$/i.test(settings.kineticColor)
+            ? settings.kineticColor : s.kineticColor
+        } : {}),
+        ...(settings.kineticIntensity !== undefined ? {
+          kineticIntensity: Math.min(2, Math.max(0.3, settings.kineticIntensity))
+        } : {})
+      })),
 
       setShowSafeArea: (showSafeArea) => set({ showSafeArea }),
 
