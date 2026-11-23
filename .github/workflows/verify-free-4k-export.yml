@@ -1,0 +1,39 @@
+name: Verify Free 1440p and 4K Export
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/Editor/ExportModal.tsx'
+      - 'src/lib/renderers/OfflineWebCodecsRenderer.ts'
+      - 'src/lib/renderers/highResRouting.ts'
+      - 'src/tests/freeHighResolutionExport.test.ts'
+      - 'docs/HIGH_QUALITY_EXPORT.md'
+      - '.github/workflows/verify-free-4k-export.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/components/Editor/ExportModal.tsx'
+      - 'src/lib/renderers/OfflineWebCodecsRenderer.ts'
+      - 'src/lib/renderers/highResRouting.ts'
+      - 'src/tests/freeHighResolutionExport.test.ts'
+      - 'docs/HIGH_QUALITY_EXPORT.md'
+      - '.github/workflows/verify-free-4k-export.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify 4K codec levels, dimensions and free-first routing
+        run: npx tsx src/tests/freeHighResolutionExport.test.ts
+      - name: Verify existing export quality checks
+        run: npx tsx src/tests/exportQuality.test.ts
+      - name: Verify production Vite bundle
+        run: npm run build

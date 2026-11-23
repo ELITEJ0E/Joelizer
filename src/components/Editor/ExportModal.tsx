@@ -15,7 +15,8 @@ import { ExportRangeSlider } from './ExportRangeSlider';
 import { buildCanonicalProjectJson } from '../../lib/projectJsonBuilder';
 import { getBestAvailableRenderer } from '../../lib/renderers/renderManager';
 import { ServerRemotionRenderer } from '../../lib/renderers/ServerRemotionRenderer';
-import { OfflineWebCodecsRenderer } from '../../lib/renderers/OfflineWebCodecsRenderer';
+import { OfflineWebCodecsRenderer, canEncodeBrowserResolution } from '../../lib/renderers/OfflineWebCodecsRenderer';
+import { selectHighResolutionEngine } from '../../lib/renderers/highResRouting';
 import { AspectRatioType, ExportResolutionType, ExportModeType, ExportQualityType } from '../../types/projectJson';
 import { 
   generateLRC, generateEnhancedLRC, generateSRT, generateASS, 
@@ -73,40 +74,65 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const chooseVideoQuality = (preset: VideoQualityPreset) => {
     const settings = EXPORT_VIDEO_PRESETS[preset];
     if (!settings) return;
-    if ((settings.resolution === '1440p' || settings.resolution === '2160p') && serverAvailable !== true) return;
+    if ((settings.resolution === '1440p' || settings.resolution === '2160p') &&
+        offlineAvailable !== true && serverAvailable !== true) return;
     setVideoQualityPreset(preset);
     setResolution(settings.resolution);
     setExportQuality(settings.quality);
     if (settings.resolution === '1440p' || settings.resolution === '2160p') {
-      chooseEngine('server');
+      // Prefer local, free frame-accurate MP4 unless Server Remotion is explicitly selected.
+      const engine = selectHighResolutionEngine(
+        engineChoice, offlineAvailable === true, serverAvailable === true
+      );
+      if (engine) chooseEngine(engine);
     } else if (engineChoice === 'server') {
-      // Leaving a server-only preset must not keep uploading local files to
-      // Render when the user has switched back to 720p or 1080p.
+      // Restore free browser editing when leaving a server-focused preset.
       manuallySelectedEngine.current = false;
-      setEngineChoice('browser');
+      setEngineChoice(offlineAvailable === true ? 'offline' : 'browser');
     }
   };
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
+  const [offlineAvailable, setOfflineAvailable] = useState<boolean | null>(null);
+  const [localHighResSupport, setLocalHighResSupport] = useState<'checking' | 'supported' | 'unsupported' | null>(null);
+  const highResEnabled = offlineAvailable === true || serverAvailable === true;
+  const isHighResSelection = resolution === '1440p' || resolution === '2160p';
   useEffect(() => {
     let alive = true;
     // Probe local WebCodecs independently: waiting for the server health
     // timeout previously left Browser MediaRecorder selected for several
     // seconds, leading to another broken clip export when users clicked fast.
     new OfflineWebCodecsRenderer().isAvailable().then(offline => {
-      if (alive && !manuallySelectedEngine.current && offline) {
+      if (!alive) return;
+      setOfflineAvailable(offline);
+      if (!manuallySelectedEngine.current && offline) {
         setEngineChoice('offline');
       }
-    }).catch(() => {});
+    }).catch(() => { if (alive) setOfflineAvailable(false); });
     new ServerRemotionRenderer().isAvailable().then(server => {
       if (!alive) return;
       setServerAvailable(server);
-      // Server health is used only to enable 1440p/4K presets. Never silently
-      // override a 1080p browser export just because Render is online.
+      // Render is optional; do not override the free browser choice.
     }).catch(() => { if (alive) setServerAvailable(false); });
     return () => { alive = false; };
   }, []);
   const currentAspectRatio = useStore(s => s.aspectRatio);
   const [aspectRatio, setAspectRatioState] = useState<AspectRatioType>(currentAspectRatio as AspectRatioType);
+  // Probe the actual requested dimensions and frame rate. 1080p support does
+  // not imply the same browser can encode 1440p or 4K without downgrading.
+  useEffect(() => {
+    if (!isHighResSelection || offlineAvailable !== true) {
+      setLocalHighResSupport(null);
+      return;
+    }
+    let active = true;
+    setLocalHighResSupport('checking');
+    canEncodeBrowserResolution(resolution, aspectRatio, fps).then(supported => {
+      if (active) setLocalHighResSupport(supported ? 'supported' : 'unsupported');
+    }).catch(() => {
+      if (active) setLocalHighResSupport('unsupported');
+    });
+    return () => { active = false; };
+  }, [resolution, aspectRatio, fps, offlineAvailable, isHighResSelection]);
   const [exportMode, setExportMode] = useState<ExportModeType>('lyrics-video');
   const [allowSilentExport, setAllowSilentExport] = useState(false);
 
@@ -272,13 +298,22 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
     try {
       armWatchdog('Checking export engine');
-      // 1440p/4K rendering is deliberately server-only; never silently
-      // advertise a 4K export that the browser later downgrades to 720p.
       if (highResolution) {
-        if (!(await new ServerRemotionRenderer().isAvailable())) {
-          throw new Error('1440p and 4K exports require a connected persistent render server. Choose 1080p for browser export, or connect the Remotion render backend.');
+        // Both backends can render actual 1440p/4K. Probe the exact 4K
+        // codec on this device before choosing the free local route.
+        const localReady = await canEncodeBrowserResolution(resolution, aspectRatio, fps);
+        const serverReady = targetEngine === 'server'
+          ? await new ServerRemotionRenderer().isAvailable()
+          : serverAvailable === true;
+        const selectedEngine = selectHighResolutionEngine(targetEngine, localReady, serverReady);
+        if (!selectedEngine) {
+          throw new Error(
+            `No 4K-capable export engine was found for ${resolution} at ${fps} FPS. ` +
+            'For free exports, use current Chrome/Edge with hardware acceleration and try 30 FPS. ' +
+            'Alternatively, connect a persistent Remotion render server. No resolution was reduced.'
+          );
         }
-        targetEngine = 'server';
+        targetEngine = selectedEngine;
       }
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -719,8 +754,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       <option value="720-balanced">720p · Standard</option>
                       <option value="1080-high">1080p · High (recommended)</option>
                       <option value="1080-max">1080p · Maximum detail (default)</option>
-                      <option value="1440-max" disabled={serverAvailable !== true}>1440p · Maximum (server)</option>
-                      <option value="2160-max" disabled={serverAvailable !== true}>4K · Maximum (server)</option>
+                      <option value="1440-max" disabled={!highResEnabled}>1440p · Maximum (free browser / server)</option>
+                      <option value="2160-max" disabled={!highResEnabled}>4K · Maximum (free browser / server)</option>
                     </select>
                   </div>
                   <div className="min-w-0 space-y-1">
@@ -748,13 +783,46 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-400">
                     Maximum detail keeps the requested resolution or fails instead of silently downsizing. MP4 uses high-quality lossy H.264/AAC encoding; it is not mathematically lossless.
-                    {resolution === '2160p' || resolution === '1440p'
-                      ? ' High-resolution exports require the persistent render server. Enlarging source footage does not restore missing detail.'
+                    {isHighResSelection
+                      ? ' Free on-device WebCodecs export is available when your browser supports the exact size. No Render account, API key, or per-export fee is needed. Enlarging lower-resolution source footage does not recreate missing detail.'
                       : ' High and Maximum preserve more source detail; 60 FPS is best with 60 FPS source footage.'}
                   </p>
-                  {serverAvailable !== true && <p className="text-[10px] text-amber-300">
-                    1440p/4K requires a connected persistent render server.
-                  </p>}
+                  {isHighResSelection && engineChoice !== 'server' && (
+                    <p className="text-[11px] text-slate-300" role="status">
+                      {localHighResSupport === 'checking'
+                        ? 'Checking your browser H.264 encoder at the selected size and frame rate…'
+                        : localHighResSupport === 'supported'
+                          ? 'Free on-device encoder detected. Actual render speed and memory use depend on your computer.'
+                          : localHighResSupport === 'unsupported'
+                            ? serverAvailable === true
+                              ? 'Your browser cannot encode this setting. A connected server can be selected instead.'
+                              : 'Your browser cannot encode this setting. Try 30 FPS, Chrome/Edge hardware acceleration, or a render server.'
+                            : 'Checking whether free browser MP4 encoding is available…'}
+                    </p>
+                  )}
+                  {isHighResSelection && (
+                    <p className="text-[10px] text-amber-300">
+                      Keep Joelizer open during local export. Long 4K videos can take substantial RAM, storage and processing time. Higher output dimensions do not AI-upscale the source.
+                    </p>
+                  )}
+                  {isHighResSelection && serverAvailable === true && offlineAvailable === true && (
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className="text-slate-400">Renderer:</span>
+                      <button type="button" onClick={() => chooseEngine('offline')}
+                        aria-pressed={engineChoice !== 'server'}
+                        className={cn('rounded border px-2 py-1', engineChoice !== 'server'
+                          ? 'border-emerald-400/60 bg-emerald-500/10 text-emerald-300'
+                          : 'border-white/15 text-slate-300')}>Free on-device</button>
+                      <button type="button" onClick={() => chooseEngine('server')}
+                        aria-pressed={engineChoice === 'server'}
+                        className={cn('rounded border px-2 py-1', engineChoice === 'server'
+                          ? 'border-emerald-400/60 bg-emerald-500/10 text-emerald-300'
+                          : 'border-white/15 text-slate-300')}>Remotion server</button>
+                    </div>
+                  )}
+                  {!highResEnabled && <p className="text-[10px] text-amber-300">
+                    Higher-resolution exports need Chrome/Edge WebCodecs support or a connected render server.
+                  </p>
                 </div>
 
                 <label className="block space-y-1">

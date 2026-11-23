@@ -12,11 +12,38 @@ use other windows without changing the final frame cadence. The progress
 poller can pause when the tab is inactive; this does not pause the server
 job. The tab/browser must remain accessible to retrieve the result.
 
-## Deploy the dedicated backend
+## Free 1440p and 4K exports on joelizer.vercel.app
+
+The web app includes a **free, on-device WebCodecs MP4 rendering path**.
+There is no need to register with Render, deploy a separate server or pay an
+encoding API when Chrome/Edge can encode the chosen resolution.
+
+1. Open Joelizer in the newest desktop Chrome or Edge and enable browser
+   hardware acceleration when available.
+2. Open **Export → Video quality** and choose **1440p Maximum** or **4K Maximum**.
+3. Choose **30 FPS** first, especially on integrated graphics.
+4. Joelizer checks your browser's H.264 encoder for the exact resolution and
+   frame rate. If supported, it renders frames locally through WebCodecs.
+5. **Keep the tab open**. Rendering a full-length 4K video is demanding and
+   consumes local RAM/disk/CPU/GPU; try a 5–10 second range before a long export.
+6. Download the resulting MP4. Maximum quality never silently shrinks
+   the resolution. An unsupported codec fails with an explanation.
+
+The "server" path below remains optional. Remotion is better for long renders,
+machines with weak GPUs, or leaving the tab minimized. Do not conflate output
+dimensions with AI upscaling: 1080p source video inside a 4K composition is
+still missing the source detail that was never recorded.
+
+## Deploy the dedicated backend (optional; not required for free browser export)
 This is **separate** from Vercel. Vercel's /api/health correctly returns
 `hasRemotion:false`: its serverless functions do not run this persistent
 job queue or store large assets. The server must have sufficient disk,
 FFmpeg, Chrome/Chromium dependencies, and RAM (at least 2–4 GB recommended).
+
+**Render's Free web service is not a reliable 4K renderer:** it has 512 MB RAM,
+0.1 CPU, and no persistent disk, and it spins down after idle time. This code
+does not provision a Render account or service. If you already use a paid or
+self-hosted persistent renderer, connect it using the steps below.
 
 1. Build the supplied `Dockerfile.render` on a persistent container platform
    (Render, Railway, Fly.io, a VM, or your own machine).

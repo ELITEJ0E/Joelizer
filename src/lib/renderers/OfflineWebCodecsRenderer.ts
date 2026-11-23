@@ -3,7 +3,7 @@ import type { RenderProgress, VideoRenderer, RendererType } from './types';
 import { OfflineFrameCompositor } from './OfflineFrameCompositor';
 import { renderSynchronizedMp4 } from './SynchronizedMp4Renderer';
 import { canEncodeVideo, Quality } from 'mediabunny';
-import { getResolutionDimensions } from '../../types/projectJson';
+import { getResolutionDimensions, type ExportResolutionType, type AspectRatioType } from '../../types/projectJson';
 import { getExportVideoBitrate } from './exportQuality';
 
 const SAMPLE_RATE = 48000;
@@ -17,14 +17,21 @@ function videoEncoderClass(): EncoderClass | null {
   return (globalThis as any).VideoEncoder || null;
 }
 
-function getCandidateCodecs(width: number, height: number, fps: number): string[] {
+export function getCandidateCodecs(width: number, height: number, fps: number): string[] {
   const macroblocks = Math.ceil(width / 16) * Math.ceil(height / 16);
-  // Level indication: 1080p is 8160 macroblocks -> requires Level 4.0 (0x28) for 30fps, 4.2 (0x2a) for 60fps, or 5.0 (0x32) / 5.1 (0x33).
-  // 720p is 3600 macroblocks -> requires Level 3.1 (0x1f) for 30fps, 3.2 (0x20) for 60fps, or 4.0 (0x28).
-  const is1080pOrHigher = macroblocks > 3600;
-  const levels = is1080pOrHigher
-    ? (fps > 30 ? ['2a', '28', '32', '33'] : ['28', '2a', '32', '33'])
-    : (fps > 30 ? ['20', '1f', '28', '2a'] : ['1f', '20', '28', '2a']);
+  const macroblocksPerSecond = macroblocks * fps;
+  // H.264: Level 5.1 supports <=36,864 macroblocks/frame and <=983,040/s,
+  // enough for 3840x2160 at 30fps. 4K 60fps needs Level 5.2 (0x34).
+  // Lower-level-only probes previously prevented 4K/60 selection entirely.
+  const levels = macroblocksPerSecond > 983_040
+    ? ['34'] // 5.2: 4K / 60fps
+    : macroblocks > 22_080 || macroblocksPerSecond > 589_824
+      ? ['33', '34'] // 5.1, 5.2: 4K/30 or 1440p/60
+      : macroblocks > 8_192
+        ? ['32', '33', '34'] // 5.0+: 1440p/30 and similar sizes
+        : macroblocks > 3_600
+          ? (fps > 30 ? ['2a', '32', '33'] : ['28', '2a', '32'])
+          : (fps > 30 ? ['20', '1f', '28', '2a'] : ['1f', '20', '28', '2a']);
 
   const list: string[] = [];
   // Prioritize High -> Main -> Constrained Baseline -> Baseline across appropriate levels
@@ -64,6 +71,23 @@ async function findVideoConfig(project: { width: number; height: number; fps: nu
     }
   }
   return null;
+}
+
+/** A browser-only, free 1440p/4K preflight at the exact selected dimensions. */
+export async function canEncodeBrowserResolution(
+  resolution: ExportResolutionType,
+  aspectRatio: AspectRatioType,
+  fps: number
+): Promise<boolean> {
+  if (typeof window === 'undefined' || typeof (globalThis as any).VideoFrame !== 'function') {
+    return false;
+  }
+  try {
+    const { width, height } = getResolutionDimensions(aspectRatio, resolution);
+    return !!(await findVideoConfig({ width, height, fps, exportQuality: 'maximum' }));
+  } catch {
+    return false;
+  }
 }
 
 /**
