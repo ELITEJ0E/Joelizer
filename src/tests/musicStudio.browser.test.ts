@@ -66,12 +66,15 @@ try {
     'Imported audio must create an editable DAW timeline clip');
 
   await browserPane.getByRole('button', { name: 'Drums', exact: true }).click();
-  await browserPane.getByLabel('Kick sample').selectOption({ label: 'synth-example.wav' });
+  // StyledSelect is an accessible Radix combobox, not a native <select>.
+  await browserPane.getByRole('combobox', { name: 'Kick sample' }).click();
+  await page.getByRole('option', { name: 'synth-example.wav', exact: true }).click();
   await browserPane.getByRole('button', { name: 'Render & insert beat' }).click();
   await browserPane.getByText(/Rendered a .* sample-based beat and inserted/i).waitFor({ timeout: 45000 });
 
   await browserPane.getByRole('button', { name: 'Piano', exact: true }).click();
-  await browserPane.getByLabel('Piano roll instrument').selectOption({ label: 'synth-example.wav' });
+  await browserPane.getByRole('combobox', { name: 'Piano roll instrument' }).click();
+  await page.getByRole('option', { name: 'synth-example.wav', exact: true }).click();
   await browserPane.getByRole('button', { name: 'Piano C4 step 1', exact: true }).click();
   await browserPane.getByRole('button', { name: 'Render piano roll to DAW' }).click();
   await browserPane.getByText('Piano roll rendered and inserted into the multitrack arrangement.').waitFor({ timeout: 45000 });

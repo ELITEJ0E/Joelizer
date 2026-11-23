@@ -124,7 +124,8 @@ async function verifyTransportBoundaries() {
     assert.deepEqual([(await state()).loopStart, (await state()).loopEnd], [1, 1.125], 'Short loop sections must preserve their chosen endpoint');
 
     for (const tab of ['mv-studio', 'lrc']) {
-      await page!.getByLabel('Time signature', { exact: true }).selectOption('4/4');
+      await page!.getByRole('combobox', { name: 'Time signature' }).click();
+      await page!.getByRole('option', { name: '4/4', exact: true }).click();
       await page!.getByRole('button', { name: 'Play playback', exact: true }).click();
       assert.equal((await transport()).enginePlaying, true);
       await page!.locator(`#topbar-tab-${tab}`).click();
@@ -237,7 +238,8 @@ try {
   await page.getByRole('button', { name: 'Unmute clip', exact: true }).click();
   await page.getByRole('button', { name: 'Loop clip', exact: true }).click();
   assert.deepEqual([(await state()).loopStart, (await state()).loopEnd], [1, 5]);
-  await page.getByLabel('Repeat copies').selectOption('3');
+  await page.getByRole('combobox', { name: 'Repeat copies' }).click();
+  await page.getByRole('option', { name: '3', exact: true }).click();
   before = await state(); await page.getByRole('button', { name: 'Repeat', exact: true }).click();
   let repeated = await state(); assert.equal(repeated.tracks[0].clips.length, 4); assert.equal(repeated.historyIndex, before.historyIndex + 1);
   assert.deepEqual(repeated.tracks[0].clips.map((c: any) => c.startTime), [1, 5, 9, 13]);
@@ -280,9 +282,20 @@ try {
   before = await state(); await dragClip(46);
   let moved = await state(); assert.equal(moved.tracks[0].clips[0].startTime, 1.5); assert.equal(moved.historyIndex, before.historyIndex + 1);
   await page.getByTitle('Undo (Ctrl+Z)', { exact: true }).click(); assert.equal((await state()).tracks[0].clips[0].startTime, 1);
-  await page.getByLabel('Snap grid division').selectOption('1/8'); await dragClip(46); assert.equal((await state()).tracks[0].clips[0].startTime, 1.75);
+  await page.getByRole('combobox', { name: 'Snap grid division' }).click();
+  await page.getByRole('option', { name: '1/8', exact: true }).click();
+  await page.getByRole('listbox').waitFor({ state: 'hidden' });
+  assert.equal(await page.evaluate(() => (window as any).__daw.getState().gridDivision), '1/8',
+    'Snap grid selection must update the DAW model');
+  await page.waitForTimeout(140); // Radix close animation releases pointer events after the menu disappears.
+  await dragClip(46); assert.equal((await state()).tracks[0].clips[0].startTime, 1.75);
   await page.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
-  await page.getByLabel('Snap grid division').selectOption('off'); await dragClip(46); assert.ok(Math.abs((await state()).tracks[0].clips[0].startTime - (1 + 46 / 70)) < .001);
+  await page.getByRole('combobox', { name: 'Snap grid division' }).click();
+  await page.getByRole('option', { name: 'Off', exact: true }).click();
+  await page.getByRole('listbox').waitFor({ state: 'hidden' });
+  assert.equal(await page.evaluate(() => (window as any).__daw.getState().gridDivision), 'off');
+  await page.waitForTimeout(140);
+  await dragClip(46); assert.ok(Math.abs((await state()).tracks[0].clips[0].startTime - (1 + 46 / 70)) < .001);
   await page.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
 
   // Trimming cannot expose negative source time or extend beyond decoded audio.

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useMVStore } from './useMVStore';
+import type { ExportResolutionType } from '../types/projectJson';
 import { getStreamableAudioUrl } from '../lib/utils';
 import { 
   saveAudioToStorage, 
@@ -131,7 +132,7 @@ interface ProjectState {
   isLooping: boolean;
   lrcPlaybackRate: number;
   
-  exportResolutionOverride: '1080p' | '720p' | '360p' | null;
+  exportResolutionOverride: ExportResolutionType | null;
   activeTab: 'lrc' | 'lyrics' | 'mv-studio' | 'audio-lab' | 'youtube-audio' | 'daw';
 
   selectedStudioLineId: string | null;
@@ -151,7 +152,7 @@ interface ProjectState {
   setStudioZoom: (zoom: number | ((prev: number) => number)) => void;
   setStudioScrollOffset: (offset: number | ((prev: number) => number)) => void;
   setStudioLyricsScrollTop: (top: number) => void;
-  setExportResolutionOverride: (override: '1080p' | '720p' | '360p' | null) => void;
+  setExportResolutionOverride: (override: ExportResolutionType | null) => void;
   setAudio: (
     file: File | Blob | null,
     url: string,

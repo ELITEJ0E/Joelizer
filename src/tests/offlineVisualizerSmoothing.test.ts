@@ -10,7 +10,7 @@ for (let i = 0; i < samples.length; i++) {
   const envelope = Math.floor(t * 20) % 2 === 0 ? 0.72 : 0.08;
   samples[i] = Math.sin(2 * Math.PI * 110 * t) * envelope;
 }
-const buffer = { sampleRate: rate, getChannelData: () => samples } as AudioBuffer;
+const buffer = { sampleRate: rate, getChannelData: () => samples } as unknown as AudioBuffer;
 
 function measureJitter(smoothing: number, fps: number) {
   const analyser = new OfflineAudioAnalysis();

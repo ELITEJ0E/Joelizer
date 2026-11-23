@@ -5,8 +5,6 @@ import { useMVStore, isAutoManagedClip } from '../../store/useMVStore';
 import { generateAutoEdit, generateGapFill, getUncoveredMVIntervals } from '../../lib/mvAutoEdit';
 import { Wand2, RefreshCw, Cpu, Download, Settings, Sliders, Key, Sparkles, CheckCircle2, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { pollinationsProvider } from '../../lib/providers/PollinationsImageProvider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-
 export function MVWorkflow() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const videoAssets = useMVStore(s => s.videoAssets);

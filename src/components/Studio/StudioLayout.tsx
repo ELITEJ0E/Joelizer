@@ -1406,7 +1406,7 @@ export function StudioLayout() {
             {/* Current Active Lyric Display — both languages use one timestamp. */}
             <div className="absolute bottom-4 inset-x-6 text-center bg-[#12161c]/95 border border-[#232933] py-2 px-4 rounded shadow-md pointer-events-none">
               {(() => {
-                const currentLine = getActiveLyricLine(lines, currentTime);
+                const currentLine = getActiveLyricLine<LyricLineWithWords>(lines, currentTime);
                 return currentLine ? (
                   <div className="flex flex-col items-center justify-center gap-1 min-w-0">
                     <span className="text-sm font-semibold text-[#f0f3f6] tracking-normal break-words whitespace-pre-wrap">
