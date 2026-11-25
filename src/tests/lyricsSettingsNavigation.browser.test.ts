@@ -28,7 +28,7 @@ try {
   await page.evaluate(async () => {
     const modulePath = '/src/store/useStore.ts';
     const { useStore } = await import(/* @vite-ignore */ modulePath);
-    useStore.getState().setActiveTab('lyrics-video');
+    useStore.getState().setActiveTab('lyrics');
   });
   await page.getByRole('button', { name: 'Advanced Settings', exact: true }).click();
 
