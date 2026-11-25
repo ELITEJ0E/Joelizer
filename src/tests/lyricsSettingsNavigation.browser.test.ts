@@ -52,6 +52,11 @@ try {
   const area = page.getByRole('group', { name: 'Color area' });
   await area.waitFor({ state: 'visible' });
   await area.click({ position: { x: 120, y: 55 } });
+  await page.waitForFunction(async () => {
+    const path = '/src/store/useLyricsVideoStore.ts';
+    const { useLyricsVideoStore } = await import(/* @vite-ignore */ path);
+    return useLyricsVideoStore.getState().kineticColor !== '#7c3aed';
+  });
   await page.keyboard.press('Escape');
   const accentHex = page.getByRole('textbox', { name: 'Accent color hex' }).and(page.locator(":visible"));
   await accentHex.fill('#e53935');
