@@ -1,0 +1,53 @@
+name: Verify MV timing, effects and lyric export parity
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/exportTimeInput.ts'
+      - 'src/lib/mvClipMotion.ts'
+      - 'src/lib/mvLyricsStyle.ts'
+      - 'src/components/Editor/ExportRangeSlider.tsx'
+      - 'src/components/MVStudio/MVPreview.tsx'
+      - 'src/lib/renderers/OfflineFrameCompositor.ts'
+      - 'src/lib/projectJsonBuilder.ts'
+      - 'src/lib/videoPlaybackSync.ts'
+      - 'src/tests/mvClipMotion.test.ts'
+      - 'src/tests/videoPlaybackSync.test.ts'
+      - '.github/workflows/verify-mv-preview-export-parity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/lib/exportTimeInput.ts'
+      - 'src/lib/mvClipMotion.ts'
+      - 'src/lib/mvLyricsStyle.ts'
+      - 'src/components/Editor/ExportRangeSlider.tsx'
+      - 'src/components/MVStudio/MVPreview.tsx'
+      - 'src/lib/renderers/OfflineFrameCompositor.ts'
+      - 'src/lib/projectJsonBuilder.ts'
+      - 'src/lib/videoPlaybackSync.ts'
+      - 'src/tests/mvClipMotion.test.ts'
+      - 'src/tests/videoPlaybackSync.test.ts'
+      - '.github/workflows/verify-mv-preview-export-parity.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check MV timing and quality regression
+        run: |
+          npx tsx src/tests/mvClipMotion.test.ts
+          npx tsx src/tests/videoPlaybackSync.test.ts
+          npx tsx src/tests/clipSpeed.test.ts
+          npx tsx src/tests/mvExportVisualEffects.test.ts
+      - name: Verify TypeScript
+        run: npm run lint
+      - name: Verify production build
+        run: npm run build

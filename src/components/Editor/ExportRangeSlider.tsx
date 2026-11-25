@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { formatTime } from '../../lib/utils';
+import { parseExportTimeInput } from '../../lib/exportTimeInput';
 import { RefreshCw, Play, Square, Scissors } from 'lucide-react';
 import { WaveformTimeline } from './WaveformTimeline';
 
@@ -10,15 +11,6 @@ function preciseTime(seconds: number): string {
   const centiseconds = Math.round(Math.max(0, seconds) * 100);
   const minutes = Math.floor(centiseconds / 6000);
   return `${String(minutes).padStart(2, '0')}:${String(Math.floor(centiseconds / 100) % 60).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`;
-}
-
-/** Accepts 83.25, 01:23.25, or 1:01:23.25. */
-function parseTimeInput(input: string): number | null {
-  const parts = input.trim().split(':');
-  if (parts.length > 3 || !parts.length || parts.some(part => !/^\d+(?:\.\d+)?$/.test(part))) return null;
-  const values = parts.map(Number);
-  const seconds = values.reduce((sum, n) => sum * 60 + n, 0);
-  return Number.isFinite(seconds) ? seconds : null;
 }
 
 interface ExportRangeSliderProps {
@@ -99,7 +91,7 @@ export function ExportRangeSlider({
   };
 
   const commitInput = (handle: 'start' | 'end') => {
-    const parsed = parseTimeInput(handle === 'start' ? startInput : endInput);
+    const parsed = parseExportTimeInput(handle === 'start' ? startInput : endInput);
     if (parsed !== null) updateHandleValue(handle, parsed);
     setEditing(null);
     setStartInput(preciseTime(handle === 'start' && parsed !== null ? Math.max(0, Math.min(parsed, end - MIN_RANGE)) : start));
@@ -390,7 +382,7 @@ export function ExportRangeSlider({
         ))}
       </div>
       <p className="text-[10px] text-slate-500 leading-relaxed">
-        Type seconds (83.25) or a timecode (01:23.25). Drag handles to trim; use arrow keys for 0.1s, Alt + arrows for 0.01s, or Shift + arrows for 1s.
+        Type 040185 for 04:01.85, 0123 for 01:23, or enter 01:23.25 normally. Drag handles to trim; arrows adjust by 0.1s, Alt by 0.01s, Shift by 1s.
       </p>
 
       {/* Readout persistent values */}

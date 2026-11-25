@@ -11,6 +11,7 @@ import {
 } from 'remotion';
 import { CanonicalProjectJson, CanonicalLyricLine, CanonicalVideoClip } from '../types/projectJson';
 import { getDefaultPositions } from '../lib/lyricsLayout';
+import { getMVClipMotion } from '../lib/mvClipMotion';
 import { computeContinuousLineSweep, TimedWordMetric } from '../lib/karaokeSweep';
 import { kineticGlowEnabled, kineticWordColor } from '../lib/kineticColor';
 
@@ -254,16 +255,9 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height, st
   const { fps } = useVideoConfig();
   const clipProgress = (currentTime - clip.startTime + startShift) / clip.duration;
   
-  let transform = 'scale(1)';
-  if (clip.effect === 'ken-burns-in') {
-    transform = `scale(${1 + clipProgress * 0.12})`;
-  } else if (clip.effect === 'ken-burns-out') {
-    transform = `scale(${1.12 - clipProgress * 0.12})`;
-  } else if (clip.effect === 'pan-left') {
-    transform = `scale(1.1) translateX(${(0.5 - clipProgress) * 4}%)`;
-  } else if (clip.effect === 'pan-right') {
-    transform = `scale(1.1) translateX(${(clipProgress - 0.5) * 4}%)`;
-  }
+  // Match both live preview and offline WebCodecs geometry for video and images.
+  const motion = getMVClipMotion(clip.effect, clipProgress, width, height);
+  const transform = `translate(${motion.x}px, ${motion.y}px) scale(${motion.scale})`;
 
   // A clip's framing is independent of timeline effects and must survive MP4 export.
   const offsetX = Math.max(-3, Math.min(3, clip.offsetX ?? 0));

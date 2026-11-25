@@ -3,6 +3,8 @@ import { drawOverlayEffects } from '../../lib/overlayEffects';
 import { getEffectiveMVTransition } from '../../lib/mvTransitionSettings';
 import { getVideoSyncDecision } from '../../lib/videoPlaybackSync';
 import { clipSourceTime, getClipSpeed } from '../../lib/clipSpeed';
+import { getMVClipMotion, applyMVClipMotion } from '../../lib/mvClipMotion';
+import { resolveMVLyricsStyle } from '../../lib/mvLyricsStyle';
 import { layoutMVCaption, drawMVCaption, MVCaptionLayout } from '../../lib/mvCaptionLayout';
 import { getBrowserExportTime, sampleBrowserExportVideo } from '../../lib/browserExportClock';
 import React, { useEffect, useRef, useState } from 'react';
@@ -530,7 +532,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               const clipChanged = lastActiveVideoClipRef.current !== activeClip.id;
               // A pending seek can overlap a cut. Keep clipChanged pending
               // until the decoder accepts its new trim offset.
-              if (!videoEl.seeking) lastActiveVideoClipRef.current = activeClip.id;
+              // A newly activated or retimed clip is not synchronized until
+              // the decoder reaches its requested source timestamp.
+              if (!videoEl.seeking && Math.abs(videoEl.currentTime - targetVideoTime) < 0.12) {
+                lastActiveVideoClipRef.current = activeClip.id;
+              }
               const sync = getVideoSyncDecision({
                 targetTime: targetVideoTime,
                 actualTime: videoEl.currentTime,
@@ -565,14 +571,19 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               let drewFrame = false;
 
               // Draw video if current frame is ready
-              if (videoEl.readyState >= 2) {
+              if (videoEl.readyState >= 2 && !videoEl.seeking &&
+                  Math.abs(videoEl.currentTime - targetVideoTime) < Math.max(0.3, 0.14 * playbackSpeed)) {
                 const vW = videoEl.videoWidth || 1920;
                 const vH = videoEl.videoHeight || 1080;
                 try {
+                  ctx.save();
+                  applyMVClipMotion(ctx, getMVClipMotion(activeClip.effect, clipProgress, W, H), W, H);
                   drawFramedMedia(ctx, videoEl, W, H, vW, vH, activeClip);
+                  ctx.restore();
                   drewFrame = true;
                   sampleBrowserExportVideo(activeClip.id, videoEl.currentTime);
                 } catch (e) {
+                  ctx.restore();
                   drewFrame = false;
                 }
               }
@@ -587,7 +598,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
                   imageElementsRef.current.set(asset.thumbnail, thumbImg);
                 }
                 if (thumbImg.complete && thumbImg.naturalWidth > 0) {
+                  ctx.save();
+                  applyMVClipMotion(ctx, getMVClipMotion(activeClip.effect, clipProgress, W, H), W, H);
                   drawFramedMedia(ctx, thumbImg, W, H, thumbImg.naturalWidth, thumbImg.naturalHeight, activeClip);
+                  ctx.restore();
                 } else {
                   ctx.fillStyle = '#0d0e15';
                   ctx.fillRect(0, 0, W, H);
@@ -605,36 +619,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               if (imgEl.complete && imgEl.naturalWidth > 0) {
                 ctx.save();
 
-                // Calculate Ken Burns Pan/Zoom transform
-                let scale = 1.05;
-                let translateX = 0;
-                let translateY = 0;
-                const effect = activeClip.effect || 'ken-burns-in';
-
-                if (effect === 'ken-burns-in') {
-                  scale = 1 + clipProgress * 0.18;
-                } else if (effect === 'ken-burns-out') {
-                  scale = 1.18 - clipProgress * 0.18;
-                } else if (effect === 'pan-left') {
-                  scale = 1.12;
-                  translateX = -clipProgress * (W * 0.08);
-                } else if (effect === 'pan-right') {
-                  scale = 1.12;
-                  translateX = clipProgress * (W * 0.08);
-                } else if (effect === 'pan-up') {
-                  scale = 1.12;
-                  translateY = -clipProgress * (H * 0.08);
-                } else if (effect === 'pan-down') {
-                  scale = 1.12;
-                  translateY = clipProgress * (H * 0.08);
-                }
-
-                // Apply the motion effect around the canvas center, then
-                // compose the user's fit/crop, zoom and X/Y offsets using the
-                // same framing function already used for video clips.
-                ctx.translate(W / 2 + translateX, H / 2 + translateY);
-                ctx.scale(scale, scale);
-                ctx.translate(-W / 2, -H / 2);
+                // Exactly the same motion path as video clips and browser MP4.
+                applyMVClipMotion(ctx, getMVClipMotion(activeClip.effect, clipProgress, W, H), W, H);
                 try {
                   drawFramedMedia(
                     ctx, imgEl, W, H, imgEl.naturalWidth, imgEl.naturalHeight,
@@ -719,7 +705,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           renderLyricsOverlayFrame(ctx, W, H, curTime, storeState.lyricsSettings.lines, {
             template: tmpl,
             aspectRatio: storeState.aspectRatio,
-            animationStyle: lyricsVideoState.animationStyle === 'kinetic' ? 'kinetic' : (storeState.lyricsSettings?.animationStyle || lyricsVideoState.animationStyle),
+            animationStyle: resolveMVLyricsStyle(storeState.lyricsSettings?.animationStyle, lyricsVideoState.animationStyle),
             kineticPalette: lyricsVideoState.kineticPalette,
             kineticColor: lyricsVideoState.kineticColor,
             kineticGlow: lyricsVideoState.kineticGlow,
