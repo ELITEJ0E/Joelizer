@@ -4,15 +4,20 @@ import { useOverlayEffectsStore } from '../../store/useOverlayEffectsStore';
 import { OVERLAY_PRESETS } from '../../lib/overlayEffects';
 
 /** Compact by default in both studios. All existing effects remain available. */
-export function OverlayEffectsPanel({ mode }: { mode: 'lyrics-video' | 'music-video' }) {
+export function OverlayEffectsPanel({ mode, embedded = false }: {
+  mode: 'lyrics-video' | 'music-video';
+  embedded?: boolean;
+}) {
   const settings = useOverlayEffectsStore(s => mode === 'music-video' ? s.mv : s.lyrics);
   const update = useOverlayEffectsStore(s => s.update);
   const reset = useOverlayEffectsStore(s => s.reset);
   const [expanded, setExpanded] = useState(false);
   const selected = OVERLAY_PRESETS.find(p => p.id === settings.effect);
   return (
-    <section className="rounded-lg border border-[#303846] bg-[#121923] overflow-hidden" aria-label="Overlay effects">
-      <div className="flex items-center gap-2 px-3 py-2.5">
+    <section className={embedded
+      ? 'rounded-lg border border-[#344153] bg-[#111923] overflow-hidden'
+      : 'rounded-lg border border-[#303846] bg-[#121923] overflow-hidden'} aria-label="Overlay effects">
+      {!embedded && <div className="flex items-center gap-2 px-3 py-2.5">
         <button type="button" aria-expanded={expanded} aria-controls={`overlay-controls-${mode}`}
           onClick={() => setExpanded(v => !v)}
           className="min-w-0 flex-1 flex items-center gap-2 text-left cursor-pointer">
@@ -29,9 +34,24 @@ export function OverlayEffectsPanel({ mode }: { mode: 'lyrics-video' | 'music-vi
           <button type="button" onClick={() => reset(mode)} aria-label={`Reset ${mode} overlay effect`}
             className="rounded border border-[#35465a] px-2 py-1 text-[10px] text-emerald-400 hover:bg-white/5">Reset</button>
         )}
-      </div>
-      {expanded && (
-        <div id={`overlay-controls-${mode}`} className="space-y-3 border-t border-[#303846] p-3">
+      </div>}
+      {(embedded || expanded) && (
+        <div id={`overlay-controls-${mode}`}
+          className={`space-y-3 p-3 ${embedded ? '' : 'border-t border-[#303846]'}`}>
+          {embedded && (
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#eef2f7]">Overlay appearance</h3>
+                <p className="truncate text-[10px] text-[#8fa2b5]">
+                  {selected?.label ?? 'None'} · {Math.round(settings.intensity * 100)}% intensity
+                </p>
+              </div>
+              <button type="button" onClick={() => reset(mode)}
+                className="rounded border border-[#46566a] px-2 py-1 text-[10px] text-emerald-300 hover:bg-white/5">
+                Reset
+              </button>
+            </div>
+          )}
           <p className="text-[10px] text-[#98a7b9]">A visual layer over the finished scene, separate from captions and backgrounds.</p>
           <div className="grid grid-cols-2 gap-1.5">
             {OVERLAY_PRESETS.map(p => (
