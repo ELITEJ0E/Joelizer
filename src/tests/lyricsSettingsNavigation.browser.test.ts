@@ -26,7 +26,8 @@ try {
   page.setDefaultTimeout(20000);
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
   await page.evaluate(async () => {
-    const { useStore } = await import(/* @vite-ignore */ '/src/store/useStore.ts');
+    const modulePath = '/src/store/useStore.ts';
+    const { useStore } = await import(/* @vite-ignore */ modulePath);
     useStore.getState().setActiveTab('lyrics-video');
   });
   await page.getByRole('button', { name: 'Advanced Settings', exact: true }).click();
@@ -51,7 +52,8 @@ try {
     'Overlay selection must show the choices directly, without a redundant expand step');
   await effects.getByRole('button', { name: 'Film Grain' }).click();
   const chosen = await page.evaluate(async () => {
-    const { useOverlayEffectsStore } = await import(/* @vite-ignore */ '/src/store/useOverlayEffectsStore.ts');
+    const modulePath = '/src/store/useOverlayEffectsStore.ts';
+    const { useOverlayEffectsStore } = await import(/* @vite-ignore */ modulePath);
     return useOverlayEffectsStore.getState().lyrics.effect;
   });
   assert.equal(chosen, 'film-grain', 'Overlay selection must update the existing store');
