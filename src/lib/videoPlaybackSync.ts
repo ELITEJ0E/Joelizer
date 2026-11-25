@@ -35,7 +35,9 @@ export function getVideoSyncDecision(input: {
   }
   // Never enqueue another seek while the prior request is still decoding.
   if (seeking) return { seekTo: null, playbackRate: baseRate };
-  if (playing && Math.abs(drift) > 1) {
+  // Rate changes and timeline jumps must not display the old source time for
+  // a full second before catching up. 0.35s is beyond ordinary A/V jitter.
+  if (playing && Math.abs(drift) > 0.35) {
     return { seekTo: Math.max(0, targetTime), playbackRate: baseRate };
   }
   // Gradually converge, avoiding the visible discontinuity of repeated seeks.

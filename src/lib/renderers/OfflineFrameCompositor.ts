@@ -14,6 +14,7 @@ import { drawFramedMedia } from '../lyricsBackgrounds';
 import { drawOverlayEffects } from '../overlayEffects';
 import { lyricsVideoLoopFrame } from '../lyricsVideoLoop';
 import { clipSourceTime } from '../clipSpeed';
+import { getMVClipMotion, applyMVClipMotion } from '../mvClipMotion';
 
 type StageMedia = { element: HTMLVideoElement; lastFrame: number };
 
@@ -423,6 +424,9 @@ export class OfflineFrameCompositor {
         const sourceTime = clipSourceTime(clip, time, lead);
         const fast = this.fastVideos.get(clip.url);
         let renderedFastFrame = false;
+        const clipProgress = (time - clip.startTime) / Math.max(0.01, clip.endTime - clip.startTime);
+        ctx.save();
+        applyMVClipMotion(ctx, getMVClipMotion(clip.effect, clipProgress, W, H), W, H);
         if (fast) {
           try {
             // Sequential fast WebCodecs decoding for MP4 clips.
@@ -452,26 +456,15 @@ export class OfflineFrameCompositor {
           await atTime(media, sourceTime);
           drawFramedMedia(ctx, media.element, W, H, media.element.videoWidth, media.element.videoHeight, clip);
         }
+        ctx.restore();
       } else if (clip.type === 'image') {
         const image = this.images.get(clip.url);
         if (!image) throw new Error('Missing prepared image clip ' + clip.id);
         const duration = Math.max(0.01, clip.endTime - clip.startTime);
         const progress = Math.max(0, Math.min(1, (time - clip.startTime) / duration));
-        let zoom = 1.05, x = 0, y = 0;
-        switch (clip.effect) {
-          case 'ken-burns-in': zoom = 1 + progress * 0.18; break;
-          case 'ken-burns-out': zoom = 1.18 - progress * 0.18; break;
-          case 'pan-left': zoom = 1.12; x = -progress * W * 0.08; break;
-          case 'pan-right': zoom = 1.12; x = progress * W * 0.08; break;
-          case 'pan-up': zoom = 1.12; y = -progress * H * 0.08; break;
-          case 'pan-down': zoom = 1.12; y = progress * H * 0.08; break;
-        }
         ctx.save();
-        ctx.translate(W / 2 + x, H / 2 + y);
-        ctx.scale(zoom, zoom);
-        const factor = Math.max(W / image.naturalWidth, H / image.naturalHeight);
-        ctx.drawImage(image, -image.naturalWidth * factor / 2, -image.naturalHeight * factor / 2,
-          image.naturalWidth * factor, image.naturalHeight * factor);
+        applyMVClipMotion(ctx, getMVClipMotion(clip.effect, progress, W, H), W, H);
+        drawFramedMedia(ctx, image, W, H, image.naturalWidth, image.naturalHeight, clip);
         ctx.restore();
       } else if (clip.type === 'visualizer') {
         // Deterministic non-live export. Audio-reactive animation needs

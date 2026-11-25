@@ -29,9 +29,12 @@ assert.equal(decision(11, 15).seekTo, 15);
 assert.equal(decision(11.1, 11.4, { seeking: true }).seekTo, null);
 assert.equal(decision(11.1, 11.4, { seeking: true }).playbackRate, 1);
 assert.equal(decision(11.1, 11.4, { playing: false }).seekTo, 11.4);
-assert.equal(decision(0, 0.8).seekTo, null);
+assert.equal(decision(0, 0.8).seekTo, 0.8,
+  'after retiming or seeking, correct a large source mismatch immediately');
 assert.equal(decision(12, 12.02, { baseRate: 2 }).playbackRate, 2,
   'a sped-up clip must play at its chosen rate even with no decoder drift');
 assert.ok(decision(12, 12.3, { baseRate: 0.5 }).playbackRate > 0.5,
   'drift correction must be relative to the clip rate');
+assert.equal(decision(10, 10.36, { baseRate: 2 }).seekTo, 10.36,
+  '2× clips must resync promptly without needing a manual rewind');
 console.log('video playback synchronization tests passed');

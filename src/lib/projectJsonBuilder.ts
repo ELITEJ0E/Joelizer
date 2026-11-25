@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore';
 import { effectiveLyricEnd } from './lyricTiming';
 import { useMVStore } from '../store/useMVStore';
 import { useLyricsVideoStore } from '../store/useLyricsVideoStore';
+import { resolveMVLyricsStyle } from './mvLyricsStyle';
 import { stageAssetIfNeeded } from './assetStaging';
 import { 
   CanonicalProjectJson, 
@@ -219,7 +220,9 @@ export async function buildCanonicalProjectJson(options?: {
       glowColor: typo.glowColor || '#eab308',
       showContainerPill: typo.showContainerPill ?? false,
       pillBgColor: typo.pillBgColor || 'rgba(10, 10, 12, 0.85)',
-      animationStyle: lyricsVideoStore.animationStyle || (lyricsVideoStore.animationOverride?.wordAnimation === 'karaoke' ? 'karaoke' : 'fade'),
+      animationStyle: exportMode === 'music-video'
+        ? resolveMVLyricsStyle(mainStore.lyricsSettings?.animationStyle, lyricsVideoStore.animationStyle)
+        : lyricsVideoStore.animationStyle,
       kineticPalette: lyricsVideoStore.kineticPalette || 'solid',
       kineticColor: lyricsVideoStore.kineticColor || '#ffffff',
       kineticGlow: lyricsVideoStore.kineticGlow,
