@@ -1175,11 +1175,8 @@ export function LyricsVideoLayout() {
                         }}
                       >
                         {isSongCover && (
-                          <img 
-                            src={albumArt} 
-                            alt="Song Cover" 
-                            className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none group-hover:opacity-70 transition-opacity" 
-                          />
+                          <LayoutPreviewArtwork src={albumArt}
+                            className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none group-hover:opacity-70 transition-opacity" />
                         )}
 
                         {/* Top Row: Category/Duration Pill */}
