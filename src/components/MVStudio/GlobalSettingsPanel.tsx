@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/useStore';
-import { Trash2, ChevronLeft, ChevronRight, AudioLines, Disc3, Image as ImageIcon, Stamp, SlidersHorizontal } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { parseLRC, cn } from '../../lib/utils';
 import { Scrubber } from '../ui/scrubber';
@@ -437,34 +437,17 @@ function LogoSettingsPanel() {
 
 type AdvancedSettingsTab = 'visualizer' | 'lyrics' | 'background' | 'overlays' | 'logo';
 
-const ADVANCED_SETTINGS_TABS = [
-  { id: 'visualizer', label: 'Visualizer', icon: AudioLines },
-  { id: 'lyrics', label: 'Vinyl/Lyrics', icon: Disc3 },
-  { id: 'background', label: 'Background', icon: ImageIcon },
-  { id: 'overlays', label: 'Overlay FX', icon: SlidersHorizontal },
-  { id: 'logo', label: 'Watermark', icon: Stamp },
-] as const;
+const ADVANCED_SETTINGS_TABS: { id: AdvancedSettingsTab; label: string }[] = [
+  { id: 'visualizer', label: 'Visualizer' },
+  { id: 'lyrics', label: 'Vinyl/Lyrics' },
+  { id: 'background', label: 'Background' },
+  { id: 'overlays', label: 'Overlay FX' },
+  { id: 'logo', label: 'Watermark' }
+];
 
 export function GlobalSettingsPanel() {
   const [activeTab, setActiveTab] = useState<AdvancedSettingsTab>('visualizer');
   const tabStripRef = useRef<HTMLDivElement>(null);
-  const hoverTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const scrollTabs = (direction: -1 | 1, distance = 190) => {
-    tabStripRef.current?.scrollBy({ left: direction * distance, behavior: 'smooth' });
-  };
-  const stopHoverScroll = () => {
-    if (hoverTimerRef.current) clearInterval(hoverTimerRef.current);
-    hoverTimerRef.current = null;
-  };
-  const startHoverScroll = (direction: -1 | 1) => {
-    stopHoverScroll();
-    // Mouse-only users can hover an arrow to continue browsing sections.
-    hoverTimerRef.current = setInterval(() => {
-      tabStripRef.current?.scrollBy({ left: direction * 36, behavior: 'auto' });
-    }, 130);
-  };
-  useEffect(() => () => stopHoverScroll(), []);
 
   useEffect(() => {
     animate('.settings-panel-anim > *', {
@@ -476,53 +459,53 @@ export function GlobalSettingsPanel() {
     });
   }, [activeTab]);
 
+  // Keep the original narrow top-tab layout. Horizontal mouse-wheel scrolling
+  // makes all sections available without large navigation arrows or a trackpad.
+  const scrollByWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      event.currentTarget.scrollLeft += event.deltaY;
+    }
+  };
+
   return (
     <div className="w-full h-full min-h-0 bg-[#060608] flex flex-col relative overflow-hidden">
-      {/* One unified, scrollable tool strip. Outline every tab and keep both mouse-only arrows visible. */}
       <nav aria-label="Advanced settings sections"
-        className="flex min-h-[58px] items-center gap-1.5 border-b border-[#344153] bg-[#0d1118] px-1.5 pt-1.5 pb-1 shrink-0">
-        <button type="button" aria-label="Scroll settings tabs left"
-          title="Hover or click to scroll settings left"
-          onClick={() => scrollTabs(-1)}
-          onMouseEnter={() => startHoverScroll(-1)}
-          onMouseLeave={stopHoverScroll} onBlur={stopHoverScroll}
-          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-md border border-[#475569] bg-[#18212d] text-[#d5deea] transition-colors hover:border-emerald-400/70 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">
-          <ChevronLeft size={17} />
-        </button>
+        className="flex h-[35px] min-h-[35px] shrink-0 items-end border-b border-[#2a333e] bg-[#0c1016] px-1">
         <div ref={tabStripRef} role="tablist" aria-label="Advanced video controls"
-          className="studio-subtle-scroll flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain pb-1.5"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
+          onWheel={scrollByWheel}
+          onKeyDown={event => {
+            if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+            event.preventDefault();
+            const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+            const current = buttons.findIndex(button => button === document.activeElement);
+            if (current < 0) return;
+            const next = buttons[(current + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length];
+            next.focus();
+            next.click();
+          }}
+          className="studio-subtle-scroll flex min-w-0 w-full items-end gap-0.5 overflow-x-auto overscroll-x-contain pb-[2px]"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#2b3745 transparent' }}>
           {ADVANCED_SETTINGS_TABS.map(tab => {
-            const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
               <button key={tab.id} type="button" role="tab"
                 id={`advanced-tab-${tab.id}`} aria-selected={active}
                 aria-controls="advanced-active-panel"
-                onClick={e => {
+                onClick={event => {
                   setActiveTab(tab.id);
-                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                  event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
                 }}
                 className={cn(
-                  'flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md border px-2.5 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400',
+                  'h-[29px] shrink-0 rounded-t px-2.5 border-b-2 text-[10px] font-semibold uppercase tracking-tight whitespace-nowrap transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400',
                   active
-                    ? 'border-emerald-400/80 bg-emerald-500/15 text-emerald-300 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.13)]'
-                    : 'border-[#405067] bg-[#141c28] text-[#c6d2e2] hover:border-[#71859f] hover:bg-[#1b2838] hover:text-white'
+                    ? 'border-b-emerald-400 bg-[#17211f] text-emerald-300'
+                    : 'border-b-transparent bg-transparent text-[#95a2b4] hover:bg-[#161e28] hover:text-[#e2e8f0]'
                 )}>
-                <Icon size={13} aria-hidden="true" />
                 {tab.label}
               </button>
             );
           })}
         </div>
-        <button type="button" aria-label="Scroll settings tabs right"
-          title="Hover or click to scroll settings right"
-          onClick={() => scrollTabs(1)}
-          onMouseEnter={() => startHoverScroll(1)}
-          onMouseLeave={stopHoverScroll} onBlur={stopHoverScroll}
-          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-md border border-[#475569] bg-[#18212d] text-[#d5deea] transition-colors hover:border-emerald-400/70 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">
-          <ChevronRight size={17} />
-        </button>
       </nav>
 
       <div id="advanced-active-panel" role="tabpanel" aria-labelledby={`advanced-tab-${activeTab}`}
