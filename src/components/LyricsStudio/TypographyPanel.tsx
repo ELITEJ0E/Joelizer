@@ -3,6 +3,7 @@ import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useStore, AspectRatio } from '../../store/useStore';
 import { Type, Palette, Layout, ShieldCheck, Eye, Check, Sparkles, Globe, Clock } from 'lucide-react';
 import { CURATED_FONTS } from '../../lib/curatedFonts';
+import { AppColorPicker } from '../ui/color-picker';
 
 export function TypographyPanel() {
   const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
@@ -21,6 +22,7 @@ export function TypographyPanel() {
   const setAnimationStyle = useLyricsVideoStore(s => s.setAnimationStyle);
   const kineticPalette = useLyricsVideoStore(s => s.kineticPalette);
   const kineticIntensity = useLyricsVideoStore(s => s.kineticIntensity);
+  const kineticColor = useLyricsVideoStore(s => s.kineticColor || '#ffffff');
   const setKineticSettings = useLyricsVideoStore(s => s.setKineticSettings);
   const fadeInDuration = useLyricsVideoStore(s => s.fadeInDuration ?? 0.4);
   const fadeOutDuration = useLyricsVideoStore(s => s.fadeOutDuration ?? 0.4);
@@ -169,13 +171,15 @@ export function TypographyPanel() {
           <div className="space-y-3 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 p-3">
             <label className="block text-[10px] font-mono text-[#b3bbca]">Color palette</label>
             <div className="grid grid-cols-2 gap-1.5">
-              {(['neon', 'sunset', 'candy', 'rainbow'] as const).map(palette => (
+              {(['solid', 'neon', 'sunset', 'candy', 'rainbow'] as const).map(palette => (
                 <button key={palette} type="button" onClick={() => setKineticSettings({ kineticPalette: palette })}
                   className={`rounded border px-2 py-1.5 text-xs capitalize ${kineticPalette === palette ? 'border-fuchsia-400 bg-fuchsia-500/20 text-fuchsia-200' : 'border-[#313743] bg-[#0a0c0f] text-[#9ca3af]'}`}>
                   {palette}
                 </button>
               ))}
             </div>
+            {kineticPalette === 'solid' && <AppColorPicker label="Kinetic lyric color" value={kineticColor}
+              onChange={color => setKineticSettings({ kineticColor: color })} />}
             <label className="flex items-center justify-between text-[10px] font-mono text-[#b3bbca]">
               Pop intensity <span className="text-fuchsia-300">{kineticIntensity.toFixed(1)}×</span>
             </label>
@@ -391,18 +395,13 @@ export function TypographyPanel() {
           Color & Glow Palette
         </span>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {/* Active Word Highlight Color */}
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-mono text-[#7e8999]">Active Word</span>
             <div className="flex items-center gap-2 bg-[#12161c] border border-[#232933] p-1.5 rounded-lg">
-              <input
-                type="color"
-                value={typo.activeWordColor || '#fde047'}
-                onChange={(e) => updateTypo({ activeWordColor: e.target.value })}
-                className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent"
-              />
-              <span className="text-[10px] font-mono font-semibold text-[#f0f3f6] uppercase">{typo.activeWordColor}</span>
+              <AppColorPicker className="w-full" label="Active word color" value={typo.activeWordColor || '#fde047'}
+                onChange={color => updateTypo({ activeWordColor: color })} />
             </div>
           </div>
 
@@ -410,13 +409,9 @@ export function TypographyPanel() {
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-mono text-[#7e8999]">Glow Accent</span>
             <div className="flex items-center gap-2 bg-[#12161c] border border-[#232933] p-1.5 rounded-lg">
-              <input
-                type="color"
+              <AppColorPicker className="w-full" label="Glow accent color"
                 value={typo.glowColor && typo.glowColor !== 'transparent' ? typo.glowColor : '#eab308'}
-                onChange={(e) => updateTypo({ glowColor: e.target.value })}
-                className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent"
-              />
-              <span className="text-[10px] font-mono font-semibold text-[#f0f3f6] uppercase">{typo.glowColor}</span>
+                onChange={color => updateTypo({ glowColor: color })} />
             </div>
           </div>
         </div>

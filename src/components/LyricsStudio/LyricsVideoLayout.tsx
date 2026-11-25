@@ -57,6 +57,19 @@ function LyricsBackdropControl() {
   );
 }
 
+// Bundled art is a thumbnail-only fallback. It is never assigned to a track.
+const SAMPLE_LAYOUT_COVER = '/images/layout-preview-cover.svg';
+
+function LayoutPreviewArtwork({ src, className }: { src?: string | null; className?: string }) {
+  return <img src={src || SAMPLE_LAYOUT_COVER} alt="" className={className}
+    data-layout-preview-artwork
+    onError={event => {
+      if (!event.currentTarget.src.endsWith(SAMPLE_LAYOUT_COVER)) {
+        event.currentTarget.src = SAMPLE_LAYOUT_COVER;
+      }
+    }} />;
+}
+
 /** Shared quick-access controls on mobile and desktop Lyrics Video panels. */
 function KineticQuickControls() {
   const animationStyle = useLyricsVideoStore(s => s.animationStyle);
@@ -66,15 +79,7 @@ function KineticQuickControls() {
   const glowSetting = useLyricsVideoStore(s => s.kineticGlow);
   const intensity = useLyricsVideoStore(s => s.kineticIntensity);
   const update = useLyricsVideoStore(s => s.setKineticSettings);
-  const [colorDraft, setColorDraft] = useState(solidColor);
-  useEffect(() => setColorDraft(solidColor), [solidColor]);
   const glow = glowSetting ?? (palette !== 'solid');
-
-  const saveHex = () => {
-    const candidate = colorDraft.trim();
-    if (/^#[0-9a-f]{6}$/i.test(candidate)) update({ kineticColor: candidate });
-    else setColorDraft(solidColor);
-  };
 
   return (
     <div className="space-y-2">
@@ -101,23 +106,14 @@ function KineticQuickControls() {
           {palette === 'solid' && (
             <div className="space-y-1.5 rounded border border-[#303947] bg-[#0e1115] p-2">
               <div className="flex items-center justify-between gap-2">
-                <label htmlFor="kinetic-solid-color" className="text-[10px] text-[#aeb8c5]">Fixed text color</label>
+                <span className="text-[10px] text-[#aeb8c5]">Fixed text color</span>
                 <button type="button" onClick={() => update({ kineticColor: '#ffffff' })}
                   className="rounded border border-[#566172] bg-[#19202a] px-2 py-1 text-[10px] text-white">
                   White
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <input id="kinetic-solid-color" aria-label="Choose a fixed kinetic lyric color"
-                  type="color" value={solidColor} onChange={e => update({ kineticColor: e.target.value })}
-                  className="h-8 w-10 cursor-pointer rounded border border-[#566172] bg-transparent" />
-                <input aria-label="Kinetic lyric hex color" type="text" value={colorDraft}
-                  maxLength={7} spellCheck={false} onChange={e => setColorDraft(e.target.value)}
-                  onBlur={saveHex}
-                  onKeyDown={e => { if (e.key === 'Enter') { saveHex(); e.currentTarget.blur(); } }}
-                  className="min-w-0 flex-1 rounded border border-[#303947] bg-[#10151d] px-2 py-1.5 font-mono text-[11px] text-white"
-                  placeholder="#ffffff" />
-              </div>
+              <AppColorPicker value={solidColor} label="Kinetic lyric color"
+                onChange={color => update({ kineticColor: color })} />
               <p className="text-[10px] text-[#8b98a9]">All words keep this color, even while popping in.</p>
             </div>
           )}
@@ -343,7 +339,7 @@ export function LyricsVideoLayout() {
 
   const currentTrack = useStore(s => s.tracks[s.currentTrackIndex] || s.tracks[0]);
   const globalAlbumArt = useStore(s => s.albumArt);
-  const albumArt = currentTrack?.albumArt || globalAlbumArt || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=600&auto=format&fit=crop&q=80';
+  const albumArt = currentTrack?.albumArt || globalAlbumArt || '';
   const lyricsLines = useStore(s => s.lyricsSettings?.lines) || [];
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -613,21 +609,21 @@ export function LyricsVideoLayout() {
                             >
                               {layout.id !== 'full' && (
                                 <div className="absolute inset-0 z-0">
-                                  <img src={albumArt} alt="" className="w-full h-full object-cover blur-sm brightness-40" />
+                                  <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover blur-sm brightness-40" />
                                 </div>
                               )}
                               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none p-1">
                                 {layout.id === 'full' && (
-                                  <img src={albumArt} alt="" className="w-full h-full object-cover rounded" />
+                                  <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover rounded" />
                                 )}
                                 {layout.id === 'square' && (
                                   <div className="w-9 h-9 rounded overflow-hidden shadow mb-1.5 relative border border-white/10">
-                                    <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                    <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                                   </div>
                                 )}
                                 {layout.id === 'circle' && (
                                   <div className="w-9 h-9 rounded-full overflow-hidden shadow mb-1.5 relative border border-white/20">
-                                    <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                    <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                                   </div>
                                 )}
                                 {(layout.id === 'glowing-disc' || layout.id === 'glowing-disc-needle') && (
@@ -635,7 +631,7 @@ export function LyricsVideoLayout() {
                                     <div className="w-full h-full rounded-full bg-[#111317] relative overflow-hidden flex items-center justify-center border border-white/10">
                                       <div className="absolute inset-1 rounded-full border border-white/10"></div>
                                       <div className="w-3.5 h-3.5 rounded-full overflow-hidden relative z-10 border border-white/40">
-                                        <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                        <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                                       </div>
                                     </div>
                                   </div>
@@ -644,7 +640,7 @@ export function LyricsVideoLayout() {
                                   <div className="w-11 h-11 rounded-full bg-[#111317] shadow mb-1.5 relative flex items-center justify-center border border-[#232933]">
                                     <div className="absolute inset-1 rounded-full border border-white/10"></div>
                                     <div className="w-3.5 h-3.5 rounded-full overflow-hidden relative z-10 border border-white/40">
-                                      <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                      <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                                     </div>
                                   </div>
                                 )}
@@ -652,7 +648,7 @@ export function LyricsVideoLayout() {
                                   <div className="w-11 h-11 rounded-full p-[1.5px] bg-[#1d222b] mb-1.5 relative flex items-center justify-center border border-[#232933]">
                                     <div className="w-full h-full rounded-full bg-[#14171d] relative overflow-hidden flex items-center justify-center">
                                       <div className="w-4 h-4 rounded-full overflow-hidden border border-white/20">
-                                        <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                        <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                                       </div>
                                     </div>
                                   </div>
@@ -790,7 +786,7 @@ export function LyricsVideoLayout() {
                             style={{ background: bg.previewGradient || bg.value || '#12161c' }}
                           >
                             {isSongCover && (
-                              <img src={albumArt} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none" />
+                              <LayoutPreviewArtwork src={albumArt} className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none" />
                             )}
                             <div className="relative z-10 flex items-center justify-between w-full">
                               <span className="text-[7px] font-bold text-[#f0f3f6] bg-[#0a0c0f]/80 px-1 py-0.5 rounded uppercase">
@@ -850,7 +846,8 @@ export function LyricsVideoLayout() {
                       </div>
                       <div className="bg-[#0e1115] p-2.5 rounded border border-[#232933]">
                         <AppColorPicker
-                          value={activeColor}
+                          label="Accent color"
+                      value={activeColor}
                           onChange={(c) => setVisualizerColor(c)}
                           boxShadow={`0 0 15px ${activeColor}30`}
                         />
@@ -1011,7 +1008,7 @@ export function LyricsVideoLayout() {
                         {/* Blurred Background Base for all except full */}
                         {layout.id !== 'full' && (
                           <div className="absolute inset-0 z-0">
-                            <img src={albumArt} alt="" className="w-full h-full object-cover blur-sm brightness-40" />
+                            <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover blur-sm brightness-40" />
                           </div>
                         )}
 
@@ -1019,18 +1016,18 @@ export function LyricsVideoLayout() {
                         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none p-1">
                           
                           {layout.id === 'full' && (
-                            <img src={albumArt} alt="" className="w-full h-full object-cover rounded" />
+                            <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover rounded" />
                           )}
 
                           {layout.id === 'square' && (
                             <div className="w-9 h-9 rounded overflow-hidden shadow mb-1.5 relative border border-white/10">
-                               <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                               <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                             </div>
                           )}
 
                           {layout.id === 'circle' && (
                             <div className="w-9 h-9 rounded-full overflow-hidden shadow mb-1.5 relative border border-white/20">
-                               <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                               <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                             </div>
                           )}
 
@@ -1039,7 +1036,7 @@ export function LyricsVideoLayout() {
                               <div className="w-full h-full rounded-full bg-[#111317] relative overflow-hidden flex items-center justify-center border border-white/10">
                                 <div className="absolute inset-1 rounded-full border border-white/10"></div>
                                 <div className="w-3.5 h-3.5 rounded-full overflow-hidden relative z-10 border border-white/40">
-                                  <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                  <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                                 </div>
                                 {layout.id === 'glowing-disc-needle' && (
                                   <div className="absolute -top-1 -right-1 w-5 h-7 border-r-2 border-t-2 border-[#c4cad4] rounded-tr z-20 origin-top-right rotate-12">
@@ -1057,7 +1054,7 @@ export function LyricsVideoLayout() {
                                <div className="absolute inset-1 rounded-full border border-white/10"></div>
                                <div className="absolute inset-2 rounded-full border border-white/10"></div>
                                <div className="w-3.5 h-3.5 rounded-full overflow-hidden relative z-10 border border-white/40">
-                                  <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                  <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                                </div>
                                {layout.id === 'vinyl-needle' && (
                                   <div className="absolute -top-1 -right-1 w-5 h-7 border-r-2 border-t-2 border-[#c4cad4] rounded-tr z-20 origin-top-right rotate-12">
@@ -1073,7 +1070,7 @@ export function LyricsVideoLayout() {
                             <div className="w-11 h-11 rounded-full p-[1.5px] bg-[#1d222b] mb-1.5 relative flex items-center justify-center border border-[#232933]">
                                <div className="w-full h-full rounded-full bg-[#14171d] relative overflow-hidden flex items-center justify-center">
                                  <div className="w-4 h-4 rounded-full overflow-hidden border border-white/20">
-                                    <img src={albumArt} alt="" className="w-full h-full object-cover" />
+                                    <LayoutPreviewArtwork src={albumArt} className="w-full h-full object-cover" />
                                  </div>
                                  <div className="w-1.5 h-1.5 rounded-full bg-black border border-white/20 absolute"></div>
                                </div>
@@ -1382,6 +1379,7 @@ export function LyricsVideoLayout() {
                   </div>
                   <div className="bg-[#0e1115] p-2 rounded border border-[#232933]">
                     <AppColorPicker
+                      label="Accent color"
                       value={activeColor}
                       onChange={(c) => setVisualizerColor(c)}
                       boxShadow={`0 0 15px ${activeColor}30`}

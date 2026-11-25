@@ -65,6 +65,7 @@ function VisualizerSettingsPanel() {
       <div>
         <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-2 block">Primary Color Theme</label>
         <AppColorPicker 
+          label="Visualizer color"
           value={activeColor}
           onChange={val => updateSettings({ color: val })}
           className="mb-3"
@@ -84,9 +85,6 @@ function VisualizerSettingsPanel() {
               {settings.color === theme.color && <div className="w-2 h-2 rounded-full bg-black/60 shadow-sm" />}
             </button>
           ))}
-        </div>
-        <div className="mt-3">
-          <AppColorPicker value={settings.color} onChange={(c) => updateSettings({ color: c })} />
         </div>
       </div>
       <label className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">

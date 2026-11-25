@@ -30,6 +30,38 @@ try {
     const { useStore } = await import(/* @vite-ignore */ modulePath);
     useStore.getState().setActiveTab('lyrics');
   });
+  const visibleArt = page.locator('[data-layout-preview-artwork]:visible');
+  await visibleArt.first().waitFor({ state: 'visible' });
+  await page.waitForFunction(() => Array.from(document.querySelectorAll<HTMLImageElement>('[data-layout-preview-artwork]'))
+    .filter(img => img.getBoundingClientRect().width > 0)
+    .every(img => img.complete && img.naturalWidth > 0));
+  assert.ok(await visibleArt.first().evaluate(img => (img as HTMLImageElement).src.includes('/images/layout-preview-cover.svg')),
+    'A new project must show bundled example artwork without a remote request');
+  await page.getByRole('button', { name: /Kinetic Word Pop/ }).and(page.locator(":visible")).click();
+  await page.getByRole('button', { name: 'Solid', exact: true }).and(page.locator(":visible")).click();
+  const kineticHex = page.getByRole('textbox', { name: 'Kinetic lyric color hex' }).and(page.locator(":visible"));
+  await kineticHex.fill('#7c3aed');
+  await kineticHex.press('Enter');
+  const kineticColor = await page.evaluate(async () => {
+    const path = '/src/store/useLyricsVideoStore.ts';
+    const { useLyricsVideoStore } = await import(/* @vite-ignore */ path);
+    return useLyricsVideoStore.getState().kineticColor;
+  });
+  assert.equal(kineticColor, '#7c3aed');
+  await page.getByRole('button', { name: 'Choose kinetic lyric color' }).and(page.locator(":visible")).click();
+  const area = page.getByRole('group', { name: 'Color area' });
+  await area.waitFor({ state: 'visible' });
+  await area.click({ position: { x: 120, y: 55 } });
+  await page.keyboard.press('Escape');
+  const accentHex = page.getByRole('textbox', { name: 'Accent color hex' }).and(page.locator(":visible"));
+  await accentHex.fill('#e53935');
+  await accentHex.press('Enter');
+  const accentColor = await page.evaluate(async () => {
+    const path = '/src/store/useStore.ts';
+    const { useStore } = await import(/* @vite-ignore */ path);
+    return useStore.getState().visualizerSettings.color;
+  });
+  assert.equal(accentColor, '#e53935');
   await page.getByRole('button', { name: 'Advanced Settings', exact: true }).click();
 
   const tabs = page.getByRole('tablist', { name: 'Advanced video controls' });
