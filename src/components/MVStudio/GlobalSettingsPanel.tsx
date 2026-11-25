@@ -446,7 +446,6 @@ const ADVANCED_SETTINGS_TABS = [
 ] as const;
 
 export function GlobalSettingsPanel() {
-  const activeColor = useStore(s => s.visualizerSettings.color) || '#00e676';
   const [activeTab, setActiveTab] = useState<AdvancedSettingsTab>('visualizer');
   const tabStripRef = useRef<HTMLDivElement>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -462,7 +461,7 @@ export function GlobalSettingsPanel() {
     stopHoverScroll();
     // Mouse-only users can hover an arrow to continue browsing sections.
     hoverTimerRef.current = setInterval(() => {
-      tabStripRef.current?.scrollBy({ left: direction * 36, behavior: 'instant' });
+      tabStripRef.current?.scrollBy({ left: direction * 36, behavior: 'auto' });
     }, 130);
   };
   useEffect(() => () => stopHoverScroll(), []);
