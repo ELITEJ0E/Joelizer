@@ -534,7 +534,7 @@ export function MVTimeline() {
             } else setActiveSnapGuide(null);
           }
         }
-        const result = moveMVClipGroup(session.originalClips, session.groupIds, groupDelta, duration);
+        const result = moveMVClipGroup<TimelineClip>(session.originalClips, session.groupIds, groupDelta, duration);
         if (Math.abs(result.delta - groupDeltaRef.current) > 0.0005) {
           groupDeltaRef.current = result.delta;
           setTimelineClips(result.clips);
