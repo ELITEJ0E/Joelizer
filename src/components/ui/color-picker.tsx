@@ -29,6 +29,7 @@ export function AppColorPicker({ value, onChange, className, boxShadow, label = 
     const hex = asHex(next);
     // Preserve the selected hue even when saturation is zero (white/gray).
     if (emitted.current === hex) return;
+    emitted.current = null;
     setColorVal(next);
     setDraft(hex);
   }, [value]);
