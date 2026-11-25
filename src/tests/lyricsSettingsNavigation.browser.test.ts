@@ -39,11 +39,16 @@ try {
   assert.equal(await page.locator('text=Browse backdrops').count(), 0,
     'Remove the old separate backdrop browser bar');
 
+  const barHeight = await tabs.evaluate(el => el.closest('nav')?.getBoundingClientRect().height ?? 0);
+  assert.ok(barHeight <= 38, 'Advanced settings tabs must use a compact single-line bar');
+  assert.equal(await page.getByRole('button', { name: 'Scroll settings tabs right' }).count(), 0,
+    'Remove the tall scroll arrows');
   const initialX = await tabs.evaluate(el => el.scrollLeft);
-  await page.getByRole('button', { name: 'Scroll settings tabs right' }).hover();
-  await page.waitForTimeout(440);
-  const afterHoverX = await tabs.evaluate(el => el.scrollLeft);
-  assert.ok(afterHoverX > initialX, 'Hovering the arrow must scroll the setting tabs');
+  await tabs.hover();
+  await page.mouse.wheel(0, 240);
+  await page.waitForTimeout(150);
+  const afterWheelX = await tabs.evaluate(el => el.scrollLeft);
+  assert.ok(afterWheelX > initialX, 'Mouse wheel must scroll the compact tabs without a trackpad');
 
   await tabs.getByRole('tab', { name: 'Overlay FX' }).click();
   const effects = page.getByRole('region', { name: 'Overlay effects' });
@@ -72,7 +77,7 @@ try {
   assert.equal(bounds.scrollbarWidth, 'thin', 'Backdrop carousel should have a subtle scrollbar');
   assert.equal(await page.getByRole('button', { name: 'Scroll backgrounds right' }).count(), 0,
     'Background gallery must not add another button toolbar');
-  console.log('Lyrics Studio setting tab strip, hover arrows, overlay controls, and subtle background scrolling passed');
+  console.log('Compact Lyrics Studio tabs, mouse-wheel navigation, overlay controls, and subtle background scrolling passed');
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
