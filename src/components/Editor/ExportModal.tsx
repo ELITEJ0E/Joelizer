@@ -66,8 +66,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   // Video Settings
   const [resolution, setResolution] = useState<ExportResolutionType>('1080p');
   // Browser MediaRecorder often drops frames at 1080p/60 on midrange hardware.
-  // Prefer reliable 30fps capture unless the user explicitly selects 60fps.
-  const [fps, setFps] = useState<30 | 60>(30);
+  // Prefer 60 FPS by default; 30 FPS remains available for hardware compatibility.
+  const [fps, setFps] = useState<30 | 60>(60);
   const [exportQuality, setExportQuality] = useState<ExportQualityType>('maximum');
   const [videoQualityPreset, setVideoQualityPreset] = useState<VideoQualityPreset>('1080-max');
   const [offlineAvailable, setOfflineAvailable] = useState<boolean | null>(null);
@@ -764,8 +764,8 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                       value={fps}
                       onChange={event => setFps(Number(event.target.value) === 60 ? 60 : 30)}
                       className="h-10 w-full appearance-auto rounded-lg border border-white/15 bg-[#171c23] px-3 pr-2 text-xs text-white outline-none focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-400/30 disabled:opacity-50">
-                      <option value={30}>30 FPS</option>
-                      <option value={60}>60 FPS</option>
+                      <option value={60}>60 FPS · Standard</option>
+                      <option value={30}>30 FPS · Compatibility</option>
                     </select>
                   </div>
                 </div>
@@ -776,7 +776,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
                     <button type="button" onClick={() => {
                       handleAspectRatioChange('9:16');
                       chooseVideoQuality('1080-high');
-                      setFps(30);
+                      setFps(60);
                     }} className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1.5 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/20">
                       TikTok / Shorts HD preset
                     </button>
