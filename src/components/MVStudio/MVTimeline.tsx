@@ -22,6 +22,7 @@ import { WordContextBar } from './Timeline/WordContextBar';
 import { TrackHeaderMenu } from './Timeline/TrackHeaderMenu';
 import { ClipSpeedPopover } from './Timeline/ClipSpeedPopover';
 import { getClipSpeed } from '../../lib/clipSpeed';
+import { getMarqueeMVClipIds, moveMVClipGroup } from '../../lib/mvGroupMove';
 
 interface DragSession {
   target: 'clip-body' | 'clip-left' | 'clip-right' | 'lyric-body' | 'lyric-left' | 'lyric-right' | 'word-body' | 'word-left' | 'word-right';
@@ -32,6 +33,8 @@ interface DragSession {
   origEnd: number;
   origTrimStart?: number;
   pointerId: number;
+  groupIds?: string[];
+  originalClips?: TimelineClip[];
 }
 
 export function MVTimeline() {
@@ -107,6 +110,16 @@ export function MVTimeline() {
   // Selection states
   const [selectedLyricId, setSelectedLyricId] = useState<string | null>(null);
   const [selectedWordKey, setSelectedWordKey] = useState<{ lineId: string; wordIndex: number } | null>(null);
+  const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
+  const marqueeRef = useRef<{ start: number; pointerId: number; initial: string[] } | null>(null);
+  const [marqueeRange, setMarqueeRange] = useState<{ start: number; end: number } | null>(null);
+  const groupDeltaRef = useRef(0);
+  useEffect(() => {
+    setSelectedClipIds(ids => {
+      const next = ids.filter(id => timelineClips.some(clip => clip.id === id));
+      return next.length === ids.length ? ids : next;
+    });
+  }, [timelineClips]);
 
   // Track Visibility & Mute States
   const [visTrackVisible, setVisTrackVisible] = useState(true);
@@ -349,6 +362,24 @@ export function MVTimeline() {
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
   };
 
+  // Drag a selection rectangle across the empty VIS lane. Locked clips are
+  // excluded because they cannot be moved, even when the rectangle covers them.
+  const handleMarqueePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || visTrackLocked || e.pointerType === 'touch' || !containerRef.current) return;
+    if (dragSessionRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const position = Math.max(0, Math.min(duration, (e.clientX - rect.left) / rect.width * duration));
+    const initial = e.shiftKey || e.ctrlKey || e.metaKey ? selectedClipIds : [];
+    marqueeRef.current = { start: position, pointerId: e.pointerId, initial };
+    setMarqueeRange({ start: position, end: position });
+    if (!initial.length) {
+      setSelectedClipIds([]);
+      setSelectedClipId(null);
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  };
+
   // Pointer Down for Dragging Visual Clip
   const handleClipPointerDown = (
     e: React.PointerEvent,
@@ -358,6 +389,20 @@ export function MVTimeline() {
     if (e.button !== 0) return;
     if (clip.locked || visTrackLocked) return;
     e.stopPropagation();
+
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      const updated = selectedClipIds.includes(clip.id)
+        ? selectedClipIds.filter(id => id !== clip.id)
+        : [...selectedClipIds, clip.id];
+      setSelectedClipIds(updated);
+      setSelectedClipId(updated[updated.length - 1] ?? null);
+      setSelectedLyricId(null);
+      setSelectedWordKey(null);
+      return;
+    }
+    const moveGroup = type === 'clip-body' &&
+      selectedClipIds.length > 1 && selectedClipIds.includes(clip.id);
+    if (!moveGroup) setSelectedClipIds([clip.id]);
     e.currentTarget.setPointerCapture(e.pointerId);
 
     setSelectedClipId(clip.id);
@@ -372,7 +417,10 @@ export function MVTimeline() {
       origEnd: clip.endTime,
       origTrimStart: clip.trimStart,
       pointerId: e.pointerId,
+      groupIds: moveGroup ? selectedClipIds : undefined,
+      originalClips: moveGroup ? [...timelineClips] : undefined
     };
+    groupDeltaRef.current = 0;
     setActiveDragId(clip.id);
   };
 
@@ -431,6 +479,17 @@ export function MVTimeline() {
 
   // Global Pointer Move for Dragging Clips / Lyrics / Words
   const handleGlobalPointerMove = useCallback((e: React.PointerEvent) => {
+    const marquee = marqueeRef.current;
+    if (marquee && e.pointerId === marquee.pointerId && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const position = Math.max(0, Math.min(duration, (e.clientX - rect.left) / rect.width * duration));
+      setMarqueeRange({ start: marquee.start, end: position });
+      const found = getMarqueeMVClipIds(timelineClips, marquee.start, position);
+      const ids = Array.from(new Set([...marquee.initial, ...found]));
+      setSelectedClipIds(ids);
+      setSelectedClipId(ids[0] ?? null);
+      return;
+    }
     const session = dragSessionRef.current;
     if (!session || !containerRef.current || duration <= 0) return;
 
@@ -456,6 +515,32 @@ export function MVTimeline() {
 
     // 1. VISUAL CLIP DRAG / RESIZE
     if (session.target.startsWith('clip')) {
+      if (session.target === 'clip-body' && session.groupIds && session.originalClips) {
+        let groupDelta = deltaTime;
+        if (snappingEnabled) {
+          const group = new Set(session.groupIds);
+          const anchor = session.originalClips.find(clip => clip.id === session.id);
+          if (anchor) {
+            const targets = collectSnapTargets({
+              currentTime, duration,
+              clips: session.originalClips.filter(clip => !group.has(clip.id)),
+              lyrics: displayLyrics, songAnalysis: effectiveSongAnalysis,
+              includeWords: wordsExpanded
+            });
+            const snap = calculateSnap(anchor.startTime + groupDelta, targets);
+            if (snap.isSnapped) {
+              groupDelta = snap.snappedTime - anchor.startTime;
+              setActiveSnapGuide({ time: snap.snappedTime, label: snap.target?.label || 'Group snap' });
+            } else setActiveSnapGuide(null);
+          }
+        }
+        const result = moveMVClipGroup<TimelineClip>(session.originalClips, session.groupIds, groupDelta, duration);
+        if (Math.abs(result.delta - groupDeltaRef.current) > 0.0005) {
+          groupDeltaRef.current = result.delta;
+          setTimelineClips(result.clips);
+        }
+        return;
+      }
       const clip = timelineClips.find(c => c.id === session.id);
       if (!clip) return;
 
@@ -619,10 +704,15 @@ export function MVTimeline() {
         updateWordTiming(session.id, wordIdx, session.origStart, rawEnd, false);
       }
     }
-  }, [duration, snappingEnabled, currentTime, timelineClips, displayLyrics, effectiveSongAnalysis, wordsExpanded, updateTimelineClip, videoAssets]);
+  }, [duration, snappingEnabled, currentTime, timelineClips, displayLyrics, effectiveSongAnalysis, wordsExpanded, updateTimelineClip, videoAssets, setTimelineClips, setSelectedClipId]);
 
   // Global Pointer Up: Commit to History & Clean Session
   const handleGlobalPointerUp = useCallback((e: React.PointerEvent) => {
+    if (marqueeRef.current?.pointerId === e.pointerId) {
+      marqueeRef.current = null;
+      setMarqueeRange(null);
+      return;
+    }
     if (dragSessionRef.current) {
       const session = dragSessionRef.current;
       if (session.target.startsWith('clip')) {
@@ -797,6 +887,14 @@ export function MVTimeline() {
       onPointerMove={handleGlobalPointerMove}
       onPointerUp={handleGlobalPointerUp}
     >
+      {/* Selected video group remains visible without requiring a second sidebar. */}
+      {selectedClipIds.length > 1 && (
+        <div role="status" className="flex items-center justify-between gap-2 border-b border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[10px] text-emerald-200">
+          <span className="truncate">{selectedClipIds.length} clips selected · drag any selected clip to move together · Shift/Ctrl-click to adjust</span>
+          <button type="button" onClick={() => { setSelectedClipIds([]); setSelectedClipId(null); }}
+            className="shrink-0 rounded border border-emerald-500/40 px-2 py-0.5 hover:bg-emerald-500/15">Clear</button>
+        </div>
+      )}
       {/* ========================================================================= */}
       {/* TOP TOOLBAR */}
       {/* ========================================================================= */}
@@ -1245,7 +1343,10 @@ export function MVTimeline() {
         <div 
           ref={scrollWrapperRef}
           className="flex-1 relative overflow-x-auto overflow-y-hidden"
-          onClick={() => {
+          onClick={(e) => {
+            // The VIS lane handles its own selection and marquee gestures.
+            if ((e.target as HTMLElement).closest('[data-mv-vis-lane]')) return;
+            setSelectedClipIds([]);
             setSelectedClipId(null);
             setSelectedLyricId(null);
             setSelectedWordKey(null);
@@ -1306,6 +1407,8 @@ export function MVTimeline() {
               {/* ----------------------------------------------------------------- */}
               <div 
                 ref={trackRef}
+                data-mv-vis-lane
+                onPointerDown={handleMarqueePointerDown}
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
                 onDrop={handleDropOnVisTrack}
                 className={`h-16 relative border-b border-[#232933] bg-[#0a0c0f] group/vis ${visTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}
@@ -1317,12 +1420,20 @@ export function MVTimeline() {
                   </div>
                 )}
 
+                {/* Highlighted time span while mouse-drag selecting clips. */}
+                {marqueeRange && (
+                  <div aria-hidden="true" className="absolute top-0 bottom-0 z-30 border border-emerald-400/80 bg-emerald-400/15 pointer-events-none"
+                    style={{
+                      left: `${(Math.min(marqueeRange.start, marqueeRange.end) / duration) * 100}%`,
+                      width: `${(Math.abs(marqueeRange.end - marqueeRange.start) / duration) * 100}%`
+                    }} />
+                )}
                 {/* Render Visual Clips */}
                 {timelineClips.map((clip) => {
                   const asset = videoAssets.find(v => v.id === clip.assetId);
                   const left = (clip.startTime / duration) * 100;
                   const width = Math.max(0.2, ((clip.endTime - clip.startTime) / duration) * 100);
-                  const isSelected = clip.id === selectedClipId;
+                  const isSelected = selectedClipIds.includes(clip.id) || clip.id === selectedClipId;
                   const isVinyl = clip.type === 'vinyl-lyrics' || clip.assetId === 'vinyl-lyrics';
                   const isVisualizer = clip.type === 'visualizer' || clip.assetId === 'visualizer';
                   const isImage = clip.type === 'image';
@@ -1347,13 +1458,19 @@ export function MVTimeline() {
                       key={clip.id}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedClipId(clip.id);
-                        setSelectedLyricId(null);
-                        setSelectedWordKey(null);
+                        // Pointer-down owns selection, including Shift/Ctrl toggling.
+                        // Retain a keyboard-only selection path for accessibility.
+                        if (e.detail === 0) {
+                          setSelectedClipIds([clip.id]);
+                          setSelectedClipId(clip.id);
+                          setSelectedLyricId(null);
+                          setSelectedWordKey(null);
+                        }
                       }}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setSelectedClipIds([clip.id]);
                         setSelectedClipId(clip.id);
                         setSelectedLyricId(null);
                         setSelectedWordKey(null);

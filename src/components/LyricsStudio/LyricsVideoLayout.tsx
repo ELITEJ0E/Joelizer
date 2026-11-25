@@ -24,7 +24,7 @@ import { saveLyricsBackgroundImage, loadLyricsBackgroundImage, clearLyricsBackgr
 import {
   Play, Pause, Check, Upload, RotateCcw, RotateCw, Maximize2, Minimize2,
   Sparkles, Type, Film, Image as ImageIcon, Music, Sliders, Palette,
-  SkipBack, SkipForward, Repeat, ChevronDown, ChevronUp, FolderPlus
+  SkipBack, SkipForward, Repeat, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FolderPlus
 } from 'lucide-react';
 
 /**
@@ -349,6 +349,8 @@ export function LyricsVideoLayout() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const backgroundStripRef = useRef<HTMLDivElement>(null);
+  const mobileBackgroundStripRef = useRef<HTMLDivElement>(null);
   const [showBackgroundImport, setShowBackgroundImport] = useState(false);
   const [isDraggingBackground, setIsDraggingBackground] = useState(false);
   const [backgroundUploadError, setBackgroundUploadError] = useState<string | null>(null);
@@ -770,7 +772,9 @@ export function LyricsVideoLayout() {
                     </div>}
 
                     {/* 3-Row Horizontal Scrolling Carousel for Mobile */}
-                    <div className="grid grid-rows-3 grid-flow-col auto-cols-[100px] gap-1.5 overflow-x-auto pb-1.5 no-scrollbar select-none h-[200px]">
+                    <div ref={mobileBackgroundStripRef} aria-label="Background presets, scroll horizontally"
+                      className="grid grid-rows-3 grid-flow-col auto-cols-[100px] gap-1.5 overflow-x-auto pb-3 select-none h-[200px]"
+                      style={{ scrollbarWidth: 'auto', scrollbarColor: '#4b596b #151c24' }}>
                       {BACKGROUND_PRESETS.map((bg) => {
                         const isSongCover = bg.id === 'cover';
                         const isSelected = isSongCover
@@ -970,7 +974,8 @@ export function LyricsVideoLayout() {
           </div>
 
           {sidebarTab === 'settings' ? (
-            <div className="flex-1 -mx-3.5 -my-3.5 h-full space-y-3 overflow-y-auto">
+            <div className="flex-1 min-h-0 space-y-3 overflow-y-auto custom-scrollbar pb-4">
+              <p className="text-[11px] leading-relaxed text-[#9caabd]">Fine-tune effects and video settings. Expand only what you need.</p>
               <OverlayEffectsPanel mode="lyrics-video" />
               <GlobalSettingsPanel />
             </div>
@@ -1113,7 +1118,7 @@ export function LyricsVideoLayout() {
                     <span>Background</span>
                   </label>
                   <span className="text-[10px] font-mono text-[#5e6877]">
-                    {BACKGROUND_PRESETS.length + 1} styles · scroll
+                    {BACKGROUND_PRESETS.length + 1} presets
                   </span>
                 </div>
 
@@ -1123,8 +1128,25 @@ export function LyricsVideoLayout() {
                   <button type="button" onClick={() => void removeSavedBackgroundImage()} className="rounded border border-red-500/30 px-2 py-1.5 text-red-300">Remove saved image</button>
                 </div>}
 
-                {/* 3-Row Horizontal Scrolling Carousel */}
-                <div className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-1.5 overflow-x-auto pb-1.5 no-scrollbar select-none h-[210px]">
+                {/* Mouse users can drag the visible scrollbar or use arrows. */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-[#8fa0b3]">Browse backdrops</span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button type="button" aria-label="Scroll backgrounds left"
+                      onClick={() => backgroundStripRef.current?.scrollBy({ left: -270, behavior: 'smooth' })}
+                      className="rounded border border-[#354153] bg-[#18212b] p-1.5 text-[#c5d3e2] hover:text-accent cursor-pointer">
+                      <ChevronLeft size={14} />
+                    </button>
+                    <button type="button" aria-label="Scroll backgrounds right"
+                      onClick={() => backgroundStripRef.current?.scrollBy({ left: 270, behavior: 'smooth' })}
+                      className="rounded border border-[#354153] bg-[#18212b] p-1.5 text-[#c5d3e2] hover:text-accent cursor-pointer">
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div ref={backgroundStripRef} aria-label="Background presets, scroll horizontally"
+                  className="grid grid-rows-3 grid-flow-col auto-cols-[104px] sm:auto-cols-[112px] gap-1.5 overflow-x-auto pb-3 select-none h-[216px]"
+                  style={{ scrollbarWidth: 'auto', scrollbarColor: '#4b596b #151c24' }}>
                   {/* Upload Custom File Card */}
                   <button
                     type="button"

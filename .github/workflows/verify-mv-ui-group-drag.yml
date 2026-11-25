@@ -1,0 +1,46 @@
+name: Verify MV Multi-Select and 60 FPS UI
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/MVStudio/**'
+      - 'src/components/LyricsStudio/LyricsVideoLayout.tsx'
+      - 'src/components/shared/OverlayEffectsPanel.tsx'
+      - 'src/components/Editor/ExportModal.tsx'
+      - 'src/lib/mvGroupMove.ts'
+      - 'src/lib/projectJsonBuilder.ts'
+      - 'src/tests/mvGroupMove.test.ts'
+      - '.github/workflows/verify-mv-ui-group-drag.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/components/MVStudio/**'
+      - 'src/components/LyricsStudio/LyricsVideoLayout.tsx'
+      - 'src/components/shared/OverlayEffectsPanel.tsx'
+      - 'src/components/Editor/ExportModal.tsx'
+      - 'src/lib/mvGroupMove.ts'
+      - 'src/lib/projectJsonBuilder.ts'
+      - 'src/tests/mvGroupMove.test.ts'
+      - '.github/workflows/verify-mv-ui-group-drag.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate marquee and collision-safe group moves
+        run: |
+          npx tsx src/tests/mvGroupMove.test.ts
+          npx tsx src/tests/clipSpeed.test.ts
+          npx tsx src/tests/mvClipMotion.test.ts
+      - name: TypeScript check
+        run: npm run lint
+      - name: Production build
+        run: npm run build

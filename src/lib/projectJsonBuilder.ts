@@ -28,7 +28,7 @@ export async function buildCanonicalProjectJson(options?: {
 
   const exportMode: ExportModeType = options?.modeOverride || lyricsVideoStore.videoMode || 'lyrics-video';
   const resolution: ExportResolutionType = options?.resolution || mainStore.exportResolutionOverride || '1080p';
-  const fps = options?.fps || 30;
+  const fps = options?.fps || 60;
   const aspectRatio = mainStore.aspectRatio || '16:9';
 
   const { width, height } = getResolutionDimensions(aspectRatio, resolution);
