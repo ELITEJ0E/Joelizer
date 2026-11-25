@@ -72,17 +72,18 @@ export function MVSettingsPanel() {
       <div className="p-3 border-b border-[#232933] shrink-0">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#f0f3f6] flex items-center gap-1.5">
           <Sliders size={13} className="text-accent" />
-          <span>Music Video Settings</span>
+          <span>Video Design & Settings</span>
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 relative z-10">
         <div className="mv-settings-anim space-y-5">
           
-          <OverlayEffectsPanel mode="music-video" />
-
+          {/* Framing follows the selected clip, so it is the first editable tool. */}
+          <p className="text-[11px] leading-relaxed text-[#8fa0b2]">Select a clip to adjust its framing, then style your lyrics. Overlay effects are available below.</p>
           {/* Video framing is an editing setting, not part of the media library. */}
           <div className="space-y-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">01 · Clip framing</h3>
             {framingClip ? (
               <VideoFramingControls
                 value={framingClip}
@@ -105,6 +106,7 @@ export function MVSettingsPanel() {
 
           {/* Unified Caption & Lyric Style */}
           <div className="pt-3 border-t border-[#232933] space-y-2.5">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">02 · Text & lyrics</h3>
             <span className="text-[10px] uppercase text-[#7e8999] font-semibold tracking-wider flex items-center gap-1.5">
               <Type size={12} className="text-accent" />
               <span>Lyric Animation & Subtitles</span>
@@ -232,6 +234,11 @@ export function MVSettingsPanel() {
             </div>
           </div>
 
+
+          <div className="space-y-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">03 · Finishing effects</h3>
+            <OverlayEffectsPanel mode="music-video" />
+          </div>
 
           <section className="space-y-2 rounded-lg border border-red-500/25 bg-red-950/10 p-3" aria-label="Saved MV project data">
             <p className="text-xs font-bold text-slate-100">Saved MV Project</p>
