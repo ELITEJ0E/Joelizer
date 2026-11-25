@@ -15,7 +15,7 @@ type StudioPanel = 'media' | 'controls' | 'settings' | 'none';
 const panels: Array<{ id: Exclude<StudioPanel, 'none'>; label: string; description: string; icon: typeof Layers }> = [
   { id: 'media', label: 'Media', description: 'Import and arrange media', icon: Layers },
   { id: 'controls', label: 'Auto Edit', description: 'Automatic cutting and effects', icon: SlidersHorizontal },
-  { id: 'settings', label: 'Settings', description: 'Video and scene settings', icon: Settings2 }
+  { id: 'settings', label: 'Design', description: 'Framing, lyric styles and overlay effects', icon: Settings2 }
 ];
 
 export function MVStudioLayout() {
