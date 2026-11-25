@@ -473,16 +473,6 @@ export function GlobalSettingsPanel() {
         className="flex h-[35px] min-h-[35px] shrink-0 items-end border-b border-[#2a333e] bg-[#0c1016] px-1">
         <div ref={tabStripRef} role="tablist" aria-label="Advanced video controls"
           onWheel={scrollByWheel}
-          onKeyDown={event => {
-            if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-            event.preventDefault();
-            const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
-            const current = buttons.findIndex(button => button === document.activeElement);
-            if (current < 0) return;
-            const next = buttons[(current + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length];
-            next.focus();
-            next.click();
-          }}
           className="studio-subtle-scroll flex min-w-0 w-full items-end gap-0.5 overflow-x-auto overscroll-x-contain pb-[2px]"
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#2b3745 transparent' }}>
           {ADVANCED_SETTINGS_TABS.map(tab => {
