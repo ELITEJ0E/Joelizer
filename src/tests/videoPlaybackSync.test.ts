@@ -1,3 +1,4 @@
+import { clampPreviewVideoTime, isPreviewFrameReady } from '../lib/mvPreviewFrames';
 import assert from 'node:assert/strict';
 import { getVideoSyncDecision } from '../lib/videoPlaybackSync';
 
@@ -41,3 +42,12 @@ console.log('video playback synchronization tests passed');
 
 assert.equal(decision(5, 5, { baseRate: 0.08 }).playbackRate, 0.08, 'Slow transition pre-roll retains effective playback rate');
 assert.ok(decision(5, 5.3, { baseRate: 8 }).playbackRate <= 8);
+
+const frame = { readyState: 2, seeking: false, currentTime: 9.99, videoWidth: 1920, videoHeight: 1080 };
+assert.equal(clampPreviewVideoTime(10.3, 10), 9.999);
+assert.equal(clampPreviewVideoTime(2, Infinity), 2);
+assert.equal(isPreviewFrameReady(frame, 9.999, 1), true);
+assert.equal(isPreviewFrameReady({ ...frame, seeking: true }, 9.999, 1), false);
+assert.equal(isPreviewFrameReady({ ...frame, readyState: 1 }, 9.999, 1), false);
+assert.equal(isPreviewFrameReady({ ...frame, videoWidth: 0 }, 9.999, 1), false);
+assert.equal(isPreviewFrameReady(frame, 1, 1), false);
