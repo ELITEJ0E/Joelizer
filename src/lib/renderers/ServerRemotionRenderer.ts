@@ -1,3 +1,4 @@
+import { requiresMVAudioMix } from '../mvAudioMix';
 import { VideoRenderer, RenderProgress, RendererType } from './types';
 import { CanonicalProjectJson } from '../../types/projectJson';
 import { getRenderServerOrigin, renderApiUrl } from '../renderBackend';
@@ -28,6 +29,7 @@ export class ServerRemotionRenderer implements VideoRenderer {
     onProgress: (progress: RenderProgress) => void,
     signal?: AbortSignal
   ): Promise<{ outputUrl: string; fileSize?: number }> {
+    if (requiresMVAudioMix(project)) throw new Error('Custom MV audio mixing requires Frame-accurate Browser MP4.');
     // Use a persistent render server. Background tab throttling cannot affect
     // server-side frame rendering even if the browser is minimized.
     const origin = getRenderServerOrigin();

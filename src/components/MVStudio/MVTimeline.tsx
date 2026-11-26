@@ -1,3 +1,4 @@
+import { clipAudioGain } from '../../lib/mvAudioMix';
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useStore, LyricLine } from '../../store/useStore';
 import { audioManager } from '../../lib/audio';
@@ -127,8 +128,14 @@ export function MVTimeline() {
   const [lyrTrackVisible, setLyrTrackVisible] = useState(true);
   const [lyrTrackLocked, setLyrTrackLocked] = useState(false);
   const [wordsExpanded, setWordsExpanded] = useState(false);
-  const [audioMuted, setAudioMuted] = useState(false);
-  const [audioVolume, setAudioVolume] = useState(1);
+  const audioMuted = useMVStore(s => s.soundtrackMuted);
+  const audioVolume = useMVStore(s => s.soundtrackVolume);
+  const setAudioMuted = useMVStore(s => s.setSoundtrackMuted);
+  const setAudioVolume = useMVStore(s => s.setSoundtrackVolume);
+  const showWaveform = useMVStore(s => s.showSoundtrackWaveform);
+  const setShowWaveform = useMVStore(s => s.setShowSoundtrackWaveform);
+  const videoClipsWithAudio = timelineClips.filter(c => c.type === 'video' || (!c.type && videoAssets.some(a => a.id === c.assetId && a.type === 'video')));
+  const anyClipAudioEnabled = videoClipsWithAudio.some(c => !c.locked && c.audioMuted === false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [activeTrackMenu, setActiveTrackMenu] = useState<'vis' | 'lyr' | 'aud' | null>(null);
 
@@ -842,34 +849,20 @@ export function MVTimeline() {
       if (action === 'reset-volume') {
         setAudioVolume(1);
         setAudioMuted(false);
-        const audioEl = document.querySelector('audio');
-        if (audioEl) {
-          audioEl.volume = 1;
-          audioEl.muted = false;
-        }
+
       }
     }
   };
 
-  // Toggle Audio Mute
-  const handleToggleMute = () => {
-    const newMuted = !audioMuted;
-    setAudioMuted(newMuted);
-    const audioEl = document.querySelector('audio');
-    if (audioEl) audioEl.muted = newMuted;
-  };
-
-  // Volume Change
+  const handleToggleMute = () => setAudioMuted(!audioMuted);
   const handleVolumeChange = (vol: number) => {
     setAudioVolume(vol);
-    const audioEl = document.querySelector('audio');
-    if (audioEl) {
-      audioEl.volume = vol;
-      if (vol > 0 && audioMuted) {
-        setAudioMuted(false);
-        audioEl.muted = false;
-      }
-    }
+    if (vol > 0 && audioMuted) setAudioMuted(false);
+  };
+  const toggleAllClipAudio = () => {
+    const ids = new Set(videoClipsWithAudio.filter(c => !c.locked).map(c => c.id));
+    setTimelineClips(timelineClips.map(c => ids.has(c.id) ? { ...c, audioMuted: anyClipAudioEnabled, manuallyEdited: true, editOrigin: 'manual' } : c));
+    commitTimeline();
   };
 
   // Selected Clip Object
@@ -1196,6 +1189,12 @@ export function MVTimeline() {
                 >
                   {visTrackVisible ? <Eye size={11} /> : <EyeOff size={11} className="text-[#7e8999]/40" />}
                 </button>
+                <button type="button" onClick={toggleAllClipAudio} disabled={!videoClipsWithAudio.some(c => !c.locked)}
+                  aria-label={anyClipAudioEnabled ? 'Mute video clips' : 'Unmute video clips'}
+                  title={anyClipAudioEnabled ? 'Mute unlocked video clips' : 'Unmute unlocked video clips'}
+                  className={`p-0.5 cursor-pointer disabled:opacity-30 ${anyClipAudioEnabled ? 'text-accent' : 'text-[#7e8999]'}`}>
+                  {anyClipAudioEnabled ? <Volume2 size={11} /> : <VolumeX size={11} />}
+                </button>
                 <button
                   onClick={() => setVisTrackLocked(!visTrackLocked)}
                   title={visTrackLocked ? 'Unlock track' : 'Lock track'}
@@ -1303,10 +1302,17 @@ export function MVTimeline() {
                 </button>
                 <button
                   onClick={handleToggleMute}
-                  title={audioMuted ? 'Unmute' : 'Mute'}
+                  title={audioMuted ? 'Unmute soundtrack' : 'Mute soundtrack'}
+                  aria-label={audioMuted ? 'Unmute soundtrack' : 'Mute soundtrack'}
                   className={`p-0.5 cursor-pointer ${audioMuted ? 'text-red-400' : 'text-accent'}`}
                 >
                   {audioMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
+                </button>
+                <button type="button" onClick={() => setShowWaveform(!showWaveform)}
+                  title={showWaveform ? 'Hide soundtrack waveform' : 'Show soundtrack waveform'}
+                  aria-label={showWaveform ? 'Hide soundtrack waveform' : 'Show soundtrack waveform'}
+                  className="p-0.5 text-[#7e8999] hover:text-white cursor-pointer">
+                  {showWaveform ? <Eye size={11} /> : <EyeOff size={11} />}
                 </button>
                 <button
                   onClick={() => setShowVolumeSlider(!showVolumeSlider)}
@@ -1477,7 +1483,7 @@ export function MVTimeline() {
                         setSpeedMenu({ id: clip.id, x: e.clientX, y: e.clientY });
                       }}
                       onPointerDown={(e) => handleClipPointerDown(e, clip, 'clip-body')}
-                      className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-all select-none ${
+                      className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-colors select-none ${
                         clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
                       } ${
                         isSelected 
@@ -1522,6 +1528,7 @@ export function MVTimeline() {
                         {Math.abs(getClipSpeed(clip) - 1) > 0.001 && (
                           <span className="shrink-0 ml-1 rounded bg-emerald-950/80 px-1 text-emerald-300">{getClipSpeed(clip).toFixed(2)}×</span>
                         )}
+                        {(clip.type === 'video' || asset?.type === 'video') && (clipAudioGain(clip) > 0 ? <Volume2 size={10} className="text-emerald-300 shrink-0" /> : <VolumeX size={10} className="text-[#8d98a8] shrink-0" />)}
                         {clip.locked && <Lock size={10} className="text-amber-400 shrink-0" />}
                       </div>
 
@@ -1670,7 +1677,7 @@ export function MVTimeline() {
               <div className="h-12 relative bg-emerald-950/20 border-b border-white/10"
                 onContextMenu={event => { event.preventDefault(); event.stopPropagation(); setSoundtrackSpeedMenu({ x: event.clientX, y: event.clientY }); }}>
                 {/* Waveform Visualization */}
-                <div className="absolute inset-y-1 left-0 flex items-center opacity-70 pointer-events-none"
+                <div className={`absolute inset-y-1 left-0 flex items-center pointer-events-none ${audioMuted ? 'opacity-25' : 'opacity-70'} ${showWaveform ? '' : 'hidden'}`}
                   style={{ width: `${Math.min(100, (rawAudioDuration / soundtrackSpeed / duration) * 100)}%` }}>
                   {waveformPeaks && waveformPeaks.length > 0 ? (
                     <svg preserveAspectRatio="none" viewBox={`0 0 ${waveformPeaks.length} 100`} className="w-full h-full fill-emerald-400">
@@ -1685,7 +1692,7 @@ export function MVTimeline() {
                   )}
                 </div>
                 <span className="absolute left-2 top-0.5 rounded bg-[#0d231b]/90 px-1 text-[9px] font-mono font-semibold text-emerald-300 pointer-events-none">
-                  Audio · {soundtrackSpeed.toFixed(2)}×
+                  {audioMuted ? 'Muted' : 'Audio'} · {soundtrackSpeed.toFixed(2)}×
                 </span>
 
                 {/* Subtle Beat Grid Ticks Overlay */}
@@ -1805,6 +1812,12 @@ export function MVTimeline() {
               setSelectedClipId(null);
               commitTimeline();
             }}
+            onToggleAudio={videoClipsWithAudio.some(c => c.id === selectedClip.id) ? () => {
+              updateTimelineClip(selectedClip.id, { audioMuted: selectedClip.audioMuted === false });
+              commitTimeline();
+            } : undefined}
+            onAudioVolume={value => { updateTimelineClip(selectedClip.id, { audioVolume: value }); }}
+            onAudioCommit={commitTimeline}
             onUpdateEffect={(fx) => {
               updateTimelineClip(selectedClip.id, { effect: fx });
               commitTimeline();

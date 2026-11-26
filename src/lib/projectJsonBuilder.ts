@@ -126,6 +126,8 @@ export async function buildCanonicalProjectJson(options?: {
       trimStart: Number(clip.trimStart.toFixed(3)),
       trimEnd: Number(clip.trimEnd.toFixed(3)),
       speed: clip.speed ?? 1,
+      audioMuted: clip.audioMuted !== false,
+      audioVolume: clip.audioVolume ?? 1,
       fit: clip.fit,
       zoom: clip.zoom,
       heightScale: clip.heightScale,
@@ -176,6 +178,8 @@ export async function buildCanonicalProjectJson(options?: {
     audio: {
       url: stagedAudioUrl,
       speed: soundtrackSpeed,
+      muted: exportMode === 'music-video' && mvStore.soundtrackMuted,
+      volume: exportMode === 'music-video' ? mvStore.soundtrackVolume : 1,
       audioDataUri: null,
       title: currentTrack?.name || mainStore.name || 'Untitled Song',
       artist: currentTrack?.artist || 'Joelizer Studio',

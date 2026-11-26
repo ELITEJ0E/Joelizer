@@ -1,3 +1,4 @@
+import { requiresMVAudioMix } from '../mvAudioMix';
 import { getExportVideoBitrate } from './exportQuality';
 import { drawOverlayEffects } from '../overlayEffects';
 import { VideoRenderer, RenderProgress, RendererType } from './types';
@@ -25,6 +26,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
     onProgress: (progress: RenderProgress) => void,
     signal?: AbortSignal
   ): Promise<{ outputUrl: string; fileSize?: number }> {
+    if (requiresMVAudioMix(project)) throw new Error('Custom MV audio mixing requires Frame-accurate Browser MP4.');
     if (signal?.aborted) throw new Error('Export cancelled by user.');
     if (document.hidden) {
       throw new Error('Browser recording needs a visible tab. Use Server Remotion for focus-independent, highest-quality export.');

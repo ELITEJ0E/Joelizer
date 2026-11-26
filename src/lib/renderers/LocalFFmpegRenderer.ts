@@ -1,3 +1,4 @@
+import { requiresMVAudioMix } from '../mvAudioMix';
 import { VideoRenderer, RenderProgress, RendererType } from './types';
 import { CanonicalProjectJson } from '../../types/projectJson';
 
@@ -23,6 +24,7 @@ export class LocalFFmpegRenderer implements VideoRenderer {
     project: CanonicalProjectJson,
     onProgress: (progress: RenderProgress) => void
   ): Promise<{ outputUrl: string; fileSize?: number }> {
+    if (requiresMVAudioMix(project)) throw new Error('Custom MV audio mixing requires Frame-accurate Browser MP4.');
     onProgress({
       stage: 'preparing',
       stageMessage: 'Connecting to Local FFmpeg Engine (Port 4000)...',

@@ -22,6 +22,8 @@ export interface CanonicalLyricLine {
 export interface CanonicalAudioTrack {
   url: string | null;
   speed?: number; // Master soundtrack speed in MV Studio (1 = normal)
+  muted?: boolean;
+  volume?: number;
   audioDataUri?: string | null; // For local user audio files embedded safely
   title: string;
   artist: string;
@@ -111,6 +113,8 @@ export interface CanonicalVideoClip {
   trimStart: number; // Internal trim start
   trimEnd: number;   // Internal trim end
   speed?: number;    // Source seconds per timeline second (1 = normal)
+  audioMuted?: boolean;
+  audioVolume?: number;
   fit?: 'cover' | 'contain';
   zoom?: number;
   heightScale?: number;
