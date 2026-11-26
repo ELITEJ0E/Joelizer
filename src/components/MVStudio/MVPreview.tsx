@@ -2,7 +2,7 @@ import { useOverlayEffectsStore } from '../../store/useOverlayEffectsStore';
 import { drawOverlayEffects } from '../../lib/overlayEffects';
 import { getEffectiveMVTransition } from '../../lib/mvTransitionSettings';
 import { getVideoSyncDecision } from '../../lib/videoPlaybackSync';
-import { clipSourceTime, getClipSpeed } from '../../lib/clipSpeed';
+import { getMVActiveClip, getMVTransitionLead, getMVTransitionPlaybackRate, getMVTransitionSourceTime, getMVTransitionProgress, applyMVTransitionVisual } from '../../lib/mvTransitionTiming';
 import { getMVClipMotion, applyMVClipMotion } from '../../lib/mvClipMotion';
 import { resolveMVLyricsStyle } from '../../lib/mvLyricsStyle';
 import { layoutMVCaption, drawMVCaption, MVCaptionLayout } from '../../lib/mvCaptionLayout';
@@ -41,7 +41,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const storeVideoMode = useLyricsVideoStore(s => s.videoMode);
   const videoMode = mode || storeVideoMode;
   
-  const activeClip = timelineClips.find(c => currentTime >= c.startTime && currentTime <= c.endTime);
+  const activeClip = getMVActiveClip(timelineClips, currentTime);
   const isVinylScene = activeClip && (activeClip.type === 'vinyl-lyrics' || activeClip.assetId === 'vinyl-lyrics');
   const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
   const activeAssetType = videoAssets.find(a => a.id === activeClip?.assetId)?.type;
@@ -353,7 +353,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         // 2. Find Active Timeline Clip at current time
         const clips = mvState.timelineClips;
         const assets = mvState.videoAssets;
-        const activeClip = clips.find(c => curTime >= c.startTime && curTime < c.endTime);
+        const activeClip = getMVActiveClip(clips, curTime);
         // Inactive HTML video sources must not keep decoding in the background.
         // Otherwise each transition consumes an additional decoder and the
         // canvas recording drops frames progressively as the edit gets longer.
@@ -368,25 +368,26 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         const incomingTransition = nextClip ? getEffectiveMVTransition(
           nextClip, mvState.autoTransitions, mvState.defaultTransition, mvState.transitionDuration
         ) : null;
-        const transitionLead = nextClip && incomingTransition?.type !== 'cut' &&
-          Math.abs(activeClip!.endTime - nextClip.startTime) < 0.05
-          ? Math.min(incomingTransition!.duration, (activeClip!.endTime - activeClip!.startTime) / 2,
-            (nextClip.endTime - nextClip.startTime) / 2) : 0;
+        const transitionLead = getMVTransitionLead(activeClip, nextClip, incomingTransition?.type, incomingTransition?.duration);
         const blendingIncoming = !!(nextClip && transitionLead > 0 &&
           curTime >= nextClip.startTime - transitionLead && curTime < nextClip.startTime);
         // Look ahead to the upcoming cut. Load/seek the next frame before it
         // becomes active; no overlap or duplicated playback is necessary.
-        const prewarmNext = playing && !blendingIncoming && nextClip && nextAsset?.type === 'video' &&
+        const prewarmNext = !blendingIncoming && nextClip && nextAsset?.type === 'video' &&
           !!nextAsset.url && nextClip.startTime >= curTime &&
           nextClip.startTime - curTime <= 3;
         if (prewarmNext) {
           const nextVideo = ensureClipVideo(nextClip.id, nextAsset.url);
           if (!nextVideo.seeking && nextVideo.readyState >= 1) {
-            const desired = nextClip.trimStart;
+            const desired = getMVTransitionSourceTime(nextClip, nextClip.startTime - transitionLead, transitionLead);
             if (Math.abs(nextVideo.currentTime - desired) > 0.075) {
               try { nextVideo.currentTime = desired; } catch (_) {}
             }
           }
+        }
+        if (nextAsset?.type === 'image' && nextAsset.url && !imageElementsRef.current.has(nextAsset.url)) {
+          const image = new Image(); image.crossOrigin = 'anonymous'; image.src = nextAsset.url;
+          imageElementsRef.current.set(nextAsset.url, image);
         }
         // Keep only a small decoder working set; thousands of short Auto
         // Edit cuts must not leave thousands of video elements allocated.
@@ -521,14 +522,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               const previousClip = activeIndex > 0 ? orderedVideoClips[activeIndex - 1] : undefined;
               const activeTransition = getEffectiveMVTransition(activeClip,
                 mvState.autoTransitions, mvState.defaultTransition, mvState.transitionDuration);
-              const activeLead = previousClip && activeTransition.type !== 'cut' &&
-                Math.abs(previousClip.endTime - activeClip.startTime) < 0.05
-                ? Math.min(activeTransition.duration, (previousClip.endTime - previousClip.startTime) / 2,
-                  (activeClip.endTime - activeClip.startTime) / 2) : 0;
+              const activeLead = getMVTransitionLead(previousClip, activeClip, activeTransition.type, activeTransition.duration);
               // The incoming source started during the outgoing clip's final
               // frames; keep advancing it instead of rewinding at the cut.
-              const playbackSpeed = getClipSpeed(activeClip);
-              const targetVideoTime = clipSourceTime(activeClip, curTime, activeLead);
+              const playbackSpeed = getMVTransitionPlaybackRate(activeClip, activeLead);
+              const targetVideoTime = getMVTransitionSourceTime(activeClip, curTime, activeLead);
               const clipChanged = lastActiveVideoClipRef.current !== activeClip.id;
               // A pending seek can overlap a cut. Keep clipChanged pending
               // until the decoder accepts its new trim offset.
@@ -651,21 +649,30 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         // Start the incoming clip during the outgoing clip's *moving* final
         // frames. A cached outgoing still caused the visible pause at each cut.
         if (activeVideoMode === 'music-video' && blendingIncoming && nextClip && nextAsset) {
-          const progress = Math.max(0, Math.min(1,
-            (curTime - (nextClip.startTime - transitionLead)) / transitionLead));
-          const eased = progress * progress * (3 - 2 * progress);
+          const progress = getMVTransitionProgress(curTime, nextClip.startTime, transitionLead);
           let incoming: HTMLVideoElement | HTMLImageElement | null = null;
           if (nextAsset.type === 'video' && nextAsset.url) {
             const video = ensureClipVideo(nextClip.id, nextAsset.url);
-            const nextSpeed = getClipSpeed(nextClip);
-            const desired = clipSourceTime(nextClip, nextClip.startTime, progress * transitionLead);
-            if (Math.abs(video.playbackRate - nextSpeed) > 0.005) video.playbackRate = nextSpeed;
-            if (!video.seeking && Math.abs(video.currentTime - desired) > 0.18) {
-              try { video.currentTime = desired; } catch (_) {}
+            const nextSpeed = getMVTransitionPlaybackRate(nextClip, transitionLead);
+            const desired = getMVTransitionSourceTime(nextClip, curTime, transitionLead);
+            const sync = getVideoSyncDecision({ targetTime: desired, actualTime: video.currentTime,
+              clipChanged: false, playing, seeking: video.seeking, baseRate: nextSpeed });
+            if (sync.seekTo !== null && !video.seeking) {
+              try { video.currentTime = sync.seekTo; } catch (_) {}
             }
+            if (Math.abs(video.playbackRate - sync.playbackRate) > 0.005) video.playbackRate = sync.playbackRate;
             if (playing && video.paused) video.play().catch(() => {});
             if (!playing && !video.paused) video.pause();
-            if (video.readyState >= 2) incoming = video;
+            if (video.readyState >= 2 && !video.seeking &&
+                Math.abs(video.currentTime - desired) < Math.max(0.3, 0.14 * nextSpeed)) incoming = video;
+            else if (nextAsset.thumbnail) {
+              let thumb = imageElementsRef.current.get(nextAsset.thumbnail);
+              if (!thumb) {
+                thumb = new Image(); thumb.crossOrigin = 'anonymous'; thumb.src = nextAsset.thumbnail;
+                imageElementsRef.current.set(nextAsset.thumbnail, thumb);
+              }
+              if (thumb.complete && thumb.naturalWidth > 0) incoming = thumb;
+            }
           } else if (nextAsset.type === 'image' && nextAsset.url) {
             let img = imageElementsRef.current.get(nextAsset.url);
             if (!img) {
@@ -676,19 +683,17 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           }
           if (incoming) {
             ctx.save();
-            ctx.globalAlpha = eased;
-            if (incomingTransition?.type === 'morph') {
-              ctx.filter = `blur(${Math.sin(progress * Math.PI) * Math.min(W, H) * 0.004}px)`;
+            try {
+              applyMVTransitionVisual(ctx, incomingTransition?.type ?? 'cut', progress, W, H);
+              applyMVClipMotion(ctx, getMVClipMotion(nextClip.effect, 0, W, H), W, H);
+              drawFramedMedia(ctx, incoming, W, H,
+                incoming instanceof HTMLVideoElement ? incoming.videoWidth : incoming.naturalWidth,
+                incoming instanceof HTMLVideoElement ? incoming.videoHeight : incoming.naturalHeight, nextClip);
+            } catch (error) {
+              console.warn('[MVPreview] Incoming frame not ready:', error);
+            } finally {
+              ctx.restore();
             }
-            if (incomingTransition?.type === 'slide') ctx.translate(W * (1 - eased), 0);
-            if (incomingTransition?.type === 'zoom' || incomingTransition?.type === 'morph') {
-              const scale = 1.2 - 0.2 * eased;
-              ctx.translate(W / 2, H / 2); ctx.scale(scale, scale); ctx.translate(-W / 2, -H / 2);
-            }
-            drawFramedMedia(ctx, incoming, W, H,
-              incoming instanceof HTMLVideoElement ? incoming.videoWidth : incoming.naturalWidth,
-              incoming instanceof HTMLVideoElement ? incoming.videoHeight : incoming.naturalHeight, nextClip);
-            ctx.restore();
           }
         }
 

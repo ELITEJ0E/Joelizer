@@ -1,3 +1,4 @@
+import { getMVActiveClip, getMVTransitionLead, getMVTransitionPlaybackRate, getMVTransitionProgress, getMVTransitionVisual } from '../lib/mvTransitionTiming';
 import { getOverlayLayers } from '../lib/overlayEffects';
 import React from 'react';
 import { 
@@ -42,7 +43,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   };
 
   // Find active video clip for timeline mode
-  const activeClip = videoClips?.find(c => currentTime >= c.startTime && currentTime < c.endTime);
+  const activeClip = getMVActiveClip(videoClips || [], currentTime);
 
   // Blend the incoming clip into the outgoing clip's last moving frames,
   // completing the transition at the cut rather than freezing footage after it.
@@ -50,27 +51,18 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   const activeIndex = activeClip ? orderedClips.findIndex(c => c.id === activeClip.id) : -1;
   const previousClip = activeIndex > 0 ? orderedClips[activeIndex - 1] : undefined;
   const incomingClip = activeIndex >= 0 ? orderedClips[activeIndex + 1] : undefined;
-  const clipLead = (incoming: CanonicalVideoClip | undefined, outgoing: CanonicalVideoClip | undefined) =>
-    incoming && outgoing && incoming.transition !== 'cut' &&
-    Math.abs(outgoing.endTime - incoming.startTime) < 0.05
-      ? Math.min(incoming.transitionDuration ?? 0.5, incoming.duration / 2, outgoing.duration / 2) : 0;
-  const activeLead = clipLead(activeClip, previousClip);
-  const transitionLength = clipLead(incomingClip, activeClip);
+  const activeLead = getMVTransitionLead(previousClip, activeClip, activeClip?.transition, activeClip?.transitionDuration);
+  const transitionLength = getMVTransitionLead(activeClip, incomingClip, incomingClip?.transition, incomingClip?.transitionDuration);
   const transitionType = incomingClip?.transition || 'cut';
   const transitionActive = !!(incomingClip && transitionLength > 0 &&
     currentTime >= incomingClip.startTime - transitionLength && currentTime < incomingClip.startTime);
-  const transitionProgress = transitionActive
-    ? Math.max(0, Math.min(1, (currentTime - (incomingClip!.startTime - transitionLength)) / transitionLength)) : 1;
-  const transitionEase = transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
+  const transitionProgress = transitionActive && incomingClip
+    ? getMVTransitionProgress(currentTime, incomingClip.startTime, transitionLength) : 1;
+  const visual = getMVTransitionVisual(transitionType, transitionProgress, width, height);
   const incomingStyle: React.CSSProperties = {
-    position: 'absolute', inset: 0,
-    opacity: transitionEase,
-    transform: transitionType === 'slide' ? `translateX(${100 * (1 - transitionEase)}%)` :
-      transitionType === 'zoom' || transitionType === 'morph'
-        ? `scale(${1.2 - 0.2 * transitionEase})` : undefined,
-    filter: transitionType === 'glitch' ? `hue-rotate(${transitionEase * 45}deg)` :
-      transitionType === 'morph' ? `blur(${Math.sin(transitionProgress * Math.PI) * Math.min(width, height) * 0.004}px)` : undefined,
-    pointerEvents: 'none'
+    position: 'absolute', inset: 0, opacity: visual.opacity,
+    transform: `translateX(${visual.x}px) scale(${visual.scale})`,
+    filter: visual.filter, pointerEvents: 'none'
   };
 
   const isVinylScene = activeClip?.type === 'vinyl-lyrics' || activeClip?.assetId === 'vinyl-lyrics';
@@ -253,7 +245,8 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
 /* Background Clip Layer for Music Video Mode */
 function BackgroundClipLayer({ clip, currentTime, exportStart, width, height, startShift = 0 }: { clip: CanonicalVideoClip; currentTime: number; exportStart: number; width: number; height: number; startShift?: number }) {
   const { fps } = useVideoConfig();
-  const clipProgress = (currentTime - clip.startTime + startShift) / clip.duration;
+  const clipProgress = (currentTime - clip.startTime) / clip.duration;
+  const playbackRate = getMVTransitionPlaybackRate(clip, startShift);
   
   // Match both live preview and offline WebCodecs geometry for video and images.
   const motion = getMVClipMotion(clip.effect, clipProgress, width, height);
@@ -281,9 +274,9 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height, st
             src={clip.url}
             muted
             style={mediaStyle}
-            playbackRate={clip.speed ?? 1}
+            playbackRate={playbackRate}
             startFrom={Math.round(clip.trimStart * fps)}
-            endAt={Math.round((clip.trimStart + (clip.duration + startShift) * (clip.speed ?? 1)) * fps)}
+            endAt={Math.max(Math.round(clip.trimStart * fps) + 1, Math.ceil((clip.trimStart + (clip.duration + startShift) * playbackRate) * fps))}
           />
         </Sequence>
       ) : (
