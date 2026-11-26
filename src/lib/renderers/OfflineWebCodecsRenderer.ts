@@ -1,3 +1,4 @@
+import { mvClipAudioSegments, soundtrackAudioGain } from '../mvAudioMix';
 import type { CanonicalProjectJson } from '../../types/projectJson';
 import type { RenderProgress, VideoRenderer, RendererType } from './types';
 import { OfflineFrameCompositor } from './OfflineFrameCompositor';
@@ -132,33 +133,48 @@ async function resolveSupportedOutput(project: CanonicalProjectJson) {
 }
 
 async function decodeSoundtrack(project: CanonicalProjectJson, signal?: AbortSignal): Promise<AudioBuffer | null> {
-  if (!project.audio.url && !project.audio.audioDataUri) return null;
-  const uri = project.audio.audioDataUri || project.audio.url!;
-  const response = await fetch(uri, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60000)]) : AbortSignal.timeout(60000) });
-  if (!response.ok) throw new Error(`Failed to load soundtrack for offline export (HTTP ${response.status})`);
-  const bytes = await response.arrayBuffer();
-  const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-  if (!AudioContextClass) throw new Error('Web Audio is not supported by this browser.');
-  const context: AudioContext = new AudioContextClass();
-  try {
-    const decoded = await context.decodeAudioData(bytes);
-    if (signal?.aborted) throw new Error('Export cancelled by user.');
-    const frames = Math.ceil(project.exportRange.duration * SAMPLE_RATE);
-    const offline = new OfflineAudioContext(2, frames, SAMPLE_RATE);
+  const uri = project.audio.audioDataUri || project.audio.url;
+  const segments = mvClipAudioSegments(project);
+  if (!uri && !segments.length) return null;
+  const frames = Math.ceil(project.exportRange.duration * SAMPLE_RATE);
+  const offline = new OfflineAudioContext(2, frames, SAMPLE_RATE);
+  const decode = async (url: string) => {
+    const response = await fetch(url, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60000)]) : AbortSignal.timeout(60000) });
+    if (!response.ok) throw new Error(`Failed to load audio (HTTP ${response.status})`);
+    return offline.decodeAudioData(await response.arrayBuffer());
+  };
+  const schedule = (buffer: AudioBuffer, gain: number, rate: number, when: number, offset: number, seconds: number) => {
+    if (gain <= 0 || offset >= buffer.duration || seconds <= 0) return;
     const source = offline.createBufferSource();
-    source.buffer = decoded;
-    const soundtrackSpeed = Math.max(0.1, Math.min(8, project.audio.speed ?? 1));
-    source.playbackRate.value = soundtrackSpeed;
-    source.connect(offline.destination);
-    if (project.exportRange.start * soundtrackSpeed < decoded.duration) {
-      source.start(0, project.exportRange.start * soundtrackSpeed);
-    }
-    const rendered = await offline.startRendering();
-    if (signal?.aborted) throw new Error('Export cancelled by user.');
-    return rendered;
-  } finally {
-    await context.close();
+    source.buffer = buffer;
+    source.playbackRate.value = rate;
+    const volume = offline.createGain();
+    volume.gain.value = gain;
+    source.connect(volume).connect(offline.destination);
+    source.start(when, offset, Math.min(buffer.duration-offset, seconds*rate));
+  };
+  if (uri && soundtrackAudioGain(project.audio) > 0) {
+    const decoded = await decode(uri);
+    const rate = Math.max(0.1, Math.min(8, project.audio.speed ?? 1));
+    schedule(decoded, soundtrackAudioGain(project.audio), rate, 0, project.exportRange.start*rate, project.exportRange.duration);
   }
+  const decodedClips = new Map<string, AudioBuffer>();
+  for (const segment of segments) {
+    if (signal?.aborted) throw new Error('Export cancelled by user.');
+    let buffer = decodedClips.get(segment.url);
+    if (!buffer) {
+      try { buffer = await decode(segment.url); }
+      catch { throw new Error(`Unable to decode audio for clip "${segment.id}". Mute the clip if it has no audio, or convert it to an MP4 with supported audio.`); }
+      decodedClips.set(segment.url, buffer);
+    }
+    const duration = segment.trimEnd > segment.offset
+      ? Math.min(segment.duration, (segment.trimEnd-segment.offset)/segment.rate) : segment.duration;
+    schedule(buffer, segment.gain, segment.rate, segment.start, segment.offset, duration);
+  }
+  if (signal?.aborted) throw new Error('Export cancelled by user.');
+  const rendered = await offline.startRendering();
+  if (signal?.aborted) throw new Error('Export cancelled by user.');
+  return rendered;
 }
 
 export class OfflineWebCodecsRenderer implements VideoRenderer {

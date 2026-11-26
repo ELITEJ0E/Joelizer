@@ -1,6 +1,6 @@
 import React from 'react';
 import { TimelineClip, isAutoManagedClip } from '../../../store/useMVStore';
-import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles, Gauge } from 'lucide-react';
+import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles, Gauge, Volume2, VolumeX } from 'lucide-react';
 import { getClipSpeed } from '../../../lib/clipSpeed';
 import { formatTime } from '../../../lib/utils';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../ui/select';
@@ -19,6 +19,9 @@ interface ClipContextBarProps {
   onDelete: () => void;
   onUpdateEffect?: (effect: any) => void;
   onUpdateTransition?: (transition: any) => void;
+  onToggleAudio?: () => void;
+  onAudioVolume?: (value: number) => void;
+  onAudioCommit?: () => void;
   onClose: () => void;
   onOpenSpeed: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
@@ -37,6 +40,9 @@ export function ClipContextBar({
   onDelete,
   onUpdateEffect,
   onUpdateTransition,
+  onToggleAudio,
+  onAudioVolume,
+  onAudioCommit,
   onClose,
   onOpenSpeed,
 }: ClipContextBarProps) {
@@ -56,6 +62,18 @@ export function ClipContextBar({
         <span className="text-[#7e8999]">({duration.toFixed(1)}s)</span>
       </div>
 
+      {onToggleAudio && <div className="flex items-center gap-1 pr-1 border-r border-[#232933]">
+        <button type="button" onClick={onToggleAudio} disabled={clip.locked}
+          aria-label={clip.audioMuted === false ? 'Mute clip audio' : 'Unmute clip audio'}
+          title={clip.audioMuted === false ? 'Mute clip audio' : 'Unmute clip audio'}
+          className="px-1.5 py-0.5 rounded border border-[#303846] disabled:opacity-40 text-[#c9d1d9] hover:text-white cursor-pointer">
+          {clip.audioMuted === false ? <Volume2 size={13} /> : <VolumeX size={13} />}
+        </button>
+        {clip.audioMuted === false && <input type="range" min="0" max="1" step="0.05"
+          aria-label="Clip volume" title={`Clip volume ${Math.round((clip.audioVolume ?? 1)*100)}%`}
+          disabled={clip.locked} value={clip.audioVolume ?? 1} onChange={e => onAudioVolume?.(Number(e.target.value))}
+          onPointerUp={onAudioCommit} onKeyUp={onAudioCommit} className="w-14 accent-accent" />}
+      </div>}
       {/* Split button */}
       <button type="button" onClick={onOpenSpeed} disabled={clip.locked}
         title="Edit this clip’s playback speed"

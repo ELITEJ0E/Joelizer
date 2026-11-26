@@ -1,3 +1,4 @@
+import { clampMVVolume } from '../lib/mvAudioMix';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { saveMVAssetToStorage, removeMVAssetFromStorage, loadMVAssetsFromStorage, clearMVAssetsFromStorage } from '../lib/storage';
@@ -51,6 +52,8 @@ export interface TimelineClip {
   trimEnd: number;   // End trim within media asset
   /** Source seconds played per timeline second; omitted means normal speed. */
   speed?: number;
+  audioMuted?: boolean;
+  audioVolume?: number;
   locked?: boolean;
   /** Tracks whether this clip was generated or explicitly placed by a user. */
   editOrigin?: 'auto' | 'manual';
@@ -222,6 +225,12 @@ export interface MVProjectState {
   // Timeline
   timelineClips: TimelineClip[];
   selectedClipId: string | null;
+  soundtrackMuted: boolean;
+  soundtrackVolume: number;
+  showSoundtrackWaveform: boolean;
+  setSoundtrackMuted: (muted: boolean) => void;
+  setSoundtrackVolume: (volume: number) => void;
+  setShowSoundtrackWaveform: (visible: boolean) => void;
   soundtrackSpeed: number;
   setSoundtrackSpeed: (speed: number) => void;
   autoTransitions: boolean;
@@ -314,6 +323,12 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   wordTimings: [],
   timelineClips: [],
   selectedClipId: null,
+  soundtrackMuted: false,
+  soundtrackVolume: 1,
+  showSoundtrackWaveform: true,
+  setSoundtrackMuted: (soundtrackMuted) => set({ soundtrackMuted }),
+  setSoundtrackVolume: (value) => set({ soundtrackVolume: clampMVVolume(value) }),
+  setShowSoundtrackWaveform: (showSoundtrackWaveform) => set({ showSoundtrackWaveform }),
   soundtrackSpeed: 1,
   setSoundtrackSpeed: (soundtrackSpeed) => set({ soundtrackSpeed: Number.isFinite(soundtrackSpeed)
     ? Math.max(0.1, Math.min(8, Math.round(soundtrackSpeed * 100) / 100)) : 1 }),
@@ -513,6 +528,9 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       songAnalysis: null,
       wordTimings: [],
       mediaSourceFilter: 'all',
+      soundtrackMuted: false,
+      soundtrackVolume: 1,
+      showSoundtrackWaveform: true,
       soundtrackSpeed: 1,
       style: 'Cinematic',
       pacing: 'Balanced',
@@ -702,6 +720,9 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       .map(({ file: _file, ...asset }) => asset),
     timelineClips: state.timelineClips,
     soundtrackSpeed: state.soundtrackSpeed,
+    soundtrackMuted: state.soundtrackMuted,
+    soundtrackVolume: state.soundtrackVolume,
+    showSoundtrackWaveform: state.showSoundtrackWaveform,
     autoTransitions: state.autoTransitions,
     defaultTransition: state.defaultTransition,
     transitionDuration: state.transitionDuration,

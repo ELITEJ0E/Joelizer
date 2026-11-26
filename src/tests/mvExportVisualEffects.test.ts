@@ -44,3 +44,11 @@ import { resolveTimedLyricWords } from '../lib/lyricTiming';
 const unequalWords = { text: 'I remember you', startTime: 10, endTime: 11.2 };
 const previewWords = resolveTimedLyricWords(unequalWords);
 assert.deepEqual(resolveTimedLyricWords({ ...unequalWords, words: previewWords }), previewWords);
+
+import { clipAudioGain, soundtrackAudioGain } from '../lib/mvAudioMix';
+assert.equal(clipAudioGain({}), 0, 'Legacy and new video clips are silent by default');
+assert.equal(clipAudioGain({ audioMuted: false, audioVolume: 0.25 }), 0.25);
+assert.equal(clipAudioGain({ audioMuted: true, audioVolume: 0.8 }), 0);
+assert.equal(soundtrackAudioGain({}), 1);
+assert.equal(soundtrackAudioGain({ muted: true }), 0);
+assert.equal(soundtrackAudioGain({ volume: 0.4 }), 0.4);

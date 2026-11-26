@@ -1,3 +1,4 @@
+import { clipAudioGain } from '../../lib/mvAudioMix';
 import { clampPreviewVideoTime, isPreviewFrameReady, MVPreviewFrameCache } from '../../lib/mvPreviewFrames';
 import { useOverlayEffectsStore } from '../../store/useOverlayEffectsStore';
 import { drawOverlayEffects } from '../../lib/overlayEffects';
@@ -522,6 +523,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
             if (asset.type === 'video') {
               const videoEl = ensureClipVideo(activeClip.id, asset.url);
+              const gain = activeVideoMode === 'music-video' ? clipAudioGain(activeClip) : 0;
+              videoEl.muted = gain === 0;
+              videoEl.volume = gain;
+              if ('preservesPitch' in videoEl) videoEl.preservesPitch = false;
 
               const previousClip = activeIndex > 0 ? orderedVideoClips[activeIndex - 1] : undefined;
               const activeTransition = getEffectiveMVTransition(activeClip,
@@ -671,6 +676,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           let incoming: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement | null = null;
           if (nextAsset.type === 'video' && nextAsset.url) {
             const video = ensureClipVideo(nextClip.id, nextAsset.url);
+            video.muted = true; // Visual-only pre-roll; clip audio starts at the cut.
             const nextSpeed = getMVTransitionPlaybackRate(nextClip, transitionLead);
             const desired = clampPreviewVideoTime(getMVTransitionSourceTime(nextClip, curTime, transitionLead), video.duration);
             const sync = getVideoSyncDecision({ targetTime: desired, actualTime: video.currentTime,

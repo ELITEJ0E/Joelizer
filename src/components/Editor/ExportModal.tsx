@@ -1,3 +1,4 @@
+import { clipAudioGain } from '../../lib/mvAudioMix';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
@@ -336,6 +337,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       // cannot accidentally select the laggy real-time browser recorder.
       if (!forcedEngine && targetEngine === 'browser' &&
           await new OfflineWebCodecsRenderer().isAvailable()) {
+        targetEngine = 'offline';
+        setEngineChoice('offline');
+      }
+      const mix = useMVStore.getState();
+      const customMix = exportMode === 'music-video' && (mix.soundtrackMuted || mix.soundtrackVolume !== 1 ||
+        mix.timelineClips.some(c => clipAudioGain(c) > 0));
+      if (customMix && targetEngine !== 'offline') {
+        if (!(await new OfflineWebCodecsRenderer().isAvailable())) throw new Error('Custom MV audio mixing requires Frame-accurate Browser MP4. Use Chrome or Edge with WebCodecs enabled.');
         targetEngine = 'offline';
         setEngineChoice('offline');
       }
