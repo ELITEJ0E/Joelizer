@@ -610,10 +610,10 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       if (c.id !== id || c.locked) return c;
       const edited = avoidClipCollision(c, { ...c, ...updates }, s.timelineClips);
       // A click without movement must not turn an auto clip into a manual edit.
-      if (sameClipProperties(c, edited)) return c;
+      const explicitTransition = updates.transition !== undefined || updates.transitionDuration !== undefined;
+      if (sameClipProperties(c, edited) && !(explicitTransition && !c.transitionManuallyEdited)) return c;
       return { ...edited, manuallyEdited: true, editOrigin: 'manual',
-        transitionManuallyEdited: c.transitionManuallyEdited ||
-          (updates.transition !== undefined && updates.transition !== c.transition) };
+        transitionManuallyEdited: c.transitionManuallyEdited || explicitTransition };
     })
   })),
   setClipSpeed: (id, speed) => {

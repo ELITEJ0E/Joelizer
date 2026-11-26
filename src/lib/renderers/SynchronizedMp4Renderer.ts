@@ -58,12 +58,10 @@ export async function renderSynchronizedMp4(
   // four-minute AudioBuffer in one await can saturate the muxer's packet
   // buffer before a single video packet exists and block indefinitely.
   const audioChunkSeconds = 1;
-  const copyAudioWindow = (startSeconds: number, durationSeconds: number): AudioBuffer | null => {
+  const copyAudioWindow = (firstSample: number, endSample: number): AudioBuffer | null => {
     if (!audioBuffer) return null;
-    const firstSample = Math.round(startSeconds * audioBuffer.sampleRate);
-    if (firstSample >= audioBuffer.length) return null;
-    const count = Math.min(audioBuffer.length - firstSample,
-      Math.max(1, Math.round(durationSeconds * audioBuffer.sampleRate)));
+    if (firstSample >= audioBuffer.length || endSample <= firstSample) return null;
+    const count = Math.min(audioBuffer.length - firstSample, endSample - firstSample);
     const chunk = new AudioBuffer({
       length: count, sampleRate: audioBuffer.sampleRate,
       numberOfChannels: audioBuffer.numberOfChannels
@@ -101,6 +99,7 @@ export async function renderSynchronizedMp4(
     const totalFrames = Math.max(1, Math.ceil(project.exportRange.duration * project.fps));
     const is1080pOrHigher = project.width >= 1920 || project.height >= 1080;
     let audioUntilSeconds = 0;
+    let audioUntilSample = 0;
     let lastLogTime = performance.now();
     let totalDecodeMs = 0;
     let totalEncodeMs = 0;
@@ -143,7 +142,8 @@ export async function renderSynchronizedMp4(
            index === totalFrames - 1)) {
         const nextUntil = Math.min(project.exportRange.duration,
           Math.max(videoUntilSeconds, audioUntilSeconds + audioChunkSeconds));
-        const buffer = copyAudioWindow(audioUntilSeconds, nextUntil - audioUntilSeconds);
+        const nextSample = index === totalFrames - 1 ? audioBuffer.length : Math.min(audioBuffer.length, Math.round(nextUntil * audioBuffer.sampleRate));
+        const buffer = copyAudioWindow(audioUntilSample, nextSample);
         if (buffer) {
           onProgress({
             stage: 'encoding',
@@ -152,6 +152,7 @@ export async function renderSynchronizedMp4(
           });
           await withTimeout(audioSource.add(buffer), 'Encoding AAC soundtrack');
         }
+        audioUntilSample = nextSample;
         audioUntilSeconds = nextUntil;
       }
 

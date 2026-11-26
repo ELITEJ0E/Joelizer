@@ -1,3 +1,4 @@
+import { resolveTimedLyricWords } from './lyricTiming';
 import { useStore, LyricLine } from '../store/useStore';
 import { resolvedLyricLines } from './lyricTiming';
 import {
@@ -1066,30 +1067,7 @@ function renderLyrics(
   // landscape limit (48%) was tuned for lyrics beside a vinyl record.
   const maxLineWidth = isPortrait ? W * 0.88 : W * (fontSizeScale >= 1.5 ? 0.88 : 0.48);
 
-  // Build timed words list
-  let timedWords: { word: string; startTime: number; endTime: number }[] = [];
-  if (Array.isArray(activeLine.words) && activeLine.words.length > 0) {
-    timedWords = activeLine.words.map((w, idx) => {
-      const s =
-        w.startTime ??
-        w.start ??
-        activeLine.startTime + (idx / activeLine.words!.length) * lineDuration;
-      const e = w.endTime ?? w.end ?? s + lineDuration / activeLine.words!.length;
-      return { word: w.word || '', startTime: s, endTime: e };
-    });
-  } else {
-    const rawWords = activeLine.text.trim().split(/\s+/).filter(Boolean);
-    const totalChars = rawWords.reduce((sum, w) => sum + Math.max(1, w.length), 0);
-    let currStart = activeLine.startTime;
-    timedWords = rawWords.map((word) => {
-      const fraction = Math.max(1, word.length) / Math.max(1, totalChars);
-      const dur = lineDuration * fraction;
-      const s = currStart;
-      const e = s + dur;
-      currStart = e;
-      return { word, startTime: s, endTime: e };
-    });
-  }
+  const timedWords = resolveTimedLyricWords(activeLine);
 
   // Partition timed words into sublines matching canvas layout
   const spaceWidth = ctx.measureText(' ').width;

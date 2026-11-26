@@ -16,7 +16,7 @@ export function getVideoSyncDecision(input: {
   baseRate?: number;
 }): VideoSyncDecision {
   const { targetTime, actualTime, clipChanged, playing, seeking } = input;
-  const baseRate = Math.max(0.1, Math.min(8, input.baseRate ?? 1));
+  const baseRate = Math.max(0.05, Math.min(8, input.baseRate ?? 1));
   if (!Number.isFinite(targetTime) || !Number.isFinite(actualTime)) {
     return { seekTo: null, playbackRate: baseRate };
   }
@@ -42,7 +42,7 @@ export function getVideoSyncDecision(input: {
   }
   // Gradually converge, avoiding the visible discontinuity of repeated seeks.
   if (playing && Math.abs(drift) > 0.12) {
-    return { seekTo: null, playbackRate: baseRate * Math.max(0.92, Math.min(1.08, 1 + drift * 0.12)) };
+    return { seekTo: null, playbackRate: Math.max(0.05, Math.min(8, baseRate * Math.max(0.92, Math.min(1.08, 1 + drift * 0.12)))) };
   }
   return { seekTo: null, playbackRate: baseRate };
 }

@@ -18,3 +18,25 @@ export function resolvedLyricLines<T extends LyricLine>(lines: readonly T[], son
     ? { ...line, endTime: effectiveLyricEnd(line, lines, songDuration) }
     : line);
 }
+
+/** One timing source for preview, canonical export and Remotion. Preserve
+ * explicit timestamps; match the existing live word-length fallback. */
+export function resolveTimedLyricWords(line: {
+  text: string; startTime: number; endTime: number;
+  words?: readonly { word: string; start?: number; end?: number; startTime?: number; endTime?: number }[];
+}): { word: string; startTime: number; endTime: number }[] {
+  const duration = Math.max(0.4, line.endTime - line.startTime);
+  const words = line.words;
+  if (words?.length) return words.map((word, i) => {
+    const startTime = word.startTime ?? word.start ?? line.startTime + i * duration / words.length;
+    return { word: word.word || '', startTime, endTime: word.endTime ?? word.end ?? startTime + duration / words.length };
+  });
+  const tokens = line.text.trim().split(/\s+/).filter(Boolean);
+  const total = tokens.reduce((n, token) => n + Math.max(1, token.length), 0);
+  let start = line.startTime;
+  return tokens.map(word => {
+    const startTime = start;
+    start += duration * Math.max(1, word.length) / Math.max(1, total);
+    return { word, startTime, endTime: start };
+  });
+}

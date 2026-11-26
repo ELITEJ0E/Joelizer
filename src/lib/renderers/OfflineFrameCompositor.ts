@@ -13,7 +13,7 @@ import { renderVisualizer } from '../renderers';
 import { drawFramedMedia } from '../lyricsBackgrounds';
 import { drawOverlayEffects } from '../overlayEffects';
 import { lyricsVideoLoopFrame } from '../lyricsVideoLoop';
-import { clipSourceTime } from '../clipSpeed';
+import { getMVActiveClip, getMVTransitionLead, getMVTransitionSourceTime, getMVTransitionProgress, applyMVTransitionVisual } from '../mvTransitionTiming';
 import { getMVClipMotion, applyMVClipMotion } from '../mvClipMotion';
 
 type StageMedia = { element: HTMLVideoElement; lastFrame: number };
@@ -154,6 +154,19 @@ export class OfflineFrameCompositor {
   private videos = new Map<string, StageMedia>();
   private fastVideos = new Map<string, FastMp4Source>();
   private loopFastVideos = new Map<string, FastMp4Source>();
+  // A second decoder is required only when two adjacent trims share one URL.
+  private transitionDecoder: { url: string; fast?: FastMp4Source; media?: StageMedia } | null = null;
+
+  private releaseTransitionDecoder() {
+    const decoder = this.transitionDecoder;
+    decoder?.fast?.dispose();
+    if (decoder?.media) {
+      decoder.media.element.pause();
+      decoder.media.element.removeAttribute('src');
+      decoder.media.element.load();
+    }
+    this.transitionDecoder = null;
+  }
   private loopVideos = new Map<string, StageMedia>();
   private fastDecodeErrors = new Map<string, string>();
   private images = new Map<string, HTMLImageElement>();
@@ -198,8 +211,8 @@ export class OfflineFrameCompositor {
       for (const visible of [...clips]) {
         const index = sorted.findIndex(c => c.id === visible.id);
         const next = sorted[index + 1];
-        if (next && next.transition !== 'cut' && next.startTime - Math.min(next.transitionDuration ?? 0.5,
-          (next.endTime - next.startTime) / 2, (visible.endTime - visible.startTime) / 2) < project.exportRange.end &&
+        const lead = getMVTransitionLead(visible, next, next?.transition, next?.transitionDuration);
+        if (next && lead > 0 && next.startTime - lead < project.exportRange.end &&
           !clips.some(c => c.id === next.id)) clips.push(next);
       }
     }
@@ -285,7 +298,7 @@ export class OfflineFrameCompositor {
     ctx.fillStyle = '#050508';
     ctx.fillRect(0, 0, W, H);
     const clip = project.exportMode === 'music-video'
-      ? project.videoClips.find(c => time >= c.startTime && time < c.endTime)
+      ? getMVActiveClip(project.videoClips, time)
       : null;
 
     if (project.exportMode === 'lyrics-video' || clip?.type === 'vinyl-lyrics') {
@@ -418,10 +431,8 @@ export class OfflineFrameCompositor {
         const ordered = [...project.videoClips].sort((a, b) => a.startTime - b.startTime);
         const clipIndex = ordered.findIndex(c => c.id === clip.id);
         const previous = ordered[clipIndex - 1];
-        const lead = previous && clip.transition !== 'cut' && Math.abs(previous.endTime - clip.startTime) < 0.05
-          ? Math.min(clip.transitionDuration ?? 0.5, (clip.endTime - clip.startTime) / 2,
-            (previous.endTime - previous.startTime) / 2) : 0;
-        const sourceTime = clipSourceTime(clip, time, lead);
+        const lead = getMVTransitionLead(previous, clip, clip.transition, clip.transitionDuration);
+        const sourceTime = getMVTransitionSourceTime(clip, time, lead);
         const fast = this.fastVideos.get(clip.url);
         let renderedFastFrame = false;
         const clipProgress = (time - clip.startTime) / Math.max(0.01, clip.endTime - clip.startTime);
@@ -475,6 +486,68 @@ export class OfflineFrameCompositor {
             { ...project.visualizer, enabled: true } as Parameters<typeof renderVisualizer>[3], W, H, time);
         }
       }
+    // Cross into the next moving clip *before* the cut, while the outgoing
+    // footage is still playing. No cached/frozen outgoing frame is used.
+    if (project.exportMode === 'music-video' && clip) {
+      const ordered = [...project.videoClips].sort((a, b) => a.startTime - b.startTime);
+      const index = ordered.findIndex(c => c.id === clip.id);
+      const next = ordered[index + 1];
+      const type = next?.transition || 'cut';
+      const seconds = getMVTransitionLead(clip, next, type, next?.transitionDuration);
+      if (next && seconds > 0 && time >= next.startTime - seconds && time < next.startTime) {
+        const progress = getMVTransitionProgress(time, next.startTime, seconds);
+        ctx.save();
+        try {
+        applyMVTransitionVisual(ctx, type, progress, W, H);
+        applyMVClipMotion(ctx, getMVClipMotion(next.effect, 0, W, H), W, H);
+        if (next.type === 'image') {
+          const image = this.images.get(next.url);
+          if (!image) throw new Error('Missing incoming transition image ' + next.id);
+          drawFramedMedia(ctx, image, W, H, image.naturalWidth, image.naturalHeight, next);
+        } else if (next.type === 'video') {
+          const sourceTime = getMVTransitionSourceTime(next, time, seconds);
+          const sameSource = clip.type === 'video' && clip.url === next.url;
+          if (sameSource && this.transitionDecoder?.url !== next.url) {
+            this.releaseTransitionDecoder();
+            this.transitionDecoder = { url: next.url };
+            if (this.fastVideos.has(next.url)) {
+              try { this.transitionDecoder.fast = await FastMp4Source.open(next.url); }
+              catch (error) { console.warn('[MV export] Secondary decoder unavailable:', error); }
+            }
+          }
+          const secondary = sameSource ? this.transitionDecoder : null;
+          const fast = secondary ? secondary.fast : this.fastVideos.get(next.url);
+          let decoded = false;
+          if (fast) {
+            try {
+              const frame = await Promise.race([
+                fast.frameAt(sourceTime),
+                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Incoming transition decoder stalled')), 25000))
+              ]);
+              try { drawFramedMedia(ctx, frame, W, H, frame.displayWidth, frame.displayHeight, next); }
+              finally { frame.close(); }
+              decoded = true;
+            } catch (error) {
+              console.warn('[MV export] Incoming transition decoder fallback:', error);
+              fast.dispose();
+              if (secondary) secondary.fast = undefined;
+              else this.fastVideos.delete(next.url);
+            }
+          }
+          if (!decoded) {
+            let media = secondary ? secondary.media : this.videos.get(next.url);
+            if (!media) {
+              media = { element: await loadVideo(next.url), lastFrame: NaN };
+              if (secondary) secondary.media = media;
+              else this.videos.set(next.url, media);
+            }
+            await atTime(media, sourceTime);
+            drawFramedMedia(ctx, media.element, W, H, media.element.videoWidth, media.element.videoHeight, next);
+          }
+        }
+        } finally { ctx.restore(); }
+      }
+    }
       if (project.showLyrics !== false && project.lyrics.lines.length > 0) {
         const lyricsState = useLyricsVideoStore.getState();
         const storeState = useStore.getState();
@@ -512,56 +585,6 @@ export class OfflineFrameCompositor {
         });
       }
     }
-    // Cross into the next moving clip *before* the cut, while the outgoing
-    // footage is still playing. No cached/frozen outgoing frame is used.
-    if (project.exportMode === 'music-video' && clip) {
-      const ordered = [...project.videoClips].sort((a, b) => a.startTime - b.startTime);
-      const index = ordered.findIndex(c => c.id === clip.id);
-      const next = ordered[index + 1];
-      const type = next?.transition || 'cut';
-      const seconds = next && Math.abs(clip.endTime - next.startTime) < 0.05 && type !== 'cut'
-        ? Math.min(next.transitionDuration ?? 0.5, (next.endTime - next.startTime) / 2,
-          (clip.endTime - clip.startTime) / 2) : 0;
-      if (next && seconds > 0 && time >= next.startTime - seconds && time < next.startTime) {
-        const progress = Math.max(0, Math.min(1, (time - (next.startTime - seconds)) / seconds));
-        const eased = progress * progress * (3 - 2 * progress);
-        ctx.save();
-        ctx.globalAlpha = eased;
-        if (type === 'morph') ctx.filter =
-          `blur(${Math.sin(progress * Math.PI) * Math.min(W, H) * 0.004}px)`;
-        if (type === 'slide') ctx.translate(W * (1 - eased), 0);
-        if (type === 'zoom' || type === 'morph') {
-          const size = 1.2 - 0.2 * eased;
-          ctx.translate(W / 2, H / 2);
-          ctx.scale(size, size);
-          ctx.translate(-W / 2, -H / 2);
-        }
-        if (next.type === 'image') {
-          const image = this.images.get(next.url);
-          if (image) drawFramedMedia(ctx, image, W, H, image.naturalWidth, image.naturalHeight, next);
-        } else if (next.type === 'video') {
-          const sourceTime = clipSourceTime(next, next.startTime, progress * seconds);
-          const fast = this.fastVideos.get(next.url);
-          let decoded = false;
-          if (fast) {
-            try {
-              const frame = await fast.frameAt(sourceTime);
-              try { drawFramedMedia(ctx, frame, W, H, frame.displayWidth, frame.displayHeight, next); }
-              finally { frame.close(); }
-              decoded = true;
-            } catch (error) { console.warn('[MV export] Incoming transition decoder fallback:', error); }
-          }
-          if (!decoded) {
-            const media = this.videos.get(next.url);
-            if (media) {
-              await atTime(media, sourceTime);
-              drawFramedMedia(ctx, media.element, W, H, media.element.videoWidth, media.element.videoHeight, next);
-            }
-          }
-        }
-        ctx.restore();
-      }
-    }
     drawOverlayEffects(ctx, W, H, project.overlayEffects, time);
     ctx.restore();
     return this.canvas;
@@ -571,6 +594,7 @@ export class OfflineFrameCompositor {
     this.canvas.width = 0;
     this.canvas.height = 0;
     this.audioAnalysis.setBuffer(null);
+    this.releaseTransitionDecoder();
     for (const media of this.videos.values()) {
       media.element.pause();
       media.element.removeAttribute('src');

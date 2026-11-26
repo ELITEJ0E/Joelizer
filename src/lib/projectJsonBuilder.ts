@@ -1,7 +1,7 @@
 import { useOverlayEffectsStore } from '../store/useOverlayEffectsStore';
 import { getEffectiveMVTransition } from './mvTransitionSettings';
 import { useStore } from '../store/useStore';
-import { effectiveLyricEnd } from './lyricTiming';
+import { effectiveLyricEnd, resolveTimedLyricWords } from './lyricTiming';
 import { useMVStore } from '../store/useMVStore';
 import { useLyricsVideoStore } from '../store/useLyricsVideoStore';
 import { resolveMVLyricsStyle } from './mvLyricsStyle';
@@ -79,40 +79,15 @@ export async function buildCanonicalProjectJson(options?: {
   const canonicalLines: CanonicalLyricLine[] = rawLines.map((line, idx) => {
     const lineStart = typeof line.startTime === 'number' ? line.startTime : idx * 4;
     const lineEnd = line.endTimeAuto
-      ? effectiveLyricEnd(line, rawLines, projectEnd)
+      ? effectiveLyricEnd(line, rawLines, mainStore.audioDuration)
       : typeof line.endTime === 'number' ? line.endTime : lineStart + 3.5;
 
-    let canonicalWords = undefined;
-    if (Array.isArray(line.words) && line.words.length > 0) {
-      canonicalWords = line.words.map((w, wIdx) => {
-        const wStart = w.start ?? w.startTime ?? lineStart + (wIdx * 0.3);
-        const wEnd = w.end ?? w.endTime ?? wStart + 0.3;
-        return {
-          word: w.word,
-          startTime: Number(wStart.toFixed(3)),
-          endTime: Number(wEnd.toFixed(3))
-        };
-      });
-    } else if (line.text && line.text.trim().length > 0) {
-      // Auto-distribute word karaoke timing across line duration
-      const tokens = line.text.trim().split(/\s+/);
-      const lineDur = Math.max(0.6, lineEnd - lineStart);
-      const wordDur = lineDur / tokens.length;
-      canonicalWords = tokens.map((word, wIdx) => {
-        const wStart = lineStart + (wIdx * wordDur);
-        const wEnd = wStart + (wordDur * 0.95);
-        return {
-          word,
-          startTime: Number(wStart.toFixed(3)),
-          endTime: Number(wEnd.toFixed(3))
-        };
-      });
-    }
+    const canonicalWords = resolveTimedLyricWords({ ...line, text: line.text || '', startTime: lineStart, endTime: lineEnd });
 
     return {
       id: line.id || `line-${idx}`,
-      startTime: Number(lineStart.toFixed(3)),
-      endTime: Number(lineEnd.toFixed(3)),
+      startTime: lineStart,
+      endTime: lineEnd,
       text: line.text || '',
       secondaryText: line.secondaryText,
       words: canonicalWords
@@ -194,9 +169,9 @@ export async function buildCanonicalProjectJson(options?: {
     width,
     height,
     exportRange: {
-      start: Number(rangeStart.toFixed(3)),
-      end: Number(rangeEnd.toFixed(3)),
-      duration: Number(duration.toFixed(3))
+      start: rangeStart,
+      end: rangeEnd,
+      duration: duration
     },
     audio: {
       url: stagedAudioUrl,
@@ -236,9 +211,15 @@ export async function buildCanonicalProjectJson(options?: {
       // including projects created before the toggle was automatically enabled.
       bilingualEnabled: canonicalLines.some(line => !!line.secondaryText?.trim()) ||
         (lyricsVideoStore.bilingualEnabled ?? mainStore.lyricsSettings?.bilingualEnabled ?? false),
-      fadeInDuration: lyricsVideoStore.fadeInDuration ?? mainStore.lyricsSettings?.fadeInDuration ?? 0.4,
-      fadeOutDuration: lyricsVideoStore.fadeOutDuration ?? mainStore.lyricsSettings?.fadeOutDuration ?? 0.4,
-      fadeEasing: lyricsVideoStore.fadeEasing ?? mainStore.lyricsSettings?.fadeEasing ?? 'smooth'
+      fadeInDuration: exportMode === 'music-video'
+        ? (mainStore.lyricsSettings?.fadeInDuration ?? lyricsVideoStore.fadeInDuration ?? 0.4)
+        : (lyricsVideoStore.fadeInDuration ?? mainStore.lyricsSettings?.fadeInDuration ?? 0.4),
+      fadeOutDuration: exportMode === 'music-video'
+        ? (mainStore.lyricsSettings?.fadeOutDuration ?? lyricsVideoStore.fadeOutDuration ?? 0.4)
+        : (lyricsVideoStore.fadeOutDuration ?? mainStore.lyricsSettings?.fadeOutDuration ?? 0.4),
+      fadeEasing: exportMode === 'music-video'
+        ? (mainStore.lyricsSettings?.fadeEasing ?? lyricsVideoStore.fadeEasing ?? 'smooth')
+        : (lyricsVideoStore.fadeEasing ?? mainStore.lyricsSettings?.fadeEasing ?? 'smooth')
     },
     background: {
       type: bg.type || 'color',

@@ -1,3 +1,6 @@
+import { resolveTimedLyricWords } from '../lib/lyricTiming';
+import { computeFadeOpacity } from '../lib/mvCaptionLayout';
+import { getMVActiveClip, getMVTransitionLead, getMVTransitionPlaybackRate, getMVTransitionProgress, getMVTransitionVisual } from '../lib/mvTransitionTiming';
 import { getOverlayLayers } from '../lib/overlayEffects';
 import React from 'react';
 import { 
@@ -42,7 +45,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   };
 
   // Find active video clip for timeline mode
-  const activeClip = videoClips?.find(c => currentTime >= c.startTime && currentTime < c.endTime);
+  const activeClip = getMVActiveClip(videoClips || [], currentTime);
 
   // Blend the incoming clip into the outgoing clip's last moving frames,
   // completing the transition at the cut rather than freezing footage after it.
@@ -50,27 +53,18 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
   const activeIndex = activeClip ? orderedClips.findIndex(c => c.id === activeClip.id) : -1;
   const previousClip = activeIndex > 0 ? orderedClips[activeIndex - 1] : undefined;
   const incomingClip = activeIndex >= 0 ? orderedClips[activeIndex + 1] : undefined;
-  const clipLead = (incoming: CanonicalVideoClip | undefined, outgoing: CanonicalVideoClip | undefined) =>
-    incoming && outgoing && incoming.transition !== 'cut' &&
-    Math.abs(outgoing.endTime - incoming.startTime) < 0.05
-      ? Math.min(incoming.transitionDuration ?? 0.5, incoming.duration / 2, outgoing.duration / 2) : 0;
-  const activeLead = clipLead(activeClip, previousClip);
-  const transitionLength = clipLead(incomingClip, activeClip);
+  const activeLead = getMVTransitionLead(previousClip, activeClip, activeClip?.transition, activeClip?.transitionDuration);
+  const transitionLength = getMVTransitionLead(activeClip, incomingClip, incomingClip?.transition, incomingClip?.transitionDuration);
   const transitionType = incomingClip?.transition || 'cut';
   const transitionActive = !!(incomingClip && transitionLength > 0 &&
     currentTime >= incomingClip.startTime - transitionLength && currentTime < incomingClip.startTime);
-  const transitionProgress = transitionActive
-    ? Math.max(0, Math.min(1, (currentTime - (incomingClip!.startTime - transitionLength)) / transitionLength)) : 1;
-  const transitionEase = transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
+  const transitionProgress = transitionActive && incomingClip
+    ? getMVTransitionProgress(currentTime, incomingClip.startTime, transitionLength) : 1;
+  const visual = getMVTransitionVisual(transitionType, transitionProgress, width, height);
   const incomingStyle: React.CSSProperties = {
-    position: 'absolute', inset: 0,
-    opacity: transitionEase,
-    transform: transitionType === 'slide' ? `translateX(${100 * (1 - transitionEase)}%)` :
-      transitionType === 'zoom' || transitionType === 'morph'
-        ? `scale(${1.2 - 0.2 * transitionEase})` : undefined,
-    filter: transitionType === 'glitch' ? `hue-rotate(${transitionEase * 45}deg)` :
-      transitionType === 'morph' ? `blur(${Math.sin(transitionProgress * Math.PI) * Math.min(width, height) * 0.004}px)` : undefined,
-    pointerEvents: 'none'
+    position: 'absolute', inset: 0, opacity: visual.opacity,
+    transform: `translateX(${visual.x}px) scale(${visual.scale})`,
+    filter: visual.filter, pointerEvents: 'none'
   };
 
   const isVinylScene = activeClip?.type === 'vinyl-lyrics' || activeClip?.assetId === 'vinyl-lyrics';
@@ -253,7 +247,8 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
 /* Background Clip Layer for Music Video Mode */
 function BackgroundClipLayer({ clip, currentTime, exportStart, width, height, startShift = 0 }: { clip: CanonicalVideoClip; currentTime: number; exportStart: number; width: number; height: number; startShift?: number }) {
   const { fps } = useVideoConfig();
-  const clipProgress = (currentTime - clip.startTime + startShift) / clip.duration;
+  const clipProgress = (currentTime - clip.startTime) / clip.duration;
+  const playbackRate = getMVTransitionPlaybackRate(clip, startShift);
   
   // Match both live preview and offline WebCodecs geometry for video and images.
   const motion = getMVClipMotion(clip.effect, clipProgress, width, height);
@@ -281,9 +276,9 @@ function BackgroundClipLayer({ clip, currentTime, exportStart, width, height, st
             src={clip.url}
             muted
             style={mediaStyle}
-            playbackRate={clip.speed ?? 1}
+            playbackRate={playbackRate}
             startFrom={Math.round(clip.trimStart * fps)}
-            endAt={Math.round((clip.trimStart + (clip.duration + startShift) * (clip.speed ?? 1)) * fps)}
+            endAt={Math.max(Math.round(clip.trimStart * fps) + 1, Math.ceil((clip.trimStart + (clip.duration + startShift) * playbackRate) * fps))}
           />
         </Sequence>
       ) : (
@@ -908,7 +903,7 @@ function LyricsLayer({
   const lineDuration = Math.max(0.4, activeLine.endTime - activeLine.startTime);
   const elapsed = currentTime - activeLine.startTime;
   const remaining = activeLine.endTime - currentTime;
-  const transitionDuration = Math.min(0.25, lineDuration * 0.25);
+  const transitionDuration = Math.min(0.28, Math.max(0.15, lineDuration * 0.2));
 
   const rawFadeIn = Math.max(0, Math.min(1, elapsed / transitionDuration));
   const rawFadeOut = Math.max(0, Math.min(1, remaining / transitionDuration));
@@ -917,14 +912,17 @@ function LyricsLayer({
   const rapidWord = activeLine.endTime - activeLine.startTime <= 0.42 &&
     activeLine.text.trim().split(/\s+/).length <= 2;
   const isKinetic = lyrics?.animationStyle === 'kinetic';
-  const instantLyrics = !isKinetic && (lyrics?.animationStyle === 'none' || rapidWord);
+  const instantLyrics = lyrics?.animationStyle === 'none' || rapidWord;
   // Respect half-open [start, end) so the exported frame at the boundary
   // switches immediately, with no crossfade or early preview.
   const lineOpacity = instantLyrics
     ? (currentTime >= activeLine.startTime && currentTime < activeLine.endTime ? 1 : 0)
     : isKinetic
       ? Math.min(1, Math.max(0, elapsed / 0.16)) * Math.min(1, Math.max(0, remaining / 0.13))
-      : Math.min(smoothIn, smoothOut);
+      : lyrics?.animationStyle === 'karaoke' && [2, 5].includes(lyrics?.visibleLineCount ?? 2)
+        ? (0.55 + 0.45 * smoothIn) * smoothOut
+        : computeFadeOpacity(currentTime, activeLine.startTime, activeLine.endTime,
+            lyrics?.fadeInDuration ?? 0.4, lyrics?.fadeOutDuration ?? 0.4, lyrics?.fadeEasing ?? 'smooth');
   if (instantLyrics && lineOpacity === 0) return null;
 
   const isKaraoke = lyrics?.animationStyle === 'karaoke';
@@ -947,33 +945,7 @@ function LyricsLayer({
   const spaceWidth = measureRemotionWord(' ', fontCss) || fontSize * 0.32;
   const maxLineWidth = isPortrait ? width * 0.88 : width * ((lyrics?.fontSizeScale ?? 1) >= 1.5 ? 0.88 : 0.48);
 
-  // Build timed words list
-  interface TimedWord {
-    word: string;
-    startTime: number;
-    endTime: number;
-  }
-
-  let timedWords: TimedWord[] = [];
-  if (Array.isArray(activeLine.words) && activeLine.words.length > 0) {
-    timedWords = activeLine.words.map((w: any, idx: number) => {
-      const s = w.startTime ?? w.start ?? (activeLine.startTime + (idx / activeLine.words.length) * lineDuration);
-      const e = w.endTime ?? w.end ?? (s + lineDuration / activeLine.words.length);
-      return { word: w.word || '', startTime: s, endTime: e };
-    });
-  } else {
-    const rawWords = activeLine.text.trim().split(/\s+/).filter(Boolean);
-    const totalChars = rawWords.reduce((sum, w) => sum + Math.max(1, w.length), 0);
-    let currStart = activeLine.startTime;
-    timedWords = rawWords.map((word) => {
-      const fraction = Math.max(1, word.length) / Math.max(1, totalChars);
-      const dur = lineDuration * fraction;
-      const s = currStart;
-      const e = s + dur;
-      currStart = e;
-      return { word, startTime: s, endTime: e };
-    });
-  }
+  const timedWords = resolveTimedLyricWords(activeLine);
 
   // Partition timed words into sublines matching canvas layout
   const sublines: TimedWordMetric[][] = [];
