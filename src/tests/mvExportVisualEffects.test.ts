@@ -39,3 +39,8 @@ assert.ok(getMVTransitionSourceTime(second, 3.999, lead) < 7);
 assert.equal(getMVTransitionVisual('glitch', 0.5, 1920, 1080).filter, 'hue-rotate(45deg)');
 assert.equal(getMVTransitionVisual('slide', 1, 1920, 1080).x, 0);
 console.log('MV transition boundary, source range and visual parity assertions passed');
+
+import { resolveTimedLyricWords } from '../lib/lyricTiming';
+const unequalWords = { text: 'I remember you', startTime: 10, endTime: 11.2 };
+const previewWords = resolveTimedLyricWords(unequalWords);
+assert.deepEqual(resolveTimedLyricWords({ ...unequalWords, words: previewWords }), previewWords);
