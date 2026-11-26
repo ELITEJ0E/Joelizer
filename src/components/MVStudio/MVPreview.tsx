@@ -209,7 +209,6 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   // same uploaded video must never seek the same underlying video element.
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const lastActiveVideoClipRef = useRef<string | null>(null);
-  const pausedClipTimelineRef = useRef<Map<string, number>>(new Map());
   const lastVideoCachePruneRef = useRef(-Infinity);
   const imageElementsRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
@@ -242,7 +241,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   // Preload metadata (but not playback) for current/nearby footage.
   // Deleted/replaced clips release decoders rather than leaking memory.
   useEffect(() => {
-    const activeIds = new Set(timelineClips.filter(c => c.type === 'video').map(c => c.id));
+    const activeIds = new Set(timelineClips.filter(c => c.type === 'video' || (!c.type && videoAssets.some(a => a.id === c.assetId && a.type === 'video'))).map(c => c.id));
     for (const [clipId, video] of videoElementsRef.current) {
       if (!activeIds.has(clipId)) {
         video.pause();
@@ -549,12 +548,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               // When paused, seek only when the timeline is explicitly
               // scrubbed or a new clip is selected. Holding a still frame
               // must not issue repeated video seeks and produce jitter.
-              const lastPausedPosition = pausedClipTimelineRef.current.get(activeClip.id);
-              const pausedScrubbed = !playing &&
-                (lastPausedPosition === undefined || Math.abs(lastPausedPosition - curTime) > 0.04);
-              if (!playing) pausedClipTimelineRef.current.set(activeClip.id, curTime);
-              if (sync.seekTo !== null && !videoEl.seeking &&
-                  (playing || clipChanged || pausedScrubbed)) {
+              // Retry after an outstanding seek completes; a paused scrub can
+              // arrive while the decoder is already seeking to an older frame.
+              if (sync.seekTo !== null && !videoEl.seeking) {
                 try { videoEl.currentTime = sync.seekTo; } catch (_) {}
               }
               if (Math.abs(videoEl.playbackRate - sync.playbackRate) > 0.005) {

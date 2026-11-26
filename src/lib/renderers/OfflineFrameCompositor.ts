@@ -154,6 +154,19 @@ export class OfflineFrameCompositor {
   private videos = new Map<string, StageMedia>();
   private fastVideos = new Map<string, FastMp4Source>();
   private loopFastVideos = new Map<string, FastMp4Source>();
+  // A second decoder is required only when two adjacent trims share one URL.
+  private transitionDecoder: { url: string; fast?: FastMp4Source; media?: StageMedia } | null = null;
+
+  private releaseTransitionDecoder() {
+    const decoder = this.transitionDecoder;
+    decoder?.fast?.dispose();
+    if (decoder?.media) {
+      decoder.media.element.pause();
+      decoder.media.element.removeAttribute('src');
+      decoder.media.element.load();
+    }
+    this.transitionDecoder = null;
+  }
   private loopVideos = new Map<string, StageMedia>();
   private fastDecodeErrors = new Map<string, string>();
   private images = new Map<string, HTMLImageElement>();
@@ -493,7 +506,17 @@ export class OfflineFrameCompositor {
           drawFramedMedia(ctx, image, W, H, image.naturalWidth, image.naturalHeight, next);
         } else if (next.type === 'video') {
           const sourceTime = getMVTransitionSourceTime(next, time, seconds);
-          const fast = this.fastVideos.get(next.url);
+          const sameSource = clip.type === 'video' && clip.url === next.url;
+          if (sameSource && this.transitionDecoder?.url !== next.url) {
+            this.releaseTransitionDecoder();
+            this.transitionDecoder = { url: next.url };
+            if (this.fastVideos.has(next.url)) {
+              try { this.transitionDecoder.fast = await FastMp4Source.open(next.url); }
+              catch (error) { console.warn('[MV export] Secondary decoder unavailable:', error); }
+            }
+          }
+          const secondary = sameSource ? this.transitionDecoder : null;
+          const fast = secondary ? secondary.fast : this.fastVideos.get(next.url);
           let decoded = false;
           if (fast) {
             try {
@@ -507,14 +530,16 @@ export class OfflineFrameCompositor {
             } catch (error) {
               console.warn('[MV export] Incoming transition decoder fallback:', error);
               fast.dispose();
-              this.fastVideos.delete(next.url);
+              if (secondary) secondary.fast = undefined;
+              else this.fastVideos.delete(next.url);
             }
           }
           if (!decoded) {
-            let media = this.videos.get(next.url);
+            let media = secondary ? secondary.media : this.videos.get(next.url);
             if (!media) {
               media = { element: await loadVideo(next.url), lastFrame: NaN };
-              this.videos.set(next.url, media);
+              if (secondary) secondary.media = media;
+              else this.videos.set(next.url, media);
             }
             await atTime(media, sourceTime);
             drawFramedMedia(ctx, media.element, W, H, media.element.videoWidth, media.element.videoHeight, next);
@@ -569,6 +594,7 @@ export class OfflineFrameCompositor {
     this.canvas.width = 0;
     this.canvas.height = 0;
     this.audioAnalysis.setBuffer(null);
+    this.releaseTransitionDecoder();
     for (const media of this.videos.values()) {
       media.element.pause();
       media.element.removeAttribute('src');

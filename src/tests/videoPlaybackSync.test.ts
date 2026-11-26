@@ -38,3 +38,6 @@ assert.ok(decision(12, 12.3, { baseRate: 0.5 }).playbackRate > 0.5,
 assert.equal(decision(10, 10.36, { baseRate: 2 }).seekTo, 10.36,
   '2× clips must resync promptly without needing a manual rewind');
 console.log('video playback synchronization tests passed');
+
+assert.equal(decision(5, 5, { baseRate: 0.08 }).playbackRate, 0.08, 'Slow transition pre-roll retains effective playback rate');
+assert.ok(decision(5, 5.3, { baseRate: 8 }).playbackRate <= 8);
