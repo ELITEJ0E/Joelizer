@@ -459,6 +459,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               kineticColor: lyricsVideoState.kineticColor,
               kineticGlow: lyricsVideoState.kineticGlow,
               kineticIntensity: lyricsVideoState.kineticIntensity,
+               kineticMotion: lyricsVideoState.kineticMotion,
               visibleLineCount: activeVideoMode === 'music-video' ? (mvState.captionLineCount ?? 2) : lyricsVideoState.visibleLineCount,
               customBackground: lyricsVideoState.customBackground,
               typographyOverride: lyricsVideoState.typographyOverride,
@@ -710,6 +711,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             kineticColor: lyricsVideoState.kineticColor,
             kineticGlow: lyricsVideoState.kineticGlow,
             kineticIntensity: lyricsVideoState.kineticIntensity,
+               kineticMotion: lyricsVideoState.kineticMotion,
             visibleLineCount: mvState.captionLineCount ?? 2,
             showLyrics: true,
             bilingualEnabled: storeState.lyricsSettings.lines.some(line => !!line.secondaryText?.trim()) ||

@@ -1,3 +1,4 @@
+import { getKineticWordMotion, kineticMotionIntensity, selectKineticFocusWord } from '../lib/lyricsMotion';
 import { getOverlayLayers } from '../lib/overlayEffects';
 import React from 'react';
 import { 
@@ -975,6 +976,11 @@ function LyricsLayer({
     });
   }
 
+  if (isKinetic && lyrics?.kineticMotion === 'focus') {
+    timedWords = selectKineticFocusWord(timedWords, currentTime);
+    if (timedWords.length === 0) return null;
+  }
+
   // Partition timed words into sublines matching canvas layout
   const sublines: TimedWordMetric[][] = [];
   let currentSubline: TimedWordMetric[] = [];
@@ -1093,25 +1099,25 @@ function LyricsLayer({
             })
           ) : isKinetic ? (
             sublines.map((subline, lineIdx) => {
-              const intensity = Math.min(2, Math.max(0.3, lyrics?.kineticIntensity ?? 1));
+              const intensity = kineticMotionIntensity(lyrics?.kineticIntensity);
               const glow = kineticGlowEnabled(lyrics?.kineticPalette, lyrics?.kineticGlow);
-              const pop = Math.max(0, 1 - Math.max(0, elapsed) / 0.25);
-              const settle = 1 + intensity * 0.22 * pop * pop;
               return (
                 <div key={`kinetic-${lineIdx}`} style={{ display: 'flex', justifyContent: 'center', gap: spaceWidth, whiteSpace: 'nowrap' }}>
                   {subline.map((word, wordIdx) => {
                     const wordElapsed = currentTime - word.startTime;
-                    const wordPop = Math.max(0, 1 - Math.max(0, wordElapsed) / 0.22);
-                    const wordScale = settle + 0.14 * intensity * wordPop * wordPop;
-                    const color = kineticWordColor(lyrics?.kineticPalette, lyrics?.kineticColor, activeLineIndex, wordIdx, lineIdx);
+                    const motion = getKineticWordMotion({ style: lyrics?.kineticMotion, word: word.word,
+                      wordIndex: wordIdx, wordElapsed, lineElapsed: elapsed, fontSize, intensity,
+                      maxScale: lyrics?.kineticMotion === 'focus' ? maxLineWidth / Math.max(1, word.width) : 1.1 });
+                    const color = motion.emphasis && lyrics?.kineticPalette === 'solid' ? accentColor :
+                      kineticWordColor(lyrics?.kineticPalette, lyrics?.kineticColor, activeLineIndex, wordIdx, lineIdx);
                     return (
                       <span key={wordIdx} style={{
                         display: 'inline-block',
                         flexShrink: 0,
                         width: word.width,
                         color,
-                        opacity: wordElapsed < 0 ? 0 : Math.min(1, wordElapsed / Math.max(0.04, 0.09 / intensity)),
-                        transform: `translateY(${-fontSize * 0.12 * intensity * wordPop}px) scale(${wordScale})`,
+                        opacity: motion.opacity,
+                        transform: `translate(${motion.x}px, ${motion.y}px) scale(${motion.scale})`,
                         transformOrigin: 'center',
                         textShadow: glow ? `0 0 ${13 * intensity}px ${color}` : 'none'
                       }}>{word.word}</span>

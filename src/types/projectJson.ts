@@ -47,6 +47,7 @@ export interface CanonicalLyricsConfig {
   kineticColor?: string;
   kineticGlow?: boolean;
   kineticIntensity?: number;
+  kineticMotion?: import('../lib/lyricsMotion').KineticMotionStyle;
   position?: 'bottom' | 'center' | 'top';
   showBackgroundBox?: boolean;
   visibleLineCount?: 1 | 2 | 5;
