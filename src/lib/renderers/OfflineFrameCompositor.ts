@@ -361,6 +361,7 @@ export class OfflineFrameCompositor {
         kineticColor: project.lyrics.kineticColor,
         kineticGlow: project.lyrics.kineticGlow,
         kineticIntensity: project.lyrics.kineticIntensity,
+               kineticMotion: project.lyrics.kineticMotion,
         visibleLineCount: lyricsState.visibleLineCount,
         showArtwork: project.showArtwork ?? (project.templateId !== 'cinematic-clean'),
         // Draw with the same shared layer used by Lyrics Studio preview.
@@ -493,6 +494,7 @@ export class OfflineFrameCompositor {
           kineticColor: project.lyrics.kineticColor,
           kineticGlow: project.lyrics.kineticGlow,
           kineticIntensity: project.lyrics.kineticIntensity,
+               kineticMotion: project.lyrics.kineticMotion,
           visibleLineCount: project.lyrics.visibleLineCount ?? 2,
           showLyrics: true,
           bilingualEnabled: project.lyrics.bilingualEnabled,

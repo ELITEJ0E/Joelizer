@@ -1,3 +1,4 @@
+import { getKineticWordMotion, kineticMotionIntensity, selectKineticFocusWord, type KineticMotionStyle } from './lyricsMotion';
 import { useStore, LyricLine } from '../store/useStore';
 import { resolvedLyricLines } from './lyricTiming';
 import {
@@ -30,6 +31,7 @@ export interface RenderLyricsVideoOptions {
   kineticColor?: string;
   kineticGlow?: boolean;
   kineticIntensity?: number;
+  kineticMotion?: KineticMotionStyle;
   visibleLineCount?: number;
   showVisualizer?: boolean;
   /** Keeps the record's circular audio ring independent of the movable spectrum overlay. */
@@ -1091,6 +1093,11 @@ function renderLyrics(
     });
   }
 
+  if (isKinetic && options.kineticMotion === 'focus') {
+    timedWords = selectKineticFocusWord(timedWords, currentTime);
+    if (timedWords.length === 0) { ctx.restore(); return; }
+  }
+
   // Partition timed words into sublines matching canvas layout
   const spaceWidth = ctx.measureText(' ').width;
   const sublines: { word: string; startTime: number; endTime: number }[][] = [];
@@ -1215,9 +1222,7 @@ function renderLyrics(
 
     if (isKinetic) {
       const glowEnabled = kineticGlowEnabled(options.kineticPalette, options.kineticGlow);
-      const intensity = Math.min(2, Math.max(0.3, options.kineticIntensity ?? 1));
-      const pop = Math.max(0, 1 - Math.max(0, elapsed) / 0.25);
-      const settle = 1 + intensity * 0.22 * pop * pop;
+      const intensity = kineticMotionIntensity(options.kineticIntensity);
       // Unlike karaoke highlighting, a future word must not be visible at all.
       // Reveal the actual word at its start time, with a short timed entrance.
       // Word-level timings remain the source of truth where available.
@@ -1232,13 +1237,15 @@ function renderLyrics(
             x += widths[idx] + spaceWidth;
             return;
           }
-          const wordPop = Math.max(0, 1 - Math.max(0, wordElapsed) / 0.22);
-          const wordScale = settle + 0.14 * intensity * wordPop * wordPop;
-          const wordColor = kineticWordColor(options.kineticPalette, options.kineticColor, activeIndex, idx, sIdx);
+          const motion = getKineticWordMotion({ style: options.kineticMotion, word: w.word,
+            wordIndex: idx, wordElapsed, lineElapsed: elapsed, fontSize, intensity,
+            maxScale: options.kineticMotion === 'focus' ? maxLineWidth / Math.max(1, widths[idx]) : 1.1 });
+          const wordColor = motion.emphasis && options.kineticPalette === 'solid' ? activeWordColor :
+            kineticWordColor(options.kineticPalette, options.kineticColor, activeIndex, idx, sIdx);
           ctx.save();
-          ctx.globalAlpha *= Math.min(1, wordElapsed / Math.max(0.04, 0.09 / intensity));
-          ctx.translate(x + widths[idx] / 2, y - fontSize * 0.12 * intensity * wordPop);
-          ctx.scale(wordScale, wordScale);
+          ctx.globalAlpha *= motion.opacity;
+          ctx.translate(x + widths[idx] / 2 + motion.x, y + motion.y);
+          ctx.scale(motion.scale, motion.scale);
           ctx.textAlign = 'center';
           ctx.fillStyle = wordColor;
           ctx.shadowColor = glowEnabled ? wordColor : 'transparent';

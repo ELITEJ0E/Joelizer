@@ -227,6 +227,7 @@ export async function buildCanonicalProjectJson(options?: {
       kineticColor: lyricsVideoStore.kineticColor || '#ffffff',
       kineticGlow: lyricsVideoStore.kineticGlow,
       kineticIntensity: lyricsVideoStore.kineticIntensity ?? 1,
+      kineticMotion: lyricsVideoStore.kineticMotion ?? 'pop',
       position: typo.position ?? mainStore.lyricsSettings?.position,
       showBackgroundBox: mainStore.lyricsSettings?.showBackgroundBox ?? false,
       visibleLineCount: exportMode === 'music-video'

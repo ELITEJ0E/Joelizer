@@ -1,3 +1,4 @@
+import { KineticMotionSelect } from './KineticMotionSelect';
 import React, { useState, useRef, useEffect } from 'react';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useStore, AspectRatio } from '../../store/useStore';
@@ -92,6 +93,7 @@ function KineticQuickControls() {
       </button>
       {animationStyle === 'kinetic' && (
         <div className="space-y-2 rounded border border-fuchsia-400/30 bg-fuchsia-500/5 p-2.5">
+          <KineticMotionSelect />
           <span className="text-[10px] uppercase font-bold text-[#aeb8c5]">Kinetic text color</span>
           <div className="grid grid-cols-5 gap-1">
             {(['solid', 'neon', 'sunset', 'candy', 'rainbow'] as const).map(p => (

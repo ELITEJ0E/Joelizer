@@ -1,3 +1,4 @@
+import { getKineticWordMotion, selectKineticFocusWord, normalizeKineticMotion } from '../lib/lyricsMotion';
 import assert from 'node:assert/strict';
 import { renderLyricsOverlayFrame } from '../lib/lyricsEngine';
 import { LYRIC_VIDEO_TEMPLATES } from '../lib/lyricsTemplates';
@@ -85,3 +86,23 @@ const resizedProject = await buildCanonicalProjectJson({ skipStaging: true, mode
 assert.equal(resizedProject.lyrics.fontSizeScale, 2.2, 'MV export should preserve the lyric font size');
 assert.deepEqual(resizedProject.elementPositions.lyrics, { x: 0.35, y: 0.62 }, 'MV export should preserve lyric drag position');
 console.log('PASS: Kinetic word reveal, deterministic colors, and shared MV/lyrics export sizing and positioning');
+
+const motionInput = { word: 'COLOR', wordIndex: 1, wordElapsed: 0.12, lineElapsed: 0.6, fontSize: 50, intensity: 1 };
+assert.deepEqual(getKineticWordMotion(motionInput), getKineticWordMotion({ ...motionInput, style: 'pop' }));
+assert.equal(normalizeKineticMotion('invalid'), 'pop');
+assert.equal(getKineticWordMotion({ ...motionInput, style: 'flow', wordElapsed: -0.01 }).opacity, 0);
+assert.equal(getKineticWordMotion({ ...motionInput, style: 'dynamic' }).emphasis, true);
+assert.notEqual(getKineticWordMotion({ ...motionInput, style: 'flow' }).x, 0);
+assert.deepEqual(selectKineticFocusWord(lyrics[0].words, 1).map(w => w.word), ['COLOR']);
+assert.deepEqual(selectKineticFocusWord(lyrics[0].words, 2), []);
+useLyricsVideoStore.getState().setKineticSettings({ kineticMotion: 'focus' });
+const focusProject = await buildCanonicalProjectJson({ skipStaging: true, modeOverride: 'lyrics-video' });
+assert.equal(focusProject.lyrics.kineticMotion, 'focus');
+const focusCanvas = recordingCanvas();
+renderLyricsOverlayFrame(focusCanvas.context, 640, 360, 1.2, lyrics, {
+  template: LYRIC_VIDEO_TEMPLATES.vinyl, aspectRatio: '16:9', animationStyle: 'kinetic',
+  kineticMotion: focusProject.lyrics.kineticMotion, kineticPalette: 'solid', kineticColor: '#ffffff',
+  typographyOverride: { showContainerPill: false }
+});
+assert.deepEqual(focusCanvas.strokes.map(s => s.text), ['COLOR']);
+console.log('PASS: timestamp-driven motion variants and single-word focus');

@@ -1,3 +1,4 @@
+import { KineticMotionSelect } from './KineticMotionSelect';
 import React, { useState } from 'react';
 import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import { useStore, AspectRatio } from '../../store/useStore';
@@ -169,7 +170,8 @@ export function TypographyPanel() {
 
         {animationStyle === 'kinetic' && (
           <div className="space-y-3 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 p-3">
-            <label className="block text-[10px] font-mono text-[#b3bbca]">Color palette</label>
+            <KineticMotionSelect />
+          <label className="block text-[10px] font-mono text-[#b3bbca]">Color palette</label>
             <div className="grid grid-cols-2 gap-1.5">
               {(['solid', 'neon', 'sunset', 'candy', 'rainbow'] as const).map(palette => (
                 <button key={palette} type="button" onClick={() => setKineticSettings({ kineticPalette: palette })}

@@ -1,3 +1,4 @@
+import { normalizeKineticMotion, type KineticMotionStyle } from '../lib/lyricsMotion';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { LyricTemplateId, LYRIC_VIDEO_TEMPLATES, ArtworkStyle, ArtworkAnimation, LineAnimation, WordAnimation } from '../lib/lyricsTemplates';
@@ -36,6 +37,7 @@ export interface LyricsVideoState {
   /** Undefined preserves existing palette glow for migrated projects. */
   kineticGlow?: boolean;
   kineticIntensity: number;
+  kineticMotion: KineticMotionStyle;
   
   customBackground: {
     type: 'color' | 'gradient' | 'image' | 'video' | 'particles' | 'blurred-artwork' | 'waveform';
@@ -91,7 +93,7 @@ export interface LyricsVideoState {
   updateArtworkOverride: (updates: Partial<LyricsVideoState['artworkOverride']>) => void;
   updateAnimationOverride: (updates: Partial<LyricsVideoState['animationOverride']>) => void;
   setAnimationStyle: (style: LyricsVideoState['animationStyle']) => void;
-  setKineticSettings: (settings: Partial<Pick<LyricsVideoState, 'kineticPalette' | 'kineticColor' | 'kineticGlow' | 'kineticIntensity'>>) => void;
+  setKineticSettings: (settings: Partial<Pick<LyricsVideoState, 'kineticPalette' | 'kineticColor' | 'kineticGlow' | 'kineticIntensity' | 'kineticMotion'>>) => void;
   setShowSafeArea: (show: boolean) => void;
   setSelectedElement: (el: 'artwork' | 'meta' | 'lyrics' | 'visualizer' | 'watermark' | null) => void;
   setVisibleLineCount: (count: number) => void;
@@ -117,6 +119,7 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       kineticColor: '#ffffff',
       kineticGlow: undefined,
       kineticIntensity: 1,
+      kineticMotion: 'pop',
       selectedTemplateId: 'vinyl',
       selectedBackgroundPresetId: 'sunset',
       selectedElement: null,
@@ -256,6 +259,7 @@ export const useLyricsVideoStore = create<LyricsVideoState>()(
       },
       setKineticSettings: (settings) => set((s) => ({
         ...settings,
+        ...(settings.kineticMotion !== undefined ? { kineticMotion: normalizeKineticMotion(settings.kineticMotion) } : {}),
         ...(settings.kineticColor !== undefined ? {
           kineticColor: /^#[0-9a-f]{6}$/i.test(settings.kineticColor)
             ? settings.kineticColor : s.kineticColor
