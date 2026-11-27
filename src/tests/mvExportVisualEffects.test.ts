@@ -52,3 +52,14 @@ assert.equal(clipAudioGain({ audioMuted: true, audioVolume: 0.8 }), 0);
 assert.equal(soundtrackAudioGain({}), 1);
 assert.equal(soundtrackAudioGain({ muted: true }), 0);
 assert.equal(soundtrackAudioGain({ volume: 0.4 }), 0.4);
+
+import { makeMVElement, normalizeMVElement, elementActive, elementMetrics } from '../lib/mvCanvasElements';
+const watermark = makeMVElement('watermark','wm');
+assert.equal(watermark.x,0.5);
+assert.equal(watermark.y,0.5);
+assert.ok(watermark.size < 0.05);
+assert.equal(elementMetrics(watermark,1080,1920).y,960);
+assert.equal(elementMetrics(watermark,1920,1080).x,960);
+assert.equal(normalizeMVElement({...watermark,x:2,y:-1}).x,1);
+assert.equal(elementActive({...watermark,startTime:2,endTime:4},4),false);
+assert.equal(elementActive(watermark,300),true);

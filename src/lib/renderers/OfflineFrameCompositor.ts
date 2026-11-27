@@ -1,3 +1,4 @@
+import { drawMVCanvasElements, drawMVExtraEffects } from '../mvCanvasElements';
 import { CanonicalProjectJson } from '../../types/projectJson';
 import { layoutMVCaption, drawMVCaption } from '../mvCaptionLayout';
 import { FastMp4Source } from './FastMp4Source';
@@ -411,6 +412,7 @@ export class OfflineFrameCompositor {
         elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
         preferElementPosition: true,
         watermarkText: project.watermarkText,
+        showWatermark: project.exportMode !== 'music-video',
         showSafeArea: false,
         offlineExport: true
       }, audio.frequency, audio.waveform);
@@ -586,6 +588,10 @@ export class OfflineFrameCompositor {
       }
     }
     drawOverlayEffects(ctx, W, H, project.overlayEffects, time);
+    if (project.exportMode === 'music-video') {
+      drawMVExtraEffects(ctx,W,H,time,project.mvExtraOverlayEffects);
+      drawMVCanvasElements(ctx,W,H,time,project.mvCanvasElements);
+    }
     ctx.restore();
     return this.canvas;
   }

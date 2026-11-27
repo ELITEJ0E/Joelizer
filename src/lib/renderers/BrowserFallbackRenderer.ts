@@ -1,3 +1,4 @@
+import { drawMVCanvasElements, drawMVExtraEffects } from '../mvCanvasElements';
 import { requiresMVAudioMix } from '../mvAudioMix';
 import { getExportVideoBitrate } from './exportQuality';
 import { drawOverlayEffects } from '../overlayEffects';
@@ -90,6 +91,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
               animationOverride: lyricsVideoState.animationOverride,
               elementPositions: lyricsVideoState.elementPositions,
               watermarkText: 'Made with Joelizer',
+              showWatermark: project.exportMode !== 'music-video',
               showSafeArea: false,
               showArtwork: project.showArtwork ?? project.artwork?.enabled ?? true,
               showVisualizer: false,
@@ -110,6 +112,7 @@ export class BrowserFallbackRenderer implements VideoRenderer {
               { ...project.visualizer, enabled: true }, freqData, timeData, curTime);
           }
           drawOverlayEffects(ctx, targetW, targetH, project.overlayEffects, curTime);
+          if(project.exportMode==='music-video') {drawMVExtraEffects(ctx,targetW,targetH,curTime,project.mvExtraOverlayEffects);drawMVCanvasElements(ctx,targetW,targetH,curTime,project.mvCanvasElements);}
           customRenderLoop = requestAnimationFrame(renderFrame);
         };
         customRenderLoop = requestAnimationFrame(renderFrame);

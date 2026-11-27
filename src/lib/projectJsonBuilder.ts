@@ -274,6 +274,8 @@ export async function buildCanonicalProjectJson(options?: {
       glow: !!typo.glowColor,
       vignette: true
     },
+    mvCanvasElements: exportMode === 'music-video' ? mvStore.canvasElements : [],
+    mvExtraOverlayEffects: exportMode === 'music-video' ? mvStore.extraOverlayEffects : [],
     elementPositions: lyricsVideoStore.elementPositions,
     watermarkText: 'Made with Joelizer',
     safeArea: lyricsVideoStore.showSafeArea,

@@ -45,6 +45,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
 
   const aspectRatio = useStore(s => s.aspectRatio);
   const currentTrackIndex = useStore(s => s.currentTrackIndex);
+  const previewTime = useStore(s => s.currentTime);
   const currentTrack = useStore(s => s.tracks[s.currentTrackIndex]);
   const updateTrackMetadata = useStore(s => s.updateTrackMetadata);
   const [editingMetaField, setEditingMetaField] = useState<'name' | 'artist' | null>(null);
@@ -107,7 +108,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
     // Read state for dynamic sizing
     const currentTrack = useStore.getState().tracks[useStore.getState().currentTrackIndex];
     const lyricsLines = useStore.getState().lyricsSettings?.lines || [];
-    const currentTime = useStore.getState().currentTime;
+    const currentTime = previewTime;
     const typo = useLyricsVideoStore.getState().typographyOverride;
     const art = useLyricsVideoStore.getState().artworkOverride;
 
@@ -242,7 +243,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       // The independent visualizer can be moved for every artwork style.
       // Glowing disc templates must not silently disable its drag hitbox.
       if (k === 'visualizer') return showVisualizer !== false;
-      if (k === 'lyrics') return showLyrics !== false;
+      if (k === 'lyrics') return mode === 'music-video' ? useStore.getState().lyricsSettings.lines.length > 0 : showLyrics !== false;
       if (k === 'meta') return showMeta !== false;
       return true;
     }
@@ -558,7 +559,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       {/* ========================================================================= */}
       {/* CANVA / CAPCUT STYLE SMART GUIDES CONTROLS TOOLBAR (4.4) */}
       {/* ========================================================================= */}
-      <div className="absolute top-2.5 right-2.5 z-40 flex items-center gap-1.5 pointer-events-auto">
+      <div className={`absolute ${mode === 'music-video' ? 'bottom-2 right-2' : 'top-2.5 right-2.5'} z-40 flex items-center gap-1.5 pointer-events-auto`}>
         {/* Toggleable Settings Pill */}
         <div className="flex items-center rounded-lg bg-[#0e1115]/90 border border-[#232933] shadow-xl backdrop-blur-md p-0.5 text-[#9aa2ae]">
           {/* Smart Guides Toggle */}
@@ -574,7 +575,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
             }`}
           >
             <Magnet size={11} className={smartGuidesEnabled ? 'text-accent' : ''} />
-            <span className="hidden sm:inline">Guides</span>
+            {stageWidth >= 380 && <span>Guides</span>}
           </button>
 
           {/* Safe Area Guide Toggle */}
@@ -590,7 +591,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
             }`}
           >
             <ShieldCheck size={11} />
-            <span className="hidden sm:inline">Safe</span>
+            {stageWidth >= 380 && <span>Safe</span>}
           </button>
 
           {/* Quick Settings Dropdown */}
@@ -626,14 +627,14 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
           title="Reset elements positions and scales to 100%"
         >
           <RotateCcw size={11} className="text-accent" />
-          <span>Reset</span>
+          {stageWidth >= 380 && <span>Reset</span>}
         </button>
 
         {/* Settings Popover Dropdown */}
         {showSettingsMenu && (
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="absolute top-9 right-0 w-48 rounded-xl bg-[#0e1115] border border-[#28313e] p-2 shadow-2xl backdrop-blur-xl flex flex-col gap-1 z-50 text-[11px] font-mono animate-in fade-in zoom-in-95 duration-150"
+            className={`absolute ${mode === 'music-video' ? 'bottom-9' : 'top-9'} right-0 w-48 rounded-xl bg-[#0e1115] border border-[#28313e] p-2 shadow-2xl backdrop-blur-xl flex flex-col gap-1 z-50 text-[11px] font-mono animate-in fade-in zoom-in-95 duration-150`}
           >
             <div className="px-2 py-1 text-[9px] uppercase font-bold text-[#626e80] border-b border-[#1f2631] mb-1">
               Snapping & Guides
