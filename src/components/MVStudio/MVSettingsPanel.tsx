@@ -1,3 +1,4 @@
+import { MVElementsPanel } from './MVElementsPanel';
 import React, { useEffect, useState } from 'react';
 import { useMVStore } from '../../store/useMVStore';
 import { useStore } from '../../store/useStore';
@@ -238,6 +239,7 @@ export function MVSettingsPanel() {
           <div className="space-y-2">
             <h3 className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">03 · Finishing effects</h3>
             <OverlayEffectsPanel mode="music-video" />
+            <MVElementsPanel />
           </div>
 
           <section className="space-y-2 rounded-lg border border-red-500/25 bg-red-950/10 p-3" aria-label="Saved MV project data">

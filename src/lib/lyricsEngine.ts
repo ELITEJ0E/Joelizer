@@ -90,6 +90,7 @@ export interface RenderLyricsVideoOptions {
   /** When true, draggable canvas coordinates always win over Top/Center/Bottom presets. */
   preferElementPosition?: boolean;
   watermarkText?: string;
+  showWatermark?: boolean;
   showSafeArea?: boolean;
   showBackgroundVisualizer?: boolean;
   offlineExport?: boolean;
@@ -1651,7 +1652,7 @@ export function renderLyricsVideoFrame(
   }
 
   // 7. Render Watermark Text
-  renderWatermarkText(ctx, W, H, options.watermarkText || 'Made with Joelizer', watermarkPos);
+  if (options.showWatermark !== false) renderWatermarkText(ctx, W, H, options.watermarkText || 'Made with Joelizer', watermarkPos);
 
   // 8. Safe Area Guide (optional overlay)
   if (options.showSafeArea) {

@@ -37,6 +37,30 @@ try {
   const canvas = page.locator('canvas#visualizer-canvas');
   await canvas.waitFor({ state: 'visible' });
 
+  // A canvas selection must be dismissible without deleting its content.
+  await page.evaluate(async () => {
+    const storePath = '/src/store/useStore.ts';
+    const lyricsPath = '/src/store/useLyricsVideoStore.ts';
+    const { useStore } = await import(/* @vite-ignore */ storePath);
+    const { useLyricsVideoStore } = await import(/* @vite-ignore */ lyricsPath);
+    useStore.getState().updateLyricsSettings({lines:[{id:'deselect-test',text:'Test caption',startTime:0,endTime:10}]});
+    useLyricsVideoStore.getState().setSelectedElement('lyrics');
+  });
+  const done = page.getByRole('button', {name:'Deselect canvas element'});
+  await done.waitFor({state:'visible'});
+  await done.click();
+  await done.waitFor({state:'detached'});
+  await page.locator('[aria-label="Drag lyrics to reposition"]').click();
+  await done.waitFor({state:'visible'});
+  await page.keyboard.press('Escape');
+  await done.waitFor({state:'detached'});
+  await page.locator('[aria-label="Drag lyrics to reposition"]').click();
+  await done.waitFor({state:'visible'});
+  const bounds = await canvas.boundingBox();
+  assert.ok(bounds);
+  await page.mouse.click(bounds.x+bounds.width*0.05,bounds.y+bounds.height*0.4);
+  await done.waitFor({state:'detached'});
+
   // The removed preview toolbar must not consume space above the canvas.
   assert.equal(await page.getByText('Video preview', { exact: true }).count(), 0,
     'No redundant Video preview header should remain');

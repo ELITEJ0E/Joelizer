@@ -1,3 +1,5 @@
+import { drawMVCanvasElements, drawMVExtraEffects } from '../../lib/mvCanvasElements';
+import { MVElementDragOverlay } from './MVElementDragOverlay';
 import { clipAudioGain } from '../../lib/mvAudioMix';
 import { clampPreviewVideoTime, isPreviewFrameReady, MVPreviewFrameCache } from '../../lib/mvPreviewFrames';
 import { useOverlayEffectsStore } from '../../store/useOverlayEffectsStore';
@@ -48,7 +50,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const isVisualizerScene = activeClip && (activeClip.type === 'visualizer' || activeClip.assetId === 'visualizer');
   const activeAssetType = videoAssets.find(a => a.id === activeClip?.assetId)?.type;
   const editableClip = videoMode === 'music-video' && activeClip &&
-    (activeClip.type === 'video' || (!activeClip.type && activeAssetType === 'video')) ? activeClip : undefined;
+    (activeClip.type === 'video' || activeClip.type === 'image' || (!activeClip.type && (activeAssetType === 'video' || activeAssetType === 'image'))) ? activeClip : undefined;
   const editableVideo = videoMode === 'lyrics-video' ? (customBackground.type === 'video' || customBackground.type === 'image') : !!editableClip;
   const frameSettings = videoMode === 'lyrics-video' ? customBackground : activeClip;
   const updateFrameSettings = (settings: { offsetX?: number; offsetY?: number; zoom?: number; heightScale?: number; fit?: 'contain' | 'cover' }) => {
@@ -96,7 +98,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const showOverlay = true;
 
   const mvFilterKeys = isVinylScene
-    ? undefined
+    ? (['artwork', 'meta', 'visualizer', 'lyrics'] as const)
     : isVisualizerScene
       ? (['visualizer', 'lyrics'] as const)
       : (['lyrics'] as const);
@@ -104,6 +106,40 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const selectedStageElement = useLyricsVideoStore(s => s.selectedElement);
+  const selectedMVElement = useMVStore(s => s.selectedCanvasElementId);
+  const clearStageSelection = () => {
+    useLyricsVideoStore.getState().setSelectedElement(null);
+    useMVStore.getState().setSelectedCanvasElement(null);
+  };
+
+  useEffect(() => {
+    if (videoMode !== 'music-video') return;
+    // Use pointer-down capture, not click: drag handles use pointer capture
+    // and other preview controls may stop click propagation.
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-mv-selection-target], [data-mv-selection-controls]')) return;
+      if (stageRef.current?.contains(target) || target.closest('[data-mv-timeline-area]')) {
+        clearStageSelection();
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="listbox"]')) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      clearStageSelection();
+      setAdjustVideo(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [videoMode]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFallbackFullscreen, setIsFallbackFullscreen] = useState(false);
@@ -473,7 +509,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               elementPositions: lyricsVideoState.elementPositions,
               preferElementPosition: true,
               watermarkText: 'Made with Joelizer',
-              showSafeArea: lyricsVideoState.showSafeArea,
+              showWatermark: activeVideoMode !== 'music-video',
+              showSafeArea: activeVideoMode === 'lyrics-video' && lyricsVideoState.showSafeArea,
               showArtwork: lyricsVideoState.showArtwork !== false,
               // The positioned visualizer is composited explicitly below.
               showVisualizer: false,
@@ -758,6 +795,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
         const overlays = useOverlayEffectsStore.getState();
         drawOverlayEffects(ctx, W, H,
           activeVideoMode === 'music-video' ? overlays.mv : overlays.lyrics, curTime);
+        if (activeVideoMode === 'music-video') {
+          drawMVExtraEffects(ctx,W,H,curTime,mvState.extraOverlayEffects);
+          drawMVCanvasElements(ctx,W,H,curTime,mvState.canvasElements);
+        }
       } catch (err) {
         console.error("Renderer Loop Exception:", err);
       }
@@ -811,9 +852,10 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             />
           )}
 
-          {editableVideo && videoMode === 'lyrics-video' && (
-            <div className="absolute top-12 left-2 z-40 flex flex-col items-start gap-1 pointer-events-auto">
-              <button type="button" onClick={() => setAdjustVideo(v => !v)}
+          {videoMode === 'music-video' && !adjustVideo && <MVElementDragOverlay width={stageDimensions.width} height={stageDimensions.height}/>}
+          {editableVideo && (
+            <div className={`absolute ${videoMode === 'music-video' ? 'top-11 left-2' : 'top-12 left-2'} z-40 flex flex-col items-start gap-1 pointer-events-auto`}>
+              <button type="button" data-mv-selection-controls onClick={() => { clearStageSelection(); setAdjustVideo(v => !v); }}
                 className={`rounded border px-2 py-1.5 text-[10px] font-semibold shadow-lg ${adjustVideo ? 'border-accent bg-accent text-black' : 'border-white/30 bg-black/70 text-white'}`}
                 title="Select the video to drag, resize, or reframe">
                 {adjustVideo ? 'Done adjusting' : 'Adjust video'}
@@ -830,9 +872,9 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               )}
             </div>
           )}
-          {/* MV clips: drag the footage directly without any obstructing controls.
-              Lyrics Video retains its explicit adjustment mode and resize handle. */}
-          {editableVideo && (videoMode === 'music-video' || adjustVideo) && (
+          {/* Reframe footage only in explicit adjustment mode, leaving
+              caption and element drag targets unobstructed in normal editing. */}
+          {editableVideo && adjustVideo && (
             <div
               className={`absolute inset-0 z-30 touch-none select-none ${adjustmentGesture.current ? 'cursor-grabbing' : 'cursor-grab'} ${videoMode === 'lyrics-video' ? 'border-2 border-accent/70' : ''}`}
               aria-label={videoMode === 'music-video' ? 'Drag video up or down to reposition crop' : 'Drag to reposition video'}
@@ -842,7 +884,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               onPointerUp={() => { adjustmentGesture.current = null; }}
               onPointerCancel={() => { adjustmentGesture.current = null; }}
             >
-              {videoMode === 'lyrics-video' && (
+              {adjustVideo && (
                 <div
                   onPointerDown={e => startAdjustment(e, 'resize')}
                   onPointerMove={moveAdjustment}
@@ -863,7 +905,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
                 setIsPlaying(!isPlaying);
               }}
               className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#0e1115]/85 border border-white/20 flex items-center justify-center text-white backdrop-blur-md transition-opacity duration-150 shadow-xl focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent ${
-                stageHovered && !dialogOpen && !editableVideo
+                stageHovered && !dialogOpen && !editableVideo && videoMode !== 'music-video'
                   ? 'opacity-100 pointer-events-auto hover:scale-105 cursor-pointer'
                   : 'opacity-0 pointer-events-none'
               }`}
@@ -875,6 +917,14 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             </button>
           </div>
 
+          {videoMode === 'music-video' && !adjustVideo && (selectedStageElement || selectedMVElement) && (
+            <button type="button" data-mv-selection-controls
+              onClick={() => clearStageSelection()}
+              aria-label="Deselect canvas element" title="Done editing (Escape)"
+              className="absolute top-11 right-2 z-[60] rounded border border-emerald-400/50 bg-[#0e1115]/90 px-2 py-1 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-950 cursor-pointer">
+              Done
+            </button>
+          )}
           {/* Timecode Overlay */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-20 pointer-events-none">
             <div className="bg-[#0e1115]/90 backdrop-blur-md px-2 py-0.5 rounded text-[#f0f3f6] font-mono text-[9px] font-semibold shadow-md border border-[#232933]">

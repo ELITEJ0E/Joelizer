@@ -1,3 +1,4 @@
+import { elementActive, elementMetrics, elementLabel, normalizeMVElement } from '../lib/mvCanvasElements';
 import { resolveTimedLyricWords } from '../lib/lyricTiming';
 import { computeFadeOpacity } from '../lib/mvCaptionLayout';
 import { getMVActiveClip, getMVTransitionLead, getMVTransitionPlaybackRate, getMVTransitionProgress, getMVTransitionVisual } from '../lib/mvTransitionTiming';
@@ -185,7 +186,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* 6. WATERMARK LAYER */}
-      {showLyricsScene && (
+      {mode === 'lyrics-video' && (
         <WatermarkLayer
           text={projectJson.watermarkText || 'Made with Joelizer'}
           width={width}
@@ -200,7 +201,7 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
       )}
 
       {/* Shared timed overlay effect track, independent of the current scene. */}
-      {getOverlayLayers(projectJson.overlayEffects, currentTime).map((layer, index) => (
+      {[...getOverlayLayers(projectJson.overlayEffects, currentTime), ...(mode === 'music-video' ? (projectJson.mvExtraOverlayEffects || []).flatMap(effect=>getOverlayLayers(effect,currentTime)) : [])].map((layer, index) => (
         <div key={index} style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
           background: layer.background, opacity: layer.opacity,
@@ -208,6 +209,14 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
         }} />
       ))}
 
+      {mode === 'music-video' && <svg viewBox={`0 0 ${width} ${height}`} style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+        {(projectJson.mvCanvasElements || []).map(normalizeMVElement).filter(e=>elementActive(e,currentTime)).map(e=>{
+          const m=elementMetrics(e,width,height);
+          return e.kind==='rectangle'?<rect key={e.id} x={m.x-m.size/2} y={m.y-m.size/2} width={m.size} height={m.size} fill={e.color} opacity={e.opacity}/>:
+            e.kind==='circle'?<circle key={e.id} cx={m.x} cy={m.y} r={m.size/2} fill={e.color} opacity={e.opacity}/>:
+            <text key={e.id} x={m.x} y={m.y} textAnchor="middle" dominantBaseline="central" fontFamily="Arial, sans-serif" fontSize={m.size} fontWeight={e.kind==='watermark'?600:700} fill={e.color} opacity={e.opacity}>{elementLabel(e)}</text>;
+        })}
+      </svg>}
       {/* 8. VIGNETTE & GRAIN EFFECTS */}
       {effects?.vignette && (
         <div 

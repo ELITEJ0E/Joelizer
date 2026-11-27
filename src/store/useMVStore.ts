@@ -1,3 +1,5 @@
+import { normalizeMVElement, type MVCanvasElement, type MVTimedEffect } from '../lib/mvCanvasElements';
+import { clampOverlay } from '../lib/overlayEffects';
 import { clampMVVolume } from '../lib/mvAudioMix';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -225,6 +227,16 @@ export interface MVProjectState {
   // Timeline
   timelineClips: TimelineClip[];
   selectedClipId: string | null;
+  canvasElements: MVCanvasElement[];
+  selectedCanvasElementId: string | null;
+  setSelectedCanvasElement: (id:string|null)=>void;
+  addCanvasElement: (element:MVCanvasElement)=>void;
+  updateCanvasElement: (id:string,changes:Partial<MVCanvasElement>)=>void;
+  removeCanvasElement: (id:string)=>void;
+  extraOverlayEffects: MVTimedEffect[];
+  addExtraOverlayEffect: (effect:MVTimedEffect)=>void;
+  updateExtraOverlayEffect: (id:string,changes:Partial<MVTimedEffect>)=>void;
+  removeExtraOverlayEffect: (id:string)=>void;
   soundtrackMuted: boolean;
   soundtrackVolume: number;
   showSoundtrackWaveform: boolean;
@@ -323,6 +335,16 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
   wordTimings: [],
   timelineClips: [],
   selectedClipId: null,
+  canvasElements: [],
+  selectedCanvasElementId: null,
+  setSelectedCanvasElement: selectedCanvasElementId=>set({selectedCanvasElementId}),
+  addCanvasElement: element=>set(s=>({canvasElements:[...s.canvasElements,normalizeMVElement(element)],selectedCanvasElementId:element.id})),
+  updateCanvasElement: (id,changes)=>set(s=>({canvasElements:s.canvasElements.map(e=>e.id===id?normalizeMVElement({...e,...changes,id}):e)})),
+  removeCanvasElement: id=>set(s=>({canvasElements:s.canvasElements.filter(e=>e.id!==id),selectedCanvasElementId:s.selectedCanvasElementId===id?null:s.selectedCanvasElementId})),
+  extraOverlayEffects: [],
+  addExtraOverlayEffect: effect=>set(s=>({extraOverlayEffects:[...s.extraOverlayEffects,{...clampOverlay(effect),id:effect.id}]})),
+  updateExtraOverlayEffect: (id,changes)=>set(s=>({extraOverlayEffects:s.extraOverlayEffects.map(e=>e.id===id?{...clampOverlay({...e,...changes}),id}:e)})),
+  removeExtraOverlayEffect: id=>set(s=>({extraOverlayEffects:s.extraOverlayEffects.filter(e=>e.id!==id)})),
   soundtrackMuted: false,
   soundtrackVolume: 1,
   showSoundtrackWaveform: true,
@@ -528,6 +550,9 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       songAnalysis: null,
       wordTimings: [],
       mediaSourceFilter: 'all',
+      canvasElements: [],
+      selectedCanvasElementId: null,
+      extraOverlayEffects: [],
       soundtrackMuted: false,
       soundtrackVolume: 1,
       showSoundtrackWaveform: true,
@@ -720,6 +745,8 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       .map(({ file: _file, ...asset }) => asset),
     timelineClips: state.timelineClips,
     soundtrackSpeed: state.soundtrackSpeed,
+    canvasElements: state.canvasElements,
+    extraOverlayEffects: state.extraOverlayEffects,
     soundtrackMuted: state.soundtrackMuted,
     soundtrackVolume: state.soundtrackVolume,
     showSoundtrackWaveform: state.showSoundtrackWaveform,
