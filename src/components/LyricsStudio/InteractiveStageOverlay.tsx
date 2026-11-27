@@ -1,3 +1,4 @@
+import { useMVStore } from '../../store/useMVStore';
 import React, { useRef, useState } from 'react';
 import { useLyricsVideoStore, CanvasElementPositions } from '../../store/useLyricsVideoStore';
 import { useStore } from '../../store/useStore';
@@ -180,6 +181,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   // Body drag to move
   const handlePointerDown = (e: React.PointerEvent, key: ElementKey) => {
     e.stopPropagation();
+    if (mode === 'music-video') useMVStore.getState().setSelectedCanvasElement(null);
     setSelectedElement(key);
     const startPos = getDisplayedPos(key);
     if (key === 'lyrics') {
@@ -201,6 +203,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   // Canva / PPT corner or edge handle drag to resize
   const handleResizePointerDown = (e: React.PointerEvent, key: ElementKey, handle: ResizeHandle) => {
     e.stopPropagation();
+    if (mode === 'music-video') useMVStore.getState().setSelectedCanvasElement(null);
     setSelectedElement(key);
     isResizingRef.current = true;
     resizeKeyRef.current = key;
@@ -530,6 +533,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   const handleContainerClick = (e: React.MouseEvent) => {
     if (e.target === containerRef.current) {
       setSelectedElement(null);
+      if (mode === 'music-video') useMVStore.getState().setSelectedCanvasElement(null);
     }
   };
 
@@ -560,7 +564,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       {/* ========================================================================= */}
       {/* CANVA / CAPCUT STYLE SMART GUIDES CONTROLS TOOLBAR (4.4) */}
       {/* ========================================================================= */}
-      <div className={`absolute ${mode === 'music-video' ? 'bottom-2 right-2' : 'top-2.5 right-2.5'} z-40 flex items-center gap-1.5 pointer-events-auto`}>
+      <div data-mv-selection-controls className={`absolute ${mode === 'music-video' ? 'bottom-2 right-2' : 'top-2.5 right-2.5'} z-40 flex items-center gap-1.5 pointer-events-auto`}>
         {/* Toggleable Settings Pill */}
         <div className="flex items-center rounded-lg bg-[#0e1115]/90 border border-[#232933] shadow-xl backdrop-blur-md p-0.5 text-[#9aa2ae]">
           {/* Smart Guides Toggle */}
@@ -803,6 +807,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
         return (
           <div
             key={key}
+            data-mv-selection-target
             onPointerDown={(e) => handlePointerDown(e, key)}
             aria-label={`Drag ${key} to reposition`}
             title={`Drag to move ${key}`}

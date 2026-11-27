@@ -1,3 +1,4 @@
+import { useLyricsVideoStore } from '../../store/useLyricsVideoStore';
 import React from 'react';
 import { useMVStore } from '../../store/useMVStore';
 import { useStore } from '../../store/useStore';
@@ -24,9 +25,9 @@ export function MVElementsPanel() {
     <details open className="rounded border border-[#303846] p-2">
       <summary className="cursor-pointer text-xs font-semibold">Elements & watermark</summary>
       <p className="my-2 text-[10px] text-slate-400">Add a layer, then drag it on the preview. Layers stay visible for the whole video unless timed.</p>
-      <div className="grid grid-cols-3 gap-1">{kinds.map(k=><button key={k.kind} type="button" className={btn} onClick={()=>add(makeMVElement(k.kind,crypto.randomUUID()))}>{k.label}</button>)}</div>
+      <div className="grid grid-cols-3 gap-1">{kinds.map(k=><button key={k.kind} type="button" className={btn} onClick={()=>{useLyricsVideoStore.getState().setSelectedElement(null);add(makeMVElement(k.kind,crypto.randomUUID()));}}>{k.label}</button>)}</div>
       <div className="mt-2 space-y-1">{elements.map(item=><div key={item.id} className="flex gap-1">
-        <button type="button" className={`${btn} flex-1 truncate text-left ${selectedId===item.id?'border-accent text-accent':''}`} onClick={()=>select(item.id)}>{item.kind==='text'||item.kind==='watermark'?item.text||item.kind:item.kind}</button>
+        <button type="button" className={`${btn} flex-1 truncate text-left ${selectedId===item.id?'border-accent text-accent':''}`} onClick={()=>{useLyricsVideoStore.getState().setSelectedElement(null);select(item.id);}}>{item.kind==='text'||item.kind==='watermark'?item.text||item.kind:item.kind}</button>
         <button type="button" title="Remove element" aria-label="Remove element" className={btn} onClick={()=>remove(item.id)}><Trash2 size={12}/></button>
       </div>)}</div>
       {e&&<div className="mt-3 space-y-2 border-t border-[#303846] pt-2">

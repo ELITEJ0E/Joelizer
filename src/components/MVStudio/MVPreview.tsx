@@ -106,6 +106,40 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const selectedStageElement = useLyricsVideoStore(s => s.selectedElement);
+  const selectedMVElement = useMVStore(s => s.selectedCanvasElementId);
+  const clearStageSelection = () => {
+    useLyricsVideoStore.getState().setSelectedElement(null);
+    useMVStore.getState().setSelectedCanvasElement(null);
+  };
+
+  useEffect(() => {
+    if (videoMode !== 'music-video') return;
+    // Use pointer-down capture, not click: drag handles use pointer capture
+    // and other preview controls may stop click propagation.
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-mv-selection-target], [data-mv-selection-controls]')) return;
+      if (stageRef.current?.contains(target) || target.closest('[data-mv-timeline-area]')) {
+        clearStageSelection();
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="listbox"]')) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      clearStageSelection();
+      setAdjustVideo(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [videoMode]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFallbackFullscreen, setIsFallbackFullscreen] = useState(false);
@@ -821,7 +855,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           {videoMode === 'music-video' && !adjustVideo && <MVElementDragOverlay width={stageDimensions.width} height={stageDimensions.height}/>}
           {editableVideo && (
             <div className={`absolute ${videoMode === 'music-video' ? 'top-11 left-2' : 'top-12 left-2'} z-40 flex flex-col items-start gap-1 pointer-events-auto`}>
-              <button type="button" onClick={() => setAdjustVideo(v => !v)}
+              <button type="button" data-mv-selection-controls onClick={() => { clearStageSelection(); setAdjustVideo(v => !v); }}
                 className={`rounded border px-2 py-1.5 text-[10px] font-semibold shadow-lg ${adjustVideo ? 'border-accent bg-accent text-black' : 'border-white/30 bg-black/70 text-white'}`}
                 title="Select the video to drag, resize, or reframe">
                 {adjustVideo ? 'Done adjusting' : 'Adjust video'}
@@ -883,6 +917,14 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
             </button>
           </div>
 
+          {videoMode === 'music-video' && !adjustVideo && (selectedStageElement || selectedMVElement) && (
+            <button type="button" data-mv-selection-controls
+              onClick={() => clearStageSelection()}
+              aria-label="Deselect canvas element" title="Done editing (Escape)"
+              className="absolute top-11 right-2 z-[60] rounded border border-emerald-400/50 bg-[#0e1115]/90 px-2 py-1 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-950 cursor-pointer">
+              Done
+            </button>
+          )}
           {/* Timecode Overlay */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-20 pointer-events-none">
             <div className="bg-[#0e1115]/90 backdrop-blur-md px-2 py-0.5 rounded text-[#f0f3f6] font-mono text-[9px] font-semibold shadow-md border border-[#232933]">
