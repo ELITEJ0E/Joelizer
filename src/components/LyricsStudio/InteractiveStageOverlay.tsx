@@ -46,6 +46,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
   const aspectRatio = useStore(s => s.aspectRatio);
   const currentTrackIndex = useStore(s => s.currentTrackIndex);
   const previewTime = useStore(s => s.currentTime);
+  const mvHasLyrics = useStore(s => (s.lyricsSettings?.lines?.length ?? 0) > 0);
   const currentTrack = useStore(s => s.tracks[s.currentTrackIndex]);
   const updateTrackMetadata = useStore(s => s.updateTrackMetadata);
   const [editingMetaField, setEditingMetaField] = useState<'name' | 'artist' | null>(null);
@@ -243,7 +244,7 @@ export function InteractiveStageOverlay({ stageWidth, stageHeight, filterKeys, m
       // The independent visualizer can be moved for every artwork style.
       // Glowing disc templates must not silently disable its drag hitbox.
       if (k === 'visualizer') return showVisualizer !== false;
-      if (k === 'lyrics') return mode === 'music-video' ? useStore.getState().lyricsSettings.lines.length > 0 : showLyrics !== false;
+      if (k === 'lyrics') return mode === 'music-video' ? mvHasLyrics : showLyrics !== false;
       if (k === 'meta') return showMeta !== false;
       return true;
     }

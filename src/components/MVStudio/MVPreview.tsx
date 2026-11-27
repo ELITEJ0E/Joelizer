@@ -476,7 +476,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               preferElementPosition: true,
               watermarkText: 'Made with Joelizer',
               showWatermark: activeVideoMode !== 'music-video',
-              showSafeArea: false,
+              showSafeArea: activeVideoMode === 'lyrics-video' && lyricsVideoState.showSafeArea,
               showArtwork: lyricsVideoState.showArtwork !== false,
               // The positioned visualizer is composited explicitly below.
               showVisualizer: false,
@@ -820,7 +820,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
           {videoMode === 'music-video' && !adjustVideo && <MVElementDragOverlay width={stageDimensions.width} height={stageDimensions.height}/>}
           {editableVideo && (
-            <div className="absolute bottom-2 left-2 z-40 flex flex-col items-start gap-1 pointer-events-auto">
+            <div className={`absolute ${videoMode === 'music-video' ? 'top-11 left-2' : 'top-12 left-2'} z-40 flex flex-col items-start gap-1 pointer-events-auto`}>
               <button type="button" onClick={() => setAdjustVideo(v => !v)}
                 className={`rounded border px-2 py-1.5 text-[10px] font-semibold shadow-lg ${adjustVideo ? 'border-accent bg-accent text-black' : 'border-white/30 bg-black/70 text-white'}`}
                 title="Select the video to drag, resize, or reframe">
@@ -838,8 +838,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               )}
             </div>
           )}
-          {/* MV clips: drag the footage directly without any obstructing controls.
-              Lyrics Video retains its explicit adjustment mode and resize handle. */}
+          {/* Reframe footage only in explicit adjustment mode, leaving
+              caption and element drag targets unobstructed in normal editing. */}
           {editableVideo && adjustVideo && (
             <div
               className={`absolute inset-0 z-30 touch-none select-none ${adjustmentGesture.current ? 'cursor-grabbing' : 'cursor-grab'} ${videoMode === 'lyrics-video' ? 'border-2 border-accent/70' : ''}`}
