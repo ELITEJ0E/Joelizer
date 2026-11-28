@@ -1460,6 +1460,7 @@ export function MVTimeline() {
                   return (
                     <div 
                       key={clip.id}
+                      data-mv-clip-id={clip.id}
                       onClick={(e) => {
                         e.stopPropagation();
                         // Pointer-down owns selection, including Shift/Ctrl toggling.
@@ -1742,7 +1743,7 @@ export function MVTimeline() {
       {/* CONTEXTUAL TOOLBAR: one reserved row, never overlays the timeline */}
       {/* ========================================================================= */}
       </div>
-      <div data-mv-context-dock className="h-10 shrink-0 min-w-0 flex items-center overflow-x-auto overflow-y-hidden overscroll-x-contain border-t border-[#232933] bg-[#0e1115]">
+      <div data-mv-context-dock className="h-10 shrink-0 min-w-0 flex items-center overflow-x-auto overflow-y-hidden overscroll-x-contain border-t border-[#232933] bg-[#0e1115] [scrollbar-width:thin]">
         {selectedClipIds.length > 1 && <div role="status" className="flex shrink-0 items-center gap-2 px-2 text-[10px] text-emerald-200 whitespace-nowrap">
           {selectedClipIds.length} selected
           <button type="button" onClick={()=>{setSelectedClipIds([]);setSelectedClipId(null);}} className="rounded border border-emerald-500/40 px-2 py-0.5">Clear</button>

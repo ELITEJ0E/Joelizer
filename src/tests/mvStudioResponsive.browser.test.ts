@@ -116,6 +116,26 @@ try {
   await page.keyboard.press('Escape');
   await volumePopup.waitFor({state:'detached'});
 
+  await page.evaluate(async () => {
+    const modulePath='/src/store/useMVStore.ts';
+    const {useMVStore}=await import(/* @vite-ignore */ modulePath);
+    useMVStore.getState().setTimelineClips([{id:'popup-test-clip',assetId:'visualizer',type:'visualizer',startTime:0,endTime:4,trimStart:0,trimEnd:4}]);
+    useMVStore.getState().setSelectedClipId('popup-test-clip');
+  });
+  const clip = page.locator('[data-mv-clip-id="popup-test-clip"]');
+  await clip.waitFor({state:'visible'});
+  await clip.click({button:'right'});
+  const clipPopup=page.getByRole('dialog',{name:'Clip playback speed'});
+  await clipPopup.waitFor({state:'visible'});
+  assert.deepEqual(await dock.boundingBox(),dockBefore,'Right-clicking a clip must not move the edit dock');
+  await page.keyboard.press('Escape');
+  await clipPopup.waitFor({state:'detached'});
+  await page.evaluate(async () => {
+    const modulePath='/src/store/useMVStore.ts';
+    const {useMVStore}=await import(/* @vite-ignore */ modulePath);
+    useMVStore.getState().setSelectedClipId(null);
+    useMVStore.getState().setTimelineClips([]);
+  });
   // All workspaces share the same top-level Export action. MV Studio must
   // not introduce another Export button beneath the navbar.
   const topExport = page.locator('#topbar-export-btn');

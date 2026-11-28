@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 export interface TimelinePopupAnchor { x:number; y:number; element?:HTMLElement }
 export function timelinePopupAnchor(element:HTMLElement):TimelinePopupAnchor {
@@ -8,9 +8,9 @@ export function timelinePopupAnchor(element:HTMLElement):TimelinePopupAnchor {
 export function TimelinePopover({anchor,title,onClose,children,width=248}:{
   anchor:TimelinePopupAnchor;title:string;onClose:()=>void;children:React.ReactNode;width?:number
 }) {
-  const ref=useRef<HTMLDivElement>(null);
+  const [el,setElement]=useState<HTMLDivElement|null>(null);
   useLayoutEffect(()=>{
-    const el=ref.current;if(!el)return;
+    if(!el)return;
     const place=()=>{
       const v=window.visualViewport, left=v?.offsetLeft??0,top=v?.offsetTop??0;
       const right=left+(v?.width??window.innerWidth),bottom=top+(v?.height??window.innerHeight);
@@ -26,15 +26,15 @@ export function TimelinePopover({anchor,title,onClose,children,width=248}:{
     place();const observer=new ResizeObserver(place);observer.observe(el);
     if(anchor.element?.isConnected)observer.observe(anchor.element);
     window.addEventListener('resize',place);window.addEventListener('scroll',place,true);
-    window.visualViewport?.addEventListener('resize',place);
-    return ()=>{observer.disconnect();window.removeEventListener('resize',place);window.removeEventListener('scroll',place,true);window.visualViewport?.removeEventListener('resize',place);};
-  },[anchor.x,anchor.y,anchor.element,width]);
+    window.visualViewport?.addEventListener('resize',place);window.visualViewport?.addEventListener('scroll',place);
+    return ()=>{observer.disconnect();window.removeEventListener('resize',place);window.removeEventListener('scroll',place,true);window.visualViewport?.removeEventListener('resize',place);window.visualViewport?.removeEventListener('scroll',place);};
+  },[el,anchor.x,anchor.y,anchor.element,width]);
   return <Dialog.Root open modal={false} onOpenChange={open=>{if(!open)onClose();}}>
     <Dialog.Portal container={typeof document!=='undefined'?document.fullscreenElement||document.body:undefined}>
-      <Dialog.Content ref={ref} aria-describedby={undefined} data-mv-timeline-popup
+      <Dialog.Content ref={setElement} aria-describedby={undefined} data-mv-timeline-popup
         className="fixed z-[9000] overflow-auto overscroll-contain rounded-lg border border-[#343e4d] bg-[#10151d] text-[#e5edf6] shadow-lg outline-none font-mono"
-        style={{width,visibility:'hidden'}} onCloseAutoFocus={e=>e.preventDefault()}
-        onPointerDownOutside={e=>{const target=e.detail.originalEvent.target;if(target instanceof Node&&anchor.element?.contains(target))e.preventDefault();}}
+        style={{width,left:8,top:8}} onCloseAutoFocus={e=>e.preventDefault()}
+        onInteractOutside={e=>{const target=e.detail.originalEvent.target;if(target instanceof Node&&anchor.element?.contains(target))e.preventDefault();}}
         onPointerDown={e=>e.stopPropagation()} onPointerMove={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()}
         onClick={e=>e.stopPropagation()} onContextMenu={e=>e.stopPropagation()}>
         <Dialog.Title className="sr-only">{title}</Dialog.Title>{children}
