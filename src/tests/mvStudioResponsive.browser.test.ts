@@ -139,6 +139,16 @@ try {
   assert.deepEqual(await timeline.boundingBox(),beforeSelection);
   await clipDock.getByRole('button',{name:'Mute clip audio'}).click();
   assert.equal(await volume.getAttribute('aria-disabled'),'true');
+  for(const viewport of [{width:1024,height:600},{width:390,height:740}]){
+    await page.setViewportSize(viewport);
+    await page.waitForTimeout(200);
+    const f=await clipDock.boundingBox(), t=await timeline.boundingBox();
+    assert.ok(f&&t&&f.x>=0&&f.x+f.width<=viewport.width+1&&f.y+f.height<=t.y,'Floating actions fit above tracks on narrow screens');
+    assert.equal(await clipDock.evaluate(el=>el.scrollWidth>el.clientWidth),false);
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await clipDock.getByRole('button',{name:'Deselect timeline item'}).click();
+  await clipDock.waitFor({state:'detached'});
   await page.evaluate(async()=>{
     const path='/src/store/useMVStore.ts';const {useMVStore}=await import(/* @vite-ignore */ path);
     useMVStore.getState().setSelectedClipId(null);useMVStore.getState().setTimelineClips([]);

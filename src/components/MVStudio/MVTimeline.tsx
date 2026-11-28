@@ -174,7 +174,7 @@ export function MVTimeline() {
       const isInput = target && (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
+        target.isContentEditable || target.closest('[role="slider"]') !== null
       );
 
       // CapCut-style MV editing commands; keep native copy/paste in inputs.
@@ -1159,7 +1159,7 @@ export function MVTimeline() {
       {/* ========================================================================= */}
       {/* TIMELINE MAIN CONTAINER (Track Headers + Scrollable Tracks) */}
       {/* ========================================================================= */}
-      <div data-mv-track-scroll className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+      <div data-mv-track-scroll className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:thin] [scrollbar-color:#34414e_transparent]">
       <div className={`flex relative bg-[#0a0c0f] ${wordsExpanded ? 'min-h-[max(100%,236px)] sm:min-h-[max(100%,220px)]' : 'min-h-[max(100%,204px)] sm:min-h-[max(100%,188px)]'}`}>
         
         {/* ========================================================================= */}
@@ -1349,7 +1349,7 @@ export function MVTimeline() {
         {/* ========================================================================= */}
         <div 
           ref={scrollWrapperRef}
-          className="flex-1 min-w-0 relative overflow-x-auto overflow-y-hidden"
+          className="flex-1 min-w-0 relative overflow-x-auto overflow-y-hidden [scrollbar-width:thin] [scrollbar-color:#34414e_transparent]"
           onClick={(e) => {
             // The VIS lane handles its own selection and marquee gestures.
             if ((e.target as HTMLElement).closest('[data-mv-vis-lane]')) return;
