@@ -7,6 +7,7 @@ import { globalHistory } from '../lib/globalHistory';
 import { getClipSpeed, retimeClips } from '../lib/clipSpeed';
 const MV_STORAGE_KEY = 'mv-studio-storage';
 let mvProjectDeleteEpoch = 0;
+export function invalidateMVAssetHydration(){mvProjectDeleteEpoch++;}
 
 /** Upgrade existing session projects once, before Zustand rehydrates local data. */
 function getPersistentMVStorage(): Storage {
@@ -545,6 +546,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       transitionDuration: 0.5
     });
     globalHistory.resetAfterProjectDeletion();
+    if(typeof window!=='undefined')window.dispatchEvent(new Event('mv-workspace-cleared'));
     try { window.sessionStorage.removeItem(MV_STORAGE_KEY); } catch {}
   },
 

@@ -226,3 +226,17 @@ export async function loadMVAssetsFromStorage(): Promise<StoredMVAsset[]> {
     return [];
   }
 }
+
+/** Atomically replace the active MV media and audio slots. Named snapshots
+ * live in a separate database and are never affected by this operation. */
+export async function replaceMVWorkspaceStorage(assets:StoredMVAsset[],audio:{blob:Blob;name:string;artist:string;duration:number}|null):Promise<void>{
+  const db=await openDB();
+  try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction([MV_ASSETS_STORE,STORE_NAME],'readwrite');
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error||new Error('Unable to replace working media.'));
+    tx.onabort=()=>reject(tx.error||new Error('Working media replacement aborted.'));
+    const media=tx.objectStore(MV_ASSETS_STORE);media.clear();for(const asset of assets)media.put(asset);
+    const sound=tx.objectStore(STORE_NAME);sound.clear();
+    if(audio){sound.put(audio.blob,'audioBlob');sound.put(audio.name,'audioName');sound.put(audio.artist,'audioArtist');sound.put(audio.duration,'audioDuration');}
+  });}finally{db.close();}
+}

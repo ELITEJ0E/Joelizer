@@ -37,7 +37,7 @@ export function MVSettingsPanel() {
   const handleClearMVProject = async () => {
     if (isClearingProject) return;
     const confirmed = window.confirm(
-      'Delete ALL MV Studio clips, saved media, timeline timings, analysis, and editing settings from this browser? This cannot be undone. Lyrics Video and audio files are not deleted.'
+      'Clear the current MV editing workspace? Named snapshots in Projects are retained. Lyrics Video and audio files are not deleted.'
     );
     if (!confirmed) return;
     setIsClearingProject(true);

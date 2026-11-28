@@ -40,6 +40,8 @@ jobs:
         run: npx tsx src/tests/dawAudioEngine.browser.test.ts
       - name: Verify arrangement editing, sessions and responsive DAW UI
         run: npx tsx src/tests/dawArrangement.browser.test.ts
+      - name: Verify named MV projects and media restoration
+        run: npx tsx src/tests/mvProjects.browser.test.ts
       - name: Verify responsive preview, media dialogs and hover behavior
         run: npx tsx src/tests/mvStudioResponsive.browser.test.ts
       - name: Install FFmpeg for MP4 validation

@@ -1,3 +1,4 @@
+import {MVProjectsPanel} from './MVProjectsPanel';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
@@ -7,21 +8,24 @@ import { MVPreview } from './MVPreview';
 import { MVWorkflow } from './MVWorkflow';
 import { MVAssetLibrary } from './MVAssetLibrary';
 import { MVSettingsPanel } from './MVSettingsPanel';
-import { Layers, SlidersHorizontal, Film, X, Settings2, PanelLeftClose } from 'lucide-react';
+import { Layers, SlidersHorizontal, Film, X, Settings2, PanelLeftClose, FolderOpen } from 'lucide-react';
 import { StudioButton } from '../ui/StudioButton';
 
-type StudioPanel = 'media' | 'controls' | 'settings' | 'none';
+type StudioPanel = 'media' | 'controls' | 'settings' | 'projects' | 'none';
 
 const panels: Array<{ id: Exclude<StudioPanel, 'none'>; label: string; description: string; icon: typeof Layers }> = [
   { id: 'media', label: 'Media', description: 'Import and arrange media', icon: Layers },
   { id: 'controls', label: 'Auto Edit', description: 'Automatic cutting and effects', icon: SlidersHorizontal },
-  { id: 'settings', label: 'Design', description: 'Framing, lyric styles and overlay effects', icon: Settings2 }
+  { id: 'settings', label: 'Design', description: 'Framing, lyric styles and overlay effects', icon: Settings2 },
+  {id:'projects',label:'Projects',description:'Save and switch music video projects',icon:FolderOpen}
 ];
 
 export function MVStudioLayout() {
   const rehydrateMVAssets = useMVStore(s => s.rehydrateMVAssets);
   const setVideoMode = useLyricsVideoStore(s => s.setVideoMode);
   const editorRef = useRef<HTMLElement>(null);
+  const [workspaceRevision,setWorkspaceRevision]=useState(0);
+  useEffect(()=>{const reset=()=>setWorkspaceRevision(v=>v+1);window.addEventListener('mv-workspace-switched',reset);return ()=>window.removeEventListener('mv-workspace-switched',reset);},[]);
   const [timelineHeight, setTimelineHeight] = useState<number | null>(null);
   const [isResizingTimeline, setIsResizingTimeline] = useState(false);
   const drawerHistoryRef = useRef(false);
@@ -207,6 +211,7 @@ export function MVStudioLayout() {
                 {activePanel === 'media' && <MVAssetLibrary />}
                 {activePanel === 'controls' && <MVWorkflow />}
                 {activePanel === 'settings' && <MVSettingsPanel />}
+                {activePanel === 'projects' && <MVProjectsPanel />}
               </div>
             </aside>
           </>
@@ -214,7 +219,7 @@ export function MVStudioLayout() {
 
         {/* No redundant preview toolbar. The video has its own on-hover controls. */}
         <main ref={editorRef} className="relative isolate z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b10]">
-          <div data-mv-preview-area className="relative flex min-h-[120px] flex-1 items-center justify-center overflow-hidden p-2 sm:p-3">
+          <div key={`preview-${workspaceRevision}`} data-mv-preview-area className="relative flex min-h-[120px] flex-1 items-center justify-center overflow-hidden p-2 sm:p-3">
             <MVPreview mode="music-video" />
           </div>
 
@@ -234,6 +239,7 @@ export function MVStudioLayout() {
           </div>
 
           <div
+            key={`timeline-${workspaceRevision}`}
             data-mv-timeline-area
             className="min-h-0 shrink-0 overflow-hidden bg-[#0f151c]"
             style={{ height: timelineHeight === null ? 'clamp(220px, 40%, 480px)' : `${timelineHeight}px` }}
