@@ -70,6 +70,27 @@ try {
   assert.ok(resetTimeline && Math.abs(resetTimeline.height - initialTimeline.height) <= 2,
     'Double-clicking the divider must restore default timeline size');
 
+  for(const viewport of [{width:1440,height:900},{width:1024,height:600},{width:390,height:740}]){
+    await page.setViewportSize(viewport);
+    const trigger=page.getByTitle('Track options',{exact:true});
+    await trigger.scrollIntoViewIfNeeded();
+    const before=await timeline.boundingBox();
+    await trigger.click();
+    const popup=page.getByRole('dialog',{name:'Visual track options'});
+    await popup.waitFor({state:'visible'});
+    const rect=await popup.boundingBox(), anchor=await trigger.boundingBox();
+    assert.ok(rect&&anchor);
+    assert.ok(rect.x>=0&&rect.y>=0&&rect.x+rect.width<=viewport.width&&rect.y+rect.height<=viewport.height);
+    assert.equal(await popup.evaluate(el=>!!el.closest('[data-mv-timeline-area]')),false);
+    if(viewport.height-anchor.y-anchor.height<await popup.evaluate(el=>el.scrollHeight)&&anchor.y>viewport.height-anchor.y-anchor.height)
+      assert.equal(await popup.getAttribute('data-side'),'top');
+    assert.deepEqual(await timeline.boundingBox(),before);
+    await popup.getByRole('button',{name:'Add Visualizer Scene'}).hover();
+    await popup.getByRole('button',{name:'Auto-Fill With Assets'}).hover();
+    await page.keyboard.press('Escape');
+    await popup.waitFor({state:'detached'});
+  }
+  await page.setViewportSize({width:1440,height:900});
   // All workspaces share the same top-level Export action. MV Studio must
   // not introduce another Export button beneath the navbar.
   const topExport = page.locator('#topbar-export-btn');

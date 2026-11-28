@@ -130,7 +130,7 @@ export function MVTimeline() {
   const [audioMuted, setAudioMuted] = useState(false);
   const [audioVolume, setAudioVolume] = useState(1);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const [activeTrackMenu, setActiveTrackMenu] = useState<'vis' | 'lyr' | 'aud' | null>(null);
+  const [activeTrackMenu, setActiveTrackMenu] = useState<{track:'vis'|'lyr'|'aud';anchor:HTMLElement}|null>(null);
 
   // Drag Session Ref & State (Pointer capture)
   const dragSessionRef = useRef<DragSession | null>(null);
@@ -1215,7 +1215,7 @@ export function MVTimeline() {
                 <Plus size={9} /> Media
               </button>
               <button
-                onClick={() => setActiveTrackMenu(activeTrackMenu === 'vis' ? null : 'vis')}
+                onClick={event => setActiveTrackMenu(activeTrackMenu?.track === 'vis' ? null : {track:'vis',anchor:event.currentTarget})} aria-expanded={activeTrackMenu?.track === 'vis'} aria-haspopup="dialog"
                 className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                 title="Track options"
               >
@@ -1223,9 +1223,9 @@ export function MVTimeline() {
               </button>
             </div>
 
-            {activeTrackMenu === 'vis' && (
+            {activeTrackMenu?.track === 'vis' && (
               <TrackHeaderMenu
-                trackType="vis"
+                trackType="vis" anchor={activeTrackMenu.anchor}
                 onClose={() => setActiveTrackMenu(null)}
                 onAction={(act) => handleTrackAction('vis', act)}
               />
@@ -1257,7 +1257,7 @@ export function MVTimeline() {
                   <span>W</span>
                 </button>
                 <button
-                  onClick={() => setActiveTrackMenu(activeTrackMenu === 'lyr' ? null : 'lyr')}
+                  onClick={event => setActiveTrackMenu(activeTrackMenu?.track === 'lyr' ? null : {track:'lyr',anchor:event.currentTarget})} aria-expanded={activeTrackMenu?.track === 'lyr'} aria-haspopup="dialog"
                   className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                   title="Lyrics track options"
                 >
@@ -1266,9 +1266,9 @@ export function MVTimeline() {
               </div>
             </div>
 
-            {activeTrackMenu === 'lyr' && (
+            {activeTrackMenu?.track === 'lyr' && (
               <TrackHeaderMenu
-                trackType="lyr"
+                trackType="lyr" anchor={activeTrackMenu.anchor}
                 onClose={() => setActiveTrackMenu(null)}
                 onAction={(act) => handleTrackAction('lyr', act)}
               />
