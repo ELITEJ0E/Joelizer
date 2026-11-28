@@ -22,6 +22,10 @@ try{
     mv.useMVStore.getState().setTimelineClips([{id:'clip-a',assetId:'media-a',type:'image',startTime:0,endTime:5,trimStart:0,trimEnd:5,offsetX:0.2,zoom:1.2,audioMuted:true,transition:'fade'}]);
     main.useStore.getState().updateLyricsSettings({lines:[{id:'line-a',text:'Song A',startTime:0,endTime:2}],font:'Outfit'});
     main.useStore.getState().setAspectRatio('9:16');
+    const wav=new ArrayBuffer(44+16000);const bytes=new DataView(wav);const ascii=(at:number,text:string)=>{for(let i=0;i<text.length;i++)bytes.setUint8(at+i,text.charCodeAt(i));};
+    ascii(0,'RIFF');bytes.setUint32(4,wav.byteLength-8,true);ascii(8,'WAVE');ascii(12,'fmt ');bytes.setUint32(16,16,true);bytes.setUint16(20,1,true);bytes.setUint16(22,1,true);bytes.setUint32(24,8000,true);bytes.setUint32(28,16000,true);bytes.setUint16(32,2,true);bytes.setUint16(34,16,true);ascii(36,'data');bytes.setUint32(40,16000,true);
+    const soundtrack=new File([wav],'song-a.wav',{type:'audio/wav'});
+    main.useStore.getState().setAudio(soundtrack,URL.createObjectURL(soundtrack),1,null,{name:'Song A'});
     design.useLyricsVideoStore.getState().updateTypographyOverride({fontSizeScale:1.3});
     mv.useMVStore.getState().setSoundtrackVolume(.6);
     mv.useMVStore.getState().setLyrTrackVisible(false);
@@ -34,6 +38,7 @@ try{
     if(state.timelineClips[0]?.id!=='clip-a'||state.timelineClips[0].zoom!==1.2||state.soundtrackVolume!==.6||state.lyrTrackVisible!==false)throw new Error('MV edit was not restored');
     if(main.useStore.getState().aspectRatio!=='9:16'||main.useStore.getState().lyricsSettings.lines[0]?.text!=='Song A'||design.useLyricsVideoStore.getState().typographyOverride.fontSizeScale!==1.3)throw new Error('Shared design or lyrics were not restored');
     if(!(await(await fetch(state.videoAssets[0].url)).text()).includes('fill="red"'))throw new Error('Restored asset bytes are incorrect');
+    const audio=main.useStore.getState();if(!audio.audioUrl||audio.audioFile?.size!==wav.byteLength||(await(await fetch(audio.audioUrl)).arrayBuffer()).byteLength!==wav.byteLength)throw new Error('Soundtrack bytes not restored');
     await p.openMVProject(b.id);
     if(main.useStore.getState().lyricsSettings.lines[0]?.text!=='Song B'||mv.useMVStore.getState().videoAssets.length)throw new Error('Project B was overwritten');
     return {a:a.id,b:b.id};
@@ -44,7 +49,7 @@ try{
   await page.getByRole('button',{name:'Rename Song A',exact:true}).waitFor({state:'visible'});
   await page.reload({waitUntil:'domcontentloaded'});
   const result=await page.evaluate(async({a,b})=>{
-    const p=await import(/* @vite-ignore */ '/src/lib/mvProjects.ts');
+    const path='/src/lib/mvProjects.ts';const p=await import(/* @vite-ignore */ path);
     const list=await p.listMVProjects();return list.some((x:{id:string})=>x.id===a)&&list.some((x:{id:string})=>x.id===b);
   },ids);
   assert.equal(result,true,'Named snapshots must survive page reload');

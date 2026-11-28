@@ -162,10 +162,10 @@ async function exclusive<T>(fn:()=>Promise<T>):Promise<T>{
   busy=true;try{return await fn();}finally{busy=false;}
 }
 export const saveMVProject=(name:string,asNew=false)=>exclusive(()=>save(name,asNew?null:currentProjectId));
-export const openMVProject=(id:string)=>exclusive(async()=>{
+export const openMVProject=(id:string,saveCurrent=true)=>exclusive(async()=>{
   if(id===currentProjectId)return;
   const project=await readProject(id),decoded=decodeWorkspace(project);
-  try{await checkpoint();await apply(decoded.workspace,decoded.urls);currentProjectId=id;}
+  try{if(saveCurrent)await checkpoint();await apply(decoded.workspace,decoded.urls);currentProjectId=id;}
   catch(e){decoded.urls.forEach(url=>URL.revokeObjectURL(url));throw e;}
 });
 export const newMVProject=(name:string)=>exclusive(async()=>{
