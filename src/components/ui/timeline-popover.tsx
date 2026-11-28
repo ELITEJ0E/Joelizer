@@ -17,10 +17,19 @@ export function TimelinePopover({anchor,title,onClose,children,width=248}:{
       const r=anchor.element?.isConnected?anchor.element.getBoundingClientRect():null;
       const x=r?.left??anchor.x,y=r?.top??anchor.y,after=r?.bottom??anchor.y;
       el.style.maxWidth=Math.max(0,right-left-16)+'px';
-      el.style.maxHeight=Math.max(0,bottom-top-16)+'px';
+      const dock=document.querySelector('[data-mv-context-dock]')?.getBoundingClientRect();
+      // Track-header menus should never cover the dock, even if the browser
+      // has space below it. Menus opened FROM the dock use the viewport.
+      const lower=dock&&after<=dock.top?Math.min(bottom,dock.top):bottom;
+      const above=Math.max(0,y-top-14),below=Math.max(0,lower-after-14);
+      const natural=el.scrollHeight+2;
+      const up=natural>below&&(natural<=above||above>=below);
+      const available=up?above:below;
+      el.style.maxHeight=Math.max(0,available)+'px';
       const w=el.offsetWidth,h=el.offsetHeight;
       el.style.left=Math.max(left+8,Math.min(x,right-w-8))+'px';
-      el.style.top=Math.max(top+8,Math.min(y-h-6>=top+8?y-h-6:after+6,bottom-h-8))+'px';
+      el.style.top=Math.max(top+8,Math.min(up?y-h-6:after+6,bottom-h-8))+'px';
+      el.dataset.side=up?'top':'bottom';
       el.style.visibility='visible';
     };
     place();const observer=new ResizeObserver(place);observer.observe(el);
@@ -33,7 +42,7 @@ export function TimelinePopover({anchor,title,onClose,children,width=248}:{
     <Dialog.Portal container={typeof document!=='undefined'?document.fullscreenElement||document.body:undefined}>
       <Dialog.Content ref={setElement} aria-describedby={undefined} data-mv-timeline-popup
         className="fixed z-[9000] overflow-auto overscroll-contain rounded-lg border border-[#343e4d] bg-[#10151d] text-[#e5edf6] shadow-lg outline-none font-mono"
-        style={{width,left:8,top:8}} onCloseAutoFocus={e=>e.preventDefault()}
+        style={{width,left:8,top:8,visibility:'hidden'}} onCloseAutoFocus={e=>{e.preventDefault();if(anchor.element?.isConnected)anchor.element.focus({preventScroll:true});}}
         onInteractOutside={e=>{const target=e.detail.originalEvent.target;if(target instanceof Node&&anchor.element?.contains(target))e.preventDefault();}}
         onPointerDown={e=>e.stopPropagation()} onPointerMove={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()}
         onClick={e=>e.stopPropagation()} onContextMenu={e=>e.stopPropagation()}>

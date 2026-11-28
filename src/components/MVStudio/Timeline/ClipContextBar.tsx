@@ -69,9 +69,9 @@ export function ClipContextBar({
           className="px-1.5 py-0.5 rounded border border-[#303846] disabled:opacity-40 text-[#c9d1d9] hover:text-white cursor-pointer">
           {clip.audioMuted === false ? <Volume2 size={13} /> : <VolumeX size={13} />}
         </button>
-        {clip.audioMuted === false && <input type="range" min="0" max="1" step="0.05"
+        {<input type="range" min="0" max="1" step="0.05"
           aria-label="Clip volume" title={`Clip volume ${Math.round((clip.audioVolume ?? 1)*100)}%`}
-          disabled={clip.locked} value={clip.audioVolume ?? 1} onChange={e => onAudioVolume?.(Number(e.target.value))}
+          disabled={clip.locked || clip.audioMuted !== false} value={clip.audioVolume ?? 1} onChange={e => onAudioVolume?.(Number(e.target.value))}
           onPointerUp={onAudioCommit} onKeyUp={onAudioCommit} className="w-14 accent-accent" />}
       </div>}
       {/* Split button */}
