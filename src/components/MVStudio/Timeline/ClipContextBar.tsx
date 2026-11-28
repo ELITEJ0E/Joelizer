@@ -51,7 +51,7 @@ export function ClipContextBar({
 
   return (
     <div 
-      className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-1.5 max-w-[calc(100vw-16px)] px-2.5 py-1 bg-[#0e1115] border border-[#232933] rounded shadow-[0_8px_30px_rgba(0,0,0,0.8)] text-[11px] text-[#f0f3f6] z-50 animate-in fade-in zoom-in-95 duration-150 select-none font-mono"
+      className="flex h-full min-w-max shrink-0 flex-nowrap items-center gap-1.5 px-2 py-0.5 whitespace-nowrap text-[11px] text-[#f0f3f6] select-none font-mono"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Timing badge */}
@@ -149,7 +149,7 @@ export function ClipContextBar({
             className="h-7 w-[106px] border-[#303846] bg-[#161b22] px-2 text-[10px] normal-case">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="z-[110] bg-[#10151c]">
+          <SelectContent side="top" sideOffset={6} collisionPadding={8} className="z-[20000] bg-[#10151c] backdrop-blur-none rounded-md shadow-lg data-[state=open]:animate-none data-[state=closed]:animate-none">
             <SelectItem value="none">FX: None</SelectItem>
             <SelectItem value="ken-burns-in">Zoom In</SelectItem>
             <SelectItem value="ken-burns-out">Zoom Out</SelectItem>
@@ -164,7 +164,7 @@ export function ClipContextBar({
             className="h-7 w-[120px] border-[#303846] bg-[#161b22] px-2 text-[10px] normal-case">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="z-[110] bg-[#10151c]">
+          <SelectContent side="top" sideOffset={6} collisionPadding={8} className="z-[20000] bg-[#10151c] backdrop-blur-none rounded-md shadow-lg data-[state=open]:animate-none data-[state=closed]:animate-none">
             <SelectItem value="cut">Trans: Cut</SelectItem>
             <SelectItem value="crossfade">Crossfade / Mix</SelectItem>
             <SelectItem value="fade">Fade</SelectItem>
