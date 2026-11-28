@@ -1,3 +1,4 @@
+import {MVProjectsPanel} from './MVProjectsPanel';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useMVStore } from '../../store/useMVStore';
@@ -7,15 +8,16 @@ import { MVPreview } from './MVPreview';
 import { MVWorkflow } from './MVWorkflow';
 import { MVAssetLibrary } from './MVAssetLibrary';
 import { MVSettingsPanel } from './MVSettingsPanel';
-import { Layers, SlidersHorizontal, Film, X, Settings2, PanelLeftClose } from 'lucide-react';
+import { Layers, SlidersHorizontal, Film, X, Settings2, PanelLeftClose, FolderOpen } from 'lucide-react';
 import { StudioButton } from '../ui/StudioButton';
 
-type StudioPanel = 'media' | 'controls' | 'settings' | 'none';
+type StudioPanel = 'media' | 'controls' | 'settings' | 'projects' | 'none';
 
 const panels: Array<{ id: Exclude<StudioPanel, 'none'>; label: string; description: string; icon: typeof Layers }> = [
   { id: 'media', label: 'Media', description: 'Import and arrange media', icon: Layers },
   { id: 'controls', label: 'Auto Edit', description: 'Automatic cutting and effects', icon: SlidersHorizontal },
-  { id: 'settings', label: 'Design', description: 'Framing, lyric styles and overlay effects', icon: Settings2 }
+  { id: 'settings', label: 'Design', description: 'Framing, lyric styles and overlay effects', icon: Settings2 },
+  {id:'projects',label:'Projects',description:'Save and switch music video projects',icon:FolderOpen}
 ];
 
 export function MVStudioLayout() {
@@ -207,6 +209,7 @@ export function MVStudioLayout() {
                 {activePanel === 'media' && <MVAssetLibrary />}
                 {activePanel === 'controls' && <MVWorkflow />}
                 {activePanel === 'settings' && <MVSettingsPanel />}
+                {activePanel === 'projects' && <MVProjectsPanel />}
               </div>
             </aside>
           </>

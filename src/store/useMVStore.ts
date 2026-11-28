@@ -7,6 +7,7 @@ import { globalHistory } from '../lib/globalHistory';
 import { getClipSpeed, retimeClips } from '../lib/clipSpeed';
 const MV_STORAGE_KEY = 'mv-studio-storage';
 let mvProjectDeleteEpoch = 0;
+export function invalidateMVAssetHydration(){mvProjectDeleteEpoch++;}
 
 /** Upgrade existing session projects once, before Zustand rehydrates local data. */
 function getPersistentMVStorage(): Storage {
