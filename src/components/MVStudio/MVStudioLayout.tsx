@@ -219,8 +219,8 @@ export function MVStudioLayout() {
 
         {/* No redundant preview toolbar. The video has its own on-hover controls. */}
         <main ref={editorRef} className="relative isolate z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b10]">
-          <div data-mv-preview-area className="relative flex min-h-[120px] flex-1 items-center justify-center overflow-hidden p-2 sm:p-3">
-            <MVPreview key={workspaceRevision} mode="music-video" />
+          <div key={`preview-${workspaceRevision}`} data-mv-preview-area className="relative flex min-h-[120px] flex-1 items-center justify-center overflow-hidden p-2 sm:p-3">
+            <MVPreview mode="music-video" />
           </div>
 
           <div
@@ -239,11 +239,12 @@ export function MVStudioLayout() {
           </div>
 
           <div
+            key={`timeline-${workspaceRevision}`}
             data-mv-timeline-area
             className="min-h-0 shrink-0 overflow-hidden bg-[#0f151c]"
             style={{ height: timelineHeight === null ? 'clamp(220px, 40%, 480px)' : `${timelineHeight}px` }}
           >
-            <MVTimeline key={workspaceRevision} />
+            <MVTimeline />
           </div>
         </main>
       </div>
