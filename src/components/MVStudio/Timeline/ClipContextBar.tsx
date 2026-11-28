@@ -1,3 +1,4 @@
+import * as Slider from '@radix-ui/react-slider';
 import React from 'react';
 import { TimelineClip, isAutoManagedClip } from '../../../store/useMVStore';
 import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles, Gauge, Volume2, VolumeX } from 'lucide-react';
@@ -51,7 +52,7 @@ export function ClipContextBar({
 
   return (
     <div 
-      className="flex h-full min-w-max shrink-0 flex-nowrap items-center gap-1.5 px-2 py-0.5 whitespace-nowrap text-[11px] text-[#f0f3f6] select-none font-mono"
+      className="flex min-w-0 max-w-full flex-wrap items-center justify-center gap-1 px-1 py-0.5 whitespace-nowrap text-[10px] text-[#f0f3f6] select-none font-mono"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Timing badge */}
@@ -69,10 +70,19 @@ export function ClipContextBar({
           className="px-1.5 py-0.5 rounded border border-[#303846] disabled:opacity-40 text-[#c9d1d9] hover:text-white cursor-pointer">
           {clip.audioMuted === false ? <Volume2 size={13} /> : <VolumeX size={13} />}
         </button>
-        {<input type="range" min="0" max="1" step="0.05"
-          aria-label="Clip volume" title={`Clip volume ${Math.round((clip.audioVolume ?? 1)*100)}%`}
-          disabled={clip.locked || clip.audioMuted !== false} value={clip.audioVolume ?? 1} onChange={e => onAudioVolume?.(Number(e.target.value))}
-          onPointerUp={onAudioCommit} onKeyUp={onAudioCommit} className="w-14 accent-accent" />}
+        <Slider.Root value={[clip.audioVolume ?? 1]} min={0} max={1} step={0.05}
+          disabled={clip.locked || clip.audioMuted !== false}
+          onValueChange={([value])=>onAudioVolume?.(value)}
+          onValueCommit={()=>onAudioCommit?.()}
+          className="relative flex h-5 w-14 shrink-0 touch-none select-none items-center data-[disabled]:opacity-35"
+          title={`Clip volume ${Math.round((clip.audioVolume ?? 1)*100)}%`}>
+          <Slider.Track className="relative h-[3px] w-full grow overflow-hidden rounded-full bg-[#343e49]">
+            <Slider.Range className="absolute h-full rounded-full bg-emerald-400"/>
+          </Slider.Track>
+          <Slider.Thumb aria-label="Clip volume" aria-disabled={!!clip.locked || clip.audioMuted !== false}
+            className="block h-2.5 w-2.5 rounded-full border border-emerald-300 bg-emerald-400 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"/>
+        </Slider.Root>
+        <span className="w-7 text-right text-[9px] tabular-nums text-slate-400">{Math.round((clip.audioVolume ?? 1)*100)}%</span>
       </div>}
       {/* Split button */}
       <button type="button" onClick={onOpenSpeed} disabled={clip.locked}

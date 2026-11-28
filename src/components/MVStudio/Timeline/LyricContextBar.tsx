@@ -44,7 +44,7 @@ export function LyricContextBar({
 
   return (
     <div 
-      className="flex h-full min-w-max shrink-0 flex-nowrap items-center gap-1.5 px-2 py-0.5 whitespace-nowrap text-[11px] text-[#f0f3f6] select-none font-mono"
+      className="flex min-w-0 max-w-full flex-wrap items-center justify-center gap-1 px-1 py-0.5 whitespace-nowrap text-[10px] text-[#f0f3f6] select-none font-mono"
       onClick={(e) => e.stopPropagation()}
     >
       {isEditing ? (
