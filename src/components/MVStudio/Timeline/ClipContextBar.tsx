@@ -1,6 +1,6 @@
 import React from 'react';
 import { TimelineClip, isAutoManagedClip } from '../../../store/useMVStore';
-import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles, Gauge } from 'lucide-react';
+import { Scissors, Trash2, Copy, Lock, Unlock, Sparkles, Gauge, Volume2, VolumeX } from 'lucide-react';
 import { getClipSpeed } from '../../../lib/clipSpeed';
 import { formatTime } from '../../../lib/utils';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../ui/select';
@@ -19,6 +19,9 @@ interface ClipContextBarProps {
   onDelete: () => void;
   onUpdateEffect?: (effect: any) => void;
   onUpdateTransition?: (transition: any) => void;
+  onToggleAudio?: () => void;
+  onAudioVolume?: (value: number) => void;
+  onAudioCommit?: () => void;
   onClose: () => void;
   onOpenSpeed: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
@@ -37,6 +40,9 @@ export function ClipContextBar({
   onDelete,
   onUpdateEffect,
   onUpdateTransition,
+  onToggleAudio,
+  onAudioVolume,
+  onAudioCommit,
   onClose,
   onOpenSpeed,
 }: ClipContextBarProps) {
@@ -45,7 +51,7 @@ export function ClipContextBar({
 
   return (
     <div 
-      className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-1.5 max-w-[calc(100vw-16px)] px-2.5 py-1 bg-[#0e1115] border border-[#232933] rounded shadow-[0_8px_30px_rgba(0,0,0,0.8)] text-[11px] text-[#f0f3f6] z-50 animate-in fade-in zoom-in-95 duration-150 select-none font-mono"
+      className="flex h-full min-w-max shrink-0 flex-nowrap items-center gap-1.5 px-2 py-0.5 whitespace-nowrap text-[11px] text-[#f0f3f6] select-none font-mono"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Timing badge */}
@@ -56,6 +62,18 @@ export function ClipContextBar({
         <span className="text-[#7e8999]">({duration.toFixed(1)}s)</span>
       </div>
 
+      {onToggleAudio && <div className="flex items-center gap-1 pr-1 border-r border-[#232933]">
+        <button type="button" onClick={onToggleAudio} disabled={clip.locked}
+          aria-label={clip.audioMuted === false ? 'Mute clip audio' : 'Unmute clip audio'}
+          title={clip.audioMuted === false ? 'Mute clip audio' : 'Unmute clip audio'}
+          className="px-1.5 py-0.5 rounded border border-[#303846] disabled:opacity-40 text-[#c9d1d9] hover:text-white cursor-pointer">
+          {clip.audioMuted === false ? <Volume2 size={13} /> : <VolumeX size={13} />}
+        </button>
+        {<input type="range" min="0" max="1" step="0.05"
+          aria-label="Clip volume" title={`Clip volume ${Math.round((clip.audioVolume ?? 1)*100)}%`}
+          disabled={clip.locked || clip.audioMuted !== false} value={clip.audioVolume ?? 1} onChange={e => onAudioVolume?.(Number(e.target.value))}
+          onPointerUp={onAudioCommit} onKeyUp={onAudioCommit} className="w-14 accent-accent" />}
+      </div>}
       {/* Split button */}
       <button type="button" onClick={onOpenSpeed} disabled={clip.locked}
         title="Edit this clip’s playback speed"
@@ -131,7 +149,7 @@ export function ClipContextBar({
             className="h-7 w-[106px] border-[#303846] bg-[#161b22] px-2 text-[10px] normal-case">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="z-[110] bg-[#10151c]">
+          <SelectContent side="top" sideOffset={6} collisionPadding={8} className="z-[20000] bg-[#10151c] backdrop-blur-none rounded-md shadow-lg data-[state=open]:animate-none data-[state=closed]:animate-none">
             <SelectItem value="none">FX: None</SelectItem>
             <SelectItem value="ken-burns-in">Zoom In</SelectItem>
             <SelectItem value="ken-burns-out">Zoom Out</SelectItem>
@@ -146,7 +164,7 @@ export function ClipContextBar({
             className="h-7 w-[120px] border-[#303846] bg-[#161b22] px-2 text-[10px] normal-case">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="z-[110] bg-[#10151c]">
+          <SelectContent side="top" sideOffset={6} collisionPadding={8} className="z-[20000] bg-[#10151c] backdrop-blur-none rounded-md shadow-lg data-[state=open]:animate-none data-[state=closed]:animate-none">
             <SelectItem value="cut">Trans: Cut</SelectItem>
             <SelectItem value="crossfade">Crossfade / Mix</SelectItem>
             <SelectItem value="fade">Fade</SelectItem>

@@ -70,6 +70,66 @@ try {
   assert.ok(resetTimeline && Math.abs(resetTimeline.height - initialTimeline.height) <= 2,
     'Double-clicking the divider must restore default timeline size');
 
+  for(const viewport of [{width:1440,height:900},{width:1024,height:600},{width:390,height:740}]){
+    await page.setViewportSize(viewport);
+    const trigger=page.getByTitle('Track options',{exact:true});
+    await trigger.scrollIntoViewIfNeeded();
+    const before=await timeline.boundingBox();
+    const dock=page.locator('[data-mv-context-dock]');
+    const dockBefore=await dock.boundingBox();assert.ok(dockBefore);
+    await trigger.click();
+    const popup=page.getByRole('dialog',{name:'Visual track options'});
+    await popup.waitFor({state:'visible'});
+    const rect=await popup.boundingBox(), anchor=await trigger.boundingBox();
+    assert.ok(rect&&anchor);
+    assert.ok(rect.x>=0&&rect.y>=0&&rect.x+rect.width<=viewport.width&&rect.y+rect.height<=viewport.height);
+    assert.equal(await popup.evaluate(el=>!!el.closest('[data-mv-timeline-area]')),false);
+    if(viewport.height-anchor.y-anchor.height<await popup.evaluate(el=>el.scrollHeight)&&anchor.y>viewport.height-anchor.y-anchor.height)
+      assert.equal(await popup.getAttribute('data-side'),'top');
+    assert.deepEqual(await timeline.boundingBox(),before);
+    assert.deepEqual(await dock.boundingBox(),dockBefore);
+    assert.ok(rect.y+rect.height<=dockBefore.y+1,'Media popup must not cover the action dock');
+    await popup.getByRole('button',{name:'Add Visualizer Scene'}).hover();
+    await popup.getByRole('button',{name:'Auto-Fill With Assets'}).hover();
+    await page.keyboard.press('Escape');
+    await popup.waitFor({state:'detached'});
+  }
+  await page.setViewportSize({width:1440,height:900});
+  // Eye buttons change actual persistent project settings, not just CSS.
+  await page.getByTitle('Hide video track',{exact:true}).click();
+  await page.getByTitle('Hide lyrics track',{exact:true}).click();
+  const visibility=await page.evaluate(async()=>{
+    const path='/src/store/useMVStore.ts';const {useMVStore}=await import(/* @vite-ignore */ path);
+    const s=useMVStore.getState();return [s.visTrackVisible,s.lyrTrackVisible];
+  });
+  assert.deepEqual(visibility,[false,false]);
+  await page.getByTitle('Show video track',{exact:true}).click();
+  await page.getByTitle('Show lyrics track',{exact:true}).click();
+  await page.evaluate(async()=>{
+    const path='/src/store/useMVStore.ts';const {useMVStore}=await import(/* @vite-ignore */ path);
+    useMVStore.getState().setTimelineClips([{id:'audio-controls-test',assetId:'test-video',type:'video',startTime:0,endTime:4,trimStart:0,trimEnd:4}]);
+    useMVStore.getState().setSelectedClipId('audio-controls-test');
+  });
+  const clipDock=page.locator('[data-mv-context-dock]');
+  const selectedDockBefore=await clipDock.boundingBox();
+  const unmute=clipDock.getByRole('button',{name:'Unmute clip audio'});
+  await unmute.click();
+  const volume=clipDock.getByRole('slider',{name:'Clip volume'});
+  assert.equal(await volume.isEnabled(),true);
+  await volume.fill('0.35');
+  const state=await page.evaluate(async()=>{
+    const path='/src/store/useMVStore.ts';const {useMVStore}=await import(/* @vite-ignore */ path);
+    const c=useMVStore.getState().timelineClips.find(c=>c.id==='audio-controls-test');return [c?.audioMuted,c?.audioVolume];
+  });
+  assert.deepEqual(state,[false,0.35]);
+  assert.deepEqual(await clipDock.boundingBox(),selectedDockBefore);
+  await clipDock.getByRole('button',{name:'Mute clip audio'}).click();
+  assert.equal(await volume.isEnabled(),false);
+  await page.evaluate(async()=>{
+    const path='/src/store/useMVStore.ts';const {useMVStore}=await import(/* @vite-ignore */ path);
+    useMVStore.getState().setSelectedClipId(null);useMVStore.getState().setTimelineClips([]);
+  });
+
   // All workspaces share the same top-level Export action. MV Studio must
   // not introduce another Export button beneath the navbar.
   const topExport = page.locator('#topbar-export-btn');

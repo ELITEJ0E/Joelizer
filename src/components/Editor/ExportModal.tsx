@@ -1,3 +1,4 @@
+import {clipAudioGain} from '../../lib/mvAudioMix';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store/useStore';
@@ -339,7 +340,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         targetEngine = 'offline';
         setEngineChoice('offline');
       }
+      const mix=useMVStore.getState();
+      const needsOffline=exportMode==='music-video'&&(mix.soundtrackMuted||mix.soundtrackVolume!==1||mix.timelineClips.some(c=>clipAudioGain(c)>0)||mix.visTrackVisible===false||mix.lyrTrackVisible===false);
+      if(needsOffline){
+        if(!(await new OfflineWebCodecsRenderer().isAvailable()))throw new Error('MV audio mixing and track visibility require Frame-accurate Browser MP4 (Chrome or Edge).');
+        targetEngine='offline';setEngineChoice('offline');
+      }
       const renderer = await getBestAvailableRenderer(targetEngine);
+      if(needsOffline&&renderer.type!=='offline')throw new Error('The selected track settings require Frame-accurate Browser MP4.');
       if (exportQuality === 'maximum' && renderer.type === 'browser') {
         throw new Error('Maximum Detail requires Frame-accurate Browser MP4 (WebCodecs) or Server Remotion. Real-time browser recording cannot guarantee frame accuracy or preserved resolution. Select a supported renderer, or choose High quality for a browser recording.');
       }

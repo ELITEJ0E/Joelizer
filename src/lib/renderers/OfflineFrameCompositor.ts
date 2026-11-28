@@ -288,7 +288,9 @@ export class OfflineFrameCompositor {
       ? project.videoClips.find(c => time >= c.startTime && time < c.endTime)
       : null;
 
-    if (project.exportMode === 'lyrics-video' || clip?.type === 'vinyl-lyrics') {
+    if (project.exportMode==='music-video'&&project.showMVVideo===false) {
+      // Black background; captions rendered independently below.
+    } else if (project.exportMode === 'lyrics-video' || clip?.type === 'vinyl-lyrics') {
       const lyricsState = useLyricsVideoStore.getState();
       const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
       const bg: typeof lyricsState.customBackground & {
@@ -475,46 +477,10 @@ export class OfflineFrameCompositor {
             { ...project.visualizer, enabled: true } as Parameters<typeof renderVisualizer>[3], W, H, time);
         }
       }
-      if (project.showLyrics !== false && project.lyrics.lines.length > 0) {
-        const lyricsState = useLyricsVideoStore.getState();
-        const storeState = useStore.getState();
-        const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
-        const lyricPosSetting = project.lyrics.position || lyricsState.typographyOverride?.position || 'bottom';
-        const effectiveShowBox = project.lyrics.showBackgroundBox ?? lyricsState.typographyOverride?.showContainerPill ?? true;
-
-        // Only draw timed text on top of the decoded clip. Calling the full
-        // lyrics-video renderer here needlessly redraws an entire frame's
-        // background and decorations, slowing 1080p export.
-        renderLyricsOverlayFrame(ctx, W, H, time, this.preparedLyrics, {
-          template,
-          aspectRatio: project.aspectRatio,
-          animationStyle: project.lyrics.animationStyle,
-          kineticPalette: project.lyrics.kineticPalette,
-          kineticColor: project.lyrics.kineticColor,
-          kineticGlow: project.lyrics.kineticGlow,
-          kineticIntensity: project.lyrics.kineticIntensity,
-          visibleLineCount: project.lyrics.visibleLineCount ?? 2,
-          showLyrics: true,
-          bilingualEnabled: project.lyrics.bilingualEnabled,
-          fadeInDuration: project.lyrics.fadeInDuration,
-          fadeOutDuration: project.lyrics.fadeOutDuration,
-          fadeEasing: project.lyrics.fadeEasing,
-          typographyOverride: {
-            ...lyricsState.typographyOverride,
-            ...project.lyrics,
-            showContainerPill: effectiveShowBox,
-            position: lyricPosSetting
-          },
-          animationOverride: lyricsState.animationOverride,
-          elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
-          preferElementPosition: true,
-          offlineExport: true
-        });
-      }
     }
     // Cross into the next moving clip *before* the cut, while the outgoing
     // footage is still playing. No cached/frozen outgoing frame is used.
-    if (project.exportMode === 'music-video' && clip) {
+    if (project.exportMode === 'music-video' && project.showMVVideo!==false && clip) {
       const ordered = [...project.videoClips].sort((a, b) => a.startTime - b.startTime);
       const index = ordered.findIndex(c => c.id === clip.id);
       const next = ordered[index + 1];
@@ -562,6 +528,42 @@ export class OfflineFrameCompositor {
         ctx.restore();
       }
     }
+      if (project.exportMode==='music-video' && (project.showMVVideo===false || clip?.type!=='vinyl-lyrics') && project.showLyrics !== false && project.lyrics.lines.length > 0) {
+        const lyricsState = useLyricsVideoStore.getState();
+        const storeState = useStore.getState();
+        const template = LYRIC_VIDEO_TEMPLATES[project.templateId || lyricsState.selectedTemplateId || 'vinyl'] || LYRIC_VIDEO_TEMPLATES.vinyl;
+        const lyricPosSetting = project.lyrics.position || lyricsState.typographyOverride?.position || 'bottom';
+        const effectiveShowBox = project.lyrics.showBackgroundBox ?? lyricsState.typographyOverride?.showContainerPill ?? true;
+
+        // Only draw timed text on top of the decoded clip. Calling the full
+        // lyrics-video renderer here needlessly redraws an entire frame's
+        // background and decorations, slowing 1080p export.
+        renderLyricsOverlayFrame(ctx, W, H, time, this.preparedLyrics, {
+          template,
+          aspectRatio: project.aspectRatio,
+          animationStyle: project.lyrics.animationStyle,
+          kineticPalette: project.lyrics.kineticPalette,
+          kineticColor: project.lyrics.kineticColor,
+          kineticGlow: project.lyrics.kineticGlow,
+          kineticIntensity: project.lyrics.kineticIntensity,
+          visibleLineCount: project.lyrics.visibleLineCount ?? 2,
+          showLyrics: true,
+          bilingualEnabled: project.lyrics.bilingualEnabled,
+          fadeInDuration: project.lyrics.fadeInDuration,
+          fadeOutDuration: project.lyrics.fadeOutDuration,
+          fadeEasing: project.lyrics.fadeEasing,
+          typographyOverride: {
+            ...lyricsState.typographyOverride,
+            ...project.lyrics,
+            showContainerPill: effectiveShowBox,
+            position: lyricPosSetting
+          },
+          animationOverride: lyricsState.animationOverride,
+          elementPositions: { ...lyricsState.elementPositions, ...project.elementPositions },
+          preferElementPosition: true,
+          offlineExport: true
+        });
+      }
     drawOverlayEffects(ctx, W, H, project.overlayEffects, time);
     ctx.restore();
     return this.canvas;

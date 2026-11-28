@@ -14,6 +14,8 @@ export function GlobalAudioPlayer() {
   const isDAW = useStore(s => s.activeTab === 'daw');
   const activeTab = useStore(s => s.activeTab);
   const mvSoundtrackSpeed = useMVStore(s => s.soundtrackSpeed);
+  const mvMuted = useMVStore(s => s.soundtrackMuted);
+  const mvVolume = useMVStore(s => s.soundtrackVolume);
   const lrcPlaybackRate = useStore(s => s.lrcPlaybackRate);
   const audioRate = playbackRateForTab(activeTab, lrcPlaybackRate, mvSoundtrackSpeed);
   const audioUrl = useStore(s => s.audioUrl);
@@ -89,6 +91,15 @@ export function GlobalAudioPlayer() {
   // The visualizer smoothing slider must control the shared analyser even
   // when Lyrics Video / MV Studio is open (Editor Preview may be unmounted).
   useEffect(() => { audioManager.setSmoothing(visualizerSmoothing); }, [visualizerSmoothing, audioUrl]);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || activeTab !== 'mv-studio') return;
+    const original = { muted: el.muted, volume: el.volume };
+    el.muted = mvMuted;
+    el.volume = mvVolume;
+    return () => { el.muted = original.muted; el.volume = original.volume; };
+  }, [activeTab, mvMuted, mvVolume, streamUrl]);
 
   // Only the MV Studio master soundtrack is retimed. Switching back to LRC,
   // Lyrics Video or Audio Lab restores normal speed and the raw source clock.

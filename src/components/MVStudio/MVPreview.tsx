@@ -1,3 +1,4 @@
+import {clipAudioGain} from '../../lib/mvAudioMix';
 import { useOverlayEffectsStore } from '../../store/useOverlayEffectsStore';
 import { drawOverlayEffects } from '../../lib/overlayEffects';
 import { getEffectiveMVTransition } from '../../lib/mvTransitionSettings';
@@ -472,7 +473,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
               // The positioned visualizer is composited explicitly below.
               showVisualizer: false,
               showArtworkVisualizer: lyricsVideoState.showVinylRing !== false,
-              showLyrics: lyricsVideoState.showLyrics !== false,
+              showLyrics: activeVideoMode==='music-video'?mvState.lyrTrackVisible!==false:lyricsVideoState.showLyrics!==false,
               showMeta: lyricsVideoState.showMeta !== false,
               visualizerSettingsOverride: storeState.visualizerSettings,
               showBackgroundVisualizer: activeVideoMode === 'music-video' && !!isVisualizerScene
@@ -517,6 +518,8 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
 
             if (asset.type === 'video') {
               const videoEl = ensureClipVideo(activeClip.id, asset.url);
+              const gain=activeVideoMode==='music-video'?clipAudioGain(activeClip):0;
+              videoEl.muted=gain===0;videoEl.volume=gain;videoEl.preservesPitch=false;
 
               const previousClip = activeIndex > 0 ? orderedVideoClips[activeIndex - 1] : undefined;
               const activeTransition = getEffectiveMVTransition(activeClip,
@@ -657,6 +660,7 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           let incoming: HTMLVideoElement | HTMLImageElement | null = null;
           if (nextAsset.type === 'video' && nextAsset.url) {
             const video = ensureClipVideo(nextClip.id, nextAsset.url);
+            video.muted=true;
             const nextSpeed = getClipSpeed(nextClip);
             const desired = clipSourceTime(nextClip, nextClip.startTime, progress * transitionLead);
             if (Math.abs(video.playbackRate - nextSpeed) > 0.005) video.playbackRate = nextSpeed;
@@ -692,8 +696,11 @@ export function MVPreview({ mode }: { mode?: 'lyrics-video' | 'music-video' }) {
           }
         }
 
-        // 3. Render unified lyrics overlay over MV timeline clips (eliminates old duplicate bottom caption box)
-        if (storeState.lyricsSettings?.lines && storeState.lyricsSettings.lines.length > 0) {
+        // The visual track and source audio are independent. Keep decoder
+        // playback alive, then hide only the visual pixels before captions.
+        if(activeVideoMode==='music-video'&&mvState.visTrackVisible===false){ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);}
+        if (activeVideoMode==='music-video' && mvState.lyrTrackVisible!==false &&
+            (!isVinylScene||mvState.visTrackVisible===false) && storeState.lyricsSettings?.lines?.length) {
           const templateId = lyricsVideoState.selectedTemplateId || 'vinyl';
           const tmpl = LYRIC_VIDEO_TEMPLATES[templateId] || LYRIC_VIDEO_TEMPLATES['vinyl'];
           const lyricPosSetting = storeState.lyricsSettings?.position || lyricsVideoState.typographyOverride?.position || 'bottom';

@@ -177,8 +177,9 @@ export function JoelizerComposition({ projectJson }: JoelizerCompositionProps) {
         />
       )}
 
+      {mode==='music-video'&&projectJson.showMVVideo===false&&<AbsoluteFill style={{backgroundColor:'#050508'}}/>}
       {/* 5. ANIMATED LYRICS LAYER */}
-      {(showLyricsScene || (mode === 'music-video' && isMediaClip)) && lyricsVisible && (
+      {(showLyricsScene || mode === 'music-video') && lyricsVisible && (
         <LyricsLayer 
           lyrics={lyrics} 
           activeLine={activeLine}

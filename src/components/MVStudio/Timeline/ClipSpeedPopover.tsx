@@ -1,3 +1,4 @@
+import { TimelinePopover, type TimelinePopupAnchor } from '../../ui/timeline-popover';
 import React, { useEffect, useState } from 'react';
 import { Gauge, RotateCcw, X } from 'lucide-react';
 import { TimelineClip } from '../../../store/useMVStore';
@@ -5,8 +6,7 @@ import { getClipSpeed, MAX_CLIP_SPEED, MIN_CLIP_SPEED } from '../../../lib/clipS
 
 interface Props {
   clip: TimelineClip;
-  x: number;
-  y: number;
+  anchor: TimelinePopupAnchor;
   onChange: (speed: number) => string | undefined;
   onCommit: () => void;
   onClose: () => void;
@@ -15,7 +15,7 @@ interface Props {
 }
 
 /** No extra inspector pane: the speed editor appears directly beside a clip. */
-export function ClipSpeedPopover({ clip, x, y, onChange, onCommit, onClose, label = 'CLIP SPEED', hint = 'Slower clips make room automatically. Locked clips stay in place.' }: Props) {
+export function ClipSpeedPopover({ clip, anchor, onChange, onCommit, onClose, label = 'CLIP SPEED', hint = 'Slower clips make room automatically. Locked clips stay in place.' }: Props) {
   const speed = getClipSpeed(clip);
   const [draft, setDraft] = useState(String(speed));
   const [error, setError] = useState('');
@@ -38,16 +38,8 @@ export function ClipSpeedPopover({ clip, x, y, onChange, onCommit, onClose, labe
   const timelineSeconds = Math.max(0, clip.endTime - clip.startTime);
 
   return (
-    <>
-      <div className="fixed inset-0 z-[99]" onPointerDown={onClose} aria-hidden="true" />
-      <section
-        role="dialog" aria-label="Clip playback speed"
-        className="fixed z-[100] w-[256px] rounded-xl border border-[#343e4d] bg-[#10151d] p-3.5 text-[#e5edf6] shadow-[0_18px_60px_rgba(0,0,0,0.8)] font-mono select-text"
-        style={{ left: Math.max(8, Math.min(x, window.innerWidth - 264)), top: Math.max(8, Math.min(y, window.innerHeight - 292)) }}
-        onPointerDown={e => e.stopPropagation()}
-        onClick={e => e.stopPropagation()}
-        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
-      >
+    <TimelinePopover anchor={anchor} title={label==='SOUNDTRACK SPEED'?'Soundtrack playback speed':'Clip playback speed'} onClose={onClose} width={256}>
+      <div className="p-3 select-text">
         <div className="flex items-center justify-between pb-3">
           <div className="flex items-center gap-2 text-xs font-bold"><Gauge size={15} className="text-emerald-400" /> {label}</div>
           <button type="button" onClick={onClose} aria-label="Close speed control" className="text-slate-400 hover:text-white"><X size={15} /></button>
@@ -90,7 +82,7 @@ export function ClipSpeedPopover({ clip, x, y, onChange, onCommit, onClose, labe
         </div>
         <p className="mt-2 text-[9px] leading-4 text-slate-500">{hint}</p>
         {error && <p role="alert" className="mt-2 text-[10px] text-rose-400">{error}</p>}
-      </section>
-    </>
+      </div>
+    </TimelinePopover>
   );
 }
