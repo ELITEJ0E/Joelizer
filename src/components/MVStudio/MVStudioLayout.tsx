@@ -24,6 +24,8 @@ export function MVStudioLayout() {
   const rehydrateMVAssets = useMVStore(s => s.rehydrateMVAssets);
   const setVideoMode = useLyricsVideoStore(s => s.setVideoMode);
   const editorRef = useRef<HTMLElement>(null);
+  const [workspaceRevision,setWorkspaceRevision]=useState(0);
+  useEffect(()=>{const reset=()=>setWorkspaceRevision(v=>v+1);window.addEventListener('mv-workspace-switched',reset);return ()=>window.removeEventListener('mv-workspace-switched',reset);},[]);
   const [timelineHeight, setTimelineHeight] = useState<number | null>(null);
   const [isResizingTimeline, setIsResizingTimeline] = useState(false);
   const drawerHistoryRef = useRef(false);
@@ -218,7 +220,7 @@ export function MVStudioLayout() {
         {/* No redundant preview toolbar. The video has its own on-hover controls. */}
         <main ref={editorRef} className="relative isolate z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b10]">
           <div data-mv-preview-area className="relative flex min-h-[120px] flex-1 items-center justify-center overflow-hidden p-2 sm:p-3">
-            <MVPreview mode="music-video" />
+            <MVPreview key={workspaceRevision} mode="music-video" />
           </div>
 
           <div
@@ -241,7 +243,7 @@ export function MVStudioLayout() {
             className="min-h-0 shrink-0 overflow-hidden bg-[#0f151c]"
             style={{ height: timelineHeight === null ? 'clamp(220px, 40%, 480px)' : `${timelineHeight}px` }}
           >
-            <MVTimeline />
+            <MVTimeline key={workspaceRevision} />
           </div>
         </main>
       </div>

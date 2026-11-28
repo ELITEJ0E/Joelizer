@@ -546,6 +546,7 @@ export const useMVStore = create<MVProjectState>()(persist((set) => ({
       transitionDuration: 0.5
     });
     globalHistory.resetAfterProjectDeletion();
+    if(typeof window!=='undefined')window.dispatchEvent(new Event('mv-workspace-cleared'));
     try { window.sessionStorage.removeItem(MV_STORAGE_KEY); } catch {}
   },
 

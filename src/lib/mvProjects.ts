@@ -31,6 +31,7 @@ let currentProjectId:string|null=null;
 let busy=false;
 let restoredUrls:string[]=[];
 export const activeMVProjectId=()=>currentProjectId;
+if(typeof window!=='undefined')window.addEventListener('mv-workspace-cleared',()=>{currentProjectId=null;});
 async function dbOpen():Promise<IDBDatabase>{
   return new Promise((resolve,reject)=>{
     const request=indexedDB.open(DB,1);
@@ -121,7 +122,9 @@ function decodeWorkspace(project:SavedMVProject){
 }
 async function save(name:string,id:string|null=currentProjectId){
   name=name.trim().slice(0,100);if(!name)throw new Error('Enter a project name.');
-  const raw=capture();const prev=id?await readProject(id):null;
+  const raw=capture();
+  if(raw.mv.videoAssets.some(a=>a.status==='pending'||a.status==='analyzing'))throw new Error('Wait for media imports to finish before saving.');
+  const prev=id?await readProject(id):null;
   const encoded=await encodeWorkspace(raw);
   const summary:MVProjectSummary={id:id||crypto.randomUUID(),name,createdAt:prev?.summary.createdAt??Date.now(),updatedAt:Date.now(),
     clips:raw.mv.timelineClips.length,media:raw.mv.videoAssets.length,song:raw.track?.name||'No soundtrack',
@@ -150,6 +153,7 @@ async function apply(workspace:Workspace,urls:string[]){
     waveformPeaks:[],selectedStudioLineId:null});
   saveLyricsToStorage(main.lyricsSettings.lines);
   globalHistory.resetAfterProjectDeletion();
+  window.dispatchEvent(new Event('mv-workspace-switched'));
   // Keep old object URLs alive until the renderer has switched its sources.
   const old=restoredUrls;restoredUrls=urls;setTimeout(()=>old.forEach(url=>URL.revokeObjectURL(url)),1000);
 }
@@ -165,14 +169,15 @@ export const openMVProject=(id:string)=>exclusive(async()=>{
   catch(e){decoded.urls.forEach(url=>URL.revokeObjectURL(url));throw e;}
 });
 export const newMVProject=(name:string)=>exclusive(async()=>{
-  const title=name.trim();if(!title)throw new Error('Enter a project name.');
+  const title=name.trim().slice(0,100);if(!title)throw new Error('Enter a project name.');
   await checkpoint();
   const blank=capture(true);
   blank.main.name=title;blank.main.lyricsSettings.lines=[];blank.main.audioFile=null;blank.main.audioUrl=null;blank.main.audioDuration=0;blank.main.albumArt=null;blank.main.exportRangeStart=0;blank.main.exportRangeEnd=null;
   blank.mv.videoAssets=[];blank.mv.timelineClips=[];blank.mv.wordTimings=[];blank.mv.songAnalysis=null;
   // Save the empty project before switching, so a quota failure cannot erase the working draft.
   const summary:MVProjectSummary={id:crypto.randomUUID(),name:title.slice(0,100),createdAt:Date.now(),updatedAt:Date.now(),clips:0,media:0,duration:0,song:'No soundtrack'};
-  await putProject({version:1,summary,workspace:blank,blobs:{}});
+  const encoded=await encodeWorkspace(blank);
+  await putProject({version:1,summary,...encoded});
   await apply(blank,[]);currentProjectId=summary.id;return summary;
 });
 export const deleteMVProject=(id:string)=>exclusive(async()=>{

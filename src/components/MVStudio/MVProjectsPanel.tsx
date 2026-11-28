@@ -13,7 +13,7 @@ export function MVProjectsPanel(){
   const [dialog,setDialog]=useState<{kind:'new'|'save'|'copy'|'rename'|'delete';id?:string;name:string}|null>(null);
   const [name,setName]=useState('');
   const refresh=async()=>{setProjects(await listMVProjects());setActive(activeMVProjectId());};
-  useEffect(()=>{refresh().catch(e=>setError(String(e?.message||e)));},[]);
+  useEffect(()=>{const reload=()=>{refresh().catch(e=>setError(String(e?.message||e)));};reload();window.addEventListener('mv-workspace-cleared',reload);return ()=>window.removeEventListener('mv-workspace-cleared',reload);},[]);
   const run=async(action:()=>Promise<unknown>,success:string)=>{
     setBusy(true);setError('');setMessage('');
     try{await action();await refresh();setMessage(success);setDialog(null);}
