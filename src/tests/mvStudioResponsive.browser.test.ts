@@ -94,6 +94,28 @@ try {
   assert.ok(resetTimeline && Math.abs(resetTimeline.height - initialTimeline.height) <= 2,
     'Double-clicking the divider must restore default timeline size');
 
+  // Opening a timeline menu must not move the toolbar, preview or timeline.
+  const dock=page.locator('[data-mv-context-dock]');
+  const dockBefore=await dock.boundingBox();
+  const timelineBefore=await timeline.boundingBox();
+  assert.ok(dockBefore && timelineBefore);
+  await page.getByTitle('Track options',{exact:true}).click();
+  const trackPopup=page.getByRole('dialog',{name:'Visual track options'});
+  await trackPopup.waitFor({state:'visible'});
+  const popupBounds=await trackPopup.boundingBox();
+  assert.ok(popupBounds && popupBounds.x>=0 && popupBounds.y>=0 && popupBounds.x+popupBounds.width<=1440 && popupBounds.y+popupBounds.height<=900);
+  assert.equal(await trackPopup.evaluate(el=>!!el.closest('[data-mv-timeline-area]')),false,'Track popup must escape the clipped timeline');
+  assert.deepEqual(await dock.boundingBox(),dockBefore,'Track popup must not move the editing dock');
+  assert.deepEqual(await timeline.boundingBox(),timelineBefore,'Track popup must not resize the timeline');
+  await page.keyboard.press('Escape');
+  await trackPopup.waitFor({state:'detached'});
+  await page.getByTitle('Volume level',{exact:true}).click();
+  const volumePopup=page.getByRole('dialog',{name:'Soundtrack volume'});
+  await volumePopup.waitFor({state:'visible'});
+  assert.deepEqual(await dock.boundingBox(),dockBefore,'Volume popup must not move the editing dock');
+  await page.keyboard.press('Escape');
+  await volumePopup.waitFor({state:'detached'});
+
   // All workspaces share the same top-level Export action. MV Studio must
   // not introduce another Export button beneath the navbar.
   const topExport = page.locator('#topbar-export-btn');
