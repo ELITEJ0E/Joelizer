@@ -151,6 +151,8 @@ export async function buildCanonicalProjectJson(options?: {
       trimStart: Number(clip.trimStart.toFixed(3)),
       trimEnd: Number(clip.trimEnd.toFixed(3)),
       speed: clip.speed ?? 1,
+      audioMuted:clip.audioMuted!==false,
+      audioVolume:clip.audioVolume??1,
       fit: clip.fit,
       zoom: clip.zoom,
       heightScale: clip.heightScale,
@@ -201,6 +203,8 @@ export async function buildCanonicalProjectJson(options?: {
     audio: {
       url: stagedAudioUrl,
       speed: soundtrackSpeed,
+      muted:exportMode==='music-video'&&mvStore.soundtrackMuted,
+      volume:exportMode==='music-video'?mvStore.soundtrackVolume:1,
       audioDataUri: null,
       title: currentTrack?.name || mainStore.name || 'Untitled Song',
       artist: currentTrack?.artist || 'Joelizer Studio',
@@ -282,6 +286,7 @@ export async function buildCanonicalProjectJson(options?: {
       enabled: lyricsVideoStore.showVisualizer ?? (vis.enabled !== false && lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
     },
     videoClips: canonicalClips,
+    showMVVideo:exportMode!=='music-video'||mvStore.visTrackVisible!==false,
     overlayEffects: exportMode === 'music-video' ? useOverlayEffectsStore.getState().mv : useOverlayEffectsStore.getState().lyrics,
     effects: {
       showGrain: vis.showGrain,
@@ -296,7 +301,7 @@ export async function buildCanonicalProjectJson(options?: {
     showArtwork: lyricsVideoStore.showArtwork ?? (lyricsVideoStore.selectedTemplateId !== 'cinematic-clean'),
     showVisualizer: lyricsVideoStore.showVisualizer ?? (vis.enabled !== false && lyricsVideoStore.selectedTemplateId !== 'cinematic-clean'),
     showVinylRing: lyricsVideoStore.showVinylRing !== false,
-    showLyrics: lyricsVideoStore.showLyrics ?? true,
+    showLyrics: exportMode==='music-video'?mvStore.lyrTrackVisible!==false:lyricsVideoStore.showLyrics??true,
     showMeta: lyricsVideoStore.showMeta ?? (lyricsVideoStore.selectedTemplateId !== 'cinematic-clean')
   };
 

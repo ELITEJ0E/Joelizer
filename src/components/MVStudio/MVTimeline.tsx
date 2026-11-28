@@ -1,3 +1,6 @@
+import * as Dialog from '@radix-ui/react-dialog';
+import { TimelinePopover, timelinePopupAnchor, type TimelinePopupAnchor } from '../ui/timeline-popover';
+import { clipAudioGain } from '../../lib/mvAudioMix';
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useStore, LyricLine } from '../../store/useStore';
 import { audioManager } from '../../lib/audio';
@@ -60,14 +63,6 @@ export function MVTimeline() {
   const setTimelineClips = useMVStore(s => s.setTimelineClips);
   const [confirmClearClips, setConfirmClearClips] = useState(false);
   const { handleClose: closeClearClips } = usePopstateModal(confirmClearClips, () => setConfirmClearClips(false));
-  useEffect(() => {
-    if (!confirmClearClips) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); closeClearClips(); }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [confirmClearClips, closeClearClips]);
   const videoAssets = useMVStore(s => s.videoAssets);
   const wordTimings = useMVStore(s => s.wordTimings);
   const songAnalysis = useMVStore(s => s.songAnalysis);
@@ -122,21 +117,35 @@ export function MVTimeline() {
   }, [timelineClips]);
 
   // Track Visibility & Mute States
-  const [visTrackVisible, setVisTrackVisible] = useState(true);
+  const visTrackVisible=useMVStore(s=>s.visTrackVisible);
+  const setVisTrackVisible=useMVStore(s=>s.setVisTrackVisible);
   const [visTrackLocked, setVisTrackLocked] = useState(false);
-  const [lyrTrackVisible, setLyrTrackVisible] = useState(true);
+  const lyrTrackVisible=useMVStore(s=>s.lyrTrackVisible);
+  const setLyrTrackVisible=useMVStore(s=>s.setLyrTrackVisible);
   const [lyrTrackLocked, setLyrTrackLocked] = useState(false);
   const [wordsExpanded, setWordsExpanded] = useState(false);
-  const [audioMuted, setAudioMuted] = useState(false);
-  const [audioVolume, setAudioVolume] = useState(1);
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const [activeTrackMenu, setActiveTrackMenu] = useState<{track:'vis'|'lyr'|'aud';anchor:HTMLElement}|null>(null);
+  const audioMuted = useMVStore(s => s.soundtrackMuted);
+  const audioVolume = useMVStore(s => s.soundtrackVolume);
+  const setAudioMuted = useMVStore(s => s.setSoundtrackMuted);
+  const setAudioVolume = useMVStore(s => s.setSoundtrackVolume);
+  const showWaveform = useMVStore(s => s.showSoundtrackWaveform);
+  const setShowWaveform = useMVStore(s => s.setShowSoundtrackWaveform);
+  const videoClipsWithAudio = timelineClips.filter(c => c.type === 'video' || (!c.type && videoAssets.some(a => a.id === c.assetId && a.type === 'video')));
+  const anyClipAudioEnabled = videoClipsWithAudio.some(c => !c.locked && c.audioMuted === false);
+  const [volumeAnchor, setVolumeAnchor] = useState<TimelinePopupAnchor | null>(null);
+  const [activeTrackMenu, setActiveTrackMenu] = useState<{track:'vis'|'lyr'|'aud';anchor:TimelinePopupAnchor}|null>(null);
 
   // Drag Session Ref & State (Pointer capture)
   const dragSessionRef = useRef<DragSession | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  const [speedMenu, setSpeedMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [soundtrackSpeedMenu, setSoundtrackSpeedMenu] = useState<{ x: number; y: number } | null>(null);
+  const [speedMenu, setSpeedMenu] = useState<{ id: string; anchor:TimelinePopupAnchor } | null>(null);
+  const [soundtrackSpeedMenu, setSoundtrackSpeedMenu] = useState<TimelinePopupAnchor | null>(null);
+  const closeTimelinePopups = () => {setActiveTrackMenu(null);setVolumeAnchor(null);setSpeedMenu(null);setSoundtrackSpeedMenu(null);};
+  const openTrackMenu = (track:'vis'|'lyr'|'aud',element:HTMLElement) => {
+    const wasOpen=activeTrackMenu?.track===track;
+    closeTimelinePopups();
+    if(!wasOpen)setActiveTrackMenu({track,anchor:timelinePopupAnchor(element)});
+  };
 
   // Synchronize lyrics from store if empty
   useEffect(() => {
@@ -842,34 +851,20 @@ export function MVTimeline() {
       if (action === 'reset-volume') {
         setAudioVolume(1);
         setAudioMuted(false);
-        const audioEl = document.querySelector('audio');
-        if (audioEl) {
-          audioEl.volume = 1;
-          audioEl.muted = false;
-        }
+
       }
     }
   };
 
-  // Toggle Audio Mute
-  const handleToggleMute = () => {
-    const newMuted = !audioMuted;
-    setAudioMuted(newMuted);
-    const audioEl = document.querySelector('audio');
-    if (audioEl) audioEl.muted = newMuted;
-  };
-
-  // Volume Change
+  const handleToggleMute = () => setAudioMuted(!audioMuted);
   const handleVolumeChange = (vol: number) => {
     setAudioVolume(vol);
-    const audioEl = document.querySelector('audio');
-    if (audioEl) {
-      audioEl.volume = vol;
-      if (vol > 0 && audioMuted) {
-        setAudioMuted(false);
-        audioEl.muted = false;
-      }
-    }
+    if (vol > 0 && audioMuted) setAudioMuted(false);
+  };
+  const toggleAllClipAudio = () => {
+    const ids = new Set(videoClipsWithAudio.filter(c => !c.locked).map(c => c.id));
+    setTimelineClips(timelineClips.map(c => ids.has(c.id) ? { ...c, audioMuted: anyClipAudioEnabled, manuallyEdited: true, editOrigin: 'manual' } : c));
+    commitTimeline();
   };
 
   // Selected Clip Object
@@ -887,14 +882,6 @@ export function MVTimeline() {
       onPointerMove={handleGlobalPointerMove}
       onPointerUp={handleGlobalPointerUp}
     >
-      {/* Selected video group remains visible without requiring a second sidebar. */}
-      {selectedClipIds.length > 1 && (
-        <div role="status" className="flex items-center justify-between gap-2 border-b border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[10px] text-emerald-200">
-          <span className="truncate">{selectedClipIds.length} clips selected · drag any selected clip to move together · Shift/Ctrl-click to adjust</span>
-          <button type="button" onClick={() => { setSelectedClipIds([]); setSelectedClipId(null); }}
-            className="shrink-0 rounded border border-emerald-500/40 px-2 py-0.5 hover:bg-emerald-500/15">Clear</button>
-        </div>
-      )}
       {/* ========================================================================= */}
       {/* TOP TOOLBAR */}
       {/* ========================================================================= */}
@@ -1171,7 +1158,8 @@ export function MVTimeline() {
       {/* ========================================================================= */}
       {/* TIMELINE MAIN CONTAINER (Track Headers + Scrollable Tracks) */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex relative overflow-hidden bg-[#0a0c0f]">
+      <div data-mv-track-scroll className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+      <div className={`flex relative bg-[#0a0c0f] ${wordsExpanded ? 'min-h-[max(100%,236px)] sm:min-h-[max(100%,220px)]' : 'min-h-[max(100%,204px)] sm:min-h-[max(100%,188px)]'}`}>
         
         {/* ========================================================================= */}
         {/* LEFT FIXED TRACK HEADERS */}
@@ -1191,10 +1179,16 @@ export function MVTimeline() {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setVisTrackVisible(!visTrackVisible)}
-                  title={visTrackVisible ? 'Hide video track' : 'Show video track'}
+                  aria-pressed={visTrackVisible} title={visTrackVisible ? 'Hide video track' : 'Show video track'}
                   className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                 >
                   {visTrackVisible ? <Eye size={11} /> : <EyeOff size={11} className="text-[#7e8999]/40" />}
+                </button>
+                <button type="button" onClick={toggleAllClipAudio} disabled={!videoClipsWithAudio.some(c => !c.locked)}
+                  aria-label={anyClipAudioEnabled ? 'Mute video clips' : 'Unmute video clips'}
+                  title={anyClipAudioEnabled ? 'Mute unlocked video clips' : 'Unmute unlocked video clips'}
+                  className={`p-0.5 cursor-pointer disabled:opacity-30 ${anyClipAudioEnabled ? 'text-accent' : 'text-[#7e8999]'}`}>
+                  {anyClipAudioEnabled ? <Volume2 size={11} /> : <VolumeX size={11} />}
                 </button>
                 <button
                   onClick={() => setVisTrackLocked(!visTrackLocked)}
@@ -1215,7 +1209,7 @@ export function MVTimeline() {
                 <Plus size={9} /> Media
               </button>
               <button
-                onClick={event => setActiveTrackMenu(activeTrackMenu?.track === 'vis' ? null : {track:'vis',anchor:event.currentTarget})} aria-expanded={activeTrackMenu?.track === 'vis'} aria-haspopup="dialog"
+                onClick={event => openTrackMenu('vis',event.currentTarget)} aria-expanded={activeTrackMenu?.track === 'vis'} aria-haspopup="dialog"
                 className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                 title="Track options"
               >
@@ -1225,7 +1219,8 @@ export function MVTimeline() {
 
             {activeTrackMenu?.track === 'vis' && (
               <TrackHeaderMenu
-                trackType="vis" anchor={activeTrackMenu.anchor}
+                trackType="vis"
+                anchor={activeTrackMenu.anchor}
                 onClose={() => setActiveTrackMenu(null)}
                 onAction={(act) => handleTrackAction('vis', act)}
               />
@@ -1241,7 +1236,7 @@ export function MVTimeline() {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setLyrTrackVisible(!lyrTrackVisible)}
-                  title={lyrTrackVisible ? 'Hide lyrics track' : 'Show lyrics track'}
+                  aria-pressed={lyrTrackVisible} title={lyrTrackVisible ? 'Hide lyrics track' : 'Show lyrics track'}
                   className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                 >
                   {lyrTrackVisible ? <Eye size={11} /> : <EyeOff size={11} className="text-[#7e8999]/40" />}
@@ -1257,7 +1252,7 @@ export function MVTimeline() {
                   <span>W</span>
                 </button>
                 <button
-                  onClick={event => setActiveTrackMenu(activeTrackMenu?.track === 'lyr' ? null : {track:'lyr',anchor:event.currentTarget})} aria-expanded={activeTrackMenu?.track === 'lyr'} aria-haspopup="dialog"
+                  onClick={event => openTrackMenu('lyr',event.currentTarget)} aria-expanded={activeTrackMenu?.track === 'lyr'} aria-haspopup="dialog"
                   className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                   title="Lyrics track options"
                 >
@@ -1268,7 +1263,8 @@ export function MVTimeline() {
 
             {activeTrackMenu?.track === 'lyr' && (
               <TrackHeaderMenu
-                trackType="lyr" anchor={activeTrackMenu.anchor}
+                trackType="lyr"
+                anchor={activeTrackMenu.anchor}
                 onClose={() => setActiveTrackMenu(null)}
                 onAction={(act) => handleTrackAction('lyr', act)}
               />
@@ -1295,21 +1291,29 @@ export function MVTimeline() {
               </span>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={event => {
-                  const rect = event.currentTarget.getBoundingClientRect();
-                  setSoundtrackSpeedMenu({ x: rect.left, y: rect.top - 280 });
+                  const wasOpen=!!soundtrackSpeedMenu;
+                  closeTimelinePopups();
+                  if(!wasOpen)setSoundtrackSpeedMenu(timelinePopupAnchor(event.currentTarget));
                 }} title="Soundtrack playback speed" aria-label="Edit soundtrack speed"
                   className="px-1 rounded border border-emerald-800/60 text-[9px] font-mono text-emerald-300 hover:bg-emerald-900/30">
                   {soundtrackSpeed.toFixed(2)}×
                 </button>
                 <button
                   onClick={handleToggleMute}
-                  title={audioMuted ? 'Unmute' : 'Mute'}
+                  title={audioMuted ? 'Unmute soundtrack' : 'Mute soundtrack'}
+                  aria-label={audioMuted ? 'Unmute soundtrack' : 'Mute soundtrack'}
                   className={`p-0.5 cursor-pointer ${audioMuted ? 'text-red-400' : 'text-accent'}`}
                 >
                   {audioMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
                 </button>
+                <button type="button" onClick={() => setShowWaveform(!showWaveform)}
+                  title={showWaveform ? 'Hide soundtrack waveform' : 'Show soundtrack waveform'}
+                  aria-label={showWaveform ? 'Hide soundtrack waveform' : 'Show soundtrack waveform'}
+                  className="p-0.5 text-[#7e8999] hover:text-white cursor-pointer">
+                  {showWaveform ? <Eye size={11} /> : <EyeOff size={11} />}
+                </button>
                 <button
-                  onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+                  onClick={event => {const wasOpen=!!volumeAnchor;closeTimelinePopups();if(!wasOpen)setVolumeAnchor(timelinePopupAnchor(event.currentTarget));}} aria-expanded={!!volumeAnchor} aria-haspopup="dialog"
                   className="text-[#7e8999] hover:text-[#f0f3f6] p-0.5 cursor-pointer"
                   title="Volume level"
                 >
@@ -1319,8 +1323,9 @@ export function MVTimeline() {
             </div>
 
             {/* Volume slider popover */}
-            {showVolumeSlider && (
-              <div className="absolute left-28 top-0 z-50 p-2 bg-[#12161c] border border-[#232933] rounded-lg shadow-xl flex items-center gap-2">
+            {volumeAnchor && (
+              <TimelinePopover anchor={volumeAnchor} title="Soundtrack volume" onClose={()=>setVolumeAnchor(null)} width={220}>
+              <div className="p-3 flex items-center gap-2">
                 <Volume2 size={12} className="text-accent" />
                 <input
                   type="range"
@@ -1333,6 +1338,7 @@ export function MVTimeline() {
                 />
                 <span className="text-[10px] font-mono text-[#f0f3f6] font-bold w-6">{Math.round(audioVolume * 100)}%</span>
               </div>
+              </TimelinePopover>
             )}
           </div>
         </div>
@@ -1342,7 +1348,7 @@ export function MVTimeline() {
         {/* ========================================================================= */}
         <div 
           ref={scrollWrapperRef}
-          className="flex-1 relative overflow-x-auto overflow-y-hidden"
+          className="flex-1 min-w-0 relative overflow-x-auto overflow-y-hidden"
           onClick={(e) => {
             // The VIS lane handles its own selection and marquee gestures.
             if ((e.target as HTMLElement).closest('[data-mv-vis-lane]')) return;
@@ -1411,7 +1417,7 @@ export function MVTimeline() {
                 onPointerDown={handleMarqueePointerDown}
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
                 onDrop={handleDropOnVisTrack}
-                className={`h-16 relative border-b border-[#232933] bg-[#0a0c0f] group/vis ${visTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}
+                className={`h-16 relative border-b border-[#232933] bg-[#0a0c0f] group/vis ${visTrackVisible ? '' : 'opacity-35'}`}
               >
                 {/* Empty Drop Hint */}
                 {timelineClips.length === 0 && (
@@ -1456,6 +1462,7 @@ export function MVTimeline() {
                   return (
                     <div 
                       key={clip.id}
+                      data-mv-clip-id={clip.id}
                       onClick={(e) => {
                         e.stopPropagation();
                         // Pointer-down owns selection, including Shift/Ctrl toggling.
@@ -1474,10 +1481,11 @@ export function MVTimeline() {
                         setSelectedClipId(clip.id);
                         setSelectedLyricId(null);
                         setSelectedWordKey(null);
-                        setSpeedMenu({ id: clip.id, x: e.clientX, y: e.clientY });
+                        closeTimelinePopups();
+                        setSpeedMenu({ id: clip.id, anchor:{x:e.clientX,y:e.clientY} });
                       }}
                       onPointerDown={(e) => handleClipPointerDown(e, clip, 'clip-body')}
-                      className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-all select-none ${
+                      className={`absolute top-1 bottom-1 rounded border flex items-center overflow-hidden transition-colors select-none ${
                         clip.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
                       } ${
                         isSelected 
@@ -1489,6 +1497,12 @@ export function MVTimeline() {
                         width: `${width}%`,
                       }}
                     >
+                      {(clip.type === 'video' || asset?.type === 'video') && <button type="button"
+                        title={clip.audioMuted===false?'Mute clip audio':'Unmute clip audio'} aria-label={clip.audioMuted===false?'Mute clip audio':'Unmute clip audio'}
+                        disabled={clip.locked} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();updateTimelineClip(clip.id,{audioMuted:clip.audioMuted===false});commitTimeline();}}
+                        className="absolute bottom-0.5 right-1 z-[25] rounded bg-[#0a0d12]/90 p-0.5 text-slate-300 hover:text-accent disabled:opacity-40">
+                        {clipAudioGain(clip)>0?<Volume2 size={11} className="text-emerald-300"/>:<VolumeX size={11}/>}
+                      </button>}
                       {/* Left Resize Trim Handle */}
                       {!clip.locked && (
                         <div 
@@ -1522,6 +1536,7 @@ export function MVTimeline() {
                         {Math.abs(getClipSpeed(clip) - 1) > 0.001 && (
                           <span className="shrink-0 ml-1 rounded bg-emerald-950/80 px-1 text-emerald-300">{getClipSpeed(clip).toFixed(2)}×</span>
                         )}
+                        
                         {clip.locked && <Lock size={10} className="text-amber-400 shrink-0" />}
                       </div>
 
@@ -1541,7 +1556,7 @@ export function MVTimeline() {
               {/* ----------------------------------------------------------------- */}
               {/* TRACK 2: LYRICS (LYR) — REAL EDITABLE OBJECT BLOCKS */}
               {/* ----------------------------------------------------------------- */}
-              <div className={`h-14 sm:h-10 relative border-b border-[#232933] bg-[#0c0e12] group/lyr ${lyrTrackVisible ? '' : 'opacity-20 pointer-events-none'}`}>
+              <div className={`h-14 sm:h-10 relative border-b border-[#232933] bg-[#0c0e12] group/lyr ${lyrTrackVisible ? '' : 'opacity-35'}`}>
                 {displayLyrics.length === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-[#7e8999]/40 text-[10px] font-mono tracking-widest uppercase">
                     No lyrics lines · Click + in Lyrics tab or track menu
@@ -1668,9 +1683,9 @@ export function MVTimeline() {
               {/* TRACK 3: AUDIO (AUD) WITH WAVEFORM & BEAT GRID */}
               {/* ----------------------------------------------------------------- */}
               <div className="h-12 relative bg-emerald-950/20 border-b border-white/10"
-                onContextMenu={event => { event.preventDefault(); event.stopPropagation(); setSoundtrackSpeedMenu({ x: event.clientX, y: event.clientY }); }}>
+                onContextMenu={event => { event.preventDefault(); event.stopPropagation(); closeTimelinePopups(); setSoundtrackSpeedMenu({ x: event.clientX, y: event.clientY }); }}>
                 {/* Waveform Visualization */}
-                <div className="absolute inset-y-1 left-0 flex items-center opacity-70 pointer-events-none"
+                <div className={`absolute inset-y-1 left-0 flex items-center pointer-events-none ${audioMuted ? 'opacity-25' : 'opacity-70'} ${showWaveform ? '' : 'hidden'}`}
                   style={{ width: `${Math.min(100, (rawAudioDuration / soundtrackSpeed / duration) * 100)}%` }}>
                   {waveformPeaks && waveformPeaks.length > 0 ? (
                     <svg preserveAspectRatio="none" viewBox={`0 0 ${waveformPeaks.length} 100`} className="w-full h-full fill-emerald-400">
@@ -1685,7 +1700,7 @@ export function MVTimeline() {
                   )}
                 </div>
                 <span className="absolute left-2 top-0.5 rounded bg-[#0d231b]/90 px-1 text-[9px] font-mono font-semibold text-emerald-300 pointer-events-none">
-                  Audio · {soundtrackSpeed.toFixed(2)}×
+                  {audioMuted ? 'Muted' : 'Audio'} · {soundtrackSpeed.toFixed(2)}×
                 </span>
 
                 {/* Subtle Beat Grid Ticks Overlay */}
@@ -1733,10 +1748,17 @@ export function MVTimeline() {
       </div>
 
       {/* ========================================================================= */}
-      {/* CONTEXTUAL FLOATING INSPECTOR BARS (Docked above bottom bar) */}
+      {/* CONTEXTUAL TOOLBAR: one reserved row, never overlays the timeline */}
       {/* ========================================================================= */}
+      </div>
+      <div data-mv-context-dock className="h-10 shrink-0 min-w-0 flex items-center overflow-x-auto overflow-y-hidden overscroll-x-contain border-t border-[#232933] bg-[#0e1115] [scrollbar-width:thin]">
+        {selectedClipIds.length > 1 && <div role="status" className="flex shrink-0 items-center gap-2 px-2 text-[10px] text-emerald-200 whitespace-nowrap">
+          {selectedClipIds.length} selected
+          <button type="button" onClick={()=>{setSelectedClipIds([]);setSelectedClipId(null);}} className="rounded border border-emerald-500/40 px-2 py-0.5">Clear</button>
+        </div>}
+        {!selectedWord && !selectedLyric && !selectedClip && <span className="px-3 text-[10px] text-[#697687] font-mono whitespace-nowrap">Select a clip or lyric to edit</span>}
       {selectedWord && selectedWordKey && (
-        <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50">
+        <div className="h-full shrink-0 flex items-center">
           <WordContextBar
             word={selectedWord}
             lineId={selectedWordKey.lineId}
@@ -1755,7 +1777,7 @@ export function MVTimeline() {
       )}
 
       {selectedLyric && !selectedWord && !selectedClip && (
-        <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50">
+        <div className="h-full shrink-0 flex items-center">
           <LyricContextBar
             line={selectedLyric}
             currentTime={currentTime}
@@ -1776,7 +1798,7 @@ export function MVTimeline() {
       )}
 
       {selectedClip && !selectedLyric && !selectedWord && (
-        <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-16px)]">
+        <div className="h-full shrink-0 flex items-center">
           <ClipContextBar
             clip={selectedClip}
             currentTime={currentTime}
@@ -1805,6 +1827,12 @@ export function MVTimeline() {
               setSelectedClipId(null);
               commitTimeline();
             }}
+            onToggleAudio={videoClipsWithAudio.some(c => c.id === selectedClip.id) ? () => {
+              updateTimelineClip(selectedClip.id, { audioMuted: selectedClip.audioMuted === false });
+              commitTimeline();
+            } : undefined}
+            onAudioVolume={value => { updateTimelineClip(selectedClip.id, { audioVolume: value }); }}
+            onAudioCommit={commitTimeline}
             onUpdateEffect={(fx) => {
               updateTimelineClip(selectedClip.id, { effect: fx });
               commitTimeline();
@@ -1815,16 +1843,18 @@ export function MVTimeline() {
             }}
             onClose={() => setSelectedClipId(null)}
             onOpenSpeed={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              setSpeedMenu({ id: selectedClip.id, x: rect.left, y: rect.top - 280 });
+              const wasOpen=speedMenu?.id===selectedClip.id;
+              closeTimelinePopups();
+              if(!wasOpen)setSpeedMenu({id:selectedClip.id,anchor:timelinePopupAnchor(event.currentTarget)});
             }}
           />
         </div>
       )}
+      </div>
       {speedMenu && (() => {
         const speedClip = timelineClips.find(c => c.id === speedMenu.id);
         return speedClip ? <ClipSpeedPopover
-          clip={speedClip} x={speedMenu.x} y={speedMenu.y}
+          clip={speedClip} anchor={speedMenu.anchor}
           onChange={value => setClipSpeed(speedClip.id, value).error}
           onCommit={commitTimeline}
           onClose={() => setSpeedMenu(null)}
@@ -1834,26 +1864,20 @@ export function MVTimeline() {
         clip={{ id: 'mv-soundtrack', assetId: 'mv-soundtrack', startTime: 0,
           endTime: rawAudioDuration / soundtrackSpeed, trimStart: 0, trimEnd: rawAudioDuration,
           speed: soundtrackSpeed, type: 'video' }}
-        x={soundtrackSpeedMenu.x} y={soundtrackSpeedMenu.y}
+        anchor={soundtrackSpeedMenu}
         label="SOUNDTRACK SPEED"
         hint="Changes master-song speed and pitch. Video and lyric timestamps stay where they are."
         onChange={value => { setSoundtrackSpeed(value); return undefined; }}
         onCommit={commitTimeline}
         onClose={() => setSoundtrackSpeedMenu(null)}
       />}
-      {confirmClearClips && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4"
-          role="presentation"
-          onPointerDown={(event) => { if (event.target === event.currentTarget) closeClearClips(); }}
-        >
-          <div role="alertdialog" aria-modal="true" aria-labelledby="clear-mv-clips-title" aria-describedby="clear-mv-clips-description"
-            className="w-full max-w-sm rounded-xl border border-[#394252] bg-[#10151d] p-5 shadow-2xl"
-          >
-            <h2 id="clear-mv-clips-title" className="text-base font-bold text-white">Clear all MV timeline clips?</h2>
-            <p id="clear-mv-clips-description" className="mt-2 text-sm text-[#aab5c4]">
-              Remove all {timelineClips.length} clips from the MV timeline? Your uploaded media and lyrics will remain available.
-            </p>
+      <Dialog.Root open={confirmClearClips} onOpenChange={open=>{if(!open)closeClearClips();}}>
+        <Dialog.Portal container={typeof document !== 'undefined' ? document.fullscreenElement || document.body : undefined}>
+          <Dialog.Overlay className="fixed inset-0 z-[10000] bg-black/65"/>
+          <Dialog.Content role="alertdialog" className="fixed left-1/2 top-1/2 z-[10001] w-[calc(100%-24px)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#394252] bg-[#10151d] p-4 shadow-xl outline-none"
+            onPointerDown={event=>event.stopPropagation()} onClick={event=>event.stopPropagation()}>
+            <Dialog.Title className="text-base font-bold text-white">Clear all MV timeline clips?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-[#aab5c4]">Remove all {timelineClips.length} clips from the MV timeline? Your uploaded media and lyrics will remain available.</Dialog.Description>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={closeClearClips} autoFocus
                 className="rounded border border-[#394252] px-4 py-2 text-sm text-white hover:bg-[#26303c]">Cancel</button>
@@ -1867,9 +1891,9 @@ export function MVTimeline() {
                 Clear all clips
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }
