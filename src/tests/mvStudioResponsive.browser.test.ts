@@ -76,7 +76,7 @@ try {
     await trigger.scrollIntoViewIfNeeded();
     const before=await timeline.boundingBox();
     const dock=page.locator('[data-mv-context-dock]');
-    const dockBefore=await dock.boundingBox();assert.ok(dockBefore);
+    assert.equal(await dock.count(),0,'No permanent action toolbar when nothing is selected');
     await trigger.click();
     const popup=page.getByRole('dialog',{name:'Visual track options'});
     await popup.waitFor({state:'visible'});
@@ -87,8 +87,7 @@ try {
     if(viewport.height-anchor.y-anchor.height<await popup.evaluate(el=>el.scrollHeight)&&anchor.y>viewport.height-anchor.y-anchor.height)
       assert.equal(await popup.getAttribute('data-side'),'top');
     assert.deepEqual(await timeline.boundingBox(),before);
-    assert.deepEqual(await dock.boundingBox(),dockBefore);
-    assert.ok(rect.y+rect.height<=dockBefore.y+1,'Media popup must not cover the action dock');
+    assert.equal(await dock.count(),0,'Media menu must not compete with floating actions');
     await popup.getByRole('button',{name:'Add Visualizer Scene'}).hover();
     await popup.getByRole('button',{name:'Auto-Fill With Assets'}).hover();
     await page.keyboard.press('Escape');
@@ -105,26 +104,51 @@ try {
   assert.deepEqual(visibility,[false,false]);
   await page.getByTitle('Show video track',{exact:true}).click();
   await page.getByTitle('Show lyrics track',{exact:true}).click();
+  const beforeSelection=await timeline.boundingBox();
   await page.evaluate(async()=>{
     const path='/src/store/useMVStore.ts';const {useMVStore}=await import(/* @vite-ignore */ path);
     useMVStore.getState().setTimelineClips([{id:'audio-controls-test',assetId:'test-video',type:'video',startTime:0,endTime:4,trimStart:0,trimEnd:4}]);
     useMVStore.getState().setSelectedClipId('audio-controls-test');
   });
   const clipDock=page.locator('[data-mv-context-dock]');
+  await clipDock.waitFor({state:'visible'});
+  await page.waitForTimeout(200);
   const selectedDockBefore=await clipDock.boundingBox();
+  assert.ok(selectedDockBefore&&beforeSelection);
+  assert.ok(selectedDockBefore.y+selectedDockBefore.height<=beforeSelection.y,'Floating toolbar must stay above timeline');
+  assert.deepEqual(await timeline.boundingBox(),beforeSelection,'Selection must not resize tracks');
+  assert.equal(await clipDock.evaluate(el=>el.scrollWidth>el.clientWidth),false,'Toolbar must not overflow horizontally');
+  await page.getByTitle('Track options',{exact:true}).click();
+  await page.getByRole('dialog',{name:'Visual track options'}).waitFor({state:'visible'});
+  assert.equal(await clipDock.count(),0,'Track menu must hide competing toolbar');
+  await page.keyboard.press('Escape');
+  await clipDock.waitFor({state:'visible'});
+  await page.waitForTimeout(200);
   const unmute=clipDock.getByRole('button',{name:'Unmute clip audio'});
   await unmute.click();
   const volume=clipDock.getByRole('slider',{name:'Clip volume'});
   assert.equal(await volume.isEnabled(),true);
-  await volume.fill('0.35');
+  await volume.focus();
+  await page.keyboard.press('Home');
+  for(let i=0;i<7;i++)await page.keyboard.press('ArrowRight');
   const state=await page.evaluate(async()=>{
     const path='/src/store/useMVStore.ts';const {useMVStore}=await import(/* @vite-ignore */ path);
     const c=useMVStore.getState().timelineClips.find(c=>c.id==='audio-controls-test');return [c?.audioMuted,c?.audioVolume];
   });
   assert.deepEqual(state,[false,0.35]);
-  assert.deepEqual(await clipDock.boundingBox(),selectedDockBefore);
+  assert.deepEqual(await timeline.boundingBox(),beforeSelection);
   await clipDock.getByRole('button',{name:'Mute clip audio'}).click();
-  assert.equal(await volume.isEnabled(),false);
+  assert.equal(await volume.getAttribute('aria-disabled'),'true');
+  for(const viewport of [{width:1024,height:600},{width:390,height:740}]){
+    await page.setViewportSize(viewport);
+    await page.waitForTimeout(200);
+    const f=await clipDock.boundingBox(), t=await timeline.boundingBox();
+    assert.ok(f&&t&&f.x>=0&&f.x+f.width<=viewport.width+1&&f.y+f.height<=t.y,'Floating actions fit above tracks on narrow screens');
+    assert.equal(await clipDock.evaluate(el=>el.scrollWidth>el.clientWidth),false);
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await clipDock.getByRole('button',{name:'Deselect timeline item'}).click();
+  await clipDock.waitFor({state:'detached'});
   await page.evaluate(async()=>{
     const path='/src/store/useMVStore.ts';const {useMVStore}=await import(/* @vite-ignore */ path);
     useMVStore.getState().setSelectedClipId(null);useMVStore.getState().setTimelineClips([]);

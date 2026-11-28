@@ -17,13 +17,12 @@ export function TimelinePopover({anchor,title,onClose,children,width=248}:{
       const r=anchor.element?.isConnected?anchor.element.getBoundingClientRect():null;
       const x=r?.left??anchor.x,y=r?.top??anchor.y,after=r?.bottom??anchor.y;
       el.style.maxWidth=Math.max(0,right-left-16)+'px';
-      const dock=document.querySelector('[data-mv-context-dock]')?.getBoundingClientRect();
-      // Track-header menus should never cover the dock, even if the browser
-      // has space below it. Menus opened FROM the dock use the viewport.
-      const lower=dock&&after<=dock.top?Math.min(bottom,dock.top):bottom;
-      const above=Math.max(0,y-top-14),below=Math.max(0,lower-after-14);
+      // Track menus prefer the space above their trigger. The contextual
+      // toolbar is hidden while track menus are open, so no competing surface.
+      const above=Math.max(0,y-top-14),below=Math.max(0,bottom-after-14);
       const natural=el.scrollHeight+2;
-      const up=natural>below&&(natural<=above||above>=below);
+      const preferUp=title==='Visual track options'||title==='Lyrics track options'||title==='Audio track options';
+      const up=preferUp?(natural<=above||above>=below):natural>below&&(natural<=above||above>=below);
       const available=up?above:below;
       el.style.maxHeight=Math.max(0,available)+'px';
       const w=el.offsetWidth,h=el.offsetHeight;
@@ -37,7 +36,7 @@ export function TimelinePopover({anchor,title,onClose,children,width=248}:{
     window.addEventListener('resize',place);window.addEventListener('scroll',place,true);
     window.visualViewport?.addEventListener('resize',place);window.visualViewport?.addEventListener('scroll',place);
     return ()=>{observer.disconnect();window.removeEventListener('resize',place);window.removeEventListener('scroll',place,true);window.visualViewport?.removeEventListener('resize',place);window.visualViewport?.removeEventListener('scroll',place);};
-  },[el,anchor.x,anchor.y,anchor.element,width]);
+  },[el,anchor.x,anchor.y,anchor.element,width,title]);
   return <Dialog.Root open modal={false} onOpenChange={open=>{if(!open)onClose();}}>
     <Dialog.Portal container={typeof document!=='undefined'?document.fullscreenElement||document.body:undefined}>
       <Dialog.Content ref={setElement} aria-describedby={undefined} data-mv-timeline-popup

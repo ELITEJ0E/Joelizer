@@ -1,3 +1,4 @@
+import { FloatingContextBar } from './Timeline/FloatingContextBar';
 import * as Dialog from '@radix-ui/react-dialog';
 import { TimelinePopover, timelinePopupAnchor, type TimelinePopupAnchor } from '../ui/timeline-popover';
 import { clipAudioGain } from '../../lib/mvAudioMix';
@@ -173,7 +174,7 @@ export function MVTimeline() {
       const isInput = target && (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
+        target.isContentEditable || target.closest('[role="slider"]') !== null
       );
 
       // CapCut-style MV editing commands; keep native copy/paste in inputs.
@@ -1158,7 +1159,7 @@ export function MVTimeline() {
       {/* ========================================================================= */}
       {/* TIMELINE MAIN CONTAINER (Track Headers + Scrollable Tracks) */}
       {/* ========================================================================= */}
-      <div data-mv-track-scroll className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+      <div data-mv-track-scroll className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:thin] [scrollbar-color:#34414e_transparent]">
       <div className={`flex relative bg-[#0a0c0f] ${wordsExpanded ? 'min-h-[max(100%,236px)] sm:min-h-[max(100%,220px)]' : 'min-h-[max(100%,204px)] sm:min-h-[max(100%,188px)]'}`}>
         
         {/* ========================================================================= */}
@@ -1348,7 +1349,7 @@ export function MVTimeline() {
         {/* ========================================================================= */}
         <div 
           ref={scrollWrapperRef}
-          className="flex-1 min-w-0 relative overflow-x-auto overflow-y-hidden"
+          className="flex-1 min-w-0 relative overflow-x-auto overflow-y-hidden [scrollbar-width:thin] [scrollbar-color:#34414e_transparent]"
           onClick={(e) => {
             // The VIS lane handles its own selection and marquee gestures.
             if ((e.target as HTMLElement).closest('[data-mv-vis-lane]')) return;
@@ -1748,17 +1749,18 @@ export function MVTimeline() {
       </div>
 
       {/* ========================================================================= */}
-      {/* CONTEXTUAL TOOLBAR: one reserved row, never overlays the timeline */}
+      {/* Contextual toolbar is portaled into the preview, outside timeline geometry. */}
       {/* ========================================================================= */}
       </div>
-      <div data-mv-context-dock className="h-10 shrink-0 min-w-0 flex items-center overflow-x-auto overflow-y-hidden overscroll-x-contain border-t border-[#232933] bg-[#0e1115] [scrollbar-width:thin]">
+      {(selectedWord || selectedLyric || selectedClip || selectedClipIds.length>1) && (
+      <FloatingContextBar hidden={!!activeTrackMenu || !!volumeAnchor || !!soundtrackSpeedMenu || confirmClearClips}
+        onClose={()=>{closeTimelinePopups();setSelectedWordKey(null);setSelectedLyricId(null);setSelectedClipId(null);setSelectedClipIds([]);}}>
         {selectedClipIds.length > 1 && <div role="status" className="flex shrink-0 items-center gap-2 px-2 text-[10px] text-emerald-200 whitespace-nowrap">
           {selectedClipIds.length} selected
           <button type="button" onClick={()=>{setSelectedClipIds([]);setSelectedClipId(null);}} className="rounded border border-emerald-500/40 px-2 py-0.5">Clear</button>
         </div>}
-        {!selectedWord && !selectedLyric && !selectedClip && <span className="px-3 text-[10px] text-[#697687] font-mono whitespace-nowrap">Select a clip or lyric to edit</span>}
       {selectedWord && selectedWordKey && (
-        <div className="h-full shrink-0 flex items-center">
+        <div className="min-w-0 max-w-full flex items-center">
           <WordContextBar
             word={selectedWord}
             lineId={selectedWordKey.lineId}
@@ -1777,7 +1779,7 @@ export function MVTimeline() {
       )}
 
       {selectedLyric && !selectedWord && !selectedClip && (
-        <div className="h-full shrink-0 flex items-center">
+        <div className="min-w-0 max-w-full flex items-center">
           <LyricContextBar
             line={selectedLyric}
             currentTime={currentTime}
@@ -1798,7 +1800,7 @@ export function MVTimeline() {
       )}
 
       {selectedClip && !selectedLyric && !selectedWord && (
-        <div className="h-full shrink-0 flex items-center">
+        <div className="min-w-0 max-w-full flex items-center">
           <ClipContextBar
             clip={selectedClip}
             currentTime={currentTime}
@@ -1850,7 +1852,7 @@ export function MVTimeline() {
           />
         </div>
       )}
-      </div>
+      </FloatingContextBar>)}
       {speedMenu && (() => {
         const speedClip = timelineClips.find(c => c.id === speedMenu.id);
         return speedClip ? <ClipSpeedPopover
